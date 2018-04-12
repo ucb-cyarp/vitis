@@ -20,10 +20,10 @@ fprintf(graphml_filehandle, '\t<key id="instance_name" for="node" attr.name="ins
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
-% Arc Delay
-fprintf(graphml_filehandle, '\t<key id="arc_delay" for="edge" attr.name="arc_delay" attr.type="double"/>\n');
-fprintf(graphml_filehandle, '\t\t<default>0.0</default>\n');
-fprintf(graphml_filehandle, '\t</key>\n');
+% Arc Weight
+% fprintf(graphml_filehandle, '\t<key id="weight" for="edge" attr.name="weight" attr.type="double"/>\n');
+% fprintf(graphml_filehandle, '\t\t<default>0.0</default>\n');
+% fprintf(graphml_filehandle, '\t</key>\n');
 
 % Arc Src Port (For libraries that do not support ports)
 fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="string"/>\n');

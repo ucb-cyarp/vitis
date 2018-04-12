@@ -1,11 +1,83 @@
-function simulink_to_graphml_helper( system, verbose, parent_enabled, parent_enable_src)
+%The various stacks need to be passed in but do not need to be returned as
+%the parent has a copy of the stack which it can pass to other nodes.
+
+%However, the list of nodes and the current node/edge count need to be
+%returned to the caller because these values may have changed durring the
+%call.
+
+function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_count_out] = simulink_to_graphml_helper(system, node, node_list_in, node_count_in, arc_count_in, enabled_parent_node_stack_in, enabled_parent_port_stack_in, enabled_status_stack_in, hierarchy_nodeid_stack_in, hierarchy_node_path_stack_in, verbose)
 %simulink_to_graphml_helper Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 
-% Conducts a DFS traversal of the simulink graph, transposing to a GraphML
-% file as it goes. (Need to traverse the entire tree so may as well use
-% DFS rather than BFS).
+%Args:
+% node                         = The name of the node.  The full path to 
+%                                the node is {system}/{node}.  system can 
+%                                be generatedby concatenating entries in
+%                                hierarchy_node_path_stack_in
+% node_list_in                 = The list of nodes that have already been 
+%                                traversed (and a GraphML has already been 
+%                                created for).  Arcs to these nodes are 
+%                                allowed but no additional traversal of the
+%                                node should be preformed.
+% node_count_in                = Number of nodes which existed before the 
+%                                call to this function.  Used for 
+%                                autoincrementing IDs of new nodes
+% arc_count_in                 = Number of arcs which existed before the 
+%                                call to this function.  Used for 
+%                                autoincrementing IDs of new arcs
+% enabled_parent_node_stack_in = A stack for the nodes feeding enable
+%                                lines for the subsystem in the hierarchy
+% enabled_parent_port_stack_in = A stack for the node ports feeding enable
+%                                lines for the subsystem in the hierarchy
+% enabled_status_stack_in      = A stack indecating if a given subsystem in
+%                                the hierarchy is enabled or not
+% hierarchy_nodeid_stack_in    = A stack of the hierarchy in GraphML
+%                                nodeids.  Used to generate GraphML
+%                                hierarchical node prefix
+% hierarchy_node_path_stack_in = A stack of the hierarchy in Simulink node
+%                                names. Used to generate simulink system 
+%                                path
+% verbose                      = Indicates if debug text should be written
 
+%Returns:
+% graphml_node_str             = GraphML XML for creating nodes which were
+%                                traversed in the call.  Includes nodes
+%                                traversed in recursive calls
+% graphml_arc_str              = GraphML XML for creating arcs which were
+%                                traversed in the call.  Includes arc
+%                                traversed in recursive calls
+% node_list_out                = List of traversed nodes after the call to
+%                                this function.  Includes nodes traversed
+%                                in recursive calls
+% node_count_out               = The new number of nodes after the call to
+%                                this function.  Includes nodes traversed
+%                                in recursive calls
+% arc_count_out                = The new number of arcs after the call to
+%                                this function.  Includes arcs traversed
+%                                in recursive calls
+
+%Side Effects:
+% Creates GtaphML node for this node
+% Creates GraphML nodes (if they do not already exist) for each node
+% connected to an outgoing arc from the current node (via recursive calls 
+% to simulink_to_graphml_helper).
+% Creates GraphML arcs for each each outgoing arc from the node (via call
+% to simulink_to_graphml_arc_follower)
+% ====
+% When following an arc, it may pass through one or more subsystems /
+% enabled subsystems.  Because it potentially has to traverse several
+% layers, and potentially insert several enabled input/output nodes, a
+% seperate helper function (simulink_to_graphml_arc_follower) is used to
+% accomplish this task.
+% This function makes calls to simulink_to_graphml_arc_follower each time a
+% subsystem is encountered and calls to simulink_to_graphml_helper whenever
+% a node is encountered (which has not yet already been traversed)
+% 
+
+
+%Detailed Description:
+% Conducts a DFS traversal of the simulink graph, transposing to a GraphML
+% file as it goes.
 % Start: Virtual nodes "inputs", "outputs", "unconnected", "terminated" and 
 % "visualization" are created.  Input ports are made into nodes and 
 % connected to the "inputs" node.
@@ -30,10 +102,14 @@ function simulink_to_graphml_helper( system, verbose, parent_enabled, parent_ena
 
 % Because DFS may encounter a node more than once (although should not
 % traverse an edge more than once) care must be taken to make sure nodes
-% are not duplicated.  The node handle, which should be unique in the
-% simulink model, is used as the node ID.  A list of node IDs of created
+% are not duplicated and are not re-evaluated.
+% The node handle, which should be unique in the simulink model, 
+% is used as the node ID.  A list of node IDs of created
 % nodes is kept and is checked before adding a node.  The list is passed to
 % each recursive call and is returned back.
+% Because the handles are doubles, they really should only be used in
+% matlab.  Node IDs within GraphML will be autoincremented numbers.
+
 
 % Special Cases
 
