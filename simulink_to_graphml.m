@@ -40,6 +40,10 @@ fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
 %% Traverse Graph and Transcribe to GraphML File
 %simulink_to_graphml_helper(system, verbose, false, 0);
 
+%% Create Virtual Nodes
+
+%% Call Helper on Each Input
+
 %% Close GraphML File
 fprintf(graphml_filehandle, '\t</graph>\n');
 fprintf(graphml_filehandle, '</graphml>');

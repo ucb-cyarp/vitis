@@ -5,7 +5,34 @@
 %returned to the caller because these values may have changed durring the
 %call.
 
-function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_count_out] = simulink_to_graphml_helper(system, node, node_list_in, node_count_in, arc_count_in, enabled_parent_node_stack_in, enabled_parent_port_stack_in, enabled_status_stack_in, hierarchy_nodeid_stack_in, hierarchy_node_path_stack_in, verbose)
+function [graphml_node_str, ...
+          graphml_arc_str, ...
+          node_map_out, ...
+          node_count_out, ...
+          arc_count_out, ...
+          enabled_input_ports_out, ...
+          enabled_input_ports_system_out, ...
+          enabled_output_ports_out, ...
+          enabled_output_ports_system_out, ...
+          enabled_system_driver_node_map_out, ...
+          enabled_system_driver_port_map_out] = ...
+          ...
+          simulink_to_graphml_helper(node, ...
+          node_map_in, ...
+          node_count_in, ...
+          arc_count_in, ...
+          enabled_status_stack_in, ...
+          hierarchy_nodeid_stack_in, ...
+          hierarchy_node_path_stack_in, ...
+          ... % For collecting Special input and output ports which will need to be connected to enable drivers at the end (when all will have been discovered).  Cannot rely on them having been discovered until the entire graph has been traversed (regardless of whether DFS or BFS traversal is used)
+          enabled_input_ports_in, ...
+          enabled_input_ports_system_in, ...
+          enabled_output_ports_in, ...
+          enabled_output_ports_system_in, ...
+          ... %for recording the drivers for enabled subsystems as they are encountered.
+          enabled_system_driver_node_map_in, ...
+          enabled_system_driver_port_map_in, ...
+          verbose)
 %simulink_to_graphml_helper Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 
@@ -14,9 +41,10 @@ function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_
 %                                the node is {system}/{node}.  system can 
 %                                be generatedby concatenating entries in
 %                                hierarchy_node_path_stack_in
-% node_list_in                 = The list of nodes that have already been 
+% node_map_in                  = The map of nodes that have already been 
 %                                traversed (and a GraphML has already been 
-%                                created for).  Arcs to these nodes are 
+%                                created for).  It maps to the full node
+%                                name in GraphML.  Arcs to these nodes are 
 %                                allowed but no additional traversal of the
 %                                node should be preformed.
 % node_count_in                = Number of nodes which existed before the 
@@ -25,9 +53,6 @@ function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_
 % arc_count_in                 = Number of arcs which existed before the 
 %                                call to this function.  Used for 
 %                                autoincrementing IDs of new arcs
-% enabled_parent_node_stack_in = A stack for the nodes feeding enable
-%                                lines for the subsystem in the hierarchy
-% enabled_parent_port_stack_in = A stack for the node ports feeding enable
 %                                lines for the subsystem in the hierarchy
 % enabled_status_stack_in      = A stack indecating if a given subsystem in
 %                                the hierarchy is enabled or not
@@ -46,9 +71,9 @@ function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_
 % graphml_arc_str              = GraphML XML for creating arcs which were
 %                                traversed in the call.  Includes arc
 %                                traversed in recursive calls
-% node_list_out                = List of traversed nodes after the call to
+% node_map_out                 = Map of traversed nodes after the call to
 %                                this function.  Includes nodes traversed
-%                                in recursive calls
+%                                in recursive calls.  Maps to GraphML name
 % node_count_out               = The new number of nodes after the call to
 %                                this function.  Includes nodes traversed
 %                                in recursive calls
@@ -57,10 +82,11 @@ function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_
 %                                in recursive calls
 
 %Side Effects:
+% Checks if this node has already been traversed (if so, returns)
 % Creates GtaphML node for this node
 % Creates GraphML nodes (if they do not already exist) for each node
 % connected to an outgoing arc from the current node (via recursive calls 
-% to simulink_to_graphml_helper).
+% to simulink_to_graphml_arc_follower which calls simulink_to_graphml_helper).
 % Creates GraphML arcs for each each outgoing arc from the node (via call
 % to simulink_to_graphml_arc_follower)
 % ====
@@ -69,9 +95,12 @@ function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_
 % layers, and potentially insert several enabled input/output nodes, a
 % seperate helper function (simulink_to_graphml_arc_follower) is used to
 % accomplish this task.
-% This function makes calls to simulink_to_graphml_arc_follower each time a
-% subsystem is encountered and calls to simulink_to_graphml_helper whenever
-% a node is encountered (which has not yet already been traversed)
+% This function calls simulink_to_graphml_arc_follower for each output port
+% of the given node.
+% simulink_to_graphml_arc_follower makes recursive calls to itself 
+% each time a subsystem is encountered and calls to 
+% simulink_to_graphml_helper whenever a node is encountered (which has not
+% yet already been traversed)
 % 
 
 
@@ -169,8 +198,68 @@ function [graphml_node_str, graphml_arc_str, node_list_out, node_count_out, arc_
 % NOTE: Bidirectional or tristate arcs are not allowed.  The Simulink data
 % flow graph is assumed to be a directional (not nesssisarily acyclic)
 % graph.
+
+
+%Base cases:
+    % Node had already been traversed
+    %     Return with inputs passed directly to outputs as appropriate
+    % Node is encountered with no output ports
+    %     Add node as usual, no recursive calls will be made
+    % Terminator node is encountered
+    % Visualization node is encountered
         
 % ==Begin==
+%Copy inputs to outputs in preparation for return or modification before
+%return
+graphml_node_str = {};
+graphml_arc_str = {};
+node_map_out = node_map_in;
+node_count_out = node_count_in;
+arc_count_out = arc_count_in;
+enabled_input_ports_out = enable_input_ports_in;
+enabled_input_ports_system_out = enabled_input_ports_system_in;
+enabled_output_ports_out = enabled_output_ports_in;
+enabled_output_ports_system_out = enabled_output_ports_system_in;
+enabled_system_driver_node_map_out = enabled_system_driver_node_map_in;
+enabled_system_driver_port_map_out = enabled_system_driver_port_map_in;
+
+%Get simulink paths
+system_path_simulink = get_system_path(hierarchy_node_path_stack_in, '/');
+node_path_simulink = [system_path_simulink, '/', node];
+
+%Check if node has already been traversed
+node_handle = get_param(node_path_simulink, 'Handle');
+
+if ~isKey(node_map_out, node_handle)
+    %This node is not in the node map and has therefore not yet been
+    %traversed.  Traverse it now
+    
+    %Get a new node number
+    node_id_number = node_count_out + 1;
+    node_count_out = node_count_out + 1; % Update the count
+    
+    %Get the node path
+    node_ml_name = ['n' num2str(node_id_number)];
+    graph_ml_system_path = get_system_path(hierarchy_nodeid_stack_in, '::');
+    graph_ml_node_path = [graph_ml_system_path, '::', node_ml_name];
+    
+    %Add it to the node map
+    node_list_out(node_handle) = graph_ml_node_path;
+    
+    %Create the node entry and add it to the list
+    %======TODO======
+    
+    %Traverse:
+    %Get a list of ports for the given node
+    ports = get_param(node_path_simulink, 'PortHandles');
+    
+    %Call arc follower on ports
+    %======TODO======
+    
+    
+end
+
+
 
         
 end
