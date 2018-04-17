@@ -20,7 +20,7 @@
     %    not already.  Add new name to the map.  Also add to stack in
     %    recursive call or call to helper
     % Encounters output port
-        %If not top level subsyste: recursive call to self on arcs from
+        %If not top level subsystem: recursive call to self on arcs from
         %output
         %If top level, connect to appropriate output node and return
     

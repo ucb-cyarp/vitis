@@ -40,6 +40,24 @@ fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
 %% Traverse Graph and Transcribe to GraphML File
 %simulink_to_graphml_helper(system, verbose, false, 0);
 
+
+% NOTE: The GraphML spec creates nested graph elements within node
+% elements.  This is how they handle nested graphs.  This means that all
+% node declarations need to respect the hierarchy and (as a concequence)
+% many not be declared in any order.
+% However, it appears that the declarations of edges is more flexible.
+% Edges must be declared in a graph that is an ancestor of both the source
+% and destination nodes.  This does restrict edge declaration.  However, as
+% noted in the primer
+% (http://graphml.graphdrawing.org/primer/graphml-primer.html) all edges
+% can be declared at the top level.
+
+%Thus, we will keep a datastructure representing the hierarchy of the nodes
+%in the graph.  This will take the form of a map from a node to an array of
+%nodes that are direct children of it in the hierarchy.
+
+%We will declare all edges at the top level (at least to start with).
+
 %% Create Virtual Nodes
 
 %% Call Helper on Each Input

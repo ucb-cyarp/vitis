@@ -247,6 +247,7 @@ if ~isKey(node_map_out, node_handle)
     node_list_out(node_handle) = graph_ml_node_path;
     
     %Create the node entry and add it to the list
+    graphml_node_str{end+1} = '<graph id="G" edgedefault="directed">\n';
     %======TODO======
     
     %Traverse:
