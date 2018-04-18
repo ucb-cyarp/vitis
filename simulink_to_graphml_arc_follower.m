@@ -11,6 +11,7 @@
 
 % Cases:
     % Encounters general block
+    %    Calls simulink to graphml helper
     % Encounters normal port of susbsystem
     %    Check if subsystem is already included in graphML and include it if
     %    not already.  Add new name to the map.  Also add to stack in

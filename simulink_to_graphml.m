@@ -58,6 +58,13 @@ fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
 
 %We will declare all edges at the top level (at least to start with).
 
+%Due to the specifics of Simulink and GraphML, this script works in 2
+%phases:
+%    1. The graph structure is extracted from Simulink into an intermediate
+%       representation which is easier to deal with.
+%    2. The intermediate representation is outputted to GraphML in
+%       accordance with it's requirements
+
 %% Create Virtual Nodes
 
 %% Call Helper on Each Input
