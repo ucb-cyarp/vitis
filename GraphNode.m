@@ -18,15 +18,23 @@ classdef GraphNode < handle
         dialogProperties %A map of dialog Properties extracted from simulink
         
         parent %A reference to the parent node object (in the hierarchy)
-        % = [] if 
+               %Ie, a reference to the subsystem the node is directly
+               %within
+               % = [] if top level
         
         children %A cell array of children of this node (only valid for subsystems)
         
         out_arcs %A cell array of outward arcs (handles to GraphArc objects)
         in_arcs %A cell array of input arcs
         
+        en_in_src_node %A reference to the node driving the enable line of the susbsytem if the node type is "Enabled Subsystem" or the gating line if the node is a "Special Port"
+        en_in_src_port %A reference to the port of the node driving the enable line of the susbsytem if the node type is "Enabled Subsystem" or the gating line if the node is a "Special Port"
+                       %Will not be populated for "Special Ports" until the
+                       %graph has been completely traversed.  Populated in a
+                       %later stage
+        
         inputPorts %A map of input port numbers to names ("" if name not given)
-        outputPorts %
+        outputPorts %A map of output port numbers to names ("" if name not given)
         
         sampleTime %The sample time for the block (from simulink)
         
@@ -68,6 +76,11 @@ classdef GraphNode < handle
             obj.children = [];
             obj.out_arcs = [];
             obj.in_arcs = [];
+            obj.en_in_src_node = [];
+            obj.en_in_src_port = [];
+            
+            obj.inputPorts = containers.Map();
+            obj.outputPorts = containers.Map();
         
             obj.nodeId  = 0; 
         end

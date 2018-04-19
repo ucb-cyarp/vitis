@@ -83,11 +83,11 @@ function [graphml_node_str, ...
 
 %Side Effects:
 % Checks if this node has already been traversed (if so, returns)
-% Creates GtaphML node for this node
-% Creates GraphML nodes (if they do not already exist) for each node
+% Creates IR node for this node
+% Creates IR nodes (if they do not already exist) for each node
 % connected to an outgoing arc from the current node (via recursive calls 
 % to simulink_to_graphml_arc_follower which calls simulink_to_graphml_helper).
-% Creates GraphML arcs for each each outgoing arc from the node (via call
+% Creates IR arcs for each each outgoing arc from the node (via call
 % to simulink_to_graphml_arc_follower)
 % ====
 % When following an arc, it may pass through one or more subsystems /
@@ -99,8 +99,8 @@ function [graphml_node_str, ...
 % of the given node.
 % simulink_to_graphml_arc_follower makes recursive calls to itself 
 % each time a subsystem is encountered and calls to 
-% simulink_to_graphml_helper whenever a node is encountered (which has not
-% yet already been traversed)
+% simulink_to_graphml_helper whenever a node (not a subsystem) is 
+% encountered (which has not yet already been traversed)
 % 
 
 
@@ -127,24 +127,23 @@ function [graphml_node_str, ...
     % the "visualization" node.
     
     % If a node is reached that has no output arcs (and is not covered
-    % above, BFS terminates for the node and returns
+    % above, DFS terminates for the node and returns
 
 % Because DFS may encounter a node more than once (although should not
 % traverse an edge more than once) care must be taken to make sure nodes
 % are not duplicated and are not re-evaluated.
-% The node handle, which should be unique in the simulink model, 
-% is used as the node ID.  A list of node IDs of created
-% nodes is kept and is checked before adding a node.  The list is passed to
-% each recursive call and is returned back.
-% Because the handles are doubles, they really should only be used in
-% matlab.  Node IDs within GraphML will be autoincremented numbers.
+% The node handle, which should be unique in the simulink model. 
+% A map of simulink handles to IR nodes is kept and is checked before
+% adding a node.  The map handle is passed to each recursive call. 
+% Because the simulink handles are doubles, they really should only be used
+%in matlab.  Node IDs within GraphML will be autoincremented numbers.
 
 
 % Special Cases
 
 % SubSystem
-    % Ports for subsystems are removed (unless the subsystem is enabled and
-    % they are replaced with special nodes - see below).
+    % Ports for subsystems are not included (unless the subsystem is 
+    % enabled and they are replaced with special nodes - see below).
     
     % A node is created in GraphML to represent the subsystem.  Nodes
     % within the subsystem use the name format subsystem::internal_node to
@@ -180,15 +179,16 @@ function [graphml_node_str, ...
     % Nested Enabled SubSystems
         % The same semantics shown above apply to nested enabled subsystems
         % The difference is that the "enable" line which needs to be
-        % connected to the input/output ports.  Because there may be many
-        % levels of enabled subsystems, a stack is used to track the
-        % hierarchy of enabled subsystems.  Each time an enabled subsystem
-        % is entered, the enable line is pushed to the stack.  Each time
-        % the output port of an enabled subsystem is reached, the enable
-        % line is popped from the stack.
-        
-        % NOTE: To determine if the output belongs to an enabled subsystem,
-        % a stack indecating if a subsystem is enabled or not is also kept.
+        % connected to the Special input/output ports.  Because Special
+        % Input/Output ports only occur on the boundaries of an enabled
+        % susbsystem and are considered direct children of that subsystem
+        % in the IR hierarchy, each Special Input/Output node only need a
+        % reference to its parent which contains a reference to the enable 
+        % line driver.  Since the driver may not be known until the graph
+        % has been completly traversed, the arcs to the enabled lines of
+        % the Special Input/Output nodes are created in a pass after the
+        % graph traversal using the references stored in the enabled
+        % subsystem IR node.
 
 % NOTE: Multiple driver nets are not allowed in simulink and are not
 % allowed in the GraphML translation.  However, net fanout is allowed.  The
