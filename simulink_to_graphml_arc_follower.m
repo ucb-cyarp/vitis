@@ -79,7 +79,7 @@
 %following the "parent" reference in the IR node.  Nodes incountered are
 %added to this node as "children".
         
-function [new_nodes, new_arcs] = simulink_to_graphml_arc_follower(simulink_node, simulink_port_number, driver_ir_node, driver_port_number, system_ir_node, unconnected_node)
+function [new_nodes, new_arcs] = simulink_to_graphml_arc_follower(simulink_node, simulink_port_number, driver_ir_node, driver_port_number, system_ir_node, unconnected_node, node_handle_ir_map)
 %====Init Outputs=====
 new_arcs = [];
 new_nodes = [];
@@ -153,7 +153,7 @@ if isempty(dst_port_handles)
     unconnected_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, unconnected_node, 1, 'Standard'); %dst port does not matter since this is to the special node
     new_arcs = [new_arcs, unconnected_arc];
     
-    return;
+    %For loop below will have no elements to iterate over
 end
 
 for i = 1:length(dst_port_handles)
@@ -210,17 +210,45 @@ for i = 1:length(dst_port_handles)
         if system_enabled
             %This is an enabled subsystem
             
+            %Create or find IR node for enabled subsystem
+            [dst_ir_node, node_created] = GraphNode.createNodeIfNotAlready(dst_block_handle, 'Enabled Subsystem', node_handle_ir_map, system_ir_node);
+            if node_created
+                new_nodes = [new_nodes, dst_ir_node];
+            end
+            
             %Check if the port is the enable port
             port_type = get_param(dst_port_handle, 'PortType');
             if strcmp(port_type, 'enable')
                 %The dst port is the enable port of the subsystem
                 
-                %TODO: IMPLEMENT
+                %Set the enable driver properties to the given driver
+                dst_ir_node.en_in_src_node = driver_ir_node;
+                dst_ir_node.en_in_src_port = driver_port_number;
                 
             else
                 %The dst port is an input port to the enabled subsystem
                 
-                %TODO: IMPLEMENT
+                %Get the internal inport block for this input
+                inport_block_handle = findInnerInputPortBlock(dst_block_handle, dst_port_handle);
+                inport_block_port_handles = get_param(inport_block_handle, 'PortHandle');
+                inport_block_out_port_handle = inport_block_port_handles.Outport;
+                inport_block_out_port_number = get_param(inport_block_out_port_handle, 'PortNumber');
+                
+                %Need to create a special input node.  The hierarchy IR
+                %node is actually the subsystem
+                special_input_node = GraphNode.createSpecialInput(inport_block_handle, node_handle_ir_map, dst_ir_node);
+                new_nodes = [new_nodes, special_input_node]; %Guarenteed to be new since there are no multidriver nets
+                
+                %Now, recursive call on the inport_block's output port.
+                %The driver is changed to the new Special Input Port,
+                %Output port 1.  The ystem IR node is now the subsystem
+                %node
+                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, unconnected_node, node_handle_ir_map)
+                %add the nodes and arcs from the recursive call to the
+                %lists
+                new_nodes = [new_nodes, recur_new_nodes];
+                new_arcs = [new_arcs, recur_new_arcs];
+                
             end
             
         else

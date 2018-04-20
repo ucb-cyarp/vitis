@@ -163,5 +163,58 @@ classdef GraphNode < handle
             obj.in_arcs = [obj.in_arcs, newArc];
         end
     end
+    
+    methods(Static)
+        function [node, node_created] = createNodeIfNotAlready(simulink_block_handle, node_type, node_handle_map, hierarchy_parent_node)
+            %createNodeIfNotAlready Create a new GraphNode object if one
+            %does not already exist in the map.  Return either the new node
+            %or the existing node in the map.
+            
+            %Hierarchy parent node should be the handle to another
+            %GraphNode
+            
+            if isKey(node_handle_map, simulink_block_handle)
+                %node already exists, return it
+                node = node_handle_map(simulink_block_handle);
+                node_created = false;
+            else
+                %node does not exist yet, create it and add it to the map
+                node_name = get_param(simulink_block_handle, 'Name');
+                
+                node = GraphNode(node_name, node_type, hierarchy_parent_node);
+                
+                node_handle_map(simulink_block_handle) = node; %Add to map
+                
+                %TODO: IMPLEMENT, GET Parameters from simulink
+                %TODO: IMPLEMENT, SAVE SIMULINK HANDLE AND TYPE
+                
+                node_created = true;
+            end
+            
+            %return the node
+            
+        end
+        
+        function node = createSpecialInput(simulink_inport_block, node_handle_map, hierarchy_parent_node)
+            %createSpecialInput Create a new GraphNode object for a special
+            %input node.  Sets the appropriate parameters in the new node.
+            %Does not 
+            
+            node_name = get_param(simulink_inport_block, 'Name');
+
+            node = GraphNode(node_name, 'Special Input Port', hierarchy_parent_node);
+
+            node_handle_map(simulink_block_handle) = node; %Add to map
+            
+            %TODO: IMPLEMENT, GET Parameters from simulink
+            %TODO: IMPLEMENT, SAVE SIMULINK HANDLE of inport
+
+            node_created = true;
+            
+            %return the node
+            
+        end
+        
+    end
 end
 
