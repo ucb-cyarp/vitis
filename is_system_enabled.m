@@ -4,6 +4,8 @@ function enabled_subsystem = is_system_enabled(system)
 enable_block_list = find_system(system,  'FollowLinks', 'on', 'LoadFullyIfNeeded', 'on', 'LookUnderMasks', 'on', 'SearchDepth', 1, 'BlockType', 'EnablePort');
 enabled_subsystem = ~isempty(enable_block_list);
 
+system_type = get_param(system, 'Type');
+
 if(length(enable_block_list) > 1)
     error(['[Simulink2GraphML] Error: ', system, ' has more than one enable block']);
 elseif((strcmp(system_type, 'block_diagram')==1) && ~isempty(enable_block_list))

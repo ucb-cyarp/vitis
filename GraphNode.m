@@ -34,7 +34,11 @@ classdef GraphNode < handle
                        %later stage
         
         inputPorts %A map of input port numbers to names ("" if name not given)
+                   %For special Input/Output ports the enable signal line
+                   %is the 2nd input port.  The data goes to port 1
         outputPorts %A map of output port numbers to names ("" if name not given)
+                    %For special Input/Output there is only 1 port for the
+                    %output
         
         sampleTime %The sample time for the block (from simulink)
         
@@ -148,7 +152,16 @@ classdef GraphNode < handle
             end
             
         end
+        
+        function addOut_arc(obj, newArc)
+            %addOut_arc Add an arc to the out_arcs list;
+            obj.out_arcs = [obj.out_arcs, newArc];
+        end
             
+        function addIn_arc(obj, newArc)
+            %addIn_arc Add an arc to the in_arcs list;
+            obj.in_arcs = [obj.in_arcs, newArc];
+        end
     end
 end
 

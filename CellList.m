@@ -94,7 +94,6 @@ classdef CellList < handle
             outputArg = obj.list;
         end
         
-        
     end
 end
 
