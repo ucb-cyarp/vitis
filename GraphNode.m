@@ -13,7 +13,7 @@ classdef GraphNode < handle
                  % 4 = Special Output Port
                  % 5 = Top Level
         
-        simulinkType %Simulink type
+        simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
         dialogProperties %A map of dialog Properties extracted from simulink
         
@@ -162,6 +162,18 @@ classdef GraphNode < handle
             %addIn_arc Add an arc to the in_arcs list;
             obj.in_arcs = [obj.in_arcs, newArc];
         end
+        
+        function topLvl = isTopLevelSystem(obj)
+            %isTopLevelSystem Returns true if node is a top level system
+            topLvl = obj.nodeType == 5;
+        end
+        
+        function topLvl = isEnabledSystem(obj)
+            %isEnabledSystem Returns true if the node is an enabled
+            %subsystem
+            topLvl = obj.nodeType == 2;
+        end
+        
     end
     
     methods(Static)
@@ -185,8 +197,10 @@ classdef GraphNode < handle
                 
                 node_handle_map(simulink_block_handle) = node; %Add to map
                 
+                node.simulinkHandle = simulink_block_handle;
+                node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
+                
                 %TODO: IMPLEMENT, GET Parameters from simulink
-                %TODO: IMPLEMENT, SAVE SIMULINK HANDLE AND TYPE
                 
                 node_created = true;
             end
@@ -206,8 +220,32 @@ classdef GraphNode < handle
 
             node_handle_map(simulink_block_handle) = node; %Add to map
             
+            node.simulinkHandle = simulink_inport_block; %Set the Simulink Handel to be the inport block
+            node.simulinkBlockType = get_param(simulink_inport_block, 'BlockType'); %The type should be inport
+            
             %TODO: IMPLEMENT, GET Parameters from simulink
-            %TODO: IMPLEMENT, SAVE SIMULINK HANDLE of inport
+
+            node_created = true;
+            
+            %return the node
+            
+        end
+        
+        function node = createSpecialOutput(simulink_outport_block, node_handle_map, hierarchy_parent_node)
+            %createSpecialInput Create a new GraphNode object for a special
+            %input node.  Sets the appropriate parameters in the new node.
+            %Does not 
+            
+            node_name = get_param(simulink_outport_block, 'Name');
+
+            node = GraphNode(node_name, 'Special Output Port', hierarchy_parent_node);
+
+            node_handle_map(simulink_block_handle) = node; %Add to map
+            
+            node.simulinkHandle = simulink_outport_block; %Set the Simulink Handel to be the outport block
+            node.simulinkBlockType = get_param(simulink_outport_block, 'BlockType'); %The type should be outport
+            
+            %TODO: IMPLEMENT, GET Parameters from simulink
 
             node_created = true;
             

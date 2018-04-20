@@ -79,7 +79,7 @@
 %following the "parent" reference in the IR node.  Nodes incountered are
 %added to this node as "children".
         
-function [new_nodes, new_arcs] = simulink_to_graphml_arc_follower(simulink_node, simulink_port_number, driver_ir_node, driver_port_number, system_ir_node, unconnected_node, node_handle_ir_map)
+function [new_nodes, new_arcs] = simulink_to_graphml_arc_follower(simulink_node, simulink_port_number, driver_ir_node, driver_port_number, system_ir_node, output_master_node, unconnected_master_node , node_handle_ir_map)
 %====Init Outputs=====
 new_arcs = [];
 new_nodes = [];
@@ -150,7 +150,7 @@ dst_port_handles = get_param(out_line, 'DstPortHandle');
 %Check if the node is unconnected
 if isempty(dst_port_handles)
     %Create an arc to the "Unconnected" special node
-    unconnected_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, unconnected_node, 1, 'Standard'); %dst port does not matter since this is to the special node
+    unconnected_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, unconnected_master_node, 1, 'Standard'); %dst port does not matter since this is to the special node
     new_arcs = [new_arcs, unconnected_arc];
     
     %For loop below will have no elements to iterate over
@@ -241,9 +241,9 @@ for i = 1:length(dst_port_handles)
                 
                 %Now, recursive call on the inport_block's output port.
                 %The driver is changed to the new Special Input Port,
-                %Output port 1.  The ystem IR node is now the subsystem
+                %Output port 1.  The system IR node is now the subsystem
                 %node
-                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, unconnected_node, node_handle_ir_map)
+                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, unconnected_node, node_handle_ir_map);
                 %add the nodes and arcs from the recursive call to the
                 %lists
                 new_nodes = [new_nodes, recur_new_nodes];
@@ -253,15 +253,81 @@ for i = 1:length(dst_port_handles)
             
         else
             %This is not an enabled subsystem
-            %TODO: IMPLEMENT
             
+            %Do NOT create a special Input Node
+            
+            %Get the internal inport block for this input
+            inport_block_handle = findInnerInputPortBlock(dst_block_handle, dst_port_handle);
+            inport_block_port_handles = get_param(inport_block_handle, 'PortHandle');
+            inport_block_out_port_handle = inport_block_port_handles.Outport;
+            inport_block_out_port_number = get_param(inport_block_out_port_handle, 'PortNumber');
+            
+            %recursive call on the inport_block's output port
+            %Do not change the driver but do give the subsystem node for
+            %the hierarchy
+            [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, driver_ir_node, driver_port_number, dst_ir_node, unconnected_node, node_handle_ir_map);
+            %add the nodes and arcs from the recursive call to the
+            %lists
+            new_nodes = [new_nodes, recur_new_nodes];
+            new_arcs = [new_arcs, recur_new_arcs];
             
         end
         
     elseif strcmp(dst_block_type, 'Outport')
         %The dst block is an output port node (within a subsystem)
         
-        %TODO: IMPLEMENT
+        %Check if this is the top level system or not
+        if system_ir_node.isTopLevelSystem()
+            %The parent is the top level system so this output node is one
+            %of the final outputs
+            
+            %Connect to the virtual outputs node
+            output_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, output_master_node, 1, 'Standard'); %dst port does not matter since this is to the master node
+            new_arcs = [new_arcs, output_arc];
+            
+        else
+            %This is the output port of a subsystem
+            subsystem_block_handle = system_ir_node.simulinkHandel; %Get the subsystem from the hierarchy IR node as input/output port blocks are associated with the subsystem they are directly within 
+            %Get the associated port handle and number
+            
+            %Get the output port number from the parameter
+            subsystem_port_num_str = get_param(dst_block_handle, 'Port'); %returned as srt
+            subsystem_port_num = str2double(subsystem_port_num_str);
+            
+            %Check if the containing subsystem is enabled
+            system_enabled = system_ir_node.isEnabledSystem(); %Relies on the IR node type being set correctly
+            
+            if system_enabled
+                %This is the output port of an enabled subsystem
+                
+                %Replace with a Special Output node.  Parent node is the
+                %current system IR node.
+                special_output_node = GraphNode.createSpecialOutput(dst_block_handle, node_handle_ir_map, system_ir_node);
+                new_nodes = [new_nodes, special_output_node]; %Guarenteed to be new since there are no multidriver nets
+                
+                %Recursive call on the subsystem's output port.
+                %The driver is changed to the new Special Output Port,
+                %Output port 1.  The system IR node is now the parent
+                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(subsystem_block_handle, subsystem_port_num, special_output_node, 1, system_ir_node.parent, output_master_node, unconnected_master_node , node_handle_ir_map);
+                %add the nodes and arcs from the recursive call to the
+                %lists
+                new_nodes = [new_nodes, recur_new_nodes];
+                new_arcs = [new_arcs, recur_new_arcs];
+                
+            else
+                %This is the output port of a standard subsystem
+                
+                %Recursive call on the subsystem's output port.
+                %The driver is not changed but the system IR node is now 
+                %the parent
+                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(subsystem_block_handle, subsystem_port_num, driver_ir_node, driver_port_number, system_ir_node.parent, output_master_node, unconnected_master_node , node_handle_ir_map);
+                %add the nodes and arcs from the recursive call to the
+                %lists
+                new_nodes = [new_nodes, recur_new_nodes];
+                new_arcs = [new_arcs, recur_new_arcs];
+            end
+            
+        end
         
     elseif strcmp(dst_block_type, 'ConstellationDiagram') || strcmp(dst_block_type, 'Scope') || strcmp(dst_block_type, 'Display') || strcmp(dst_block_type, 'SpectrumAnalyzer')
         %The dst block is a visualization block
