@@ -5,6 +5,9 @@
 %returned to the caller because these values may have changed durring the
 %call.
 
+%simulink_node = handle to simulink node to traverse.
+%system_ir_node = the IR node representing the parent system in the
+%hierarchy
 function [block_ir_node, new_nodes, new_arcs] = simulink_to_graphml_helper(simulink_node, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map)
 %simulink_to_graphml_helper Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
@@ -141,47 +144,50 @@ function [block_ir_node, new_nodes, new_arcs] = simulink_to_graphml_helper(simul
     % Visualization node is encountered
         
 % ==Begin==
-%Copy inputs to outputs in preparation for return or modification before
-%return
 
-%Get simulink paths
-system_path_simulink = get_system_path(hierarchy_node_path_stack_in, '/');
-node_path_simulink = [system_path_simulink, '/', node];
+%Init Outputs
+new_nodes = [];
+new_arcs = [];
 
-%Check if node has already been traversed
-node_handle = get_param(node_path_simulink, 'Handle');
+%Make sure this is the node handle
+node_simulink_handle = get_param(simulink_node, 'Handle');
 
-if ~isKey(node_map_out, node_handle)
-    %This node is not in the node map and has therefore not yet been
-    %traversed.  Traverse it now
+[block_ir_node, node_created] = createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
+
+if node_created
+    %This node is not in the map and has therefore never been traversed.
+    %Add this new node to the list
+    new_nodes = [new_nodes, block_ir_node];
     
-    %Get a new node number
-    node_id_number = node_count_out + 1;
-    node_count_out = node_count_out + 1; % Update the count
+    %====Traverse Node=====
+    %Get the ouput ports for this node
+    port_handles = get_param(node_simulink_handle, 'PortHandles');
+    output_port_handles = port_handles.Outport;
     
-    %Get the node path
-    node_ml_name = ['n' num2str(node_id_number)];
-    graph_ml_system_path = get_system_path(hierarchy_nodeid_stack_in, '::');
-    graph_ml_node_path = [graph_ml_system_path, '::', node_ml_name];
-    
-    %Add it to the node map
-    node_list_out(node_handle) = graph_ml_node_path;
-    
-    %Create the node entry and add it to the list
-    %======TODO======
-    
-    %Traverse:
-    %Get a list of ports for the given node
-    ports = get_param(node_path_simulink, 'PortHandles');
-    
-    %Call arc follower on ports
-    %======TODO======
+    %Call the arc follower on each output port
+    for i = 1:length(output_port_handles)
+        out_port_handle = output_port_handles(i);
+        out_port_num = get_param(out_port_handle, 'PortNumber');
+        
+        %For this initial call to the arc follower, the simulink node/port
+        %(the node/port we are tracing from) and the driver node/port are
+        %the same (driver node is actuallt the IR representation).  
+        %This is because no subsystems could have been traversed yet.
+        %The system node (the parent hierarchical node) is not changed
+        %because no subsystems have been traversed.
+        [new_nodes_recur, new_arcs_recur] = simulink_to_graphml_arc_follower(simulink_node, out_port_num, block_ir_node, out_port_num, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+        
+        %Add the new nodes and arcs from arc tracer calls to the list
+        new_nodes = [new_nodes, new_nodes_recur];
+        new_arcs = [new_arcs, new_arcs_recur];
+    end
     
     
 end
 
+%If the node already exists it was already traversed
 
+%Return the IR node in either case
 
-        
 end
 

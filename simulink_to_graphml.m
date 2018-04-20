@@ -67,7 +67,19 @@ fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
 
 %% Create Virtual Nodes
 
-%% Call Helper on Each Input
+%% Create Top Level IR Node -> Set Type to Top Level
+
+%% Find Inports Within System
+
+%% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1
+
+%% Connect Special Input/Output Ports to Enable Drivers
+
+%% Assign Unique Ids To each Node and Arc
+
+%% Traverse Node Hierarchy and Emit GraphML Node Entries
+
+%% Emit GraphML Arc Entries
 
 %% Close GraphML File
 fprintf(graphml_filehandle, '\t</graph>\n');
