@@ -5,7 +5,7 @@
 %returned to the caller because these values may have changed durring the
 %call.
 
-function [] = simulink_to_graphml_helper()
+function [block_ir_node, new_nodes, new_arcs] = simulink_to_graphml_helper(simulink_node, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map)
 %simulink_to_graphml_helper Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 

@@ -348,11 +348,21 @@ for i = 1:length(dst_port_handles)
         %This is a basic block.  These blocks can have different BlockType
         %names based on their functions
         
-        %Traverse this node
+        %Traverse this node by calling the helper.
+        %The system IR node remains unchanges since a subsystem was not
+        %entered or exited.  The helper will create and traverse the node
+        %if it has not yet been traversed.  Regardless of whether or not it
+        %existed, it returns the IR node corresponding to the block
+        [block_ir_node, recur_new_nodes, recur_new_arcs] = simulink_to_graphml_helper(dst_block_handle, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+        new_nodes = [new_nodes, recur_new_nodes];
+        new_arcs = [new_arcs, recur_new_arcs];
         
+        %Add an arc to the IR node
+        %Get the dst port number
+        dst_port_num = get_param(dst_port_handle, 'PortNumber');
+        newArc = createBasicArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
         
-        %TODO: IMPLEMENT
-        
+        new_arcs = [new_arcs, newArc];
     end
 
 end
