@@ -254,6 +254,12 @@ for i = 1:length(dst_port_handles)
         else
             %This is not an enabled subsystem
             
+            %Create or find IR node for subsystem
+            [dst_ir_node, node_created] = GraphNode.createNodeIfNotAlready(dst_block_handle, 'Subsystem', node_handle_ir_map, system_ir_node);
+            if node_created
+                new_nodes = [new_nodes, dst_ir_node];
+            end
+            
             %Do NOT create a special Input Node
             
             %Get the internal inport block for this input
