@@ -8,7 +8,7 @@
 %simulink_node = handle to simulink node to traverse.
 %system_ir_node = the IR node representing the parent system in the
 %hierarchy
-function [block_ir_node, new_nodes, new_arcs] = simulink_to_graphml_helper(simulink_node, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map)
+function [block_ir_node, new_nodes, new_arcs, new_special_nodes] = simulink_to_graphml_helper(simulink_node, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map)
 %simulink_to_graphml_helper Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 
@@ -148,6 +148,7 @@ function [block_ir_node, new_nodes, new_arcs] = simulink_to_graphml_helper(simul
 %Init Outputs
 new_nodes = [];
 new_arcs = [];
+new_special_nodes = [];
 
 %Make sure this is the node handle
 node_simulink_handle = get_param(simulink_node, 'Handle');
@@ -175,11 +176,12 @@ if node_created
         %This is because no subsystems could have been traversed yet.
         %The system node (the parent hierarchical node) is not changed
         %because no subsystems have been traversed.
-        [new_nodes_recur, new_arcs_recur] = simulink_to_graphml_arc_follower(simulink_node, out_port_num, block_ir_node, out_port_num, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+        [new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = simulink_to_graphml_arc_follower(simulink_node, out_port_num, block_ir_node, out_port_num, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
         
         %Add the new nodes and arcs from arc tracer calls to the list
         new_nodes = [new_nodes, new_nodes_recur];
         new_arcs = [new_arcs, new_arcs_recur];
+        new_special_nodes = [new_special_nodes, new_special_nodes_recur];
     end
     
     

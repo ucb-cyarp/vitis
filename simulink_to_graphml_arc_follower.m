@@ -79,10 +79,11 @@
 %following the "parent" reference in the IR node.  Nodes incountered are
 %added to this node as "children".
         
-function [new_nodes, new_arcs] = simulink_to_graphml_arc_follower(simulink_node, simulink_port_number, driver_ir_node, driver_port_number, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map)
+function [new_nodes, new_arcs, new_special_nodes] = simulink_to_graphml_arc_follower(simulink_node, simulink_port_number, driver_ir_node, driver_port_number, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map)
 %====Init Outputs=====
 new_arcs = [];
 new_nodes = [];
+new_special_nodes = [];
 
 %====Get the simulink handle to the output port====
 block_port_handles = get_param(simulink_node, 'PortHandles');
@@ -238,16 +239,18 @@ for i = 1:length(dst_port_handles)
                 %node is actually the subsystem
                 special_input_node = GraphNode.createSpecialInput(inport_block_handle, node_handle_ir_map, dst_ir_node);
                 new_nodes = [new_nodes, special_input_node]; %Guarenteed to be new since there are no multidriver nets
+                new_special_nodes = [new_special_nodes, special_input_node];
                 
                 %Now, recursive call on the inport_block's output port.
                 %The driver is changed to the new Special Input Port,
                 %Output port 1.  The system IR node is now the subsystem
                 %node
-                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
                 %add the nodes and arcs from the recursive call to the
                 %lists
                 new_nodes = [new_nodes, recur_new_nodes];
                 new_arcs = [new_arcs, recur_new_arcs];
+                new_special_nodes = [new_special_nodes, recur_new_special_nodes];
                 
             end
             
@@ -271,11 +274,12 @@ for i = 1:length(dst_port_handles)
             %recursive call on the inport_block's output port
             %Do not change the driver but do give the subsystem node for
             %the hierarchy
-            [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, driver_ir_node, driver_port_number, dst_ir_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+            [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, driver_ir_node, driver_port_number, dst_ir_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
             %add the nodes and arcs from the recursive call to the
             %lists
             new_nodes = [new_nodes, recur_new_nodes];
             new_arcs = [new_arcs, recur_new_arcs];
+            new_special_nodes = [new_special_nodes, recur_new_special_nodes];
             
         end
         
@@ -310,15 +314,17 @@ for i = 1:length(dst_port_handles)
                 %current system IR node.
                 special_output_node = GraphNode.createSpecialOutput(dst_block_handle, node_handle_ir_map, system_ir_node);
                 new_nodes = [new_nodes, special_output_node]; %Guarenteed to be new since there are no multidriver nets
+                new_special_nodes = [new_special_nodes, special_output_node];
                 
                 %Recursive call on the subsystem's output port.
                 %The driver is changed to the new Special Output Port,
                 %Output port 1.  The system IR node is now the parent
-                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(subsystem_block_handle, subsystem_port_num, special_output_node, 1, system_ir_node.parent, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(subsystem_block_handle, subsystem_port_num, special_output_node, 1, system_ir_node.parent, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
                 %add the nodes and arcs from the recursive call to the
                 %lists
                 new_nodes = [new_nodes, recur_new_nodes];
                 new_arcs = [new_arcs, recur_new_arcs];
+                new_special_nodes = [new_special_nodes, recur_new_special_nodes];
                 
             else
                 %This is the output port of a standard subsystem
@@ -326,11 +332,12 @@ for i = 1:length(dst_port_handles)
                 %Recursive call on the subsystem's output port.
                 %The driver is not changed but the system IR node is now 
                 %the parent
-                [recur_new_nodes, recur_new_arcs] = simulink_to_graphml_arc_follower(subsystem_block_handle, subsystem_port_num, driver_ir_node, driver_port_number, system_ir_node.parent, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(subsystem_block_handle, subsystem_port_num, driver_ir_node, driver_port_number, system_ir_node.parent, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
                 %add the nodes and arcs from the recursive call to the
                 %lists
                 new_nodes = [new_nodes, recur_new_nodes];
                 new_arcs = [new_arcs, recur_new_arcs];
+                new_special_nodes = [new_special_nodes, recur_new_special_nodes];
             end
             
         end
@@ -359,9 +366,10 @@ for i = 1:length(dst_port_handles)
         %entered or exited.  The helper will create and traverse the node
         %if it has not yet been traversed.  Regardless of whether or not it
         %existed, it returns the IR node corresponding to the block
-        [block_ir_node, recur_new_nodes, recur_new_arcs] = simulink_to_graphml_helper(dst_block_handle, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+        [block_ir_node, recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_helper(dst_block_handle, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
         new_nodes = [new_nodes, recur_new_nodes];
         new_arcs = [new_arcs, recur_new_arcs];
+        new_special_nodes = [new_special_nodes, recur_new_special_nodes];
         
         %Add an arc to the IR node
         %Get the dst port number

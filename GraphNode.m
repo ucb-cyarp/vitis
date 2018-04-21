@@ -68,13 +68,15 @@ classdef GraphNode < handle
                 obj.nodeType = 4;
             elseif strcmp(type, 'Top Level')
                 obj.nodeType = 5;
-            else
+            elseif strcmp(type, 'Master')
                 obj.nodeType = 6;
+            else
+                obj.nodeType = 7;
                 error(['''', type, ''' is not a recognized node type']);
             end
             
             %Set Defaults
-            obj.simulinkType = "";
+            obj.simulinkBlockType = "";
             obj.simulinkHandle = 0;
             obj.dialogProperties = containers.Map();
             obj.children = [];
