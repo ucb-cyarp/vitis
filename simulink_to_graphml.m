@@ -34,13 +34,13 @@ fprintf(graphml_filehandle, '\t</key>\n');
 % fprintf(graphml_filehandle, '\t</key>\n');
 
 % Arc Src Port (For libraries that do not support ports)
-fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int"/>\n');
-fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
 % Arc Dst Port (For libraries that do not support ports)
-fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int"/>\n');
-fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
 fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');

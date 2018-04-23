@@ -247,8 +247,10 @@ classdef GraphNode < handle
                 node_name = get_param(simulink_block_handle, 'Name');
                 
                 node = GraphNode(node_name, node_type, hierarchy_parent_node);
+                hierarchy_parent_node.addChild(node);
                 
                 node_handle_map(simulink_block_handle) = node; %Add to map
+                
                 
                 node.simulinkHandle = simulink_block_handle;
                 node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
@@ -270,6 +272,7 @@ classdef GraphNode < handle
             node_name = get_param(simulink_inport_block, 'Name');
 
             node = GraphNode(node_name, 'Special Input Port', hierarchy_parent_node);
+            hierarchy_parent_node.addChild(node);
 
             node_handle_map(simulink_block_handle) = node; %Add to map
             
@@ -292,6 +295,7 @@ classdef GraphNode < handle
             node_name = get_param(simulink_outport_block, 'Name');
 
             node = GraphNode(node_name, 'Special Output Port', hierarchy_parent_node);
+            hierarchy_parent_node.addChild(node);
 
             node_handle_map(simulink_block_handle) = node; %Add to map
             
