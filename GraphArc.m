@@ -81,7 +81,7 @@ classdef GraphArc < handle
            writeNTabs(file, numTabs+1);
            fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
            
-           disp_label = sprintf('Src Port Num: %d, Dst Port Num: %d, Dst Port Type: %s', obj.srcPortNumber, obj.dstPortNumber, obj.dstPortTypeStr());
+           disp_label = sprintf('Src Port Num: %d\nDst Port Num: %d\nDst Port Type: %s', obj.srcPortNumber, obj.dstPortNumber, obj.dstPortTypeStr());
            writeNTabs(file, numTabs+1);
            fprintf(file, '<data key="arc_disp_label">%s</data>\n', disp_label);
            

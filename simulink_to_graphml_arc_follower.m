@@ -295,7 +295,11 @@ for i = 1:length(dst_port_handles)
             %of the final outputs
             
             %Connect to the virtual outputs node
-            output_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, output_master_node, 1, 'Standard'); %dst port does not matter since this is to the master node
+            %Get the port number of the output port.  Used to relate
+            %to simulink port numbers
+            outport_port_num_str = get_param(dst_block_handle, 'Port');
+            outport_port_num = str2double(outport_port_num_str);
+            output_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, output_master_node, outport_port_num, 'Standard');
             new_arcs = [new_arcs, output_arc];
             
         else
