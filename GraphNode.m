@@ -170,10 +170,61 @@ classdef GraphNode < handle
             topLvl = obj.nodeType == 5;
         end
         
-        function topLvl = isEnabledSystem(obj)
-            %isEnabledSystem Returns true if the node is an enabled
+        function enbld = isEnabledSubsystem(obj)
+            %isEnabledSubsystem Returns true if the node is an enabled
             %subsystem
-            topLvl = obj.nodeType == 2;
+            enbld = obj.nodeType == 2;
+        end
+        
+        function subsys = isSubsystem(obj)
+            %isSystem Returns true if the node is a subsystem
+            subsys = obj.nodeType == 1 || obj.nodeType == 2;
+        end
+        
+        function emitSelfAndChildrenGraphml(obj, file, numTabs)
+           %emitSelfAndChildrenGraphml Writes GraphML entries for this
+           %node and its children.  numTabs specifies the initial indent
+           %(in hardtabs)
+           if obj.isSubsystem()
+               %Emit the entry for this node
+               nodeIdPath = obj.getFullIDPath('::', 'n%d', false);
+               writeNTabs(file, numTabs);
+               fprintf(file, '<node id=\"%s\">\n', nodeIdPath);
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="instance_name">%s</data>\n', obj.name);
+               
+               %Create the nested graph entry for the subsystem
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<graph id="%s:" edgedefault="directed">\n', nodeIdPath);
+               
+               %Emit children
+               for i = 1:length(obj.children)
+                   child = obj.children(i);
+                   child.emitSelfAndChildrenGraphml(file, numTabs+2);
+               end
+               
+               %Close Graph entry
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '</graph>\n');
+               
+               %Close node entry
+               writeNTabs(file, numTabs);
+               fprintf(file, '</node>\n');
+               
+           else
+               if ~isEmpty(obj.children)
+                   error('Node is not a subsystem but has children')
+               end
+               
+               %Emit graphml for a node which is not a subsystem
+               nodeIdPath = obj.getFullIDPath('::', 'n%d', false);
+               writeNTabs(file, numTabs);
+               fprintf(file, '<node id="%s">\n', nodeIdPath);
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="instance_name">%s</data>\n', obj.name);
+               writeNTabs(file, numTabs);
+               fprintf(file, '</node>\n');
+           end
         end
         
     end

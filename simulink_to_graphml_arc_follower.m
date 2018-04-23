@@ -305,7 +305,7 @@ for i = 1:length(dst_port_handles)
             subsystem_port_num = str2double(subsystem_port_num_str);
             
             %Check if the containing subsystem is enabled
-            system_enabled = system_ir_node.isEnabledSystem(); %Relies on the IR node type being set correctly
+            system_enabled = system_ir_node.isEnabledSubsystem(); %Relies on the IR node type being set correctly
             
             if system_enabled
                 %This is the output port of an enabled subsystem

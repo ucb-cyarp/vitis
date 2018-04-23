@@ -26,12 +26,12 @@ fprintf(graphml_filehandle, '\t</key>\n');
 % fprintf(graphml_filehandle, '\t</key>\n');
 
 % Arc Src Port (For libraries that do not support ports)
-fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="string"/>\n');
+fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int"/>\n');
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
 % Arc Dst Port (For libraries that do not support ports)
-fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="string"/>\n');
+fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int"/>\n');
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
@@ -69,11 +69,15 @@ fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
 
 %% Create Virtual Nodes
 top_level_ir_node = GraphNode(system, 'Top Level', []);
+top_level_ir_node.nodeId = 0;
 
 %% Find Inports Within System
 input_master_node = GraphNode('Input Master', 'Master', top_level_ir_node);
+input_master_node.nodeId = 1;
 output_master_node = GraphNode('Output Master', 'Master', top_level_ir_node);
+output_master_node.nodeId = 2;
 vis_master_node = GraphNode('Visualization Master', 'Master', top_level_ir_node);
+vis_master_node.nodeId = 3;
 
 %% Create the lists to keep track of nodes and arcs as well as the node map
 nodes = [];
@@ -133,10 +137,38 @@ for i = 1:length(special_nodes)
 end
 
 %% Assign Unique Ids To each Node and Arc
+for i = 1:length(nodes)
+    node = nodes(i);
+    node.nodeId = i + 3; %+3 because of master nodes & top level (which is 0)
+end
+
+for i = 1:length(arcs)
+    arc = arcs(i);
+    arc.arcId = i;
+end
 
 %% Traverse Node Hierarchy and Emit GraphML Node Entries
+%The top level is a special case.  We do not create a node entry for the
+%top level system as it is covered by the graph entry.
+
+%Instead, we will call the emit function on all of the children of the top
+%level
+
+%Emit master nodes
+input_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
+output_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
+vis_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
+
+for i = 1:length(top_level_ir_node.children)
+    child = top_level_ir_node.children(i);
+    child.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
+end
 
 %% Emit GraphML Arc Entries
+for i = 1:length(arcs)
+    arc = arcs(i);
+    arc.emitGraphml(graphml_filehandle, 2);
+end
 
 %% Close GraphML File
 fprintf(graphml_filehandle, '\t</graph>\n');

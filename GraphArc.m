@@ -26,6 +26,9 @@ classdef GraphArc < handle
         %Properties for connection to visualizer
         vis_type
         
+        %ArcId
+        arcId
+        
     end
     
     methods
@@ -61,11 +64,29 @@ classdef GraphArc < handle
             obj.vis_type = "";
         end
         
-        function outputArg = method1(obj,inputArg)
-            %METHOD1 Summary of this method goes here
-            %   Detailed explanation goes here
-            outputArg = obj.Property1 + inputArg;
+        function emitGraphml(obj, file, numTabs)
+           %emitGraphml Writes GraphML entries for this arc.
+           %numTabs specifies the initial indent (in hardtabs)
+           
+           sourceIdPath = obj.srcNode.getFullIDPath('::', 'n%d', false);
+           dstIdPath = obj.dstNode.getFullIDPath('::', 'n%d', false);
+           
+           %Emit Arc entry
+           writeNTabs(file, numTabs);
+           fprintf(file, '<edge id="e%d" source="%s" target="%s">\n', obj.arcId, sourceIdPath, dstIdPath);
+           
+           %Emit attributes
+           writeNTabs(file, numTabs+1);
+           fprintf(file, '<data key="arc_src_port">%d</data>\n', obj.srcPortNumber);
+           writeNTabs(file, numTabs+1);
+           fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
+           
+           %Close arc entry
+           writeNTabs(file, numTabs);
+           fprintf(file, '</edge>\n');
+            
         end
+            
     end
     
     methods (Static)
