@@ -81,10 +81,29 @@ classdef GraphArc < handle
            writeNTabs(file, numTabs+1);
            fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
            
+           disp_label = sprintf('Src Port Num: %d, Dst Port Num: %d, Dst Port Type: %s', obj.srcPortNumber, obj.dstPortNumber, obj.dstPortTypeStr());
+           writeNTabs(file, numTabs+1);
+           fprintf(file, '<data key="arc_disp_label">%s</data>\n', disp_label);
+           
            %Close arc entry
            writeNTabs(file, numTabs);
            fprintf(file, '</edge>\n');
             
+        end
+        
+        function str = dstPortTypeStr(obj)
+            %dstPortTypeStr Returns the string description of the dst port
+            %type
+            str = 'Unknown';
+            
+            if obj.dstPortType == 0
+                str = 'Standard';
+            elseif obj.dstPortType == 1
+                str = 'Enable';
+            elseif obj.dstPortType == 2
+                str = 'Reset';
+            end
+                
         end
             
     end

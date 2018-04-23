@@ -43,6 +43,12 @@ fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_
 fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
+% The display label for edges
+% Contains properties which are printed for visualization
+fprintf(graphml_filehandle, '\t<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
 fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
 
 %% Traverse Graph and Transcribe to GraphML File

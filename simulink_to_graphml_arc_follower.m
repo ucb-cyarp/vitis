@@ -248,7 +248,7 @@ for i = 1:length(dst_port_handles)
                 %The driver is changed to the new Special Input Port,
                 %Output port 1.  The system IR node is now the subsystem
                 %node
-                [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, special_input_node, 1, dst_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
                 %add the nodes and arcs from the recursive call to the
                 %lists
                 new_nodes = [new_nodes, recur_new_nodes];
@@ -270,14 +270,14 @@ for i = 1:length(dst_port_handles)
             
             %Get the internal inport block for this input
             inport_block_handle = findInnerInputPortBlock(dst_block_handle, dst_port_handle);
-            inport_block_port_handles = get_param(inport_block_handle, 'PortHandle');
+            inport_block_port_handles = get_param(inport_block_handle, 'PortHandles');
             inport_block_out_port_handle = inport_block_port_handles.Outport;
             inport_block_out_port_number = get_param(inport_block_out_port_handle, 'PortNumber');
             
             %recursive call on the inport_block's output port
             %Do not change the driver but do give the subsystem node for
             %the hierarchy
-            [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, driver_ir_node, driver_port_number, dst_ir_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+            [recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_arc_follower(inport_block_handle, inport_block_out_port_number, driver_ir_node, driver_port_number, dst_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
             %add the nodes and arcs from the recursive call to the
             %lists
             new_nodes = [new_nodes, recur_new_nodes];
@@ -300,7 +300,7 @@ for i = 1:length(dst_port_handles)
             
         else
             %This is the output port of a subsystem
-            subsystem_block_handle = system_ir_node.simulinkHandel; %Get the subsystem from the hierarchy IR node as input/output port blocks are associated with the subsystem they are directly within 
+            subsystem_block_handle = system_ir_node.simulinkHandle; %Get the subsystem from the hierarchy IR node as input/output port blocks are associated with the subsystem they are directly within 
             %Get the associated port handle and number
             
             %Get the output port number from the parameter
