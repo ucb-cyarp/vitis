@@ -1,9 +1,17 @@
-function simulink_to_graphml(system, graphml_filename, verbose)
+function simulink_to_graphml(simulink_file, system, graphml_filename)
 %simulink_to_graphml Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 
 %% Init
 graphml_filehandle = fopen(graphml_filename,'w');
+
+%% Load Simulink and put into compile mode
+%Open the system
+open_system(simulink_file);
+
+%Get function for simulink top level system
+top_system_func = str2func(simulink_file);
+top_system_func([], [], [], 'compile');
 
 %% Write Preamble
 % Write the GraphML XML Preamble
@@ -113,6 +121,9 @@ for i = 1:length(inports)
     arcs = [arcs, new_arcs_recur];
     special_nodes = [special_nodes, new_special_nodes_recur];
 end
+
+%% Done traversing simulink system - terminate compile mode
+top_system_func([], [], [], 'term');
 
 %% Connect Special Input/Output Ports to Enable Drivers
 
