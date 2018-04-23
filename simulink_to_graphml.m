@@ -86,12 +86,17 @@ output_master_node = GraphNode('Output Master', 'Master', top_level_ir_node);
 output_master_node.nodeId = 2;
 vis_master_node = GraphNode('Visualization Master', 'Master', top_level_ir_node);
 vis_master_node.nodeId = 3;
+unconnected_master_node = GraphNode('Unconnected Master', 'Master', top_level_ir_node);
+unconnected_master_node.nodeId = 4;
+terminator_master_node = GraphNode('Terminator Master', 'Master', top_level_ir_node);
+terminator_master_node.nodeId = 5;
+
 
 %% Create the lists to keep track of nodes and arcs as well as the node map
 nodes = [];
 arcs = [];
 special_nodes = [];
-node_handle_ir_map = containers.Map();
+node_handle_ir_map = containers.Map('KeyType','double','ValueType','any');
 
 %% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1
 %Get a list of Inports within system
@@ -106,7 +111,8 @@ for i = 1:length(inports)
     port_number_str = get_param(inport, 'Port'); %Returned as a string
     port_number = str2double(port_number_str);
     
-    inport_block_port_handles = get_param(inport, 'PortHandle');
+    inport_block_port_handles = get_param(inport, 'PortHandles');
+    inport_block_port_handles = inport_block_port_handles{1};
     inport_block_out_port_handle = inport_block_port_handles.Outport;
     inport_block_out_port_number = get_param(inport_block_out_port_handle, 'PortNumber');
     
@@ -150,7 +156,7 @@ end
 %% Assign Unique Ids To each Node and Arc
 for i = 1:length(nodes)
     node = nodes(i);
-    node.nodeId = i + 3; %+3 because of master nodes & top level (which is 0)
+    node.nodeId = i + 5; %+3 because of master nodes & top level (which is 0)
 end
 
 for i = 1:length(arcs)
@@ -169,6 +175,8 @@ end
 input_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
 output_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
 vis_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
+unconnected_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
+terminator_master_node.emitSelfAndChildrenGraphml(graphml_filehandle, 2);
 
 for i = 1:length(top_level_ir_node.children)
     child = top_level_ir_node.children(i);

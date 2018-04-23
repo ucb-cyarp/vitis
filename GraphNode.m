@@ -212,7 +212,7 @@ classdef GraphNode < handle
                fprintf(file, '</node>\n');
                
            else
-               if ~isEmpty(obj.children)
+               if ~isempty(obj.children)
                    error('Node is not a subsystem but has children')
                end
                

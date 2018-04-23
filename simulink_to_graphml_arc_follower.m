@@ -87,6 +87,9 @@ new_special_nodes = [];
 
 %====Get the simulink handle to the output port====
 block_port_handles = get_param(simulink_node, 'PortHandles');
+if iscell(block_port_handles)
+    block_port_handles = block_port_handles{1};
+end
 block_output_port_handles = block_port_handles.Outport;
 %Get the specified output port based on the number
 %TODO: Appears that the array index is the same as the port number.
@@ -374,7 +377,7 @@ for i = 1:length(dst_port_handles)
         %Add an arc to the IR node
         %Get the dst port number
         dst_port_num = get_param(dst_port_handle, 'PortNumber');
-        newArc = createBasicArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
+        newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
         
         new_arcs = [new_arcs, newArc];
     end

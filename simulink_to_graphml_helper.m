@@ -153,7 +153,7 @@ new_special_nodes = [];
 %Make sure this is the node handle
 node_simulink_handle = get_param(simulink_node, 'Handle');
 
-[block_ir_node, node_created] = createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
+[block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
 
 if node_created
     %This node is not in the map and has therefore never been traversed.
