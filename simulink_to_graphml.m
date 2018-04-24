@@ -134,6 +134,12 @@ for i = 1:length(inports)
     special_nodes = [special_nodes, new_special_nodes_recur];
 end
 
+%% Traverse Remaining Nodes (ie. ones that would not be reached by just following inputs
+[new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = traverseRemainingNodes(system, top_level_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+nodes = [nodes, new_nodes_recur];
+arcs = [arcs, new_arcs_recur];
+special_nodes = [special_nodes, new_special_nodes_recur];
+
 %% Done traversing simulink system - terminate compile mode
 top_system_func([], [], [], 'term');
 
