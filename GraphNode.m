@@ -274,7 +274,7 @@ classdef GraphNode < handle
             node = GraphNode(node_name, 'Special Input Port', hierarchy_parent_node);
             hierarchy_parent_node.addChild(node);
 
-            node_handle_map(simulink_block_handle) = node; %Add to map
+            node_handle_map(simulink_inport_block) = node; %Add to map
             
             node.simulinkHandle = simulink_inport_block; %Set the Simulink Handel to be the inport block
             node.simulinkBlockType = get_param(simulink_inport_block, 'BlockType'); %The type should be inport
@@ -297,7 +297,7 @@ classdef GraphNode < handle
             node = GraphNode(node_name, 'Special Output Port', hierarchy_parent_node);
             hierarchy_parent_node.addChild(node);
 
-            node_handle_map(simulink_block_handle) = node; %Add to map
+            node_handle_map(simulink_outport_block) = node; %Add to map
             
             node.simulinkHandle = simulink_outport_block; %Set the Simulink Handel to be the outport block
             node.simulinkBlockType = get_param(simulink_outport_block, 'BlockType'); %The type should be outport

@@ -234,7 +234,7 @@ for i = 1:length(dst_port_handles)
                 
                 %Get the internal inport block for this input
                 inport_block_handle = findInnerInputPortBlock(dst_block_handle, dst_port_handle);
-                inport_block_port_handles = get_param(inport_block_handle, 'PortHandle');
+                inport_block_port_handles = get_param(inport_block_handle, 'PortHandles');
                 inport_block_out_port_handle = inport_block_port_handles.Outport;
                 inport_block_out_port_number = get_param(inport_block_out_port_handle, 'PortNumber');
                 

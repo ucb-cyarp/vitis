@@ -149,11 +149,15 @@ for i = 1:length(special_nodes)
     special_node_parent = special_node.parent;
     
     en_driver_node = special_node_parent.en_in_src_node;
-    en_driver_port = special_node_parent.en_in_src_por;
+    en_driver_port = special_node_parent.en_in_src_port;
     
     %Now, make an arc to the special port.  The enable port for all special
     %nodes is 2
-    newArc = createBasicArc(en_driver_node, en_driver_port, special_node, 2, 'Enable');
+    if isempty(en_driver_node) || isempty(en_driver_port)
+        error(['Enable Driver for ' special_node.getFullSimulinkPath() ' not found!'])
+    end
+    
+    newArc = GraphArc.createBasicArc(en_driver_node, en_driver_port, special_node, 2, 'Enable');
     %Add the arc back to the list
     arcs = [arcs, newArc];
     
