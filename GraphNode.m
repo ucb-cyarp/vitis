@@ -78,7 +78,7 @@ classdef GraphNode < handle
             %Set Defaults
             obj.simulinkBlockType = "";
             obj.simulinkHandle = 0;
-            obj.dialogProperties = containers.Map();
+            obj.dialogProperties = containers.Map('KeyType','char','ValueType','any');
             obj.children = [];
             obj.out_arcs = [];
             obj.in_arcs = [];
@@ -181,6 +181,37 @@ classdef GraphNode < handle
             subsys = obj.nodeType == 1 || obj.nodeType == 2;
         end
         
+        function emitDialogParameters(obj, file, numTabs)
+        %emitDialogParameters Emit dialog parameters to file
+            param_names = keys(obj.dialogProperties);
+            for i = 1:length(param_names)
+                param_name = param_names{i};
+                
+                param_val = obj.dialogProperties(param_name);
+                
+                %Convert to string if needed
+                if ischar(param_val)
+                    param_val_str = param_val;
+                elseif isnumeric(param_val)
+                    param_val_str = num2str(param_val);
+                elseif islogical(param_val)
+                    if(param_val)
+                        param_val_str = 'true';
+                    else
+                        param_val_str = 'false';
+                    end
+                else
+                    %Not a type we know how to convert
+                        param_val_str = 'Error';
+                        warning([obj.name ' parameter ' param_name ' has unknown type ... Replaced with ''Error''']);
+                end
+                
+                writeNTabs(file, numTabs);
+                fprintf(file, '<data key="%s">%s</data>\n', param_name, param_val_str);
+                
+            end
+        end
+        
         function emitSelfAndChildrenGraphml(obj, file, numTabs)
            %emitSelfAndChildrenGraphml Writes GraphML entries for this
            %node and its children.  numTabs specifies the initial indent
@@ -192,6 +223,11 @@ classdef GraphNode < handle
                fprintf(file, '<node id=\"%s\">\n', nodeIdPath);
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="instance_name">%s</data>\n', obj.name);
+               % Block Type -> Block Function
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="block_function">%s</data>\n', obj.simulinkBlockType);
+               % Emit Dialog Properties
+               obj.emitDialogParameters(file, numTabs+1);
                
                %Create the nested graph entry for the subsystem
                writeNTabs(file, numTabs+1);
@@ -222,6 +258,12 @@ classdef GraphNode < handle
                fprintf(file, '<node id="%s">\n', nodeIdPath);
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="instance_name">%s</data>\n', obj.name);
+               % Block Type -> Block Function
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="block_function">%s</data>\n', obj.simulinkBlockType);
+               % Emit Dialog Properties
+               obj.emitDialogParameters(file, numTabs+1);
+               
                writeNTabs(file, numTabs);
                fprintf(file, '</node>\n');
            end
@@ -251,11 +293,23 @@ classdef GraphNode < handle
                 
                 node_handle_map(simulink_block_handle) = node; %Add to map
                 
-                
+                %Set Block Properties
                 node.simulinkHandle = simulink_block_handle;
                 node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
                 
-                %TODO: IMPLEMENT, GET Parameters from simulink
+                %---Get parameters from simulink---
+                %Get the list of parameter names
+                dialog_params = get_param(simulink_block_handle, 'DialogParameters');
+                dialog_param_names = fieldnames(dialog_params);
+                
+                %Itterate through the dialog parameter names
+                for i = 1:length(dialog_param_names)
+                    dialog_param_name = dialog_param_names{i};
+                    
+                    dialog_param_value = get_param(simulink_block_handle, dialog_param_name);
+                    
+                    node.dialogProperties(dialog_param_name) = dialog_param_value;
+                end
                 
                 node_created = true;
             end

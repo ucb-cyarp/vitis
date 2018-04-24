@@ -142,6 +142,16 @@ for i = 1:length(arcs)
     arc.arcId = i;
 end
 
+%% Get Set of Dialog Parameters from Nodes
+node_param_names = {};
+for i = 1:length(nodes)
+    node = nodes(i);
+    
+    param_names = keys(node.dialogProperties);
+    
+    node_param_names = union(node_param_names, param_names);
+end
+
 %% ==== Emit GraphML Preamble =====
 % Write the GraphML XML Preamble
 fprintf(graphml_filehandle, '<?xml version="1.0" encoding="UTF-8"?>\n');
@@ -180,6 +190,14 @@ fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
 %---- Dynamic Defitions (from Dialog Properties) ----
+for i = 1:length(node_param_names)
+    param_name = node_param_names{i};
+    
+    %We will assume type is string for now
+    fprintf(graphml_filehandle, '\t<key id="%s" for="node" attr.name="%s" attr.type="string">\n', param_name, param_name);
+    fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+    fprintf(graphml_filehandle, '\t</key>\n');
+end
 
 
 %% Traverse Node Hierarchy and Emit GraphML Node Entries

@@ -90,6 +90,7 @@ for i = 1:length(children)
             %This is not a block
             child_name = get_param(child_handle, 'Name');
             warning([child_name ' is not a Simulink block ... skipping']);
+            
         end
     end
 end
