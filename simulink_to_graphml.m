@@ -13,44 +13,6 @@ open_system(simulink_file);
 top_system_func = str2func(simulink_file);
 top_system_func([], [], [], 'compile');
 
-%% Write Preamble
-% Write the GraphML XML Preamble
-fprintf(graphml_filehandle, '<?xml version="1.0" encoding="UTF-8"?>\n');
-fprintf(graphml_filehandle, '<graphml xmlns="http://graphml.graphdrawing.org/xmlns" \n');
-fprintf(graphml_filehandle, '\txmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" \n');
-fprintf(graphml_filehandle, '\txsi:schemaLocation="http://graphml.graphdrawing.org/xmlns \n');
-fprintf(graphml_filehandle, '\thttp://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">\n');
-
-%% Write Attribute Definitions
-% Write the GraphML Attribute Definitions
-% Instance Name
-fprintf(graphml_filehandle, '\t<key id="instance_name" for="node" attr.name="instance_name" attr.type="string">\n');
-fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
-fprintf(graphml_filehandle, '\t</key>\n');
-
-% Arc Weight
-% fprintf(graphml_filehandle, '\t<key id="weight" for="edge" attr.name="weight" attr.type="double"/>\n');
-% fprintf(graphml_filehandle, '\t\t<default>0.0</default>\n');
-% fprintf(graphml_filehandle, '\t</key>\n');
-
-% Arc Src Port (For libraries that do not support ports)
-fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">\n');
-fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
-fprintf(graphml_filehandle, '\t</key>\n');
-
-% Arc Dst Port (For libraries that do not support ports)
-fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int">\n');
-fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
-fprintf(graphml_filehandle, '\t</key>\n');
-
-% The display label for edges
-% Contains properties which are printed for visualization
-fprintf(graphml_filehandle, '\t<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">\n');
-fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
-fprintf(graphml_filehandle, '\t</key>\n');
-
-fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n');
-
 %% Traverse Graph and Transcribe to GraphML File
 %simulink_to_graphml_helper(system, verbose, false, 0);
 
@@ -179,6 +141,46 @@ for i = 1:length(arcs)
     arc = arcs(i);
     arc.arcId = i;
 end
+
+%% ==== Emit GraphML Preamble =====
+% Write the GraphML XML Preamble
+fprintf(graphml_filehandle, '<?xml version="1.0" encoding="UTF-8"?>\n');
+fprintf(graphml_filehandle, '<graphml xmlns="http://graphml.graphdrawing.org/xmlns" \n');
+fprintf(graphml_filehandle, '\txmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" \n');
+fprintf(graphml_filehandle, '\txsi:schemaLocation="http://graphml.graphdrawing.org/xmlns \n');
+fprintf(graphml_filehandle, '\thttp://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">\n');
+
+%% +++++ Write GraphML Attribute Definitions +++++
+% ---- Static Definitions ----
+% Write the GraphML Attribute Definitions
+% Instance Name
+fprintf(graphml_filehandle, '\t<key id="instance_name" for="node" attr.name="instance_name" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Block Type -> Block Function
+fprintf(graphml_filehandle, '\t<key id="block_function" for="node" attr.name="block_function" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Arc Src Port (For libraries that do not support ports)
+fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Arc Dst Port (For libraries that do not support ports)
+fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% The display label for edges
+% Contains properties which are printed for visualization
+fprintf(graphml_filehandle, '\t<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+%---- Dynamic Defitions (from Dialog Properties) ----
+
 
 %% Traverse Node Hierarchy and Emit GraphML Node Entries
 %The top level is a special case.  We do not create a node entry for the
