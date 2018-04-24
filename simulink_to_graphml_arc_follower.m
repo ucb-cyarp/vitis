@@ -86,29 +86,7 @@ new_nodes = [];
 new_special_nodes = [];
 
 %====Get the simulink handle to the output port====
-block_port_handles = get_param(simulink_node, 'PortHandles');
-if iscell(block_port_handles)
-    block_port_handles = block_port_handles{1};
-end
-block_output_port_handles = block_port_handles.Outport;
-%Get the specified output port based on the number
-%TODO: Appears that the array index is the same as the port number.
-%However, this was not specified in the help page.  Do a search just to be
-%safe.
-port_handle = [];
-for i = 1:length(block_output_port_handles)
-    %Check the port number
-    port_num = get_param(block_output_port_handles(i), 'PortNumber');
-    if port_num == simulink_port_number
-        port_handle = block_output_port_handles(i);
-        break;
-    end
-end
-
-%Check for the case the port was not found
-if isempty(port_handle)
-    error(['Could not find specified simulink port']);
-end
+port_handle = getSimulinkOutputPortHandle(simulink_node, simulink_port_number);
 
 %=====Find the destinations of the given port====
 %There are a couple of ways to do this.  One is to use the PortConnectivity
@@ -154,7 +132,7 @@ dst_port_handles = get_param(out_line, 'DstPortHandle');
 %Check if the node is unconnected
 if isempty(dst_port_handles)
     %Create an arc to the "Unconnected" special node
-    unconnected_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, unconnected_master_node, 1, 'Standard'); %dst port does not matter since this is to the special node
+    unconnected_arc = GraphArc.createArc(driver_ir_node, driver_port_number, unconnected_master_node, 1, 'Standard'); %dst port does not matter since this is to the special node
     new_arcs = [new_arcs, unconnected_arc];
     
     %For loop below will have no elements to iterate over
@@ -244,7 +222,7 @@ for i = 1:length(dst_port_handles)
                 new_nodes = [new_nodes, special_input_node]; %Guarenteed to be new since there are no multidriver nets
                 new_special_nodes = [new_special_nodes, special_input_node];
                 
-                newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, special_input_node, 1, 'Standard'); %Connect the driver to the new special input node
+                newArc = GraphArc.createArc(driver_ir_node, driver_port_number, special_input_node, 1, 'Standard'); %Connect the driver to the new special input node
                 new_arcs = [new_arcs, newArc];
                 
                 %Now, recursive call on the inport_block's output port.
@@ -302,7 +280,7 @@ for i = 1:length(dst_port_handles)
             %to simulink port numbers
             outport_port_num_str = get_param(dst_block_handle, 'Port');
             outport_port_num = str2double(outport_port_num_str);
-            output_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, output_master_node, outport_port_num, 'Standard');
+            output_arc = GraphArc.createArc(driver_ir_node, driver_port_number, output_master_node, outport_port_num, 'Standard');
             new_arcs = [new_arcs, output_arc];
             
         else
@@ -326,7 +304,7 @@ for i = 1:length(dst_port_handles)
                 new_nodes = [new_nodes, special_output_node]; %Guarenteed to be new since there are no multidriver nets
                 new_special_nodes = [new_special_nodes, special_output_node];
                 
-                newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, special_output_node, 1, 'Standard'); %Connect the driver to the new special output node
+                newArc = GraphArc.createArc(driver_ir_node, driver_port_number, special_output_node, 1, 'Standard'); %Connect the driver to the new special output node
                 new_arcs = [new_arcs, newArc];
                 
                 %Recursive call on the subsystem's output port.
@@ -360,14 +338,14 @@ for i = 1:length(dst_port_handles)
         %In this case, the vis_type property of the node should be set to
         %the type of visualizer
         
-        vis_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, vis_master_node, 1, 'Standard'); %dst port does not matter since this is to the master node
+        vis_arc = GraphArc.createArc(driver_ir_node, driver_port_number, vis_master_node, 1, 'Standard'); %dst port does not matter since this is to the master node
         vis_arc.vis_type = dst_block_type;
         new_arcs = [new_arcs, vis_arc];
         
     elseif strcmp(dst_block_type, 'Terminator')
         %The dst block is a terminator
         
-        term_arc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, terminator_master_node, 1, 'Standard'); %dst port does not matter since this is to the master node
+        term_arc = GraphArc.createArc(driver_ir_node, driver_port_number, terminator_master_node, 1, 'Standard'); %dst port does not matter since this is to the master node
         new_arcs = [new_arcs, term_arc];
         
     else
@@ -387,7 +365,7 @@ for i = 1:length(dst_port_handles)
         %Add an arc to the IR node
         %Get the dst port number
         dst_port_num = get_param(dst_port_handle, 'PortNumber');
-        newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
+        newArc = GraphArc.createArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
         new_arcs = [new_arcs, newArc];
     end
 

@@ -12,6 +12,7 @@ classdef GraphNode < handle
                  % 3 = Special Input Port
                  % 4 = Special Output Port
                  % 5 = Top Level
+                 % 6 = Master
         
         simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
@@ -181,6 +182,26 @@ classdef GraphNode < handle
             subsys = obj.nodeType == 1 || obj.nodeType == 2;
         end
         
+        function master = isMaster(obj)
+            %isMaster Returns true if the node is a master node
+            master = obj.nodeType == 6;
+        end
+        
+        function special = isSpecial(obj)
+            %isMaster Returns true if the node is a special Input/Output node
+            special = obj.nodeType == 3 || obj.nodeType == 4;
+        end
+        
+        function special = isSpecialInput(obj)
+            %isSpecialInput Returns true if the node is a special Input node
+            special = obj.nodeType == 3;
+        end
+        
+        function special = isSpecialOutput(obj)
+            %isSpecialOutput Returns true if the node is a special Output node
+            special = obj.nodeType == 4;
+        end
+        
         function emitDialogParameters(obj, file, numTabs)
         %emitDialogParameters Emit dialog parameters to file
             param_names = keys(obj.dialogProperties);
@@ -190,21 +211,7 @@ classdef GraphNode < handle
                 param_val = obj.dialogProperties(param_name);
                 
                 %Convert to string if needed
-                if ischar(param_val)
-                    param_val_str = param_val;
-                elseif isnumeric(param_val)
-                    param_val_str = num2str(param_val);
-                elseif islogical(param_val)
-                    if(param_val)
-                        param_val_str = 'true';
-                    else
-                        param_val_str = 'false';
-                    end
-                else
-                    %Not a type we know how to convert
-                        param_val_str = 'Error';
-                        warning([obj.name ' parameter ' param_name ' has unknown type ... Replaced with ''Error''']);
-                end
+                param_val_str = anyToString(param_val);
                 
                 writeNTabs(file, numTabs);
                 fprintf(file, '<data key="%s">%s</data>\n', param_name, param_val_str);
@@ -267,6 +274,29 @@ classdef GraphNode < handle
                writeNTabs(file, numTabs);
                fprintf(file, '</node>\n');
            end
+        end
+        
+        function port_handle = getSpecialNodeSimulinkPortHandle(obj)
+            %getSpecialNodeSimulinkPortHandle Gets the Simulink port handle
+            %of the port block in the simulink graph associated with this
+            %special port.
+            
+            src_port_handle = get_param(obj.simulinkHandle, 'PortHandles');
+            
+            if obj.isSpecialInput()
+                port_handle = src_port_handle.Outport;
+            elseif obj.isSpecialOutput()
+                port_handle = src_port_handle.Inport;
+            else
+                %This is not a special node, throw an error
+                error('getSpecialNodeSimulinkPortHandle called on a non-special node');
+            end
+            
+            %TODO: Handle cell array case
+            if iscell(port_handle)
+                port_handle = port_handle{1};
+            end
+            
         end
         
     end
@@ -333,7 +363,19 @@ classdef GraphNode < handle
             node.simulinkHandle = simulink_inport_block; %Set the Simulink Handel to be the inport block
             node.simulinkBlockType = get_param(simulink_inport_block, 'BlockType'); %The type should be inport
             
-            %TODO: IMPLEMENT, GET Parameters from simulink
+            %---Get parameters from simulink---
+            %Get the list of parameter names
+            dialog_params = get_param(simulink_inport_block, 'DialogParameters');
+            dialog_param_names = fieldnames(dialog_params);
+
+            %Itterate through the dialog parameter names
+            for i = 1:length(dialog_param_names)
+                dialog_param_name = dialog_param_names{i};
+
+                dialog_param_value = get_param(simulink_inport_block, dialog_param_name);
+
+                node.dialogProperties(dialog_param_name) = dialog_param_value;
+            end
 
             node_created = true;
             
@@ -357,6 +399,20 @@ classdef GraphNode < handle
             node.simulinkBlockType = get_param(simulink_outport_block, 'BlockType'); %The type should be outport
             
             %TODO: IMPLEMENT, GET Parameters from simulink
+            
+            %---Get parameters from simulink---
+            %Get the list of parameter names
+            dialog_params = get_param(simulink_outport_block, 'DialogParameters');
+            dialog_param_names = fieldnames(dialog_params);
+
+            %Itterate through the dialog parameter names
+            for i = 1:length(dialog_param_names)
+                dialog_param_name = dialog_param_names{i};
+
+                dialog_param_value = get_param(simulink_outport_block, dialog_param_name);
+
+                node.dialogProperties(dialog_param_name) = dialog_param_value;
+            end
 
             node_created = true;
             

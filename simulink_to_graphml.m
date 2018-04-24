@@ -125,7 +125,7 @@ for i = 1:length(special_nodes)
         error(['Enable Driver for ' special_node.getFullSimulinkPath() ' not found!'])
     end
     
-    newArc = GraphArc.createBasicArc(en_driver_node, en_driver_port, special_node, 2, 'Enable');
+    newArc = GraphArc.createArc(en_driver_node, en_driver_port, special_node, 2, 'Enable');
     %Add the arc back to the list
     arcs = [arcs, newArc];
     
@@ -186,6 +186,32 @@ fprintf(graphml_filehandle, '\t</key>\n');
 % The display label for edges
 % Contains properties which are printed for visualization
 fprintf(graphml_filehandle, '\t<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Arc Static Properties
+%arc_datatype
+fprintf(graphml_filehandle, '\t<key id="arc_datatype" for="edge" attr.name="arc_datatype" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+%arc_complex
+fprintf(graphml_filehandle, '\t<key id="arc_complex" for="edge" attr.name="arc_complex" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+%arc_dimension
+fprintf(graphml_filehandle, '\t<key id="arc_dimension" for="edge" attr.name="arc_dimension" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+%arc_width
+fprintf(graphml_filehandle, '\t<key id="arc_width" for="edge" attr.name="arc_width" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+%arc_vis_type
+fprintf(graphml_filehandle, '\t<key id="arc_vis_type" for="edge" attr.name="arc_vis_type" attr.type="string">\n');
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 

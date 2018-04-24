@@ -57,11 +57,11 @@ classdef GraphArc < handle
             obj.simulinkSrcPortHandle = 0;
             obj.simulinkDestPortHandle = 0;
         
-            obj.datatype = "";
-            obj.complex = false;
-            obj.dimension = [1, 0];
-            obj.width = 1;
-            obj.vis_type = "";
+            obj.datatype = [];
+            obj.complex = [];
+            obj.dimension = [];
+            obj.width = [];
+            obj.vis_type = [];
         end
         
         function emitGraphml(obj, file, numTabs)
@@ -81,9 +81,52 @@ classdef GraphArc < handle
            writeNTabs(file, numTabs+1);
            fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
            
+           %Create lable with relevant information
            disp_label = sprintf('Src Port Num: %d\nDst Port Num: %d\nDst Port Type: %s', obj.srcPortNumber, obj.dstPortNumber, obj.dstPortTypeStr());
            writeNTabs(file, numTabs+1);
+           %Include static entries if applicable
+           if ~isempty(obj.datatype)
+                disp_label = [disp_label, sprintf('\nDatatype: %s', anyToString(obj.datatype))];
+           end
+           if ~isempty(obj.complex)
+                disp_label = [disp_label, sprintf('\nComplex: %s', anyToString(obj.complex))];
+           end
+           if ~isempty(obj.dimension)
+                disp_label = [disp_label, sprintf('\nDimension: %s', anyToString(obj.dimension))];
+           end
+           if ~isempty(obj.width)
+                disp_label = [disp_label, sprintf('\nWidth: %s', anyToString(obj.width))];
+           end
+           if ~isempty(obj.vis_type)
+                disp_label = [disp_label, sprintf('\nVis Type: %s', anyToString(obj.vis_type))];
+           end
            fprintf(file, '<data key="arc_disp_label">%s</data>\n', disp_label);
+           
+           %Emit Static Attributes
+           if ~isempty(obj.datatype)
+                writeNTabs(file, numTabs+1);
+                fprintf(file, '<data key="arc_datatype">%s</data>\n', anyToString(obj.datatype));
+           end
+           
+           if ~isempty(obj.complex)
+                writeNTabs(file, numTabs+1);
+                fprintf(file, '<data key="arc_complex">%s</data>\n', anyToString(obj.complex));
+           end
+           
+           if ~isempty(obj.dimension)
+                writeNTabs(file, numTabs+1);
+                fprintf(file, '<data key="arc_dimension">%s</data>\n', anyToString(obj.dimension));
+           end
+           
+           if ~isempty(obj.width)
+                writeNTabs(file, numTabs+1);
+                fprintf(file, '<data key="arc_width">%s</data>\n', anyToString(obj.width));
+           end
+           
+           if ~isempty(obj.vis_type)
+                writeNTabs(file, numTabs+1);
+                fprintf(file, '<data key="arc_vis_type">%s</data>\n', anyToString(obj.vis_type));
+           end
            
            %Close arc entry
            writeNTabs(file, numTabs);
@@ -120,7 +163,141 @@ classdef GraphArc < handle
         dst_ir_node.addIn_arc(newArc);
 
         %returns newArc
+        end
+        
+        function newArc = createArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number, dstPortType)
+        %createArc Create a GraphArc object between the src and dst node.  Adds
+        %this arc to the src node's out_arcs and to the dst node's in_arcs
+        %lists. Checks the datatype properties of both ports (unless one of
+        %the nodes is a master in which case only one port is checked).
+        %The datatype properites of the arc are set.
+        %The ir_node arguments need to be handles.
 
+        newArc = GraphArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number, dstPortType);
+        
+        %Add to nodes
+        src_ir_node.addOut_arc(newArc);
+        dst_ir_node.addIn_arc(newArc);
+        
+        %Check Datatype
+        
+        %Note, special nodes have the handle to the port and therefore can
+        %get the appopriate datatypes
+        if ~src_ir_node.isMaster() && ~dst_ir_node.isMaster()
+            %Check both port data types
+            
+            if ~src_ir_node.isSpecial()
+                src_port_handle = getSimulinkOutputPortHandle(src_ir_node.simulinkHandle, src_ir_port_number);
+            else
+                src_port_handle = src_ir_node.getSpecialNodeSimulinkPortHandle();
+            end
+                
+            if ~dst_ir_node.isSpecial()
+                dst_port_handle =  getSimulinkInputPortHandle(dst_ir_node.simulinkHandle, dst_ir_port_number);
+            else
+                %This is a special node, get the datatype from the output
+                %node
+                dst_port_handle = dst_ir_node.getSpecialNodeSimulinkPortHandle();
+            end
+            
+            src_datatype = get_param(src_port_handle, 'CompiledPortDatatype');
+            dst_datatype = get_param(dst_port_handle, 'CompiledPortDatatype');
+            
+            if ~strcmp(src_datatype, dst_datatype)
+                error(['Datatypes for ' src_ir_node.name ' port '  src_ir_port_number ' (' src_datatype ') and ' dst_ir_node.name ' port ' dst_ir_port_number ' (' dst_datatype ') do not match']); 
+            end
+            
+            src_complex = get_param(src_port_handle, 'CompiledPortComplexSignal');
+            dst_complex = get_param(dst_port_handle, 'CompiledPortComplexSignal');
+            
+            %TODO: Investigate when this may be a cell array 
+            if iscell(src_complex)
+                src_complex = src_complex{1};
+            end
+            if iscell(src_complex)
+                dst_complex = dst_complex{1};
+            end
+            
+            if src_complex ~= dst_complex
+                error(['Complexity of ' src_ir_node.name ' port '  src_ir_port_number ' (' num2str(src_complex) ') and ' dst_ir_node.name ' port ' dst_ir_port_number ' (' num2str(dst_complex) ') do not match']); 
+            end
+            
+            src_dimensions = get_param(src_port_handle, 'CompiledPortDimensions');
+            dst_dimensions = get_param(dst_port_handle, 'CompiledPortDimensions');
+            
+            if src_dimensions ~= dst_dimensions
+                error(['Dimensions of ' src_ir_node.name ' port '  src_ir_port_number ' (' num2str(src_dimensions) ') and ' dst_ir_node.name ' port ' dst_ir_port_number ' (' num2str(dst_dimensions) ') do not match']); 
+            end
+            
+            src_width = get_param(src_port_handle, 'CompiledPortWidth');
+            dst_width = get_param(dst_port_handle, 'CompiledPortWidth');
+            
+            if src_width ~= dst_width
+                error(['Width of ' src_ir_node.name ' port '  src_ir_port_number ' (' num2str(src_width) ') and ' dst_ir_node.name ' port ' dst_ir_port_number ' (' num2str(dst_width) ') do not match']); 
+            end
+            
+            %Set properties in arc
+            newArc.datatype = src_datatype;
+            newArc.complex = src_complex;
+            newArc.dimension = src_dimensions;
+            newArc.width = src_width;
+            
+        elseif ~src_ir_node.isMaster() && dst_ir_node.isMaster()
+            %Pull directly from src port.  Do not check
+            
+            if ~src_ir_node.isSpecial()
+                src_port_handle = getSimulinkOutputPortHandle(src_ir_node.simulinkHandle, src_ir_port_number);
+            else
+                src_port_handle = src_ir_node.getSpecialNodeSimulinkPortHandle();
+            end
+            
+            src_datatype = get_param(src_port_handle, 'CompiledPortDatatype');
+            src_complex = get_param(src_port_handle, 'CompiledPortComplexSignal');
+            src_dimensions = get_param(src_port_handle, 'CompiledPortDimensions');
+            src_width = get_param(src_port_handle, 'CompiledPortWidth');
+            
+            %Set properties in arc
+            newArc.datatype = src_datatype;
+            newArc.complex = src_complex;
+            newArc.dimension = src_dimensions;
+            newArc.width = src_width;
+            
+        elseif src_ir_node.isMaster() && ~dst_ir_node.isMaster()
+            %Pull directly from dst port.  Do not check
+
+            if ~dst_ir_node.isSpecial()
+                dst_port_handle =  getSimulinkInputPortHandle(dst_ir_node.simulinkHandle, dst_ir_port_number);
+            else
+                %This is a special node, get the datatype from the output
+                %node
+                dst_port_handle = dst_ir_node.getSpecialNodeSimulinkPortHandle();
+            end
+            
+            dst_datatype = get_param(dst_port_handle, 'CompiledPortDatatype');
+            dst_complex = get_param(dst_port_handle, 'CompiledPortComplexSignal');
+            dst_dimensions = get_param(dst_port_handle, 'CompiledPortDimensions');
+            dst_width = get_param(dst_port_handle, 'CompiledPortWidth');
+            
+            %Set properties in arc
+            newArc.datatype = dst_datatype;
+            newArc.complex = dst_complex;
+            newArc.dimension = dst_dimensions;
+            newArc.width = dst_width;
+            
+        else
+            %Both nodes are masters
+            %Issue a warning and set datatypes to []
+            
+            warning(['Both ' src_ir_node.name ' and ' dst_ir_node.name ' are master nodes ... datatype information unavailable for arc'])
+            
+            newArc.datatype = [];
+            newArc.complex = [];
+            newArc.dimension = [];
+            newArc.width = [];
+
+        end
+
+        %returns newArc
         end
     end
 end
