@@ -244,6 +244,9 @@ for i = 1:length(dst_port_handles)
                 new_nodes = [new_nodes, special_input_node]; %Guarenteed to be new since there are no multidriver nets
                 new_special_nodes = [new_special_nodes, special_input_node];
                 
+                newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, special_input_node, 1, 'Standard'); %Connect the driver to the new special input node
+                new_arcs = [new_arcs, newArc];
+                
                 %Now, recursive call on the inport_block's output port.
                 %The driver is changed to the new Special Input Port,
                 %Output port 1.  The system IR node is now the subsystem
@@ -323,6 +326,9 @@ for i = 1:length(dst_port_handles)
                 new_nodes = [new_nodes, special_output_node]; %Guarenteed to be new since there are no multidriver nets
                 new_special_nodes = [new_special_nodes, special_output_node];
                 
+                newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, special_output_node, 1, 'Standard'); %Connect the driver to the new special output node
+                new_arcs = [new_arcs, newArc];
+                
                 %Recursive call on the subsystem's output port.
                 %The driver is changed to the new Special Output Port,
                 %Output port 1.  The system IR node is now the parent
@@ -382,7 +388,6 @@ for i = 1:length(dst_port_handles)
         %Get the dst port number
         dst_port_num = get_param(dst_port_handle, 'PortNumber');
         newArc = GraphArc.createBasicArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
-        
         new_arcs = [new_arcs, newArc];
     end
 
