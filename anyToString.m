@@ -15,5 +15,8 @@ function param_val_str = anyToString(param_val)
             param_val_str = 'Error';
             warning([obj.name ' parameter ' param_name ' has unknown type ... Replaced with ''Error''']);
     end
+    
+    %XML Escape the entry
+    param_val_str = xmlEscape(param_val_str);
 end
 
