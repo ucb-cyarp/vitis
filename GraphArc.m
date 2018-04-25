@@ -299,6 +299,40 @@ classdef GraphArc < handle
 
         %returns newArc
         end
+        
+        function newArc = createEnableArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number)
+        %createBasicArc Create a GraphArc object between the driver of a
+        %special Input/Output ports enable port to that special node.  In
+        %this case, the datatype is taken from the src (driver) alone.
+        %this arc to the src node's out_arcs and to the dst node's in_arcs lists.
+        %The ir_node arguments need to be handles.
+
+        newArc = GraphArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number, 'Enable');
+
+        src_ir_node.addOut_arc(newArc);
+        dst_ir_node.addIn_arc(newArc);
+        
+        %Pull directly from src port.  Do not check
+
+        if ~src_ir_node.isSpecial()
+            src_port_handle = getSimulinkOutputPortHandle(src_ir_node.simulinkHandle, src_ir_port_number);
+        else
+            src_port_handle = src_ir_node.getSpecialNodeSimulinkPortHandle();
+        end
+
+        src_datatype = get_param(src_port_handle, 'CompiledPortDatatype');
+        src_complex = get_param(src_port_handle, 'CompiledPortComplexSignal');
+        src_dimensions = get_param(src_port_handle, 'CompiledPortDimensions');
+        src_width = get_param(src_port_handle, 'CompiledPortWidth');
+
+        %Set properties in arc
+        newArc.datatype = src_datatype;
+        newArc.complex = src_complex;
+        newArc.dimension = src_dimensions;
+            newArc.width = src_width;
+
+        %returns newArc
+        end
     end
 end
 

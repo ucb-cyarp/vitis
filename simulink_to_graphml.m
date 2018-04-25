@@ -102,9 +102,6 @@ nodes = [nodes, new_nodes_recur];
 arcs = [arcs, new_arcs_recur];
 special_nodes = [special_nodes, new_special_nodes_recur];
 
-%% Done traversing simulink system - terminate compile mode
-top_system_func([], [], [], 'term');
-
 %% Connect Special Input/Output Ports to Enable Drivers
 
 %Interate through the special nodes
@@ -125,11 +122,16 @@ for i = 1:length(special_nodes)
         error(['Enable Driver for ' special_node.getFullSimulinkPath() ' not found!'])
     end
     
-    newArc = GraphArc.createArc(en_driver_node, en_driver_port, special_node, 2, 'Enable');
+    newArc = GraphArc.createEnableArc(en_driver_node, en_driver_port, special_node, 2);
     %Add the arc back to the list
     arcs = [arcs, newArc];
     
 end
+
+%% Done traversing simulink system - terminate compile mode
+%Need to do this after enable arc creation so that datatypes can be
+%captured
+top_system_func([], [], [], 'term');
 
 %% Assign Unique Ids To each Node and Arc
 for i = 1:length(nodes)
