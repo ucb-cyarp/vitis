@@ -225,6 +225,8 @@ for i = 1:length(node_param_names)
     fprintf(graphml_filehandle, '\t</key>\n');
 end
 
+%% Start Graph Entry
+fprintf(graphml_filehandle, '\t<graph id="G" edgedefault="directed">\n'); 
 
 %% Traverse Node Hierarchy and Emit GraphML Node Entries
 %The top level is a special case.  We do not create a node entry for the
