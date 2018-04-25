@@ -42,7 +42,7 @@ for i = 1:length(children)
         
         child_commented = get_param(child_handle, 'Commented');
         
-        if ~strcmp(child_commented, 'off')
+        if strcmp(child_commented, 'off')
             %Only traverse if not commented out
         
             if strcmp(child_type, 'block')
