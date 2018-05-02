@@ -13,6 +13,14 @@ classdef GraphArc < handle
                      % 1 = Enable (the enable signal)
                      % 2 = Reset (the reset signal) -- TODO:
                      % Implement this.  Only handle enable for now
+                     
+        %This is used when an arc passes through a flattened node.  This is
+        %used to preserve the origional semantics in case a pass needs to
+        %throw out the flattened implementation.
+        intermediateNode
+        intermediatePortNumber
+        intermediatePortType
+        intermediatePortDirection
         
         simulinkSrcPortHandle
         simulinkDestPortHandle
@@ -42,6 +50,11 @@ classdef GraphArc < handle
             obj.srcPortNumber = srcPortNumber;
             obj.dstNode = dstNode;
             obj.dstPortNumber = dstPortNumber;
+            
+            obj.intermediateNode = [];
+            obj.intermediatePortNumber = [];
+            obj.intermediatePortType = [];
+            obj.intermediatePortDirection = [];
             
             %Set Type
             if strcmp(dstPortType, 'Standard')
@@ -81,10 +94,36 @@ classdef GraphArc < handle
            writeNTabs(file, numTabs+1);
            fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
            
+           %Emit Intermediates
+           if ~isempty(obj.intermediateNode)
+               fprintf(file, '<data key="arc_intermediate_node">%s</data>\n', obj.intermediateNode.getFullIDPath('::', 'n%d', false));
+           end
+           if ~isempty(obj.intermediatePortNumber)
+               fprintf(file, '<data key="arc_intermediate_port">%d</data>\n', obj.intermediatePortNumber);
+           end
+           if ~isempty(obj.intermediatePortType)
+               fprintf(file, '<data key="arc_intermediate_port_type">%s</data>\n', obj.intermediatePortType);
+           end
+           if ~isempty(obj.intermediatePortDirection)
+               fprintf(file, '<data key="arc_intermediate_direction">%s</data>\n', obj.intermediatePortDirection);
+           end
+           
            %Create lable with relevant information
            disp_label = sprintf('Src Port Num: %d\nDst Port Num: %d\nDst Port Type: %s', obj.srcPortNumber, obj.dstPortNumber, obj.dstPortTypeStr());
            writeNTabs(file, numTabs+1);
            %Include static entries if applicable
+           if ~isempty(obj.intermediateNode)
+               disp_label = [disp_label, sprintf('\nIntermediate Node: %s', anyToString(obj.intermediateNode.getFullIDPath('::', 'n%d', false)))];
+           end
+           if ~isempty(obj.intermediatePortNumber)
+               disp_label = [disp_label, sprintf('\nIntermediate Port Number: %s', anyToString(obj.intermediatePortNumber))];
+           end
+           if ~isempty(obj.intermediatePortType)
+               disp_label = [disp_label, sprintf('\nIntermediate Port Type: %s', anyToString(obj.intermediatePortType))];
+           end
+           if ~isempty(obj.intermediatePortDirection)
+               disp_label = [disp_label, sprintf('\nIntermediate Port Direction: %s', anyToString(obj.intermediatePortDirection))];
+           end
            if ~isempty(obj.datatype)
                 disp_label = [disp_label, sprintf('\nDatatype: %s', anyToString(obj.datatype))];
            end

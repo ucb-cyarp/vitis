@@ -185,6 +185,26 @@ fprintf(graphml_filehandle, '\t<key id="arc_dst_port" for="edge" attr.name="arc_
 fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
+% Arc Intermediate Node (for flattened nodes)
+fprintf(graphml_filehandle, '\t<key id="arc_intermediate_node" for="edge" attr.name="arc_intermediate_node" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Arc Intermediate Port (For libraries that do not support ports)
+fprintf(graphml_filehandle, '\t<key id="arc_intermediate_port" for="edge" attr.name="arc_intermediate_port" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Arc Intermediate Port Type (for flattened nodes)
+fprintf(graphml_filehandle, '\t<key id="arc_intermediate_port_type" for="edge" attr.name="arc_intermediate_port_type" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Arc Intermediate Port Direction (for flattened nodes)
+fprintf(graphml_filehandle, '\t<key id="arc_intermediate_direction" for="edge" attr.name="arc_intermediate_direction" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
 % The display label for edges
 % Contains properties which are printed for visualization
 fprintf(graphml_filehandle, '\t<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">\n');

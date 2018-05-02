@@ -28,6 +28,8 @@ classdef GraphNode < handle
         out_arcs %A cell array of outward arcs (handles to GraphArc objects)
         in_arcs %A cell array of input arcs
         
+        flattened % flag to indicate that the node has been flattened
+        
         en_in_src_node %A reference to the node driving the enable line of the susbsytem if the node type is "Enabled Subsystem" or the gating line if the node is a "Special Port"
         en_in_src_port %A reference to the port of the node driving the enable line of the susbsytem if the node type is "Enabled Subsystem" or the gating line if the node is a "Special Port"
                        %Will not be populated for "Special Ports" until the
@@ -90,6 +92,7 @@ classdef GraphNode < handle
             obj.outputPorts = containers.Map();
         
             obj.nodeId  = 0; 
+            obj.flattened = false;
         end
         
         function addChild(obj, child)
