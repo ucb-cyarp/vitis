@@ -186,14 +186,20 @@ classdef SimulinkType
             end
         end
         
-        function obj = MostConservative(typeA, typeB)
-            %MostConservative Construct a SimulinkFixedType object
+        function obj = ConservativeType(typeA, typeB)
+            %ConservativeType Construct a SimulinkFixedType object
             %which can fit all the values specified by typeA and typeB
-            %without loss of precision.
+            %without loss of precision (unless floating point).
             
             %If either of the types are floating point, the result is
             %floating point.  If both types are floating point, take the
             %larger bit width type
+            
+            %It should be noted that, while matlab states in its
+            %documentation that doubles are promoted to fixed point rather
+            %than the other way around (as would occur in C), Simulink
+            %appears to follow the C like convention of converting to
+            %floating point.
             
             obj = SimulinkType();
             
@@ -252,6 +258,57 @@ classdef SimulinkType
                 obj.signed = typeA.signed || typeB.signed; %If either typeA or typeB are signed, the resulting type is also signed
             end
         end
+    
+        function obj = bitGrowAdd(typeA, typeB, numAdds, mode)
+            %bitGrowAdd Logic for bit growth in adder
+
+            %Currently, the only mode supported is "typical".  This is a conservative
+            %form of bit growth for integer and fixed point. It should be noted that 
+            %Simulink/Matlab do not always use conservative bit growth.  When the 
+            %hardware target is set to Intel, there are actually some cases of bit 
+            %shrinking. 
+
+            %"typical" first selects the conservative type which fits
+            %both typeA and typeB
+            %Assuming fixed point types, "typical" grows the number of integer bits
+            %(which is assumed to be >- 0) by ceil(log2(Nadds))
+            %https://www.mathworks.com/help/fixedpoint/examples/perform-fixed-point-arithmetic.html
+
+            %"typical" does not grow floating point types
+            
+            if ~strcmp(mode, 'typical')
+                error('Only ''typical'' bit growth supported');
+            end
+
+            %Get the conservative type that fits both typeA and typeB
+            %This handles promotion to floating point and signed if
+            %nessisary.
+            obj = ConservativeType(typeA, typeB);
+            
+            if ~obj.floating
+                %this is an integer or fixed point type, grow bits
+                
+                %growing the number of integer bits is equivalent to
+                %growing the number of bits and leaving the number of
+                %fractional bits unchanged
+                
+                obj.bits = obj.bits + ceil(log2(numAdds));
+            end
+            %Else, this is floating point, do not grow
+        end
+    end
+    
+    function obj = bitGrowMult(typeA, typeB, mode)
+        
+        % Note that simulink does not appear to promote the multiplication
+        % of 2 singles to a double.  The product of 2 singles remains a
+        % single.
+        
+        % Also, while 
+        
+    
+    
+    
     end
 end
 

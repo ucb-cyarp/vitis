@@ -34,6 +34,10 @@ classdef GraphArc < handle
         %Properties for connection to visualizer
         vis_type
         
+        %Properties used to bundle arcs in busses
+        bus_expanded
+        bus_neighbors
+        
         %ArcId
         arcId
         
@@ -75,6 +79,9 @@ classdef GraphArc < handle
             obj.dimension = [];
             obj.width = [];
             obj.vis_type = [];
+            
+            obj.bus_expanded = false;
+            obj.bus_neighbors = [];
         end
         
         function emitGraphml(obj, file, numTabs)
