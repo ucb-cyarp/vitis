@@ -17,10 +17,10 @@ classdef GraphArc < handle
         %This is used when an arc passes through a flattened node.  This is
         %used to preserve the origional semantics in case a pass needs to
         %throw out the flattened implementation.
-        intermediateNode
-        intermediatePortNumber
-        intermediatePortType
-        intermediatePortDirection
+        intermediateNodes
+        intermediatePortNumbers
+        intermediatePortTypes
+        intermediatePortDirections 
         
         simulinkSrcPortHandle
         simulinkDestPortHandle
@@ -33,10 +33,6 @@ classdef GraphArc < handle
         
         %Properties for connection to visualizer
         vis_type
-        
-        %Properties used to bundle arcs in busses
-        bus_expanded
-        bus_neighbors
         
         %ArcId
         arcId
@@ -55,10 +51,10 @@ classdef GraphArc < handle
             obj.dstNode = dstNode;
             obj.dstPortNumber = dstPortNumber;
             
-            obj.intermediateNode = [];
-            obj.intermediatePortNumber = [];
-            obj.intermediatePortType = [];
-            obj.intermediatePortDirection = [];
+            obj.intermediateNodes = {};
+            obj.intermediatePortNumbers = {};
+            obj.intermediatePortTypes = {};
+            obj.intermediatePortDirections = {};
             
             %Set Type
             if strcmp(dstPortType, 'Standard')
@@ -79,9 +75,6 @@ classdef GraphArc < handle
             obj.dimension = [];
             obj.width = [];
             obj.vis_type = [];
-            
-            obj.bus_expanded = false;
-            obj.bus_neighbors = [];
         end
         
         function emitGraphml(obj, file, numTabs)
@@ -102,17 +95,49 @@ classdef GraphArc < handle
            fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
            
            %Emit Intermediates
-           if ~isempty(obj.intermediateNode)
-               fprintf(file, '<data key="arc_intermediate_node">%s</data>\n', obj.intermediateNode.getFullIDPath('::', 'n%d', false));
+           if ~isempty(obj.intermediateNodes)
+               intermediateNode = obj.intermediateNodes{1};
+               str = '[' + intermediateNode.getFullIDPath('::', 'n%d', false);
+
+               for i = 2:length(obj.intermediateNodes)
+                   intermediateNode = obj.intermediateNodes{i};
+                   str = str + ', ' + intermediateNode.getFullIDPath('::', 'n%d', false);
+               end
+               str = str + ']';
+               fprintf(file, '<data key="arc_intermediate_nodes">%s</data>\n', str);
            end
            if ~isempty(obj.intermediatePortNumber)
-               fprintf(file, '<data key="arc_intermediate_port">%d</data>\n', obj.intermediatePortNumber);
+               intermediatePortNumber = obj.intermediatePortNumbers{1};
+               str = '[' + num2str(intermediatePortNumber);
+
+               for i = 2:length(obj.intermediatePortNumbers)
+                   intermediatePortNumber = obj.intermediatePortNumbers{i};
+                   str = str + ', ' + num2str(intermediatePortNumber);
+               end
+               str = str + ']';
+               fprintf(file, '<data key="arc_intermediate_ports">%s</data>\n', str);
            end
-           if ~isempty(obj.intermediatePortType)
-               fprintf(file, '<data key="arc_intermediate_port_type">%s</data>\n', obj.intermediatePortType);
+           if ~isempty(obj.intermediatePortTypes)
+               intermediatePortType = obj.intermediatePortTypes{1};
+               str = '[' + intermediatePortType;
+
+               for i = 2:length(obj.intermediatePortTypes)
+                   intermediatePortType = obj.intermediatePortTypes{i};
+                   str = str + ', ' + intermediatePortType;
+               end
+               str = str + ']';
+               fprintf(file, '<data key="arc_intermediate_port_types">%s</data>\n', str);
            end
            if ~isempty(obj.intermediatePortDirection)
-               fprintf(file, '<data key="arc_intermediate_direction">%s</data>\n', obj.intermediatePortDirection);
+               intermediatePortDirection = obj.intermediatePortDirections{1};
+               str = '[' + intermediatePortDirection;
+
+               for i = 2:length(obj.intermediatePortDirections)
+                   intermediatePortDirection = obj.intermediatePortDirections{i};
+                   str = str + ', ' + intermediatePortDirection;
+               end
+               str = str + ']';
+               fprintf(file, '<data key="arc_intermediate_directions">%s</data>\n', str);
            end
            
            %Create lable with relevant information

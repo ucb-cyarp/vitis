@@ -297,63 +297,63 @@ classdef SimulinkType
             %Else, this is floating point, do not grow
         end
     
-    function obj = bitGrowMult(typeA, typeB, mode)
-        
-        % Note that simulink does not appear to promote the multiplication
-        % of 2 singles to a double.  The product of 2 singles remains a
-        % single.
-        
-        %Simulink will promote a single to a double if a single and double
-        %are both used as arguments.
-        
-        % It is worth noting that fixed point multiplication, preserving
-        % precision requires the word width of the result to equal the sum
-        % of the word widths of the operands.  Likewise, the fractional
-        % width must be the sum of the fractional widths of the operands.
-        % This is detailed in the Matlab documentation
-        % https://www.mathworks.com/help/fixedpoint/examples/perform-fixed-point-arithmetic.html
-        
-        % The actual bit growth experienced depends on the mode Simulink is
-        % operating in.  If the target is set to FPGA/ASIC, full precision
-        % is usually preserved.  If a CPU is set as the target, matlab
-        % tries to keep the word widths standard CPU widths such as 8, 16,
-        % 32, or 64
-        
-        if ~strcmp(mode, 'typical')
-            error('Only ''typical'' bit growth supported');
-        end
-        
-        %"typical" will grow the bit widths according to the ASIC target.
-        %Promotion to floating point will occur if one of the operands is a
-        %floating point.
-        
-        if typeA.floating || typeB.floating
-            %One or both of the operands is a floating point number.
-            %Find the conservative type which will be the floating point
-            %number.  If both are floating point numbers, it will return
-            %the type of the largest width.
-            obj = SimulinkType.ConservativeType(typeA, typeB);
-        else
-            %The operands are integers or fixed point numbers.
-            
-            %The new width will be the sum of the widths of the 2 operands
-            %and the new fractional width will be the sum of the fractional
-            %width of each of the 2 operands
-            new_bits = typeA.bits + typeB.bits;
-            new_fractionalBits = typeA.fractionalBits + typeB.fractionalBits;
-            
-            %Now, need to check if one of the operands needed to be
-            %promoted to signed, adding one more bit
-            if (typeA.signed && ~typeB.signed) || (~typeA.signed && typeB.signed) % XOR
-                new_bits = new_bits + 1;
+        function obj = bitGrowMult(typeA, typeB, mode)
+
+            % Note that simulink does not appear to promote the multiplication
+            % of 2 singles to a double.  The product of 2 singles remains a
+            % single.
+
+            %Simulink will promote a single to a double if a single and double
+            %are both used as arguments.
+
+            % It is worth noting that fixed point multiplication, preserving
+            % precision requires the word width of the result to equal the sum
+            % of the word widths of the operands.  Likewise, the fractional
+            % width must be the sum of the fractional widths of the operands.
+            % This is detailed in the Matlab documentation
+            % https://www.mathworks.com/help/fixedpoint/examples/perform-fixed-point-arithmetic.html
+
+            % The actual bit growth experienced depends on the mode Simulink is
+            % operating in.  If the target is set to FPGA/ASIC, full precision
+            % is usually preserved.  If a CPU is set as the target, matlab
+            % tries to keep the word widths standard CPU widths such as 8, 16,
+            % 32, or 64
+
+            if ~strcmp(mode, 'typical')
+                error('Only ''typical'' bit growth supported');
             end
-            
-            obj = SimulinkType();
-            obj.bits = new_bits;
-            obj.fractionalBits = new_fractionalBits;
-            obj.signed = (typeA.signed || typeB.signed); %The result is signed if either of the operands are signed
-            obj.floating = false;
+
+            %"typical" will grow the bit widths according to the ASIC target.
+            %Promotion to floating point will occur if one of the operands is a
+            %floating point.
+
+            if typeA.floating || typeB.floating
+                %One or both of the operands is a floating point number.
+                %Find the conservative type which will be the floating point
+                %number.  If both are floating point numbers, it will return
+                %the type of the largest width.
+                obj = SimulinkType.ConservativeType(typeA, typeB);
+            else
+                %The operands are integers or fixed point numbers.
+
+                %The new width will be the sum of the widths of the 2 operands
+                %and the new fractional width will be the sum of the fractional
+                %width of each of the 2 operands
+                new_bits = typeA.bits + typeB.bits;
+                new_fractionalBits = typeA.fractionalBits + typeB.fractionalBits;
+
+                %Now, need to check if one of the operands needed to be
+                %promoted to signed, adding one more bit
+                if (typeA.signed && ~typeB.signed) || (~typeA.signed && typeB.signed) % XOR
+                    new_bits = new_bits + 1;
+                end
+
+                obj = SimulinkType();
+                obj.bits = new_bits;
+                obj.fractionalBits = new_fractionalBits;
+                obj.signed = (typeA.signed || typeB.signed); %The result is signed if either of the operands are signed
+                obj.floating = false;
+            end
         end
     end
 end
-
