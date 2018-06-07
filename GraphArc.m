@@ -157,17 +157,17 @@ classdef GraphArc < handle
            disp_label = sprintf('Src Port Num: %d\nDst Port Num: %d\nDst Port Type: %s', obj.srcPortNumber, obj.dstPortNumber, obj.dstPortTypeStr());
            writeNTabs(file, numTabs+1);
            %Include static entries if applicable
-           if ~isempty(obj.intermediateNode)
-               disp_label = [disp_label, sprintf('\nIntermediate Node: %s', anyToString(obj.intermediateNode.getFullIDPath('::', 'n%d', false)))];
+           if ~isempty(obj.intermediateNodes)
+               disp_label = [disp_label, sprintf('\nIntermediate Node: %s', anyToString(obj.intermediateNodes.getFullIDPath('::', 'n%d', false)))];
            end
-           if ~isempty(obj.intermediatePortNumber)
-               disp_label = [disp_label, sprintf('\nIntermediate Port Number: %s', anyToString(obj.intermediatePortNumber))];
+           if ~isempty(obj.intermediatePortNumbers)
+               disp_label = [disp_label, sprintf('\nIntermediate Port Number: %s', anyToString(obj.intermediatePortNumbers))];
            end
-           if ~isempty(obj.intermediatePortType)
-               disp_label = [disp_label, sprintf('\nIntermediate Port Type: %s', anyToString(obj.intermediatePortType))];
+           if ~isempty(obj.intermediatePortTypes)
+               disp_label = [disp_label, sprintf('\nIntermediate Port Type: %s', anyToString(obj.intermediatePortTypes))];
            end
-           if ~isempty(obj.intermediatePortDirection)
-               disp_label = [disp_label, sprintf('\nIntermediate Port Direction: %s', anyToString(obj.intermediatePortDirection))];
+           if ~isempty(obj.intermediatePortDirections)
+               disp_label = [disp_label, sprintf('\nIntermediate Port Direction: %s', anyToString(obj.intermediatePortDirections))];
            end
            if ~isempty(obj.datatype)
                 disp_label = [disp_label, sprintf('\nDatatype: %s', anyToString(obj.datatype))];

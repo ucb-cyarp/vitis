@@ -44,8 +44,6 @@ top_system_func([], [], [], 'compile');
 top_level_ir_node = GraphNode(system, 'Top Level', []);
 top_level_ir_node.nodeId = 0;
 
-PopulateTopLevelNodeWorkspaceVars(top_level_ir_node);
-
 %% Find Inports Within System
 input_master_node = GraphNode('Input Master', 'Master', top_level_ir_node);
 input_master_node.nodeId = 1;
@@ -58,6 +56,9 @@ unconnected_master_node.nodeId = 4;
 terminator_master_node = GraphNode('Terminator Master', 'Master', top_level_ir_node);
 terminator_master_node.nodeId = 5;
 
+%Put workspace vars in terminator master.  Need a node which is actually in
+%the graph.  The top level node is actually not emitted.
+PopulateTopLevelNodeWorkspaceVars(terminator_master_node);
 
 %% Create the lists to keep track of nodes and arcs as well as the node map
 nodes = [];
@@ -152,14 +153,14 @@ for i = 1:length(nodes)
     
     mask_names = keys(node.maskVariables);
     for j = 1:length(mask_names)
-        mask_name = mask_names(j);
+        mask_name = mask_names{j};
         next_ind = length(param_names)+1;
         param_names{next_ind} = ['MaskVariable.' mask_name];
     end
     
-    param_numeric_names = [param_names, keys(node.dialogPropertiesNumeric)];
+    param_numeric_names = keys(node.dialogPropertiesNumeric);
     for j = 1:length(param_numeric_names)
-        param_numeric_name = param_numeric_names(j);
+        param_numeric_name = param_numeric_names{j};
         next_ind = length(param_names)+1;
         param_names{next_ind} = ['Numeric.' param_numeric_name];
     end

@@ -33,11 +33,11 @@ end
 %Check if this is a mask
 params = get_param(simulink_block_handle, 'ObjectParameters');
 if isfield(params, 'Mask')
-    mask_param = get_param(hier, 'Mask');
+    mask_param = get_param(simulink_block_handle, 'Mask');
     
     if ~strcmp(mask_param, 'off')
         %This is a mask so dump the variables into the map
-        mask_obj = Simulink.Mask.get(hier);
+        mask_obj = Simulink.Mask.get(simulink_block_handle);
         mask_vars = mask_obj.getWorkspaceVariables;
         
         for i = 1:length(mask_vars)
