@@ -37,6 +37,16 @@ function [outputArg1,outputArg2] = ExpandBlocks(inputArg1,inputArg2)
 %arrays.  When a block is expanded, the fan-in/fan-out arcs that are
 %created copy the intermediate node entries
 
+%NOTE: The Expand operations will currently only use the numerically parsed
+%versions of parameters.  While symbolic versions of these expansions are
+%theroetically possible, it is not as simple as creating a parser for [, , , ]
+%styled arrays.  This is because parameters can use the full suite of m
+%code.  For example, 0.5.*ones(1, varname) is a valid expression.  Properly
+%parsing this symbolically requieres implementing the ones function.  List
+%creation of the form 1:3 is also allowed.  To avoid re-implementing the m
+%lanaguage (at least to start), only the nuermcially parsed versions of 
+%parameters will be used.
+
 %---- Bus/Vector Expansion ----
 %When blocks are expanded, especially ones which handle vector operations,
 %the input or output busses should also be split into seperate wires.

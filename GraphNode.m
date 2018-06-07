@@ -18,6 +18,8 @@ classdef GraphNode < handle
         simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
         dialogProperties %A map of dialog Properties extracted from simulink
+        maskVariables %Variables defined by a mask if it is present at this block
+        dialogPropertiesNumeric %Select dialogProperties evaluated to their numeric equivalents
         
         parent %A reference to the parent node object (in the hierarchy)
                %Ie, a reference to the subsystem the node is directly
@@ -85,6 +87,8 @@ classdef GraphNode < handle
             obj.simulinkBlockType = "";
             obj.simulinkHandle = 0;
             obj.dialogProperties = containers.Map('KeyType','char','ValueType','any');
+            obj.maskVariables = containers.Map('KeyType','char','ValueType','any');
+            obj.dialogPropertiesNumeric = containers.Map('KeyType','char','ValueType','any');
             obj.children = [];
             obj.out_arcs = [];
             obj.in_arcs = [];
@@ -209,7 +213,7 @@ classdef GraphNode < handle
         end
         
         function emitDialogParameters(obj, file, numTabs)
-        %emitDialogParameters Emit dialog parameters to file
+        %emitDialogParameters Emit dialog parameters, mask variables, and evaluated parameters to file
             param_names = keys(obj.dialogProperties);
             for i = 1:length(param_names)
                 param_name = param_names{i};
@@ -221,8 +225,36 @@ classdef GraphNode < handle
                 
                 writeNTabs(file, numTabs);
                 fprintf(file, '<data key="%s">%s</data>\n', param_name, param_val_str);
-                
             end
+            
+            %Emit mask variables
+            param_names = keys(obj.maskVariables);
+            for i = 1:length(param_names)
+                param_name = param_names{i};
+                
+                param_val = obj.maskVariables(param_name);
+                
+                %Convert to string if needed
+                param_val_str = anyToString(param_val);
+                
+                writeNTabs(file, numTabs);
+                fprintf(file, '<data key="%s">%s</data>\n', ['MaskVariables.' param_name], param_val_str);
+            end
+            
+            %Emit numeric parameters
+            param_names = keys(obj.dialogPropertiesNumeric);
+            for i = 1:length(param_names)
+                param_name = param_names{i};
+                
+                param_val = obj.dialogPropertiesNumeric(param_name);
+                
+                %Convert to string if needed
+                param_val_str = anyToString(param_val);
+                
+                writeNTabs(file, numTabs);
+                fprintf(file, '<data key="%s">%s</data>\n', ['Numeric.' param_name], param_val_str);
+            end
+            
         end
         
         function emitSelfAndChildrenGraphml(obj, file, numTabs)
@@ -330,22 +362,7 @@ classdef GraphNode < handle
                 node_handle_map(simulink_block_handle) = node; %Add to map
                 
                 %Set Block Properties
-                node.simulinkHandle = simulink_block_handle;
-                node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
-                
-                %---Get parameters from simulink---
-                %Get the list of parameter names
-                dialog_params = get_param(simulink_block_handle, 'DialogParameters');
-                dialog_param_names = fieldnames(dialog_params);
-                
-                %Itterate through the dialog parameter names
-                for i = 1:length(dialog_param_names)
-                    dialog_param_name = dialog_param_names{i};
-                    
-                    dialog_param_value = get_param(simulink_block_handle, dialog_param_name);
-                    
-                    node.dialogProperties(dialog_param_name) = dialog_param_value;
-                end
+                PopulateNodeParametersFromSimulink(node, simulink_block_handle);
                 
                 node_created = true;
             end
@@ -367,21 +384,9 @@ classdef GraphNode < handle
             node_handle_map(simulink_inport_block) = node; %Add to map
             
             node.simulinkHandle = simulink_inport_block; %Set the Simulink Handel to be the inport block
-            node.simulinkBlockType = get_param(simulink_inport_block, 'BlockType'); %The type should be inport
-            
+
             %---Get parameters from simulink---
-            %Get the list of parameter names
-            dialog_params = get_param(simulink_inport_block, 'DialogParameters');
-            dialog_param_names = fieldnames(dialog_params);
-
-            %Itterate through the dialog parameter names
-            for i = 1:length(dialog_param_names)
-                dialog_param_name = dialog_param_names{i};
-
-                dialog_param_value = get_param(simulink_inport_block, dialog_param_name);
-
-                node.dialogProperties(dialog_param_name) = dialog_param_value;
-            end
+            PopulateNodeParametersFromSimulink(node, simulink_inport_block);
 
             node_created = true;
             
@@ -404,21 +409,8 @@ classdef GraphNode < handle
             node.simulinkHandle = simulink_outport_block; %Set the Simulink Handel to be the outport block
             node.simulinkBlockType = get_param(simulink_outport_block, 'BlockType'); %The type should be outport
             
-            %TODO: IMPLEMENT, GET Parameters from simulink
-            
             %---Get parameters from simulink---
-            %Get the list of parameter names
-            dialog_params = get_param(simulink_outport_block, 'DialogParameters');
-            dialog_param_names = fieldnames(dialog_params);
-
-            %Itterate through the dialog parameter names
-            for i = 1:length(dialog_param_names)
-                dialog_param_name = dialog_param_names{i};
-
-                dialog_param_value = get_param(simulink_outport_block, dialog_param_name);
-
-                node.dialogProperties(dialog_param_name) = dialog_param_value;
-            end
+            PopulateNodeParametersFromSimulink(node, simulink_outport_block);
 
             node_created = true;
             

@@ -44,6 +44,8 @@ top_system_func([], [], [], 'compile');
 top_level_ir_node = GraphNode(system, 'Top Level', []);
 top_level_ir_node.nodeId = 0;
 
+PopulateTopLevelNodeWorkspaceVars(top_level_ir_node);
+
 %% Find Inports Within System
 input_master_node = GraphNode('Input Master', 'Master', top_level_ir_node);
 input_master_node.nodeId = 1;
@@ -141,12 +143,26 @@ for i = 1:length(arcs)
     arc.arcId = i;
 end
 
-%% Get Set of Dialog Parameters from Nodes
+%% Get Set of Parameters from Nodes
 node_param_names = {};
 for i = 1:length(nodes)
     node = nodes(i);
     
     param_names = keys(node.dialogProperties);
+    
+    mask_names = keys(node.maskVariables);
+    for j = 1:length(mask_names)
+        mask_name = mask_names(j);
+        next_ind = length(param_names)+1;
+        param_names{next_ind} = ['MaskVariable.' mask_name];
+    end
+    
+    param_numeric_names = [param_names, keys(node.dialogPropertiesNumeric)];
+    for j = 1:length(param_numeric_names)
+        param_numeric_name = param_numeric_names(j);
+        next_ind = length(param_names)+1;
+        param_names{next_ind} = ['Numeric.' param_numeric_name];
+    end
     
     node_param_names = union(node_param_names, param_names);
 end
