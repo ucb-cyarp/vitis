@@ -19,6 +19,7 @@ classdef GraphArc < handle
         %throw out the flattened implementation.
         intermediateNodes
         intermediatePortNumbers
+        intermediateWireNumbers
         intermediatePortTypes
         intermediatePortDirections 
         
@@ -53,6 +54,7 @@ classdef GraphArc < handle
             
             obj.intermediateNodes = {};
             obj.intermediatePortNumbers = {};
+            obj.intermediateWireNumbers = {};
             obj.intermediatePortTypes = {};
             obj.intermediatePortDirections = {};
             
@@ -106,7 +108,7 @@ classdef GraphArc < handle
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_nodes">%s</data>\n', str);
            end
-           if ~isempty(obj.intermediatePortNumber)
+           if ~isempty(obj.intermediatePortNumbers)
                intermediatePortNumber = obj.intermediatePortNumbers{1};
                str = '[' + num2str(intermediatePortNumber);
 
@@ -116,6 +118,17 @@ classdef GraphArc < handle
                end
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_ports">%s</data>\n', str);
+           end
+           if ~isempty(obj.intermediateWireNumbers)
+               intermediateWireNumber = obj.intermediateWireNumbers{1};
+               str = '[' + intermediateWireNumber;
+
+               for i = 2:length(obj.intermediateWireNumbers)
+                   intermediateWireNumber = obj.intermediateWireNumbers{i};
+                   str = str + ', ' + intermediateWireNumber;
+               end
+               str = str + ']';
+               fprintf(file, '<data key="arc_intermediate_wires">%s</data>\n', str);
            end
            if ~isempty(obj.intermediatePortTypes)
                intermediatePortType = obj.intermediatePortTypes{1};
@@ -128,7 +141,7 @@ classdef GraphArc < handle
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_port_types">%s</data>\n', str);
            end
-           if ~isempty(obj.intermediatePortDirection)
+           if ~isempty(obj.intermediatePortDirections)
                intermediatePortDirection = obj.intermediatePortDirections{1};
                str = '[' + intermediatePortDirection;
 

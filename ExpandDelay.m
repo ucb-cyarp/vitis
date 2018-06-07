@@ -7,6 +7,11 @@ function [outputArg1,outputArg2] = ExpandDelay(inputArg1,inputArg2)
 % are delayed and the outputs of the delays are concatenated to form a
 % vector.
 
+% NOTE: The Intial condition can be a scalar or a vector/matrix.  If the
+% initial condition is a vector/matrix, the dimension must match that of
+% the input.  If the initial condition is a scalar, the value is used for
+% each component of the vector.
+
 outputArg1 = inputArg1;
 outputArg2 = inputArg2;
 end

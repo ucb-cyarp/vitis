@@ -33,7 +33,9 @@ function [outputArg1,outputArg2] = ExpandBlocks(inputArg1,inputArg2)
 
 %NOTE: There may be multiple intermediate nodes.  For example, a tapped
 %delay block may be fed into a vector multiply.  This results in 2
-%intermediates.  As a result, the intermediate variables can contain arrays
+%intermediates.  As a result, the intermediate variables can contain
+%arrays.  When a block is expanded, the fan-in/fan-out arcs that are
+%created copy the intermediate node entries
 
 %---- Bus/Vector Expansion ----
 %When blocks are expanded, especially ones which handle vector operations,
@@ -75,6 +77,10 @@ function [outputArg1,outputArg2] = ExpandBlocks(inputArg1,inputArg2)
 %may change if a vector concatenate or select block is reached.  This
 %terminated once another VectorFan block is reached at which point the arcs
 %can be connected.  Actually, only one of the arcs remains, one is deleted.
+
+%Note: Intermediate node entries are added to the arc as the graph is
+%traversed.  The intermediate node entries for the nodes in the remote
+%VectorFan object are also added before the other is deleted.
 
 %There should alwas be VectorFan objects at either end of a vector/bus.
 %that is because bus cleanup occurs only after expansion.  By this point,

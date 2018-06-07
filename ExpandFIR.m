@@ -17,6 +17,10 @@ function input_coefs = ExpandFIR(firNode, topology)
 % Also inserts datatype conversion where needed.  Datatypes within filter
 % can be extracted from DialogParameters.
 
+% Note, intitial condition may be a vector or scalar.  If it is a vector,
+% the length will be one less than the length of the coefficient array
+% since the first coefficient has no state element preceeding it.
+
 % ==== Check for source of coefs ====
 coef_src = fir.dialogProperties('CoefSource');
 if strcmp(coef_src, 'Input port')

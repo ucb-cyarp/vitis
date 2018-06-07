@@ -13,6 +13,7 @@ classdef GraphNode < handle
                  % 4 = Special Output Port
                  % 5 = Top Level
                  % 6 = Master
+                 % 7 = Expanded (Node which has been expanded into a subsystem)
         
         simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
@@ -73,8 +74,10 @@ classdef GraphNode < handle
                 obj.nodeType = 5;
             elseif strcmp(type, 'Master')
                 obj.nodeType = 6;
-            else
+            elseif strcmp(type, 'Expanded') %Node which has been expanded into a subsystem
                 obj.nodeType = 7;
+            else
+                obj.nodeType = 8;
                 error(['''', type, ''' is not a recognized node type']);
             end
             
@@ -182,7 +185,7 @@ classdef GraphNode < handle
         
         function subsys = isSubsystem(obj)
             %isSystem Returns true if the node is a subsystem
-            subsys = obj.nodeType == 1 || obj.nodeType == 2;
+            subsys = obj.nodeType == 1 || obj.nodeType == 2 || obj.nodeType == 7;
         end
         
         function master = isMaster(obj)
