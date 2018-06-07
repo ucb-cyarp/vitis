@@ -102,6 +102,29 @@ classdef GraphNode < handle
             obj.flattened = false;
         end
         
+        function type = getNodeTypeText(obj)
+            %getNodeTypeText Returns the node type as text
+            if obj.nodeType == 0
+                type = 'Standard';
+            elseif obj.nodeType == 1
+                type = 'Subsystem';
+            elseif obj.nodeType == 2
+                type = 'Enabled Subsystem';
+            elseif obj.nodeType == 3
+                type = 'Special Input Port';
+            elseif obj.nodeType == 4
+                type = 'Special Output Port';
+            elseif obj.nodeType == 5
+                type = 'Top Level';
+            elseif obj.nodeType == 6
+                type = 'Master';
+            elseif obj.nodeType == 7
+                type = 'Expanded';
+            else
+                type = 'Error';
+            end
+        end
+        
         function addChild(obj, child)
             %addChild Add a child node to the list of children
             obj.children = [obj.children, child];
@@ -268,7 +291,9 @@ classdef GraphNode < handle
                fprintf(file, '<node id=\"%s\">\n', nodeIdPath);
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="instance_name">%s</data>\n', obj.name);
-               % Block Type -> Block Function
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="block_node_type">%s</data>\n', obj.getNodeTypeText());
+               % Simulink Block Type -> Block Function
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="block_function">%s</data>\n', obj.simulinkBlockType);
                % Emit Dialog Properties
@@ -303,7 +328,9 @@ classdef GraphNode < handle
                fprintf(file, '<node id="%s">\n', nodeIdPath);
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="instance_name">%s</data>\n', obj.name);
-               % Block Type -> Block Function
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="block_node_type">%s</data>\n', obj.getNodeTypeText());
+               % Simulink Block Type -> Block Function
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="block_function">%s</data>\n', obj.simulinkBlockType);
                % Emit Dialog Properties

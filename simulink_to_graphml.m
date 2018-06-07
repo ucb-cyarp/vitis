@@ -187,6 +187,11 @@ fprintf(graphml_filehandle, '\t<key id="instance_name" for="node" attr.name="ins
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
+% Instance Name
+fprintf(graphml_filehandle, '\t<key id="block_node_type" for="node" attr.name="block_node_type" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
 % Block Type -> Block Function
 fprintf(graphml_filehandle, '\t<key id="block_function" for="node" attr.name="block_function" attr.type="string">\n');
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
