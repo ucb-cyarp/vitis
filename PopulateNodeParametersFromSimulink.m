@@ -70,7 +70,8 @@ elseif strcmp(node.simulinkBlockType, 'Delay')
     end
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
-    
+  
+%---- FIR ----
 elseif strcmp(node.simulinkBlockType, 'DiscreteFir')
     if strcmp( get_param(simulink_block_handle, 'CoefSource'), 'Dialog parameters')
         %Only parse if dialog box is used for value
@@ -80,6 +81,15 @@ elseif strcmp(node.simulinkBlockType, 'DiscreteFir')
     node.dialogPropertiesNumeric('InitialStates') = GetParamEval(simulink_block_handle, 'InitialStates');
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+
+%---- Tapped Delay ----
+%Note: block type is S-Function
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'simulink/Discrete/Tapped Delay' ) || strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'hdlsllib/Discrete/Tapped Delay' )
+        node.dialogPropertiesNumeric('vinit') = GetParamEval(simulink_block_handle, 'vinit');
+        
+        node.dialogPropertiesNumeric('NumDelays') = GetParamEval(simulink_block_handle, 'NumDelays');
+        
+        node.dialogPropertiesNumeric('samptime') = GetParamEval(simulink_block_handle, 'samptime');
     
 %TODO: More Blocks    
 end
