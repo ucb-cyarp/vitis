@@ -62,26 +62,7 @@ classdef GraphNode < handle
             obj.parent = parent;
             
             %Set Type
-            if strcmp(type, 'Standard')
-                obj.nodeType = 0;
-            elseif strcmp(type, 'Subsystem')
-                obj.nodeType = 1;
-            elseif strcmp(type, 'Enabled Subsystem')
-                obj.nodeType = 2;
-            elseif strcmp(type, 'Special Input Port')
-                obj.nodeType = 3;
-            elseif strcmp(type, 'Special Output Port')
-                obj.nodeType = 4;
-            elseif strcmp(type, 'Top Level')
-                obj.nodeType = 5;
-            elseif strcmp(type, 'Master')
-                obj.nodeType = 6;
-            elseif strcmp(type, 'Expanded') %Node which has been expanded into a subsystem
-                obj.nodeType = 7;
-            else
-                obj.nodeType = 8;
-                error(['''', type, ''' is not a recognized node type']);
-            end
+            obj.setNodeTypeFromText(type);
             
             %Set Defaults
             obj.simulinkBlockType = "";
@@ -122,6 +103,30 @@ classdef GraphNode < handle
                 type = 'Expanded';
             else
                 type = 'Error';
+            end
+        end
+        
+        function setNodeTypeFromText(obj)
+            %setNodeTypeFromText Sets the node type given a text description
+            if strcmp(type, 'Standard')
+                obj.nodeType = 0;
+            elseif strcmp(type, 'Subsystem')
+                obj.nodeType = 1;
+            elseif strcmp(type, 'Enabled Subsystem')
+                obj.nodeType = 2;
+            elseif strcmp(type, 'Special Input Port')
+                obj.nodeType = 3;
+            elseif strcmp(type, 'Special Output Port')
+                obj.nodeType = 4;
+            elseif strcmp(type, 'Top Level')
+                obj.nodeType = 5;
+            elseif strcmp(type, 'Master')
+                obj.nodeType = 6;
+            elseif strcmp(type, 'Expanded') %Node which has been expanded into a subsystem
+                obj.nodeType = 7;
+            else
+                obj.nodeType = 8;
+                error(['''', type, ''' is not a recognized node type']);
             end
         end
         
@@ -394,6 +399,55 @@ classdef GraphNode < handle
                 node_created = true;
             end
             
+            %return the node
+            
+        end
+        
+        function [node] = createExpandNodeNoSimulinkParams(node_to_expand, node_type, node_name)
+            %createExpandNodeNoSimulinkParams Create a new GraphNode object based on an
+            %existing node.  Simulimk Parameters are not automatically
+            %populated.  However, the reference the given node's simulink
+            %handle is copied into this expanded node.
+            
+            %If it is desired to populate node entries from simulink, the 
+            %PopulateNodeParametersFromSimulink(node, simulink_handle)
+            %function can ben called on the returned node
+            
+            %The expanded node's name is of the form
+            %<Parent Name>_Expanded_<#>_<NewName>
+            %where the # increments with each new expanded node created (is
+            %based on the number of child nodes)
+            %The new node is added to the given node's children list.
+            
+            %Note: This method does not check if the node is in the
+            %node/handle map.  This is because it would never be added.
+            %Both the given node and the expanded node share the same
+            %simulink handle reference.
+            
+            simulink_block_handle = node_to_expand.simulinkHandle;
+            
+            current_number_of_children = length(node_to_expand.children);
+            
+            node_name = [get_param(simulink_block_handle, 'Name') '_Expanded_' num2str(current_number_of_children) '_' node_name];
+
+            node = GraphNode(node_name, node_type, node_to_expand);
+            node_to_expand.addChild(node);
+
+            %return the node
+            
+        end
+        
+        function [node] = createExpandNode(node_to_expand, node_type, node_name)
+            %createExpandNode Same as createExpandNodeNoSimulinkParams
+            %except that simulink parameters from the given node's simulink
+            %handle are populated into the new node
+            
+            simulink_block_handle = node_to_expand.simulinkHandle;
+            
+            node = createExpandNodeNoSimulinkParams(node_to_expand, node_type, node_name);
+            
+            PopulateNodeParametersFromSimulink(node, simulink_block_handle);
+
             %return the node
             
         end
