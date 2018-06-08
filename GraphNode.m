@@ -198,10 +198,20 @@ classdef GraphNode < handle
             %addOut_arc Add an arc to the out_arcs list;
             obj.out_arcs = [obj.out_arcs, newArc];
         end
+        
+        function removeOut_arc(obj, arc)
+            %removeOut_arc Remove an arc from the out_arcs list;
+            obj.out_arcs(obj.out_arcs == arc) = [];
+        end
             
         function addIn_arc(obj, newArc)
             %addIn_arc Add an arc to the in_arcs list;
             obj.in_arcs = [obj.in_arcs, newArc];
+        end
+        
+        function removeIn_arc(obj, arc)
+            %removeIn_arc Remove an arc from the in_arcs list;
+            obj.in_arcs(obj.in_arcs == arc) = [];
         end
         
         function topLvl = isTopLevelSystem(obj)

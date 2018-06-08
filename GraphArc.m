@@ -21,7 +21,9 @@ classdef GraphArc < handle
         intermediatePortNumbers
         intermediateWireNumbers
         intermediatePortTypes
-        intermediatePortDirections 
+        intermediatePortDirections %One of the following
+                                   % 0 = Out
+                                   % 1 = In
         
         simulinkSrcPortHandle
         simulinkDestPortHandle
@@ -52,21 +54,14 @@ classdef GraphArc < handle
             obj.dstNode = dstNode;
             obj.dstPortNumber = dstPortNumber;
             
-            obj.intermediateNodes = {};
-            obj.intermediatePortNumbers = {};
-            obj.intermediateWireNumbers = {};
-            obj.intermediatePortTypes = {};
-            obj.intermediatePortDirections = {};
+            obj.intermediateNodes = [];
+            obj.intermediatePortNumbers = [];
+            obj.intermediateWireNumbers = [];
+            obj.intermediatePortTypes = [];
+            obj.intermediatePortDirections = [];
             
             %Set Type
-            if strcmp(dstPortType, 'Standard')
-                obj.dstPortType = 0;
-            elseif strcmp(dstPortType, 'Enable')
-                obj.dstPortType = 1;
-            else
-                obj.dstPortType = 6;
-                error(['''', dstPortType, ''' is not a recognized port type']);
-            end
+            obj.dstPortType = GraphArc.portTypeFromStr(dstPortType);
             
             %Set Defaults
             obj.simulinkSrcPortHandle = 0;
@@ -231,6 +226,36 @@ classdef GraphArc < handle
                 str = 'Reset';
             end
                 
+        end
+        
+        function appendIntermediateNodeEntry(obj, intermediateNode, intermediatePortNumber, intermediateWireNumber, intermediatePortType, intermediatePortDirection)
+            %appendIntermediateNodeEntry Append an intermediate node entry
+            %to the arc
+            
+            portDir = GraphArc.portDirFromStr(intermediatePortDirection);
+            
+            portType = GraphArc.portTypeFromStr(intermediatePortType);
+            
+            obj.intermediateNodes = [obj.intermediateNodes, intermediateNode];
+            obj.intermediatePortNumbers = [obj.intermediatePortNumbers, intermediatePortNumber];
+            obj.intermediateWireNumbers = [obj.intermediateWireNumbers, intermediateWireNumber];
+            obj.intermediatePortTypes = [obj.intermediatePortTypes, portType];
+            obj.intermediatePortDirections = [obj.intermediatePortDirections, portDir];
+        end
+        
+        function prependIntermediateNodeEntry(obj, intermediateNode, intermediatePortNumber, intermediateWireNumber, intermediatePortType, intermediatePortDirection)
+            %prependIntermediateNodeEntry Prepend an intermediate node entry
+            %to the arc
+            
+            portDir = GraphArc.portDirFromStr(intermediatePortDirection);
+            
+            portType = GraphArc.portTypeFromStr(intermediatePortType);
+            
+            obj.intermediateNodes = [intermediateNode, obj.intermediateNodes];
+            obj.intermediatePortNumbers = [intermediatePortNumber, obj.intermediatePortNumbers];
+            obj.intermediateWireNumbers = [intermediateWireNumber, obj.intermediateWireNumbers];
+            obj.intermediatePortTypes = [portType, obj.intermediatePortTypes];
+            obj.intermediatePortDirections = [portDir, obj.intermediatePortDirections];
         end
             
     end
@@ -413,9 +438,38 @@ classdef GraphArc < handle
         newArc.datatype = src_datatype;
         newArc.complex = src_complex;
         newArc.dimension = src_dimensions;
-            newArc.width = src_width;
+        newArc.width = src_width;
 
         %returns newArc
+        end
+        
+        function num = portTypeFromStr(portType)
+            %portTypeFromStr Returns the numeric representation of the
+            %port type from the string
+            
+            if strcmp(portType, 'Standard')
+                num = 0;
+            elseif strcmp(portType, 'Enable')
+                num = 1;
+            else
+                %num = 6;
+                error(['''', portType, ''' is not a recognized port type']);
+            end
+                
+        end
+        
+        function num = portDirFromStr(portDir)
+            %portDirFromStr Returns the numeric representation of the
+            %port direction from the string
+            
+            if strcmp(portDir, 'Out')
+                num = 0;
+            elseif strcmp(portDir, 'In')
+                num = 1;
+            else
+                error(['''', portDir, ''' is not a recognized port direction']);
+            end
+                
         end
     end
 end
