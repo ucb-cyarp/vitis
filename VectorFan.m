@@ -251,14 +251,14 @@ classdef VectorFan < GraphNode
 
                 %Copy intermedate node entries encountered
                 %durring traversal
-                for j = 1:length(intermediateNodes)
-                    arc_pair.appendIntermediateNodeEntry(intermediateNodes(j), intermediatePortNumbers(j), intermediateWireNumbers(j), intermediatePortTypes(j), intermediatePortDirections(j));
+                for j = length(intermediateNodes):-1:1
+                    arc_pair.prependIntermediateNodeEntry(intermediateNodes(j), intermediatePortNumbers(j), intermediateWireNumbers(j), intermediatePortTypes(j), intermediatePortDirections(j));
                 end
 
                 %Copy Parameters (Intermediate Node
                 %Parameters)
-                for j = 1:length(arc.intermediateNodes)
-                    arc_pair.appendIntermediateNodeEntry(arc.intermediateNodes(j), arc.intermediatePortNumbers(j), arc.intermediateWireNumbers(j), arc.intermediatePortTypes(j), arc.intermediatePortDirections(j));
+                for j = length(arc.intermediateNodes):-1:1
+                    arc_pair.prependIntermediateNodeEntry(arc.intermediateNodes(j), arc.intermediatePortNumbers(j), arc.intermediateWireNumbers(j), arc.intermediatePortTypes(j), arc.intermediatePortDirections(j));
                 end
 
                 %Update src of arc
