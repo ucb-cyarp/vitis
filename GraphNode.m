@@ -14,6 +14,7 @@ classdef GraphNode < handle
                  % 5 = Top Level
                  % 6 = Master
                  % 7 = Expanded (Node which has been expanded into a subsystem)
+                 % 8 = VectorFan
         
         simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
@@ -101,6 +102,8 @@ classdef GraphNode < handle
                 type = 'Master';
             elseif obj.nodeType == 7
                 type = 'Expanded';
+            elseif obj.nodeType == 8
+                type = 'VectorFan';
             else
                 type = 'Error';
             end
@@ -124,6 +127,8 @@ classdef GraphNode < handle
                 obj.nodeType = 6;
             elseif strcmp(type, 'Expanded') %Node which has been expanded into a subsystem
                 obj.nodeType = 7;
+            elseif strcmp(type, 'VectorFan') %VectorFan object
+                obj.nodeType = 7;
             else
                 obj.nodeType = 8;
                 error(['''', type, ''' is not a recognized node type']);
@@ -133,6 +138,11 @@ classdef GraphNode < handle
         function addChild(obj, child)
             %addChild Add a child node to the list of children
             obj.children = [obj.children, child];
+        end
+        
+        function removeChild(obj, child)
+            %removeChild Remove a node from the children list;
+            obj.children(obj.children == child) = [];
         end
         
         function outputArg = getAncestorHierarchy(obj)
@@ -228,6 +238,11 @@ classdef GraphNode < handle
         function subsys = isSubsystem(obj)
             %isSystem Returns true if the node is a subsystem
             subsys = obj.nodeType == 1 || obj.nodeType == 2 || obj.nodeType == 7;
+        end
+        
+        function subsys = isStandard(obj)
+            %isStandard Returns true if the node is standard
+            subsys = obj.nodeType == 0;
         end
         
         function master = isMaster(obj)

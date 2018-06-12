@@ -91,9 +91,39 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'simulink/Dis
         
         node.dialogPropertiesNumeric('samptime') = GetParamEval(simulink_block_handle, 'samptime');
     
-%TODO: More Blocks    
-end
+%---- Selector ----
+elseif strcmp(node.simulinkBlockType, 'Selector')
+    %Selects from a matrix/vector
+    node.dialogPropertiesNumeric('NumberOfDimensions') = GetParamEval(simulink_block_handle, 'NumberOfDimensions');
     
+    if node.dialogPropertiesNumeric('NumberOfDimensions') ~= 1
+        error('Currently only support 1D array wires (vectors).  Selector is set to a dimension != 1');
+    end
+    
+    index_mode = get_param(simulink_block_handle, 'IndexMode');
+    
+    if strcmp(index_mode{1}, 'One-based')
+        node.dialogPropertiesNumeric('index_mode') = 1;
+    elseif strcmp(index_mode{1}, 'Zero-based')
+        node.dialogPropertiesNumeric('index_mode') = 0;
+    else
+        error('Unexpected IndexMode for Selector');
+    end
+    
+    index_options = get_param(simulink_block_handle, 'IndexOptionArray');
+    
+    if ~strcmp(index_options{1}, 'Index vector (dialog)')
+        error('Seletor is currently only supported when the Index Option is set to ''Index vector (dialog)''');
+    end
+    
+    index_params = GetParamEval(simulink_block_handle, 'IndexParamArray');
+    node.dialogPropertiesNumeric('IndexParamArray') = index_params{1};
+    
+    node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
+    
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+end
+%TODO: More Blocks
     
 end
 

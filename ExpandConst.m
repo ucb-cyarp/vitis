@@ -68,7 +68,7 @@ end
 %value_array constains what each constant should be
 
 %Create Vector_Fan object
-vector_fan_output = VectorFan('Fan-In'); %Indevidual Arcs will be fanning into the bus
+vector_fan_output = VectorFan('Fan-In', constBlock); %Indevidual Arcs will be fanning into the bus
 
 for i = 1:length(value_array)
     %Create new constant block.  Copy Certain parameters from origional.

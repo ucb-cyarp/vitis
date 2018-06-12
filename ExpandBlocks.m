@@ -1,4 +1,4 @@
-function [outputArg1,outputArg2] = ExpandBlocks(inputArg1,inputArg2)
+function [outputArg1,outputArg2] = ExpandBlocks(nodes)
 %ExpandBlocks Expands vector operations and special blocks into primitive,
 %scalar blocks.
 
@@ -92,19 +92,68 @@ function [outputArg1,outputArg2] = ExpandBlocks(inputArg1,inputArg2)
 %traversed.  The intermediate node entries for the nodes in the remote
 %VectorFan object are also added before the other is deleted.
 
-%There should alwas be VectorFan objects at either end of a vector/bus.
+%There should usually be VectorFan objects at either end of a vector/bus.
 %that is because bus cleanup occurs only after expansion.  By this point,
 %all blocks that deal with vectors should have been expanded.  Each of
 %these blocks should have created VectorFan objects.
+% **** The exception is if the bus origionates from or terminates at a
+% special node.  In this case, the fanned arcs are directly connected to 
+% the VectorFan object and the VectorFan is actually emitted as a node.
+% The port number of the arcs connected to the VectorFan denote their wire
+% numbers.  The VectorFan is a subclass of GraphNode.  If it is to be
+% emitted, the arcs need to be connected as in_arcs and out_arcs.  This is
+% so the emit command works as expected.
 
 %The arcs will be linked together by looking at the intermediate node
 %entries and noting the port entries
 
-%NOTE: The vector fan objects are only temporary node objects and are not
-%emitted.  The can actually be deleted at the end of the bus/vector cleanup
-%process.
+%As part of the cleanup process, VectorFan object's whose arcs have all
+%been successfully connected can be deleted.  Those that still have arcs
+%connected likely have a path to/from a master node.  The arcs are
+%connected to the VectorFan object which is emitted.
 
-outputArg1 = inputArg1;
-outputArg2 = inputArg2;
+%Once a vector fan object is marked for deletion, the bus arc can also be
+%deleted as it has been suplanted by direct connections.  The arc should
+%also be removed from any concatenate blocks.
+
+%Any time an arc is deleted, it needs to be deleted from the arc arrays at
+%the top level.
+
+%Cleanup should also remove arcs from concatenate blocks that have no 
+%inputs or outputs.  Likewise any selects that have no input/output should 
+%also have arcs removed.
+%The blocks will not be removed so that the intermediate node entries
+%associated with these blocks will have valid references.
+
+%This can be done itterativly until no new arcs are removed.  Sould only
+%need to check concatrnate and select blocks since all other block
+%expansions should have resulted in a VectorFan node.  In fact, no vector
+%concatenates should exist in the graph except when connected to master
+%nodes.
+
+%
+%
+
+%% Expand
+
+%Try to expand each node in the graph.  Nodes that should not be expanded
+%will be left untouched.
+
+expanded_nodes = [];
+vector_fans = [];
+
+for i = 1:length(nodes)
+    node = nodes(i);
+    
+    %Call the expanded for the type of block
+    if node.isStandard() && strcmp(node.simulinkBlockType, 'Constant')
+        [expansion_occured, new_expanded_nodes, new_vector_fans] = ExpandConst(node);
+        expanded_nodes = [expanded_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+    end
+    
+    %If not one of the recognized types, do not expand
+
+
 end
 

@@ -64,6 +64,7 @@ PopulateTopLevelNodeWorkspaceVars(terminator_master_node);
 nodes = [];
 arcs = [];
 special_nodes = [];
+expand_nodes = [];
 node_handle_ir_map = containers.Map('KeyType','double','ValueType','any');
 
 %% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1
@@ -132,6 +133,10 @@ end
 %Need to do this after enable arc creation so that datatypes can be
 %captured
 top_system_func([], [], [], 'term');
+
+%% Expand graph
+
+%% Cleanup busses
 
 %% Assign Unique Ids To each Node and Arc
 for i = 1:length(nodes)
