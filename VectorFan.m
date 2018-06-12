@@ -11,7 +11,8 @@ classdef VectorFan < GraphNode
     properties
         arcList
         wireIndexList
-        arcConnected %Denotes if the arc has been connected (via the bus cleanup method)
+        arcConnected %Denotes if the arc has been connected (via the bus cleanup method) to a VectorFan pair's arc
+        arcConnectedToMaster %Denotes that the arc is connected to a master
         busDirection %One of the following:
                      % 0 = Fan-In:  The indevidual arcs are fanning into the
                      %              VectorFan object.  The Bus has the
@@ -33,6 +34,8 @@ classdef VectorFan < GraphNode
             parent.addChild(obj);
             obj.arcList = [];
             obj.wireIndexList = [];
+            obj.arcConnected = [];
+            obj.arcConnectedToMaster = [];
             obj.busDirection = VectorFan.busDirFromStr(busDirectionStr);
             obj.busArc = [];
             obj.parent = parent;
@@ -116,10 +119,14 @@ classdef VectorFan < GraphNode
             
             if obj.isFanIn()
                 %The VectorFan is the src of the bus
-                obj.busArc.srcNode = obj;
-                obj.busArc.srcPortNumber = 1; %Output of VectorFan is port 1
+                for i = 1:length(obj.busArc) %Fan-in can have multiple bus arcs
+                    bus_arc = obj.busArc(i);
+                    bus_arc.srcNode = obj;
+                    bus_arc.srcPortNumber = 1; %Output of VectorFan is port 1
+                end
             elseif obj.isFanOut()
                 %The VectorFan is the dst of the bus
+                %Can only have 1 bus arc becayse 
                 obj.busArc.dstNode = obj;
                 obj.busArc.dstPortNumber = 1; %Input of the VectorFan is port 1
                 %Dst port type should not change
@@ -170,215 +177,214 @@ classdef VectorFan < GraphNode
             
             arcs_to_delete = [];
             
-            %Need to do loop outside traversal because of the possibility
-            %of select blocks changing the routing of the signal
-            for i = 1:length(obj.arcList)
-                if ~obj.arcConnected(i)
-                   %This arc may have already been reconnected by a similar
-                   %call to the oposite VectorArc.  Only attempt reconnect 
-                   %if it has not been reconnected yet.
-                   
-                   %Depending on the bus direction, traversal is either,
-                   %backwards or forwards
-                   
-                   arc = obj.arcList(i);
-                   
-                   cur_wire_number = obj.wireIndexList(i);
-                   cur_arc = obj.busArc;
-                   found_end = false;
-                   
-                   intermediateNodes = [];
-                   intermediatePortNumbers = [];
-                   intermediateWireNumbers = [];
-                   intermediatePortTypes = [];
-                   intermediatePortDirections = [];
-                   
-                   if obj.isFanIn()
-                       %Trace forward (src->dst) along the bus arc
+            if obj.isFanIn()
+                %Need to do loop outside traversal because of the possibility
+                %of select blocks changing the routing of the signal
+                for i = 1:length(obj.arcList)
+                    %This arc may have already been reconnected by a similar
+                       %call to the oposite VectorArc.  Only attempt reconnect 
+                       %if it has not been reconnected yet.
+                    if ~obj.arcConnected(i)
+                        intermediateNodes = [];
+                        intermediatePortNumbers = [];
+                        intermediateWireNumbers = [];
+                        intermediatePortTypes = [];
+                        intermediatePortDirections = [];
 
-                        while ~found_end
-                            
-                            %Copy intermediate node entries from current
-                            %arc
-                            for intermediate_ind = 1:length(cur_arc.intermediateNodes)
-                                intermediateNodes = [intermediateNodes, cur_arc.intermediateNodes(intermediate_ind)];
-                                intermediatePortNumbers = [intermediatePortNumbers, cur_arc.intermediatePortNumbers(intermediate_ind)];
-                                intermediateWireNumbers = [intermediateWireNumbers, cur_arc.intermediateWireNumbers(intermediate_ind)];
-                                intermediatePortTypes = [intermediatePortTypes, cur_arc.intermediatePortTypes(intermediate_ind)];
-                                intermediatePortDirections = [intermediatePortDirections, cur_arc.intermediatePortDirections(intermediate_ind)];
-                            end
-                            
-                            cursor = cur_arc.dstNode;
-                            
-                            if isa(cursor, 'VectorFan')
-                                %This is a vector fan
-                                %Check that it is the oposite direction
-                                if cursor.busDirection == obj.busDirection
-                                    error('Encountered VectorFan object in the same direction');
-                                end
-                                
-                                %Lookup other arc (arc with same wire
-                                %number)
-                                ind = find(cursor.wireIndexList == cur_wire_number);
-                                if isempty(ind)
-                                    error('Could not find wire in VectorFan object');
-                                elseif length(ind) > 1
-                                    error('More than 1 arc with given wire number found in VectorFan object');
-                                end
-                                
-                                arc_pair = cursor.arcList(ind);
-                                
-                                %Copy intermedate node entries encountered
-                                %durring traversal
-                                for j = 1:length(intermediateNodes)
-                                    arc.appendIntermediateNodeEntry(intermediateNodes(j), intermediatePortNumbers(j), intermediateWireNumbers(j), intermediatePortTypes(j), intermediatePortDirections(j));
-                                end
-                                
-                                %Copy Parameters (Intermediate Node
-                                %Parameters)
-                                for j = 1:length(arc_pair.intermediateNodes)
-                                    arc.appendIntermediateNodeEntry(arc_pair.intermediateNodes(j), arc_pair.intermediatePortNumbers(j), arc_pair.intermediateWireNumbers(j), arc_pair.intermediatePortTypes(j), arc_pair.intermediatePortDirections(j));
-                                end
-                                
-                                %Update dst of arc
-                                arc.dstNode = arc_pair.dstNode;
-                                arc.dstPortNumber = arc_pair.dstPortNumber;
-                                arc.dstPortType = arc_pair.dstPortType;
-                                
-                                %Remove pair arc from in_arcs list
-                                dstNode = arc_pair.dstNode;
-                                dstNode.removeInArc(arc_pair);
-                                
-                                %Replace arc entry in VectorFan
-                                cursor.arcList(ind) = arc;
-                                
-                                %Add arc to in_arcs list
-                                dstNode.addIn_arc(arc);
-                                
-                                %Set expanded entries in both VectorFan
-                                %objects to 'True'
-                                obj.arcConnected(i) = true;
-                                cursor.arcConnected(ind) = true;
-                                
-                                %Add pair arc to the list of arcs to
-                                %delete
-                                arcs_to_delete = [arcs_to_delete, arc_pair];
-                                
-                                found_end = true;
-                                
-                            elseif cursor.isMaster()
-                                %This is a master node (end of the line)
-                                found_end = true;
-                                
-                            elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Concatenate')
-                                %Got to a concatenate block
-                                
-                                %Concat block is saved as an
-                                %intermediate node itself - is not deleted
-                                intermediateNodes = [intermediateNodes, cursor];
-                                intermediatePortNumbers = [intermediatePortNumbers, cur_arc.dstPortNumber];
-                                intermediateWireNumbers = [intermediateWireNumbers, cur_wire_number];
-                                intermediatePortTypes = [intermediatePortTypes, cur_arc.dstPortType];
-                                intermediatePortDirections = [intermediatePortDirections, portDirFromStr('In')];
-                                
-                                %---Calculate new wire number---
-                                
-                                %Offset is the sum of the widths of the
-                                %ports before this one
-                                offset = 0;
-                                
-                                for port = 1:(cur_arc.dstPortNumber - 1) %Do not include this port
-                                    %Find the in_arc with port 
-                                    for in_arc_iter = 1:length(cursor.in_arcs)
-                                        in_arc = cursor.in_arcs(in_arc_iter);
-                                        if in_arc.dstPortNumber == port
-                                            %Add the width of this port to
-                                            %the offset
-                                            offset = offset + in_arc.width;
-                                            break; %Found this port, can move to the next one
-                                        end
-                                    end
-                                end
-                                
-                                cur_wire_number = cur_wire_number + offset;
-                                
-                                %---Update cur_arc to new outgoing arc---
-                                
-                                %There should only be 1 outgoing arc from
-                                %concatenate
-                                if isempty(cursor.out_arcs)
-                                    error('There is not an output arc from the concatenate block.');
-                                elseif length(cursor.out_arcs)>2
-                                    error('There is more than one output arc from the concatenate block.');
-                                end
-                                
-                                cur_arc = cursor.out_arcs(1);
-                                
-                            elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Selector')
-                                %Got to a selector
-                                
-                                %select block is saved as an
-                                %intermediate node itself - is not deleted
-                                intermediateNodes = [intermediateNodes, cursor];
-                                intermediatePortNumbers = [intermediatePortNumbers, cur_arc.dstPortNumber];
-                                intermediateWireNumbers = [intermediateWireNumbers, cur_wire_number];
-                                intermediatePortTypes = [intermediatePortTypes, cur_arc.dstPortType];
-                                intermediatePortDirections = [intermediatePortDirections, portDirFromStr('In')];
-                                
-                                %---Calculate new wire number or determine
-                                %that propogation ends here---
-                                
-                                selected_wires = node.dialogPropertiesNumeric('IndexParamArray');
-                                if node.dialogPropertiesNumeric('index_mode') == 0
-                                    %Increment selected_wires if "zero based"
-                                    %to be in line with matlab indexing
-                                    selected_wires = selected_wires + ones(size(selected_wires));
-                                end
-                                
-                                %The new wire number is the index of the
-                                %selected_wires array of the current wire
-                                %number
-                                new_wire_number = find(selected_wires == cur_wire_number);
-                                
-                                if isempty(new_wire_number)
-                                    %The current wire number was not found
-                                    %in the selected wires.  This is the
-                                    %end of this part of the traversal
-                                    found_end = true;
-                                elseif length(new_wire_number)>2
-                                    error('Select block includes wire more than once.  This is not allowed at this time.');
-                                else
-                                    cur_wire_number = new_wire_number;
-                                end
-                                
-                                %There should only be 1 outgoing arc from
-                                %concatenate
-                                if isempty(cursor.out_arcs)
-                                    error('There is not an output arc from the concatenate block.');
-                                elseif length(cursor.out_arcs)>2
-                                    error('There is more than one output arc from the concatenate block.');
-                                end
-                                
-                                cur_arc = cursor.out_arcs(1);
-                                
-                            else
-                                %Found a different node type.  This should
-                                %not happen.
-                                error('Found an unexpected node type durring VectorFan traversal');
-                            end
+                        arc = obj.arcList(i);
+                        VectorFan_arc_ind = i;
+                        cur_wire_number = obj.wireIndexList(i);
+
+                        %Call recursive function on each of the of the output
+                        %arcs of the VectorFan
+                        for j = 1:length(obj.busArc)
+                            cur_arc = obj.busArc(j);
+                            more_arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                            arcs_to_delete = [arcs_to_delete, more_arcs_to_delete];
                         end
-                       
-                   elseif obj.isFanOut()
-                       %Trace in reverse (dst->src) along the bus arc
-                       error('reconnectArcs is not implemented for VectorArcs in FanOut mode, run on the FanIn pairs to reconnect.');
-                       
-                   else
-                       error('Unknown VectorFan fan direction');
-                   end
-                   
+
+                    end
+
                 end
+            elseif obj.isFanOut()
+                %Trace in reverse (dst->src) along the bus arc
+                error('reconnectArcs is not implemented for VectorArcs in FanOut mode, run on the FanIn pairs to reconnect.');
+            else
+                error('Unknown VectorFan fan direction');
             end
+        end
+        
+        
+        function arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
+            arcs_to_delete = [];
             
+            %Trace forward (src->dst) along the bus arc
+            %Copy intermediate node entries from current
+            %arc
+            for intermediate_ind = 1:length(cur_arc.intermediateNodes)
+                intermediateNodes = [intermediateNodes, cur_arc.intermediateNodes(intermediate_ind)];
+                intermediatePortNumbers = [intermediatePortNumbers, cur_arc.intermediatePortNumbers(intermediate_ind)];
+                intermediateWireNumbers = [intermediateWireNumbers, cur_arc.intermediateWireNumbers(intermediate_ind)];
+                intermediatePortTypes = [intermediatePortTypes, cur_arc.intermediatePortTypes(intermediate_ind)];
+                intermediatePortDirections = [intermediatePortDirections, cur_arc.intermediatePortDirections(intermediate_ind)];
+            end
+
+            cursor = cur_arc.dstNode;
+
+            if isa(cursor, 'VectorFan')
+                %This is a vector fan
+                %Check that it is the oposite direction
+                if cursor.busDirection == obj.busDirection
+                    error('Encountered VectorFan object in the same direction');
+                end
+
+                %Lookup other arc (arc with same wire
+                %number)
+                ind = find(cursor.wireIndexList == cur_wire_number);
+                if isempty(ind)
+                    error('Could not find wire in VectorFan object');
+                elseif length(ind) > 1
+                    error('More than 1 arc with given wire number found in VectorFan object');
+                end
+
+                arc_pair = cursor.arcList(ind);
+
+                %Copy intermedate node entries encountered
+                %durring traversal
+                for j = 1:length(intermediateNodes)
+                    arc_pair.appendIntermediateNodeEntry(intermediateNodes(j), intermediatePortNumbers(j), intermediateWireNumbers(j), intermediatePortTypes(j), intermediatePortDirections(j));
+                end
+
+                %Copy Parameters (Intermediate Node
+                %Parameters)
+                for j = 1:length(arc.intermediateNodes)
+                    arc_pair.appendIntermediateNodeEntry(arc.intermediateNodes(j), arc.intermediatePortNumbers(j), arc.intermediateWireNumbers(j), arc.intermediatePortTypes(j), arc.intermediatePortDirections(j));
+                end
+
+                %Update src of arc
+                srcNode = arc.srcNode;
+                
+                arc_pair.srcNode = arc.srcNode;
+                arc_pair.srcPortNumber = arc.srcPortNumber;
+                arc_pair.srcPortType = arc.srcPortType;
+
+                %Remove arc from out_arcs list
+                srcNode.removeOutArc(arc);
+
+                %Replace arc entry in
+                obj.arcList(ind) = arc_pair;
+
+                %Add arc to out_arcs list
+                srcNode.addOut_arc(arc_pair);
+
+                %Set expanded entries in both VectorFan
+                %objects to 'True'
+                obj.arcConnected(VectorFan_arc_ind) = true;
+                cursor.arcConnected(ind) = true;
+
+                %Add pair arc to the list of arcs to
+                %delete
+                arcs_to_delete = [arcs_to_delete, arc];
+
+            elseif cursor.isMaster()
+                %This is a master node (end of the line)
+
+            elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Concatenate')
+                %Got to a concatenate block
+
+                %Concat block is saved as an
+                %intermediate node itself - is not deleted
+                intermediateNodes = [intermediateNodes, cursor];
+                intermediatePortNumbers = [intermediatePortNumbers, cur_arc.dstPortNumber];
+                intermediateWireNumbers = [intermediateWireNumbers, cur_wire_number];
+                intermediatePortTypes = [intermediatePortTypes, cur_arc.dstPortType];
+                intermediatePortDirections = [intermediatePortDirections, portDirFromStr('In')];
+
+                %---Calculate new wire number---
+
+                %Offset is the sum of the widths of the
+                %ports before this one
+                offset = 0;
+
+                for port = 1:(cur_arc.dstPortNumber - 1) %Do not include this port
+                    %Find the in_arc with port 
+                    for in_arc_iter = 1:length(cursor.in_arcs)
+                        in_arc = cursor.in_arcs(in_arc_iter);
+                        if in_arc.dstPortNumber == port
+                            %Add the width of this port to
+                            %the offset
+                            offset = offset + in_arc.width;
+                            break; %Found this port, can move to the next one
+                        end
+                    end
+                end
+
+                cur_wire_number = cur_wire_number + offset;
+
+                %---Update cur_arc to new outgoing arc---
+
+                %There should only be 1 outgoing arc from
+                %concatenate
+                if isempty(cursor.out_arcs)
+                    error('There is not an output arc from the concatenate block.');
+                elseif length(cursor.out_arcs)>2
+                    error('There is more than one output arc from the concatenate block.');
+                end
+
+                for out_ind = 1:length(cursor.out_arcs)
+                    cur_arc = cursor.out_arcs(out_ind);
+                    new_arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+                end
+                    
+            elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Selector')
+                %Got to a selector
+
+                %select block is saved as an
+                %intermediate node itself - is not deleted
+                intermediateNodes = [intermediateNodes, cursor];
+                intermediatePortNumbers = [intermediatePortNumbers, cur_arc.dstPortNumber];
+                intermediateWireNumbers = [intermediateWireNumbers, cur_wire_number];
+                intermediatePortTypes = [intermediatePortTypes, cur_arc.dstPortType];
+                intermediatePortDirections = [intermediatePortDirections, portDirFromStr('In')];
+
+                %---Calculate new wire number or determine
+                %that propogation ends here---
+
+                selected_wires = node.dialogPropertiesNumeric('IndexParamArray');
+                if node.dialogPropertiesNumeric('index_mode') == 0
+                    %Increment selected_wires if "zero based"
+                    %to be in line with matlab indexing
+                    selected_wires = selected_wires + ones(size(selected_wires));
+                end
+
+                %The new wire number is the index of the
+                %selected_wires array of the current wire
+                %number
+                new_wire_number = find(selected_wires == cur_wire_number);
+
+                if isempty(new_wire_number)
+                    %The current wire number was not found
+                    %in the selected wires.  This is the
+                    %end of this part of the traversal
+                    
+                elseif length(new_wire_number)>2
+                    error('Select block includes wire more than once.  This is not allowed at this time.');
+                else
+                    cur_wire_number = new_wire_number;
+                end
+
+                for out_ind = 1:length(cursor.out_arcs)
+                    cur_arc = cursor.out_arcs(out_ind);
+                    new_arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+                end
+
+            else
+                %Found a different node type.  This should
+                %not happen.
+                error('Found an unexpected node type durring VectorFan traversal');
+            end
         end
         
         function shouldBeDeleted(obj)
@@ -389,7 +395,7 @@ classdef VectorFan < GraphNode
             unconnected_found = false;
             
             for i = 1:length(obj.arcConnected)
-                if ~obj.arcConnected
+                if ~obj.arcConnected(i) || obj.arcConnectedToMaster(i)
                     unconnected_found = true;
                     break;
                 end

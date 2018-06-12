@@ -15,12 +15,8 @@ if ~strcmp(constBlock.simulinkBlockType, 'Constant')
     error('ExpandConst was called on a block that is not a constant.');
 end
 
-%Get the arc attached to the constant and check that it is indeed a
-%vector/bus type.  There should only be 1 out arc.
-if length(constBlock.out_arcs) ~= 1
-    error('Constant is only expected to have a single output arc');
-end
-
+%There may be many output arcs (connected to different blocks) but should
+%all have the same properties
 out_arc = constBlock.out_arcs(1);
 
 %Check for matrix ports, we don't support them at the moment
@@ -105,12 +101,17 @@ for i = 1:length(value_array)
     
 end
 
-%Attach the old arc to the VectorFan and remove it from the out_arcs list
+%Attach the old arcs (maybe multiple) to the VectorFan and remove it from the out_arcs list
 %of the orig object
-out_arc.srcNode = vector_fan_output;
-vector_fan_output.busArc = out_arc;
 
-constBlock.removeOut_arc(out_arc);
+for i = 1:length(constBlock.out_arcs)
+    out_arc = constBlock.out_arcs(i);
+    
+    out_arc.srcNode = vector_fan_output;
+    vector_fan_output.busArc = out_arc;
+
+    constBlock.removeOut_arc(out_arc);
+end
 
 %Set orig node type to "Expanded" 
 constBlock.setNodeTypeFromText('Expanded');
