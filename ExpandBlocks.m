@@ -1,4 +1,4 @@
-function [outputArg1,outputArg2] = ExpandBlocks(nodes)
+function [new_nodes, vector_fans, new_arcs] = ExpandBlocks(nodes)
 %ExpandBlocks Expands vector operations and special blocks into primitive,
 %scalar blocks.
 
@@ -139,17 +139,25 @@ function [outputArg1,outputArg2] = ExpandBlocks(nodes)
 %Try to expand each node in the graph.  Nodes that should not be expanded
 %will be left untouched.
 
-expanded_nodes = [];
+new_nodes = [];
 vector_fans = [];
+new_arcs = [];
+
+% ---- Expand FIR Only ----
+
+
+% ---- Expand Primitives ----
+%Include new nodes created durring FIR expansion
 
 for i = 1:length(nodes)
     node = nodes(i);
     
     %Call the expanded for the type of block
     if node.isStandard() && strcmp(node.simulinkBlockType, 'Constant')
-        [expansion_occured, new_expanded_nodes, new_vector_fans] = ExpandConst(node);
-        expanded_nodes = [expanded_nodes, new_expanded_nodes];
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandConst(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
     end
     
     %If not one of the recognized types, do not expand

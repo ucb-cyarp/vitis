@@ -1,4 +1,4 @@
-function [expansion_occured, expanded_nodes, vector_fan_output] = ExpandConst(constBlock)
+function [expansion_occured, expanded_nodes, vector_fan_output, new_arcs] = ExpandConst(constBlock)
 %ExpandConst Expands a vector constant into seperate constants.
 %The existing node is converted into a Expanded(Subsystem).  A VectorFan
 %node is created and arcs from each of the constants are included in it's
@@ -7,6 +7,7 @@ function [expansion_occured, expanded_nodes, vector_fan_output] = ExpandConst(co
 expansion_occured = false;
 expanded_nodes= [];
 vector_fan_output = [];
+new_arcs = [];
 
 %% Checking for Bad Input
 %This method should only be called on constant objects, let's check for
@@ -95,6 +96,9 @@ for i = 1:length(value_array)
     
     %Add arc to VectorFan
     vector_fan_output.addArc(arc, i);
+    
+    %Add new arc
+    new_arcs = [new_arcs, arc];
     
     %Add new node to array
     expanded_nodes(i) = node;

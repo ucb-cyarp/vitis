@@ -23,6 +23,8 @@ classdef VectorFan < GraphNode
                      %              VectorFan as the DST and the remote
                      %              block as the SRC
         busArc %The handle of the arc representing the bus
+        busArcConnected
+        busArcConnectedToMaster
         markedForDeletion %Indicates if the node should be deleted.  Is set to true once all arcs have been 
     end
     
@@ -38,6 +40,8 @@ classdef VectorFan < GraphNode
             obj.arcConnectedToMaster = [];
             obj.busDirection = VectorFan.busDirFromStr(busDirectionStr);
             obj.busArc = [];
+            obj.busArcConnected = [];
+            obj.busArcConnectedToMaster = [];
             obj.parent = parent;
             obj.markedForDeletion = false;
         end
@@ -215,8 +219,10 @@ classdef VectorFan < GraphNode
         end
         
         
-        function arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
+        function [arcs_to_delete, connected, connected_to_master] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
             arcs_to_delete = [];
+            connected = false;
+            connected_to_master = false;
             
             %Trace forward (src->dst) along the bus arc
             %Copy intermediate node entries from current
@@ -285,9 +291,13 @@ classdef VectorFan < GraphNode
                 %Add pair arc to the list of arcs to
                 %delete
                 arcs_to_delete = [arcs_to_delete, arc];
+                
+                connected = true;
 
             elseif cursor.isMaster()
                 %This is a master node (end of the line)
+                
+                connected_to_master = true;
 
             elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Concatenate')
                 %Got to a concatenate block
@@ -333,8 +343,10 @@ classdef VectorFan < GraphNode
 
                 for out_ind = 1:length(cursor.out_arcs)
                     cur_arc = cursor.out_arcs(out_ind);
-                    new_arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    [new_arcs_to_delete, new_connected, new_connected_to_master] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                     arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+                    connected = connected || new_connected;
+                    connected_to_master = connected_to_master || new_connected_to_master;
                 end
                     
             elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Selector')
@@ -376,8 +388,10 @@ classdef VectorFan < GraphNode
 
                 for out_ind = 1:length(cursor.out_arcs)
                     cur_arc = cursor.out_arcs(out_ind);
-                    new_arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    [new_arcs_to_delete, new_connected, new_connected_to_master] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                     arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+                    connected = connected || new_connected;
+                    connected_to_master = connected_to_master || new_connected_to_master;
                 end
 
             else
