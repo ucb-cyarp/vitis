@@ -1,4 +1,4 @@
-function [new_nodes, vector_fans, new_arcs] = ExpandBlocks(nodes)
+function [new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, UnconnectedMasterNode)
 %ExpandBlocks Expands vector operations and special blocks into primitive,
 %scalar blocks.
 
@@ -140,40 +140,67 @@ function [new_nodes, vector_fans, new_arcs] = ExpandBlocks(nodes)
 %will be left untouched.
 
 new_nodes = [];
-vector_fans = [];
+synth_vector_fans = [];
 new_arcs = [];
+arcs_to_delete = [];
+
+%Used internally and not returned
+vector_fans = []; %Will be removed in bus cleanup
 
 % ---- Expand FIR Only ----
 
 % ---- Expand Tapped Delay ---
 
-% ---- Catch Single Width Concat Inputs, Single Width Concat Output
-
-% If Single width Input & Ouput, simply remove and reconnect wires
-% (deleting one)
-
-% Otherwise, for all inputs of width 1, add degenerate VectorFan (Fan-In) objects
-
-% ---- Catch Single Width Select Inputs, Single Width Concat 
-
-% If Single width Input & Ouput, simply remove and reconnect wires
-% (deleting one)
-
-% Otherwise, on output, add degenerate VectorFan (Fan-Out) object
-
 % ---- Expand Primitives ----
 %Include new nodes created durring FIR expansion
 %Also includes master nodes
 
-for i = 1:length(nodes)
+% ++++ Catch Single Width Concat Inputs, Single Width Concat Output ++++
+% If Single width Input & Ouput, simply remove and reconnect wires
+% (deleting one)
+% Otherwise, for all inputs of width 1, add degenerate VectorFan (Fan-In) objects
+% ++++ Catch Single Width Select Inputs, Single Width Concat ++++
+% If Single width Input & Ouput, simply remove and reconnect wires
+% (deleting one)
+% Otherwise, on output, add degenerate VectorFan (Fan-Out) object
+
+for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     node = nodes(i);
     
     %Call the expanded for the type of block
-    if node.isStandard() && strcmp(node.simulinkBlockType, 'Constant')
+    %DO NOT
+    if node.isMaster()
+        %Expand masters to handle bus types (inserts VectorFan objects)
+        [must_keep_vector_fans, other_vector_fans, new_new_arcs] = ExpandMaster(node);
+        synth_vector_fans = [synth_vector_fans, must_keep_vector_fans];
+        vector_fans = [vector_fans, other_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+    elseif node.isSpecial()
+        error('Special Block Expansion Not Implemented Yet');
+    elseif node.isStandard() && (strcmp(node.simulinkBlockType, 'Sum') || strcmp(node.simulinkBlockType, 'Product'))
+        error('Op Block Expansion Not Implemented Yet');
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Delay')
+        error('Delay Block Expansion Not Implemented Yet');
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Switch')
+        error('Switch Block Expansion Not Implemented Yet');
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Constant')
+        %Expand Constants
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandConst(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Concatenate')
+        %Catch Concatenate Corner Cases
+        [new_arcs_to_delete, new_new_arcs, new_vector_fans] = CheckConcatCorner(node);
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+        new_arcs = [new_arcs, new_new_arcs];
+        vector_fans = [vector_fans, new_vector_fans];
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Select')
+        %Catch Select Corner Cases
+        [new_arcs_to_delete, new_new_arcs, new_vector_fans] = CheckSelectCorner(node);
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+        new_arcs = [new_arcs, new_new_arcs];
+        vector_fans = [vector_fans, new_vector_fans];
     end
     
     %If not one of the recognized types, do not expand
@@ -212,4 +239,40 @@ end
 % objects).
 %
 % In fact, any bus arc within the design that is not connected to a master
-% node can be removed.
+% node can be removed.  This should be accomplished by removing any arc
+% connected to the bus end of a VectorFan (not connected to a master) and
+% the arcs connected to select and concatenate blocks
+
+%Reconnect Arcs - From Fan-In VectorFan objects
+for i = 1:length(vector_fans)
+    vector_fan = vector_fans(i);
+    
+    if vector_fan.isFanIn()
+        new_arcs_to_delete = vector_fan.reconnectArcs(UnconnectedMasterNode);
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+    end
+        
+end
+
+%Remove Arcs from Concat and Select Blocks
+arc_to_remove_from_ends = [];
+for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
+    node = nodes(i);
+    
+    arc_to_remove_from_ends = [];
+    if node.isStandard() && (strcmp(node.simulinkBlockType, 'Concatenate') || strcmp(node.simulinkBlockType, 'Select'))
+        arc_to_remove_from_ends = [arc_to_remove_from_ends, node.in_arcs];
+        arc_to_remove_from_ends = [arc_to_remove_from_ends, node.out_arcs];
+    end
+end
+
+for i = 1:length(arc_to_remove_from_ends)
+    arc = arc_to_remove_from_ends(i);
+    srcNode = arc.srcNode;
+    dstNode = arc.dstNode;
+    
+    srcNode.removeOut_arc(arc);
+    dstNode.removeIn_arc(arc);
+end
+
+arcs_to_delete = [arcs_to_delete, arc_to_remove_from_ends];

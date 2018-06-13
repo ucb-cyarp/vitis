@@ -64,7 +64,6 @@ PopulateTopLevelNodeWorkspaceVars(terminator_master_node);
 nodes = [];
 arcs = [];
 special_nodes = [];
-expand_nodes = [];
 node_handle_ir_map = containers.Map('KeyType','double','ValueType','any');
 
 %% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1
@@ -134,9 +133,20 @@ end
 %captured
 top_system_func([], [], [], 'term');
 
-%% Expand graph
+%% Expand graph & cleanup busses
 
-%% Cleanup busses
+[new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, unconnected_master_node);
+nodes = [nodes, new_nodes];
+nodes = [nodes, synth_vector_fans];
+
+%Some of the arcs to be deleted may be in the new arcs list.  Add arcs
+%first, then process deletions
+arcs = [arcs, new_arcs];
+
+for i = 1:length(arcs_to_delete)
+    arc_to_delete = arcs_to_delete(i);
+    arcs(arcs == arc_to_delete) = [];
+end
 
 %% Assign Unique Ids To each Node and Arc
 for i = 1:length(nodes)
