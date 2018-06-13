@@ -11,8 +11,6 @@ classdef VectorFan < GraphNode
     properties
         arcList
         wireIndexList
-        arcConnected %Denotes if the arc has been connected (via the bus cleanup method) to a VectorFan pair's arc
-        arcConnectedToMaster %Denotes that the arc is connected to a master
         busDirection %One of the following:
                      % 0 = Fan-In:  The indevidual arcs are fanning into the
                      %              VectorFan object.  The Bus has the
@@ -23,8 +21,6 @@ classdef VectorFan < GraphNode
                      %              VectorFan as the DST and the remote
                      %              block as the SRC
         busArc %The handle of the arc representing the bus
-        busArcConnected
-        busArcConnectedToMaster
         markedForDeletion %Indicates if the node should be deleted.  Is set to true once all arcs have been 
     end
     
@@ -36,12 +32,8 @@ classdef VectorFan < GraphNode
             parent.addChild(obj);
             obj.arcList = [];
             obj.wireIndexList = [];
-            obj.arcConnected = [];
-            obj.arcConnectedToMaster = [];
             obj.busDirection = VectorFan.busDirFromStr(busDirectionStr);
             obj.busArc = [];
-            obj.busArcConnected = [];
-            obj.busArcConnectedToMaster = [];
             obj.parent = parent;
             obj.markedForDeletion = false;
         end
@@ -50,7 +42,11 @@ classdef VectorFan < GraphNode
             %addArc Adds a fan-in/fan-out arc to the VectorFan object
             obj.arcList = [obj.arcList, arc];
             obj.wireIndexList = [obj.wireIndexList, wireIndex];
-            obj.arcConnected = false;
+        end
+        
+        function addBusArc(obj, arc)
+            %addBusArc Adds a bus arc to the VectorFan object
+            obj.busArc = [obj.busArc, arc];
         end
         
         function result = isFanIn(obj)
@@ -85,98 +81,31 @@ classdef VectorFan < GraphNode
             parent.removeChild(obj);
         end
         
-        function connectRemainingArcsToVectorFan(obj)
-            %connectRemainingArcsToVectorFan Connect the arcs in arcList to
-            %the VectorFan object directly.  Is used when the bus arc has a
-            %path to/from a master node.
-            
-            %This adds the arcs to the in_arcs and out_arcs lists and set
-            %the src/dst entries in the arc appropriatly.
-            
-            for i = 1:length(obj.arcList)
-               if ~obj.arcConnected(i)
-                   %Only connect arcs that remain unconnected.  It is
-                   %possible that some arcs will be connected and some will
-                   %not
-                   
-                   arc = obj.arcList(i);
-                   
-                   if obj.isFanIn()
-                       %The VectorFan is the dst of the arc
-                       arc.dstNode = obj;
-                       arc.dstPortNumber = obj.wireIndexList(i); %The wire number is converted to the port number
-                       %Dst port type should not change
-                       %TODO: check this
-                       obj.addIn_arc(arc);
-                   elseif obj.isFanOut()
-                       %The VectorFan is the src of the arc
-                       arc.srcNode = obj;
-                       arc.srcPortNumber = obj.wireIndexList(i);
-                       obj.addOut_arc(arc);
-                   else
-                       error('Unknown VectorFan fan direction');
-                   end
-               end
-            end
-            
-            %Add bus arc
-            
-            if obj.isFanIn()
-                %The VectorFan is the src of the bus
-                for i = 1:length(obj.busArc) %Fan-in can have multiple bus arcs
-                    bus_arc = obj.busArc(i);
-                    bus_arc.srcNode = obj;
-                    bus_arc.srcPortNumber = 1; %Output of VectorFan is port 1
-                end
-            elseif obj.isFanOut()
-                %The VectorFan is the dst of the bus
-                %Can only have 1 bus arc becayse 
-                obj.busArc.dstNode = obj;
-                obj.busArc.dstPortNumber = 1; %Input of the VectorFan is port 1
-                %Dst port type should not change
-                %TODO: check this
-            else
-                error('Unknown VectorFan fan direction');
-            end
-            
-        end
-        
         %NOTE: Only need to implement one direction.  Because pairs need to
         %be able to reach each other, traversael from either of the ends
         %needs to work.  There should be no case where a connection can
         %only be made by traversing in a specific direction.  Therefore,
         %only the implementation in one direction should be required.
-        %Note: This does not impact the correctness of cases where
-        %VectorFan objects need to be emitted because they are connected to
-        %master nodes.  By tracing from all fan-in VectorFan objects, all
-        %pair connections should be made.  There is no need to trace in the
-        %reverse direction as all pairs would already have been discovered
-        %with the forward pass.  The only benifit would have been to
-        %discover the specifics of the master port connections.  We can
-        %cheat here because, after we have found all the pairs, we can
-        %assume any wire that was not discovered to be in a pair is
-        %connected in such a way (ie. to a master node) that the VectorFan
-        %object needs to be emitted.
-        function [arcs_to_delete] = reconnectArcs(obj)
+        %NOTE: This should be called on each VectorFan object which is a
+        %Fan-In EXCEPT thoes which are directly connected to master nodes
+        %(deposited durring the expansion stage).
+        function [arcs_to_delete] = reconnectArcs(obj, UnconnectedMasterNode)
             %reconnectArcs Reconnects the indevidual arcs that were fanned
             %from the VectorFan object durring expansion.  This involves
-            %traversing the bus arc until it either reaches anoth VectorFan
-            %in the oposite direction or a master node.
+            %traversing the bus arc until it either reaches another VectorFan
+            %in the oposite direction or reaches a select node where it is
+            %trimmed away
             
             %If it reaches
             %another VectorFan, the matching arc is located and the arc is
             %connected to the block that the matching arc is connected to.
             %The origional arc is removed from the arc list of the
             %block it is connected to, and is placed in a list of arcs to
-            %be deleted.  The associated arcConnected entry in both
-            %VectorFan objects is set to truw.
-            
-            %If a master node is reached, then the arc cannot be connected
-            %and the arcConnected property is left as false.
+            %be deleted.
             
             %While traversing, the wire index may change if Vector
             %Concatenate or Select blocks are encountered.  No other block
-            %type except masters or VectorFans in the oposite direction
+            %type except Concatinate, Select, or VectorFans in the oposite direction
             %should be encountered.
             
             arcs_to_delete = [];
@@ -185,30 +114,37 @@ classdef VectorFan < GraphNode
                 %Need to do loop outside traversal because of the possibility
                 %of select blocks changing the routing of the signal
                 for i = 1:length(obj.arcList)
-                    %This arc may have already been reconnected by a similar
-                       %call to the oposite VectorArc.  Only attempt reconnect 
-                       %if it has not been reconnected yet.
-                    if ~obj.arcConnected(i)
-                        intermediateNodes = [];
-                        intermediatePortNumbers = [];
-                        intermediateWireNumbers = [];
-                        intermediatePortTypes = [];
-                        intermediatePortDirections = [];
+                    intermediateNodes = [];
+                    intermediatePortNumbers = [];
+                    intermediateWireNumbers = [];
+                    intermediatePortTypes = [];
+                    intermediatePortDirections = [];
 
-                        arc = obj.arcList(i);
-                        VectorFan_arc_ind = i;
-                        cur_wire_number = obj.wireIndexList(i);
+                    arc = obj.arcList(i);
+                    VectorFan_arc_ind = i;
+                    cur_wire_number = obj.wireIndexList(i);
 
-                        %Call recursive function on each of the of the output
-                        %arcs of the VectorFan
-                        for j = 1:length(obj.busArc)
-                            cur_arc = obj.busArc(j);
-                            more_arcs_to_delete = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
-                            arcs_to_delete = [arcs_to_delete, more_arcs_to_delete];
-                        end
-
+                    %Call recursive function on each of the of the output
+                    %arcs of the VectorFan
+                    connected = false;
+                    for j = 1:length(obj.busArc)
+                        cur_arc = obj.busArc(j);
+                        [more_arcs_to_delete, was_connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                        arcs_to_delete = [arcs_to_delete, more_arcs_to_delete];
+                        connected = connected || was_connected;
                     end
-
+                    
+                    %If this arc was not able to be connected,
+                    %connect it to the "Unconnected" master node
+                    %Note, it would not have been deleted as part of the
+                    %process because the origional arc in the VectorFan
+                    %(Fan-In) object is only deleted when a new vector
+                    %(from the dst) is created to replace it
+                    
+                    if ~connected
+                        arc.dstNode = UnconnectedMasterNode;
+                    end
+                    
                 end
             elseif obj.isFanOut()
                 %Trace in reverse (dst->src) along the bus arc
@@ -219,10 +155,9 @@ classdef VectorFan < GraphNode
         end
         
         
-        function [arcs_to_delete, connected, connected_to_master] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
+        function [arcs_to_delete, connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
             arcs_to_delete = [];
             connected = false;
-            connected_to_master = false;
             
             %Trace forward (src->dst) along the bus arc
             %Copy intermediate node entries from current
@@ -246,58 +181,57 @@ classdef VectorFan < GraphNode
 
                 %Lookup other arc (arc with same wire
                 %number)
-                ind = find(cursor.wireIndexList == cur_wire_number);
-                if isempty(ind)
+                inds = find(cursor.wireIndexList == cur_wire_number);
+                if isempty(inds)
                     error('Could not find wire in VectorFan object');
-                elseif length(ind) > 1
-                    error('More than 1 arc with given wire number found in VectorFan object');
                 end
-
-                arc_pair = cursor.arcList(ind);
-
-                %Copy intermedate node entries encountered
-                %durring traversal
-                for j = length(intermediateNodes):-1:1
-                    arc_pair.prependIntermediateNodeEntry(intermediateNodes(j), intermediatePortNumbers(j), intermediateWireNumbers(j), intermediatePortTypes(j), intermediatePortDirections(j));
-                end
-
-                %Copy Parameters (Intermediate Node
-                %Parameters)
-                for j = length(arc.intermediateNodes):-1:1
-                    arc_pair.prependIntermediateNodeEntry(arc.intermediateNodes(j), arc.intermediatePortNumbers(j), arc.intermediateWireNumbers(j), arc.intermediatePortTypes(j), arc.intermediatePortDirections(j));
-                end
-
-                %Update src of arc
-                srcNode = arc.srcNode;
                 
-                arc_pair.srcNode = arc.srcNode;
-                arc_pair.srcPortNumber = arc.srcPortNumber;
-                arc_pair.srcPortType = arc.srcPortType;
+                %It is possible for there to be multiple outputs for a
+                %single wire from a Fan-Out VectorFan
+                for ind_counter = 1:length(inds)
+                    ind = inds(ind_counter);
+                
+                    arc_pair = cursor.arcList(ind);
 
-                %Remove arc from out_arcs list
+                    %Copy intermedate node entries encountered
+                    %durring traversal
+                    for j = length(intermediateNodes):-1:1
+                        arc_pair.prependIntermediateNodeEntry(intermediateNodes(j), intermediatePortNumbers(j), intermediateWireNumbers(j), intermediatePortTypes(j), intermediatePortDirections(j));
+                    end
+
+                    %Copy Parameters (Intermediate Node
+                    %Parameters)
+                    for j = length(arc.intermediateNodes):-1:1
+                        arc_pair.prependIntermediateNodeEntry(arc.intermediateNodes(j), arc.intermediatePortNumbers(j), arc.intermediateWireNumbers(j), arc.intermediatePortTypes(j), arc.intermediatePortDirections(j));
+                    end
+
+                    %Update src of arc
+                    srcNode = arc.srcNode;
+
+                    arc_pair.srcNode = arc.srcNode;
+                    arc_pair.srcPortNumber = arc.srcPortNumber;
+                    arc_pair.srcPortType = arc.srcPortType;
+
+                    %Add arc to out_arcs list
+                    srcNode.addOut_arc(arc_pair);
+
+                    %Add pair arc to the list of arcs to
+                    %delete
+                    
+                end
+                %Remove arc from out_arcs list (Was replaced by arc_pairs
+                %above)
+                
                 srcNode.removeOutArc(arc);
-
-                %Replace arc entry in
-                obj.arcList(ind) = arc_pair;
-
-                %Add arc to out_arcs list
-                srcNode.addOut_arc(arc_pair);
-
-                %Set expanded entries in both VectorFan
-                %objects to 'True'
-                obj.arcConnected(VectorFan_arc_ind) = true;
-                cursor.arcConnected(ind) = true;
-
-                %Add pair arc to the list of arcs to
-                %delete
                 arcs_to_delete = [arcs_to_delete, arc];
-                
+
+                %Return that connection was successful
                 connected = true;
 
             elseif cursor.isMaster()
-                %This is a master node (end of the line)
-                
-                connected_to_master = true;
+                %Should not occur in new refactored version.  Should only
+                %encounter other VectorFan objects
+                error('VectorFan re-connection encountered master node.  This should not occur.');
 
             elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Concatenate')
                 %Got to a concatenate block
@@ -343,10 +277,9 @@ classdef VectorFan < GraphNode
 
                 for out_ind = 1:length(cursor.out_arcs)
                     cur_arc = cursor.out_arcs(out_ind);
-                    [new_arcs_to_delete, new_connected, new_connected_to_master] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    [new_arcs_to_delete, new_connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                     arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
                     connected = connected || new_connected;
-                    connected_to_master = connected_to_master || new_connected_to_master;
                 end
                     
             elseif cursor.isStandard() && strcmp(cursor.simulinkBlockType, 'Selector')
@@ -388,10 +321,9 @@ classdef VectorFan < GraphNode
 
                 for out_ind = 1:length(cursor.out_arcs)
                     cur_arc = cursor.out_arcs(out_ind);
-                    [new_arcs_to_delete, new_connected, new_connected_to_master] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    [new_arcs_to_delete, new_connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                     arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
                     connected = connected || new_connected;
-                    connected_to_master = connected_to_master || new_connected_to_master;
                 end
 
             else
@@ -400,24 +332,8 @@ classdef VectorFan < GraphNode
                 error('Found an unexpected node type durring VectorFan traversal');
             end
         end
-        
-        function shouldBeDeleted(obj)
-            %shouldBeDeleted If all of the arcs are connected 
-            %the markedForDeletion property is set to true since the
-            %VectorFan and bus arc are now superflous.
-            
-            unconnected_found = false;
-            
-            for i = 1:length(obj.arcConnected)
-                if ~obj.arcConnected(i) || obj.arcConnectedToMaster(i)
-                    unconnected_found = true;
-                    break;
-                end
-            end
-            
-            obj.markedForDeletion = ~unconnected_found;
-        end
     end
+        
     
     methods (Static)
         function num = busDirFromStr(busDir)

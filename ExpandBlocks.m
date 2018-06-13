@@ -145,9 +145,25 @@ new_arcs = [];
 
 % ---- Expand FIR Only ----
 
+% ---- Expand Tapped Delay ---
+
+% ---- Catch Single Width Concat Inputs, Single Width Concat Output
+
+% If Single width Input & Ouput, simply remove and reconnect wires
+% (deleting one)
+
+% Otherwise, for all inputs of width 1, add degenerate VectorFan (Fan-In) objects
+
+% ---- Catch Single Width Select Inputs, Single Width Concat 
+
+% If Single width Input & Ouput, simply remove and reconnect wires
+% (deleting one)
+
+% Otherwise, on output, add degenerate VectorFan (Fan-Out) object
 
 % ---- Expand Primitives ----
 %Include new nodes created durring FIR expansion
+%Also includes master nodes
 
 for i = 1:length(nodes)
     node = nodes(i);
@@ -161,7 +177,39 @@ for i = 1:length(nodes)
     end
     
     %If not one of the recognized types, do not expand
-
+    
 
 end
 
+%% Reconnection
+% Traverse from all VectorFan (Fan-In) objects 
+
+%% Bus Cleanup
+% Remove all VectorFan objects not directly connected to a master node.
+%
+% For Fan-In objects, all of the wires should either have been reconnected
+% to a Fan-Out vectorfan or connected to the "Unconnected" master node.
+%
+% For Fan-Out objects, each of their wires has to be driven by either an
+% input (including from the "Unconnected" master node) or the result of 
+% another block.  Otherwise a bus width error would have occured.  Either
+% of these cases would have resulted in the reconnection of the Fan-Out's
+% wires with wires of a Fan-In object durring the Fan-In trace.
+%
+% As a result, any bus arc within the design (which should always be
+% between 2 VectorFan objects and potentially some Concatnate and Select
+% blocks) should be able to be deleted.  This is because all wires in the
+% bus should have been connected
+%
+% The VectorFan objects connected to Master nodes need to be retained
+% because all buses within the design will have been flattened but the I/O
+% will not have been flattened.
+%
+% Concatenate and Select blocks can have all arcs connected to them removed
+% as they basically change the wire mapping of busses. (NOTE: this requires
+% that the degenerate case of single width busses is handled by either
+% direct bypass of the block or the insertion of degenerate VectorFan
+% objects).
+%
+% In fact, any bus arc within the design that is not connected to a master
+% node can be removed.

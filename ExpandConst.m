@@ -88,6 +88,8 @@ for i = 1:length(value_array)
     %Connect the new arc to new block (add as out_arc)
     arc.srcNode = node;
     arc.srcPortNumber = 1; %Constant outputs use port 1
+    arc.width = 1;
+    arc.dimension = [1, 1];
     node.addOut_arc(arc);
     
     %Fill in intermediate node entries
@@ -112,8 +114,10 @@ for i = 1:length(constBlock.out_arcs)
     out_arc = constBlock.out_arcs(i);
     
     out_arc.srcNode = vector_fan_output;
-    vector_fan_output.busArc = out_arc;
+    vector_fan_output.addBusArc(out_arc);
+end
 
+for i = 1:length(constBlock.out_arcs)
     constBlock.removeOut_arc(out_arc);
 end
 
