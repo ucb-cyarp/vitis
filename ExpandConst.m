@@ -91,6 +91,7 @@ for i = 1:length(value_array)
     arc.width = 1;
     arc.dimension = [1, 1];
     node.addOut_arc(arc);
+    %DO NOT add as in_arc since this will be done in bus cleanup
     
     %Fill in intermediate node entries
     %The intermediate node is the origional Constant
@@ -110,15 +111,18 @@ end
 %Attach the old arcs (maybe multiple) to the VectorFan and remove it from the out_arcs list
 %of the orig object
 
+arcs_to_remove_from_constBlock = [];
+
 for i = 1:length(constBlock.out_arcs)
     out_arc = constBlock.out_arcs(i);
+    arcs_to_remove_from_constBlock = [arcs_to_remove_from_constBlock, out_arc];
     
     out_arc.srcNode = vector_fan_output;
     vector_fan_output.addBusArc(out_arc);
 end
 
-for i = 1:length(constBlock.out_arcs)
-    constBlock.removeOut_arc(out_arc);
+for i = 1:length(arcs_to_remove_from_constBlock)
+    constBlock.removeOut_arc(arcs_to_remove_from_constBlock(i));
 end
 
 %Set orig node type to "Expanded" 

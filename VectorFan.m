@@ -121,7 +121,6 @@ classdef VectorFan < GraphNode
                     intermediatePortDirections = [];
 
                     arc = obj.arcList(i);
-                    VectorFan_arc_ind = i;
                     cur_wire_number = obj.wireIndexList(i);
 
                     %Call recursive function on each of the of the output
@@ -129,7 +128,7 @@ classdef VectorFan < GraphNode
                     connected = false;
                     for j = 1:length(obj.busArc)
                         cur_arc = obj.busArc(j);
-                        [more_arcs_to_delete, was_connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                        [more_arcs_to_delete, was_connected] = reconnectArcs_helper_inner(arc, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                         arcs_to_delete = [arcs_to_delete, more_arcs_to_delete];
                         connected = connected || was_connected;
                     end
@@ -155,7 +154,7 @@ classdef VectorFan < GraphNode
         end
         
         
-        function [arcs_to_delete, connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
+        function [arcs_to_delete, connected] = reconnectArcs_helper_inner(arc, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections)
             arcs_to_delete = [];
             connected = false;
             
@@ -214,9 +213,6 @@ classdef VectorFan < GraphNode
 
                     %Add arc to out_arcs list
                     srcNode.addOut_arc(arc_pair);
-
-                    %Add pair arc to the list of arcs to
-                    %delete
                     
                 end
                 %Remove arc from out_arcs list (Was replaced by arc_pairs
@@ -277,7 +273,7 @@ classdef VectorFan < GraphNode
 
                 for out_ind = 1:length(cursor.out_arcs)
                     cur_arc = cursor.out_arcs(out_ind);
-                    [new_arcs_to_delete, new_connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    [new_arcs_to_delete, new_connected] = reconnectArcs_helper_inner(arc, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                     arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
                     connected = connected || new_connected;
                 end
@@ -321,7 +317,7 @@ classdef VectorFan < GraphNode
 
                 for out_ind = 1:length(cursor.out_arcs)
                     cur_arc = cursor.out_arcs(out_ind);
-                    [new_arcs_to_delete, new_connected] = reconnectArcs_helper_inner(arc, VectorFan_arc_ind, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                    [new_arcs_to_delete, new_connected] = reconnectArcs_helper_inner(arc, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
                     arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
                     connected = connected || new_connected;
                 end
