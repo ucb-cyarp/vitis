@@ -266,7 +266,7 @@ for i = 1:length(vector_fans)
     
     parent = vector_fan.parent;
     
-    parent.removeChild(parent);
+    parent.removeChild(vector_fan);
         
 end
 

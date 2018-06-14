@@ -128,9 +128,9 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             elseif strcmp(type, 'Expanded') %Node which has been expanded into a subsystem
                 obj.nodeType = 7;
             elseif strcmp(type, 'VectorFan') %VectorFan object
-                obj.nodeType = 7;
-            else
                 obj.nodeType = 8;
+            else
+                obj.nodeType = 9;
                 error(['''', type, ''' is not a recognized node type']);
             end
         end
@@ -154,7 +154,8 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             %Delete in reverse to avoid indexing issues
             for i = length(inds):-1:1
-                obj.children(i) = [];
+                ind = inds(i);
+                obj.children(ind) = [];
             end
         end
         
