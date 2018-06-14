@@ -86,8 +86,8 @@ for i = 1:length(node.in_arcs)
         %this arc directly as an out_arc
         srcNode = in_arc.srcNode;
         srcNode.removeOut_arc(in_arc);
-        in_arc.srcNode = fan_out;
-        fan_out.addOut_arc(in_arc);
+        in_arc.srcNode = fan_in;
+        fan_in.addOut_arc(in_arc);
         
         %Connect the arc copy to the bus side of the Fan-Out
         arc_copy.dstNode = fan_out;

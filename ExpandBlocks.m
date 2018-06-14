@@ -270,6 +270,14 @@ for i = 1:length(vector_fans)
         
 end
 
+%Remove VectorFan's (not connected to master) bus arcs
+for i = 1:length(vector_fans)
+    vector_fan = vector_fans(i);
+    
+    arcs_to_delete = [arcs_to_delete vector_fan.busArc];
+        
+end
+
 %Remove Arcs from Concat and Select Blocks
 arc_to_remove_from_ends = [];
 for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
