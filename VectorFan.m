@@ -74,13 +74,6 @@ classdef VectorFan < GraphNode
             end
         end
         
-        function delete(obj)
-            %delete Removes the VectorFan from its parent's child list
-            %before deleting the object
-            parent = obj.parent;
-            parent.removeChild(obj);
-        end
-        
         %NOTE: Only need to implement one direction.  Because pairs need to
         %be able to reach each other, traversael from either of the ends
         %needs to work.  There should be no case where a connection can
@@ -215,7 +208,7 @@ classdef VectorFan < GraphNode
                     
                 end
                 %Remove arc from out_arcs list (Was replaced by arc_pairs
-                %above)
+                %above).  Can occure multiple times
                 
                 srcNode.removeOut_arc(arc);
                 arcs_to_delete = [arcs_to_delete, arc];
