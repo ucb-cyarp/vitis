@@ -56,6 +56,8 @@ unconnected_master_node.nodeId = 4;
 terminator_master_node = GraphNode('Terminator Master', 'Master', top_level_ir_node);
 terminator_master_node.nodeId = 5;
 
+master_nodes = [input_master_node, output_master_node, vis_master_node, unconnected_master_node, terminator_master_node];
+
 %Put workspace vars in terminator master.  Need a node which is actually in
 %the graph.  The top level node is actually not emitted.
 PopulateTopLevelNodeWorkspaceVars(terminator_master_node);
@@ -135,7 +137,7 @@ top_system_func([], [], [], 'term');
 
 %% Expand graph & cleanup busses
 
-[new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, unconnected_master_node);
+[new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, master_nodes, unconnected_master_node);
 nodes = [nodes, new_nodes];
 nodes = [nodes, synth_vector_fans];
 

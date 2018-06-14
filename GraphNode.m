@@ -1,4 +1,4 @@
-classdef GraphNode < handle
+classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
     %GraphNode Represents a Graph Node extracted from Simulink
     %   Is part of the intermediate representation for the data flow graph
     
@@ -109,7 +109,7 @@ classdef GraphNode < handle
             end
         end
         
-        function setNodeTypeFromText(obj)
+        function setNodeTypeFromText(obj, type)
             %setNodeTypeFromText Sets the node type given a text description
             if strcmp(type, 'Standard')
                 obj.nodeType = 0;

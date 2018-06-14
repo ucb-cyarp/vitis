@@ -18,6 +18,7 @@ end
 
 must_keep_vector_fans = [];
 other_vector_fans = [];
+new_arcs = [];
 
 %Itterate through the out_arcs
 for i = 1:length(node.out_arcs)
@@ -39,6 +40,7 @@ for i = 1:length(node.out_arcs)
         %this arc directly as an in_arc.
         out_arc.dstNode = fan_out;
         fan_out.addIn_arc(out_arc);
+        %Still an out_arc of the srcNode
         
         %Connect the arc copy to the bus side of the Fan-In
         arc_copy.srcNode = fan_in;
@@ -53,13 +55,13 @@ for i = 1:length(node.out_arcs)
             %emitted), these wires will be added as out_arcs rather than
             %wire arcs
             wire.srcNode = fan_out;
-            wire.srcPortNumber = i;
+            wire.srcPortNumber = j;
             wire.width = 1;
             wire.dimension = [1, 1];
             fan_out.addOut_arc(wire);
             
             %Dst will be fixed by the traversal of the Fan-In.
-            fan_in.addArc(wire, i);
+            fan_in.addArc(wire, j);
         end
     end
 end
@@ -81,30 +83,33 @@ for i = 1:length(node.in_arcs)
         
         %Connect orig arc to the bus side of the Fan-in
         %*Since this node is not traversed (and must be emitted), let's add
-        %this arc directly as an out_arc.
-        out_arc.srcNode = fan_out;
-        fan_out.addOut_arc(out_arc);
+        %this arc directly as an out_arc
+        srcNode = in_arc.srcNode;
+        srcNode.removeOut_arc(in_arc);
+        in_arc.srcNode = fan_out;
+        fan_out.addOut_arc(in_arc);
         
         %Connect the arc copy to the bus side of the Fan-Out
         arc_copy.dstNode = fan_out;
         fan_out.addBusArc(arc_copy);
+        srcNode.addOut_arc(arc_copy);
         
         %Create indevidual wires between the VectorFan objects
-        for j = 1:out_arc.width
-            wire = copy(out_arc); %Copy to preserve metadata
+        for j = 1:in_arc.width
+            wire = copy(in_arc); %Copy to preserve metadata
             new_arcs = [new_arcs, wire];
             
             %*Since the Fan-In node is not traversed (and must be
             %emitted), these wires will be added as in_arcs rather than
             %wire arcs
             wire.dstNode = fan_in;
-            wire.dstPortNumber = i;
+            wire.dstPortNumber = j;
             wire.width = 1;
             wire.dimension = [1, 1];
             fan_in.addIn_arc(wire);
             
             %src will be fixed by the traversal of the pair Fan-In nodes (elsewhere in the design).
-            fan_out.addArc(wire, i);
+            fan_out.addArc(wire, j);
         end
     end
 end

@@ -1,4 +1,4 @@
-function [new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, UnconnectedMasterNode)
+function [new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, master_nodes, UnconnectedMasterNode)
 %ExpandBlocks Expands vector operations and special blocks into primitive,
 %scalar blocks.
 
@@ -147,6 +147,18 @@ arcs_to_delete = [];
 %Used internally and not returned
 vector_fans = []; %Will be removed in bus cleanup
 
+% ---- Master Nodes ----
+%Do this first to avoid adding out arc entries to VectorFan objects
+for i = 1:length(master_nodes)
+    node = master_nodes(i);
+    
+    %Expand masters to handle bus types (inserts VectorFan objects)
+    [must_keep_vector_fans, other_vector_fans, new_new_arcs] = ExpandMaster(node);
+    synth_vector_fans = [synth_vector_fans, must_keep_vector_fans];
+    vector_fans = [vector_fans, other_vector_fans];
+    new_arcs = [new_arcs, new_new_arcs];
+end
+
 % ---- Expand FIR Only ----
 
 % ---- Expand Tapped Delay ---
@@ -170,11 +182,7 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     %Call the expanded for the type of block
     %DO NOT
     if node.isMaster()
-        %Expand masters to handle bus types (inserts VectorFan objects)
-        [must_keep_vector_fans, other_vector_fans, new_new_arcs] = ExpandMaster(node);
-        synth_vector_fans = [synth_vector_fans, must_keep_vector_fans];
-        vector_fans = [vector_fans, other_vector_fans];
-        new_arcs = [new_arcs, new_new_arcs];
+        error('Master node should not be in general node list.  Expansion occurs seperatly.');
     elseif node.isSpecial()
         error('Special Block Expansion Not Implemented Yet');
     elseif node.isStandard() && (strcmp(node.simulinkBlockType, 'Sum') || strcmp(node.simulinkBlockType, 'Product'))
@@ -204,8 +212,6 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     end
     
     %If not one of the recognized types, do not expand
-    
-
 end
 
 %% Reconnection

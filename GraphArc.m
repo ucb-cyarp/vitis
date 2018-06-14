@@ -1,4 +1,4 @@
-classdef GraphArc < handle
+classdef GraphArc < handle & matlab.mixin.Copyable
     %GraphArc Represents a Graph Arc extracted from Simulink
     %   Is part of the intermediate representation for the data flow graph
     
@@ -93,55 +93,55 @@ classdef GraphArc < handle
            
            %Emit Intermediates
            if ~isempty(obj.intermediateNodes)
-               intermediateNode = obj.intermediateNodes{1};
+               intermediateNode = obj.intermediateNodes(1);
                str = '[' + intermediateNode.getFullIDPath('::', 'n%d', false);
 
                for i = 2:length(obj.intermediateNodes)
-                   intermediateNode = obj.intermediateNodes{i};
+                   intermediateNode = obj.intermediateNodes(i);
                    str = str + ', ' + intermediateNode.getFullIDPath('::', 'n%d', false);
                end
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_nodes">%s</data>\n', str);
            end
            if ~isempty(obj.intermediatePortNumbers)
-               intermediatePortNumber = obj.intermediatePortNumbers{1};
+               intermediatePortNumber = obj.intermediatePortNumbers(1);
                str = '[' + num2str(intermediatePortNumber);
 
                for i = 2:length(obj.intermediatePortNumbers)
-                   intermediatePortNumber = obj.intermediatePortNumbers{i};
+                   intermediatePortNumber = obj.intermediatePortNumbers(i);
                    str = str + ', ' + num2str(intermediatePortNumber);
                end
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_ports">%s</data>\n', str);
            end
            if ~isempty(obj.intermediateWireNumbers)
-               intermediateWireNumber = obj.intermediateWireNumbers{1};
+               intermediateWireNumber = obj.intermediateWireNumbers(1);
                str = '[' + intermediateWireNumber;
 
                for i = 2:length(obj.intermediateWireNumbers)
-                   intermediateWireNumber = obj.intermediateWireNumbers{i};
+                   intermediateWireNumber = obj.intermediateWireNumbers(i);
                    str = str + ', ' + intermediateWireNumber;
                end
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_wires">%s</data>\n', str);
            end
            if ~isempty(obj.intermediatePortTypes)
-               intermediatePortType = obj.intermediatePortTypes{1};
+               intermediatePortType = obj.intermediatePortTypes(1);
                str = '[' + intermediatePortType;
 
                for i = 2:length(obj.intermediatePortTypes)
-                   intermediatePortType = obj.intermediatePortTypes{i};
+                   intermediatePortType = obj.intermediatePortTypes(i);
                    str = str + ', ' + intermediatePortType;
                end
                str = str + ']';
                fprintf(file, '<data key="arc_intermediate_port_types">%s</data>\n', str);
            end
            if ~isempty(obj.intermediatePortDirections)
-               intermediatePortDirection = obj.intermediatePortDirections{1};
+               intermediatePortDirection = obj.intermediatePortDirections(1);
                str = '[' + intermediatePortDirection;
 
                for i = 2:length(obj.intermediatePortDirections)
-                   intermediatePortDirection = obj.intermediatePortDirections{i};
+                   intermediatePortDirection = obj.intermediatePortDirections(i);
                    str = str + ', ' + intermediatePortDirection;
                end
                str = str + ']';
@@ -232,9 +232,17 @@ classdef GraphArc < handle
             %appendIntermediateNodeEntry Append an intermediate node entry
             %to the arc
             
-            portDir = GraphArc.portDirFromStr(intermediatePortDirection);
+            if ischar(intermediatePortDirection)
+                portDir = GraphArc.portDirFromStr(intermediatePortDirection);
+            else
+                portDir = intermediatePortDirection;
+            end
             
-            portType = GraphArc.portTypeFromStr(intermediatePortType);
+            if ischar(intermediatePortType)
+                portType = GraphArc.portTypeFromStr(intermediatePortType);
+            else
+                portType = intermediatePortType;
+            end
             
             obj.intermediateNodes = [obj.intermediateNodes, intermediateNode];
             obj.intermediatePortNumbers = [obj.intermediatePortNumbers, intermediatePortNumber];
@@ -247,9 +255,17 @@ classdef GraphArc < handle
             %prependIntermediateNodeEntry Prepend an intermediate node entry
             %to the arc
             
-            portDir = GraphArc.portDirFromStr(intermediatePortDirection);
+            if ischar(intermediatePortDirection)
+                portDir = GraphArc.portDirFromStr(intermediatePortDirection);
+            else
+                portDir = intermediatePortDirection;
+            end
             
-            portType = GraphArc.portTypeFromStr(intermediatePortType);
+            if ischar(intermediatePortType)
+                portType = GraphArc.portTypeFromStr(intermediatePortType);
+            else
+                portType = intermediatePortType;
+            end
             
             obj.intermediateNodes = [intermediateNode, obj.intermediateNodes];
             obj.intermediatePortNumbers = [intermediatePortNumber, obj.intermediatePortNumbers];

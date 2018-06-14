@@ -5,7 +5,7 @@ function [expansion_occured, expanded_nodes, vector_fan_output, new_arcs] = Expa
 %array.
 
 expansion_occured = false;
-expanded_nodes= [];
+expanded_nodes = [];
 vector_fan_output = [];
 new_arcs = [];
 
@@ -69,7 +69,7 @@ vector_fan_output = VectorFan('Fan-In', constBlock); %Indevidual Arcs will be fa
 
 for i = 1:length(value_array)
     %Create new constant block.  Copy Certain parameters from origional.
-    node = createExpandNodeNoSimulinkParams(constBlock, 'Standard', 'Constant'); %Constants are 'Standard' nodes.  This function adds the node as a child of the parent.
+    node = GraphNode.createExpandNodeNoSimulinkParams(constBlock, 'Standard', 'Constant'); %Constants are 'Standard' nodes.  This function adds the node as a child of the parent.
     
     %Set Params
     node.simulinkBlockType = constBlock.simulinkBlockType; %'Constant', copy from orig
@@ -95,7 +95,7 @@ for i = 1:length(value_array)
     
     %Fill in intermediate node entries
     %The intermediate node is the origional Constant
-    appendIntermediateNodeEntry(obj, constBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+    arc.appendIntermediateNodeEntry(constBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
     
     %Add arc to VectorFan
     vector_fan_output.addArc(arc, i);
@@ -104,7 +104,7 @@ for i = 1:length(value_array)
     new_arcs = [new_arcs, arc];
     
     %Add new node to array
-    expanded_nodes(i) = node;
+    expanded_nodes = [expanded_nodes, node];
     
 end
 
