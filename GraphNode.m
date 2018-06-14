@@ -264,6 +264,11 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             master = obj.nodeType == 6;
         end
         
+        function master = isVectorFan(obj)
+            %isVectorFan Returns true if the node is a VectorFan node
+            master = obj.nodeType == 8;
+        end
+        
         function special = isSpecial(obj)
             %isMaster Returns true if the node is a special Input/Output node
             special = obj.nodeType == 3 || obj.nodeType == 4;
@@ -324,6 +329,39 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
         end
         
+        function nodeLabelStr = labelStr(obj)
+               nodeLabelStr = sprintf('%s\nID: %s', obj.name, obj.getFullIDPath('::', 'n%d', false));
+               if ~obj.isVectorFan() && ~obj.isMaster()
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nFunction: %s', obj.simulinkBlockType)];
+               else
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nType: %s', obj.getNodeTypeText())];
+               end
+               
+               if strcmp(obj.simulinkBlockType, 'Delay')
+                    nodeLabelStr = [nodeLabelStr, sprintf('\nDelayLengthSource: %s', obj.dialogProperties('DelayLengthSource'))];
+                    nodeLabelStr = [nodeLabelStr, sprintf('\nInitialConditionSource: %s', obj.dialogProperties('InitialConditionSource'))];
+               elseif strcmp(obj.simulinkBlockType, 'Sum')
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nInputs: %s', obj.dialogProperties('Inputs'))];
+               elseif strcmp(obj.simulinkBlockType, 'Product')
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nInputs: %s', obj.dialogProperties('Inputs'))];
+               elseif strcmp(obj.simulinkBlockType, 'Switch')
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nChriteria: %s', obj.dialogProperties('Chriteria'))];
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nZeroCross: %s', obj.dialogProperties('ZeroCross'))];
+               elseif strcmp(obj.simulinkBlockType, 'DiscreteFir')
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nCoefSource: %s', obj.dialogProperties('CoefSource'))];
+               end
+               
+               numericKeys = keys(obj.dialogPropertiesNumeric);
+               
+               for keyInd = 1:length(numericKeys)
+                   key = numericKeys{keyInd};
+                   
+                   value = obj.dialogPropertiesNumeric(key);
+                   value_str = anyToString(value);
+                   nodeLabelStr = [nodeLabelStr, sprintf('\n%s: %s', key, value_str)];
+               end
+        end
+        
         function emitSelfAndChildrenGraphml(obj, file, numTabs)
            %emitSelfAndChildrenGraphml Writes GraphML entries for this
            %node and its children.  numTabs specifies the initial indent
@@ -340,6 +378,12 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                % Simulink Block Type -> Block Function
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="block_function">%s</data>\n', obj.simulinkBlockType);
+               
+               %Emit Label
+               nodeLabelStr = obj.labelStr();
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="block_label">%s</data>\n', nodeLabelStr);
+               
                % Emit Dialog Properties
                obj.emitDialogParameters(file, numTabs+1);
                
@@ -377,6 +421,12 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                % Simulink Block Type -> Block Function
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="block_function">%s</data>\n', obj.simulinkBlockType);
+               
+               %Emit Label
+               nodeLabelStr = obj.labelStr();
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="block_label">%s</data>\n', nodeLabelStr);
+               
                % Emit Dialog Properties
                obj.emitDialogParameters(file, numTabs+1);
                

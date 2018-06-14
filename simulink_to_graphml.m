@@ -214,6 +214,11 @@ fprintf(graphml_filehandle, '\t<key id="block_function" for="node" attr.name="bl
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
+% Block Type -> Block Label
+fprintf(graphml_filehandle, '\t<key id="block_label" for="node" attr.name="block_label" attr.type="string">\n');
+fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
 % Arc Src Port (For libraries that do not support ports)
 fprintf(graphml_filehandle, '\t<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">\n');
 fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
