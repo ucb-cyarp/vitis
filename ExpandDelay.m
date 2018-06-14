@@ -1,4 +1,4 @@
-function [expansion_occured, expanded_nodes, vector_fan_output, new_arcs] = ExpandDelay(delayBlock)
+function [expansion_occured, expanded_nodes, vector_fans, new_arcs] = ExpandDelay(delayBlock)
 %ExpandDelay Expands a delay whose input/output are vector types.  The
 %delay is expanded into single delay blocks for each element of the vector.
 % If the input/output is a scalar, no action is taken.
@@ -25,7 +25,7 @@ function [expansion_occured, expanded_nodes, vector_fan_output, new_arcs] = Expa
 
 expansion_occured = false;
 expanded_nodes = [];
-vector_fan_output = [];
+vector_fans = [];
 new_arcs = [];
 
 %% Checking for Bad Input
@@ -111,6 +111,8 @@ delay_value = delayBlock.dialogPropertiesNumeric('DelayLength');
 %Create Vector_Fan object
 vector_fan_output = VectorFan('Fan-In', delayBlock); %Indevidual Arcs will be fanning into the bus
 vector_fan_input = VectorFan('Fan-Out', delayBlock); %Indevidual Arcs will be fanning out from the bus
+
+vector_fans = [vector_fan_output, vector_fan_input];
 
 for i = 1:length(init_array)
     %Create new delay block.  Copy Certain parameters from origional.
