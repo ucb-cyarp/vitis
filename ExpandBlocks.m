@@ -188,7 +188,10 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     elseif node.isStandard() && (strcmp(node.simulinkBlockType, 'Sum') || strcmp(node.simulinkBlockType, 'Product'))
         error('Op Block Expansion Not Implemented Yet');
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Delay')
-        error('Delay Block Expansion Not Implemented Yet');
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandDelay(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Switch')
         error('Switch Block Expansion Not Implemented Yet');
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Constant')
