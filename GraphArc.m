@@ -94,58 +94,63 @@ classdef GraphArc < handle & matlab.mixin.Copyable
            %Emit Intermediates
            if ~isempty(obj.intermediateNodes)
                intermediateNode = obj.intermediateNodes(1);
-               str = '[' + intermediateNode.getFullIDPath('::', 'n%d', false);
+               intermediateNodeStr = ['[', intermediateNode.getFullIDPath('::', 'n%d', false)];
 
                for i = 2:length(obj.intermediateNodes)
                    intermediateNode = obj.intermediateNodes(i);
-                   str = str + ', ' + intermediateNode.getFullIDPath('::', 'n%d', false);
+                   intermediateNodeStr = [intermediateNodeStr ', ', intermediateNode.getFullIDPath('::', 'n%d', false)];
                end
-               str = str + ']';
-               fprintf(file, '<data key="arc_intermediate_nodes">%s</data>\n', str);
+               intermediateNodeStr = [intermediateNodeStr, ']'];
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="arc_intermediate_nodes">%s</data>\n', intermediateNodeStr);
            end
            if ~isempty(obj.intermediatePortNumbers)
                intermediatePortNumber = obj.intermediatePortNumbers(1);
-               str = '[' + num2str(intermediatePortNumber);
+               intermediatePortNumberStr = ['[', num2str(intermediatePortNumber)];
 
                for i = 2:length(obj.intermediatePortNumbers)
                    intermediatePortNumber = obj.intermediatePortNumbers(i);
-                   str = str + ', ' + num2str(intermediatePortNumber);
+                   intermediatePortNumberStr = [intermediatePortNumberStr, ', ', num2str(intermediatePortNumber)];
                end
-               str = str + ']';
-               fprintf(file, '<data key="arc_intermediate_ports">%s</data>\n', str);
+               intermediatePortNumberStr = [intermediatePortNumberStr, ']'];
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="arc_intermediate_ports">%s</data>\n', intermediatePortNumberStr);
            end
            if ~isempty(obj.intermediateWireNumbers)
                intermediateWireNumber = obj.intermediateWireNumbers(1);
-               str = '[' + intermediateWireNumber;
+               intermediateWireNumberStr = ['[', num2str(intermediateWireNumber)];
 
                for i = 2:length(obj.intermediateWireNumbers)
                    intermediateWireNumber = obj.intermediateWireNumbers(i);
-                   str = str + ', ' + intermediateWireNumber;
+                   intermediateWireNumberStr = [intermediateWireNumberStr, ', ', num2str(intermediateWireNumber)];
                end
-               str = str + ']';
-               fprintf(file, '<data key="arc_intermediate_wires">%s</data>\n', str);
+               intermediateWireNumberStr = [intermediateWireNumberStr, ']'];
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="arc_intermediate_wires">%s</data>\n', intermediateWireNumberStr);
            end
            if ~isempty(obj.intermediatePortTypes)
                intermediatePortType = obj.intermediatePortTypes(1);
-               str = '[' + intermediatePortType;
+               intermediatePortTypeStr = ['[', GraphArc.portTypeStr(intermediatePortType)];
 
                for i = 2:length(obj.intermediatePortTypes)
                    intermediatePortType = obj.intermediatePortTypes(i);
-                   str = str + ', ' + intermediatePortType;
+                   intermediatePortTypeStr = [intermediatePortTypeStr, ', ', GraphArc.portTypeStr(intermediatePortType)];
                end
-               str = str + ']';
-               fprintf(file, '<data key="arc_intermediate_port_types">%s</data>\n', str);
+               intermediatePortTypeStr = [intermediatePortTypeStr, ']'];
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="arc_intermediate_port_types">%s</data>\n', intermediatePortTypeStr);
            end
            if ~isempty(obj.intermediatePortDirections)
                intermediatePortDirection = obj.intermediatePortDirections(1);
-               str = '[' + intermediatePortDirection;
+               intermediatePortDirectionStr = ['[', GraphArc.portDirStr(intermediatePortDirection)];
 
                for i = 2:length(obj.intermediatePortDirections)
                    intermediatePortDirection = obj.intermediatePortDirections(i);
-                   str = str + ', ' + intermediatePortDirection;
+                   intermediatePortDirectionStr = [intermediatePortDirectionStr, ', ', GraphArc.portDirStr(intermediatePortDirection)];
                end
-               str = str + ']';
-               fprintf(file, '<data key="arc_intermediate_directions">%s</data>\n', str);
+               intermediatePortDirectionStr = [intermediatePortDirectionStr, ']'];
+               writeNTabs(file, numTabs+1);
+               fprintf(file, '<data key="arc_intermediate_directions">%s</data>\n', intermediatePortDirectionStr);
            end
            
            %Create lable with relevant information
@@ -153,16 +158,16 @@ classdef GraphArc < handle & matlab.mixin.Copyable
            writeNTabs(file, numTabs+1);
            %Include static entries if applicable
            if ~isempty(obj.intermediateNodes)
-               disp_label = [disp_label, sprintf('\nIntermediate Node: %s', anyToString(obj.intermediateNodes.getFullIDPath('::', 'n%d', false)))];
+               disp_label = [disp_label, sprintf('\nIntermediate Node: %s', intermediateNodeStr)];
            end
            if ~isempty(obj.intermediatePortNumbers)
-               disp_label = [disp_label, sprintf('\nIntermediate Port Number: %s', anyToString(obj.intermediatePortNumbers))];
+               disp_label = [disp_label, sprintf('\nIntermediate Port Number: %s', intermediatePortNumberStr)];
            end
            if ~isempty(obj.intermediatePortTypes)
-               disp_label = [disp_label, sprintf('\nIntermediate Port Type: %s', anyToString(obj.intermediatePortTypes))];
+               disp_label = [disp_label, sprintf('\nIntermediate Port Type: %s', intermediatePortTypeStr)];
            end
            if ~isempty(obj.intermediatePortDirections)
-               disp_label = [disp_label, sprintf('\nIntermediate Port Direction: %s', anyToString(obj.intermediatePortDirections))];
+               disp_label = [disp_label, sprintf('\nIntermediate Port Direction: %s', intermediatePortDirectionStr)];
            end
            if ~isempty(obj.datatype)
                 disp_label = [disp_label, sprintf('\nDatatype: %s', anyToString(obj.datatype))];
@@ -474,6 +479,20 @@ classdef GraphArc < handle & matlab.mixin.Copyable
                 
         end
         
+        function str = portTypeStr(portType)
+            %portTypeStr Returns the string representation of the
+            %port type from the number
+            
+            if portType == 0
+                str = 'Standard';
+            elseif portType == 1
+                str = 'Enable';
+            else
+                str = 'Error';
+            end
+                
+        end
+        
         function num = portDirFromStr(portDir)
             %portDirFromStr Returns the numeric representation of the
             %port direction from the string
@@ -484,6 +503,20 @@ classdef GraphArc < handle & matlab.mixin.Copyable
                 num = 1;
             else
                 error(['''', portDir, ''' is not a recognized port direction']);
+            end
+                
+        end
+        
+        function str = portDirStr(portDir)
+            %portDirStr Returns the string representation of the
+            %port direction from the number
+            
+            if portDir == 0
+                str = 'Out';
+            elseif portDir == 1
+                str = 'In';
+            else
+                str = 'Error';
             end
                 
         end
