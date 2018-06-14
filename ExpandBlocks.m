@@ -260,6 +260,16 @@ for i = 1:length(vector_fans)
         
 end
 
+%Remove VectorFans (not connected to master) from their parents
+for i = 1:length(vector_fans)
+    vector_fan = vector_fans(i);
+    
+    parent = vector_fan.parent;
+    
+    parent.removeChild(parent);
+        
+end
+
 %Remove Arcs from Concat and Select Blocks
 arc_to_remove_from_ends = [];
 for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list

@@ -142,7 +142,20 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         
         function removeChild(obj, child)
             %removeChild Remove a node from the children list;
-            obj.children(obj.children == child) = [];
+            
+            %Implementing as search to avoid issues with heterogenious
+            %arrays. (really wish could just compare pointer addresses)
+            inds = [];
+            for i = 1:length(obj.children)
+                if obj.children(i) == child
+                    inds = [inds, i];
+                end
+            end
+            
+            %Delete in reverse to avoid indexing issues
+            for i = length(inds):-1:1
+                obj.children(i) = [];
+            end
         end
         
         function outputArg = getAncestorHierarchy(obj)
