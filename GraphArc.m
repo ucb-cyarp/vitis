@@ -163,6 +163,9 @@ classdef GraphArc < handle & matlab.mixin.Copyable
            if ~isempty(obj.intermediatePortNumbers)
                disp_label = [disp_label, sprintf('\nIntermediate Port Number: %s', intermediatePortNumberStr)];
            end
+              if ~isempty(obj.intermediateWireNumbers)
+               disp_label = [disp_label, sprintf('\nIntermediate Wire Number: %s', intermediateWireNumberStr)];
+           end
            if ~isempty(obj.intermediatePortTypes)
                disp_label = [disp_label, sprintf('\nIntermediate Port Type: %s', intermediatePortTypeStr)];
            end
