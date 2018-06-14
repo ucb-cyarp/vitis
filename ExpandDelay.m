@@ -145,7 +145,7 @@ for i = 1:length(init_array)
     
     %Fill in intermediate node entries
     %The intermediate node is the origional Constant
-    out_wire_arc.appendIntermediateNodeEntry(delayBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+    out_wire_arc.prependIntermediateNodeEntry(delayBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
     
     %Add arc to VectorFan Output
     vector_fan_output.addArc(out_wire_arc, i);

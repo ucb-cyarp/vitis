@@ -95,7 +95,7 @@ for i = 1:length(value_array)
     
     %Fill in intermediate node entries
     %The intermediate node is the origional Constant
-    arc.appendIntermediateNodeEntry(constBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+    arc.prependIntermediateNodeEntry(constBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
     
     %Add arc to VectorFan
     vector_fan_output.addArc(arc, i);
