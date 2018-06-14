@@ -192,7 +192,11 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
         new_arcs = [new_arcs, new_new_arcs];
         arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Product')
-        error('Product Block Expansion Not Implemented Yet');
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandProduct(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Delay')
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandDelay(node);
         new_nodes = [new_nodes, new_expanded_nodes];
