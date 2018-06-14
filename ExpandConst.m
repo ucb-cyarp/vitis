@@ -69,7 +69,7 @@ vector_fan_output = VectorFan('Fan-In', constBlock); %Indevidual Arcs will be fa
 
 for i = 1:length(value_array)
     %Create new constant block.  Copy Certain parameters from origional.
-    node = GraphNode.createExpandNodeNoSimulinkParams(constBlock, 'Standard', 'Constant'); %Constants are 'Standard' nodes.  This function adds the node as a child of the parent.
+    node = GraphNode.createExpandNodeNoSimulinkParams(constBlock, 'Standard', 'Constant', i); %Constants are 'Standard' nodes.  This function adds the node as a child of the parent.
     
     %Set Params
     node.simulinkBlockType = constBlock.simulinkBlockType; %'Constant', copy from orig

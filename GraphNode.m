@@ -442,7 +442,7 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
         end
         
-        function [node] = createExpandNodeNoSimulinkParams(node_to_expand, node_type, node_name)
+        function [node] = createExpandNodeNoSimulinkParams(node_to_expand, node_type, node_name, node_number)
             %createExpandNodeNoSimulinkParams Create a new GraphNode object based on an
             %existing node.  Simulimk Parameters are not automatically
             %populated.  However, the reference the given node's simulink
@@ -465,9 +465,7 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             
             simulink_block_handle = node_to_expand.simulinkHandle;
             
-            current_number_of_children = length(node_to_expand.children);
-            
-            node_name = [get_param(simulink_block_handle, 'Name') '_Expanded_' num2str(current_number_of_children) '_' node_name];
+            node_name = [get_param(simulink_block_handle, 'Name') '_Expanded_' num2str(node_number) '_' node_name];
 
             node = GraphNode(node_name, node_type, node_to_expand);
             node_to_expand.addChild(node);

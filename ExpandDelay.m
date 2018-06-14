@@ -114,7 +114,7 @@ vector_fan_input = VectorFan('Fan-Out', delayBlock); %Indevidual Arcs will be fa
 
 for i = 1:length(init_array)
     %Create new delay block.  Copy Certain parameters from origional.
-    node = GraphNode.createExpandNodeNoSimulinkParams(delayBlock, 'Standard', 'Delay'); %Delays are 'Standard' nodes.  This function adds the node as a child of the parent.
+    node = GraphNode.createExpandNodeNoSimulinkParams(delayBlock, 'Standard', 'Delay', i); %Delays are 'Standard' nodes.  This function adds the node as a child of the parent.
     
     %Set Params
     node.simulinkBlockType = delayBlock.simulinkBlockType; %'Delay', copy from orig
