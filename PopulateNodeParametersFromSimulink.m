@@ -70,6 +70,41 @@ elseif strcmp(node.simulinkBlockType, 'Delay')
     end
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+    
+%---- Switch ----
+elseif strcmp(node.simulinkBlockType, 'Switch')
+    %1st and 3rd Ports are inputs.  2nd port is switch
+    node.dialogPropertiesNumeric('Threshold') = GetParamEval(simulink_block_handle, 'Threshold');
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+    %Other important dialog parameters
+    %Chriteria - Switching Criteria
+    %ZeroCross - Zero Crossing
+    
+%---- Sum ----
+elseif strcmp(node.simulinkBlockType, 'Sum')
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+    
+    %Important DialogParameters
+    %Inputs = The string showing what operation each input is (+ or -).  |
+    %is used to shift ports around on the GUI but does not take a port
+    %number
+    %It can also be a number specifying the number of + operations
+    %Because it is not always a number, it cannot be reliably parsed into a
+    %number
+    
+%---- Product ----
+elseif strcmp(node.simulinkBlockType, 'Product')
+%     if strcmp( get_param(simulink_block_handle, 'Multiplication'), 'Element-wise(.*)')
+%         error('Product is currently only supported in Element-wise mode.  Matrix mode is not supported.');
+%     end
+    
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+    
+    %Important DialogParameters
+    %Inputs = Can be a number (indeicating the number of multiply inputs).
+    %         Can also be a string of '*' and '/'s to indicate the operations on each port
+    %Because it is not always a number, it cannot be reliably parsed into a
+    %number
   
 %---- FIR ----
 elseif strcmp(node.simulinkBlockType, 'DiscreteFir')
@@ -123,6 +158,7 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 end
+
 %TODO: More Blocks
     
 end
