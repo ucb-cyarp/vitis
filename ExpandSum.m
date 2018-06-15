@@ -216,7 +216,7 @@ for i = 1:length(sumBlock.in_arcs)
         %This is a vector input, connect the arc to the VectorFan object
         %and remove it from the orig object
         
-        vector_fan_input_ind = input_arc_vectorfan_index(j);
+        vector_fan_input_ind = input_arc_vectorfan_index(i);
         vector_fan_input = vector_inputs(vector_fan_input_ind);
             
         in_arc.dstNode = vector_fan_input;
