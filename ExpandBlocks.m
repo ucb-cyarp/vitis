@@ -184,15 +184,19 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     if node.isMaster()
         error('Master node should not be in general node list.  Expansion occurs seperatly.');
     elseif node.isSpecial()
-        error('Special Block Expansion Not Implemented Yet');
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Sum')
-        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandSum(node);
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
         arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Product')
-        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandProduct(node);
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
@@ -203,7 +207,11 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Switch')
-        error('Switch Block Expansion Not Implemented Yet');
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Constant')
         %Expand Constants
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandConst(node);

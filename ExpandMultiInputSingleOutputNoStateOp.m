@@ -1,12 +1,20 @@
-function [expansion_occured, expanded_nodes, vector_fans, new_arcs, arcs_to_delete] = ExpandProduct(productBlock)
-%ExpandSum Expands a vector operation (*, /) into replicas of
-%that operation on each element of the vector.  Replicas are contained
-%within the given node.  Node type is changed to subsystem.
+function [expansion_occured, expanded_nodes, vector_fans, new_arcs, arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(opBlock)
+%ExpandMultiInputSingleOutputOp Expands a vector operation (+, -, *, /, 
+%switch, special nodes) into replicas of that operation on each element of 
+%the vector.  Replicas are contained within the given node.  Node type is
+%changed to subsystem.
 
-%Handle case of some inputs being vectors and some inputs being scalars.
+%Operations are direct replicas.
+
+%The input port numbers are preserved durring the expansion
+
+%Handles case of some inputs being vectors and some inputs being scalars.
+
+%If output is not a vector, no action is taken
 
 %scalar op scalar has no effect and the function simply returns
 
+%Note: It turns out that +, - are both Sum operators
 %Note: It turns out that *, / are both Product operators
 
 %Note: There can be more than 2 inputs to operators but there should only
@@ -18,20 +26,13 @@ vector_fans = [];
 new_arcs = [];
 arcs_to_delete = [];
 
-%% Checking for Bad Input
-%This method should only be called on constant objects, let's check for
-%that first
-if ~strcmp(productBlock.simulinkBlockType, 'Product')
-    error('ExpandProduct was called on a block that is not a Sum.');
-end
-
 %There may be many output arcs (connected to different blocks) but should
 %all have the same properties
-out_arc = productBlock.out_arcs(1);
+out_arc = opBlock.out_arcs(1);
 
 %Check for matrix ports, we don't support them at the moment
 if length(out_arc.dimension) >2 || (out_arc.dimension(1) > 1 && out_arc.dimension(2) > 1)
-    error('Product block expansion does not currently support N-dimensional matrix port types.');
+    error('Block expansion does not currently support N-dimensional matrix port types.');
 end
 
 if out_arc.width <= 1
@@ -39,7 +40,7 @@ if out_arc.width <= 1
     %Sanity check for disagreement with dimension parameter and width
     %parameter
     if out_arc.dimension(1) > 1 || out_arc.dimension(2) > 1
-        error('Disagreement between dimension and width parameters for arc durring Product block expansion');
+        error('Disagreement between dimension and width parameters for arc durring block expansion');
     end
     
     %The output arc is not a vector (and transitivitily the input arc is not a vector).  No work to do, return
@@ -55,7 +56,7 @@ busWidth = out_arc.width;
 %Create Vector_Fan objects
 
 %Should only be 1 output port (but potentially with many output arcs)
-vector_fan_output = VectorFan('Fan-In', productBlock); %Indevidual Arcs will be fanning into the bus
+vector_fan_output = VectorFan('Fan-In', opBlock); %Indevidual Arcs will be fanning into the bus
 
 vector_fans = [vector_fan_output];
 
@@ -65,11 +66,11 @@ vector_inputs = [];
 input_arc_isvector = [];
 input_arc_vectorfan_index = [];
 input_vectorfan_count = 0;
-for i = 1:length(productBlock.in_arcs)
-    in_arc = productBlock.in_arcs(i);
+for i = 1:length(opBlock.in_arcs)
+    in_arc = opBlock.in_arcs(i);
     
     if in_arc.width > 1
-        vector_fan_input = VectorFan('Fan-Out', productBlock); %Indevidual Arcs will be fanning out from the bus
+        vector_fan_input = VectorFan('Fan-Out', opBlock); %Indevidual Arcs will be fanning out from the bus
         vector_fans = [vector_fans, vector_fan_input];
         vector_inputs = [vector_inputs, vector_fan_input];
         input_arc_isvector = [input_arc_isvector, true];
@@ -81,18 +82,49 @@ for i = 1:length(productBlock.in_arcs)
     end 
 end
 
+%Get Name from Block Type
+if strcmp(opBlock.simulinkBlockType, 'Sum')
+    blockName = 'Sum';
+elseif strcmp(opBlock.simulinkBlockType, 'Product')
+    blockName = 'Product';
+elseif strcmp(opBlock.simulinkBlockType, 'Switch')
+    blockName = 'Switch';
+elseif opBlock.isSpecialInput()
+    blockName = 'Special Input Port';
+elseif opBlock.isSpecialOutput()
+    blockName = 'Special Output Port';
+else
+    error('Expansion performed on an unsupported block')
+end
+
 %Create new blocks and connect them to vectorfans
 %For scalar inputs
 for i = 1:busWidth
     %Create new delay block.  Copy Certain parameters from origional.
-    node = GraphNode.createExpandNodeNoSimulinkParams(productBlock, 'Standard', 'Product', i); %Products are 'Standard' nodes.  This function adds the node as a child of the parent.
+    node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', blockName, i); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
     
     %Set Params
-    node.simulinkBlockType = productBlock.simulinkBlockType; %'Product', copy from orig
+    node.simulinkBlockType = opBlock.simulinkBlockType; %copy from orig
     
-    %Currently, only handling numerics
-    node.dialogPropertiesNumeric('SampleTime') = productBlock.dialogPropertiesNumeric('SampleTime'); % Copy from orig
-    node.dialogProperties('Inputs') = productBlock.dialogProperties('Inputs');
+    %Copy Parameters, currently only handling numerics
+    if strcmp(opBlock.simulinkBlockType, 'Sum')
+        node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');
+        node.dialogProperties('Inputs') = opBlock.dialogProperties('Inputs');
+    elseif strcmp(opBlock.simulinkBlockType, 'Product')
+        node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');
+        node.dialogProperties('Inputs') = opBlock.dialogProperties('Inputs');
+    elseif strcmp(opBlock.simulinkBlockType, 'Switch')
+        node.dialogPropertiesNumeric('Threshold') = opBlock.dialogPropertiesNumeric('Threshold');
+        node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');
+        node.dialogProperties('Criteria') = opBlock.dialogProperties('Criteria');
+        node.dialogProperties('ZeroCross') = opBlock.dialogProperties('ZeroCross');
+    elseif opBlock.isSpecialInput()
+        %Nothing to copy
+    elseif opBlock.isSpecialOutput()
+        %Nothing to copy
+    else
+        error('Expansion performed on an unsupported block')
+    end
     
     %---- Create new arc for output ----
     %The arc will be a shallow copy of the existing output arc
@@ -103,7 +135,12 @@ for i = 1:busWidth
     
     %Connect the new arc to new block (add as out_arc)
     out_wire_arc.srcNode = node;
-    out_wire_arc.srcPortNumber = 1; %delay outputs use port 1
+    %TODO: Evaluate keeping port number.  Should be port 1 for these blocks
+    %TODO: Remove this check
+    if out_wire_arc.srcPortNumber ~= 1
+        error('Output arc should have port 1');
+    end
+    %outputs use port 1
     out_wire_arc.width = 1;
     out_wire_arc.dimension = [1, 1];
     node.addOut_arc(out_wire_arc);
@@ -112,7 +149,7 @@ for i = 1:busWidth
     
     %Fill in intermediate node entries
     %The intermediate node is the origional Constant
-    out_wire_arc.prependIntermediateNodeEntry(productBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a sum, the output port of the origional block would be 'standard' and the direction is 'out'
+    out_wire_arc.prependIntermediateNodeEntry(opBlock, 1, i, 'Standard', 'Out'); %Since we are expanding a sum, the output port of the origional block would be 'standard' and the direction is 'out'
     
     %Add arc to VectorFan Output
     vector_fan_output.addArc(out_wire_arc, i);
@@ -123,7 +160,7 @@ for i = 1:busWidth
     %There will likely be multiple input ports
     
     for j = 1:length(input_arc_isvector)
-        in_arc = productBlock.in_arcs(j);
+        in_arc = opBlock.in_arcs(j);
         
         if input_arc_isvector(j)
             %This input comes from a VectorFan input object
@@ -142,7 +179,7 @@ for i = 1:busWidth
             %Fill in intermediate node entries
             %The intermediate node is the origional Constant
             %i is still the wire number, j is the port number
-            in_wire_arc.appendIntermediateNodeEntry(productBlock, 1, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+            in_wire_arc.appendIntermediateNodeEntry(opBlock, 1, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
 
             %Add arc to VectorFan Input
             vector_fan_input_ind = input_arc_vectorfan_index(j);
@@ -171,7 +208,7 @@ for i = 1:busWidth
             %Fill in intermediate node entries
             %The intermediate node is the origional Constant
             %i is still the wire number, j is the port number
-            in_wire_arc.appendIntermediateNodeEntry(productBlock, 1, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+            in_wire_arc.appendIntermediateNodeEntry(opBlock, 1, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
 
             %Add arc to origional src as an output
             %Src was unchanged in the arc copy
@@ -191,26 +228,26 @@ end
 %Attach the old out arcs (maybe multiple) to the VectorFan output and remove it from the out_arcs list
 %of the orig object
 
-arcs_to_remove_from_productBlock = [];
+arcs_to_remove_from_opBlock = [];
 
-for i = 1:length(productBlock.out_arcs)
-    out_arc = productBlock.out_arcs(i);
-    arcs_to_remove_from_productBlock = [arcs_to_remove_from_productBlock, out_arc];
+for i = 1:length(opBlock.out_arcs)
+    out_arc = opBlock.out_arcs(i);
+    arcs_to_remove_from_opBlock = [arcs_to_remove_from_opBlock, out_arc];
     
     out_arc.srcNode = vector_fan_output;
     vector_fan_output.addBusArc(out_arc);
 end
 
-for i = 1:length(arcs_to_remove_from_productBlock)
-    productBlock.removeOut_arc(arcs_to_remove_from_productBlock(i));
+for i = 1:length(arcs_to_remove_from_opBlock)
+    opBlock.removeOut_arc(arcs_to_remove_from_opBlock(i));
 end
 
 %attach the old in_arcs to the VectorFans if they are busses and delete
 %them if they were scalar (having been replaced)
 
-in_arc_to_remove_from_product = [];
-for i = 1:length(productBlock.in_arcs)
-    in_arc = productBlock.in_arcs(i);
+in_arc_to_remove_from_op = [];
+for i = 1:length(opBlock.in_arcs)
+    in_arc = opBlock.in_arcs(i);
     
     if input_arc_isvector(i)
         %This is a vector input, connect the arc to the VectorFan object
@@ -221,25 +258,25 @@ for i = 1:length(productBlock.in_arcs)
             
         in_arc.dstNode = vector_fan_input;
         vector_fan_input.addBusArc(in_arc);
-        in_arc_to_remove_from_product = [in_arc_to_remove_from_product, in_arc];
+        in_arc_to_remove_from_op = [in_arc_to_remove_from_op, in_arc];
     else
         %This is a scalar arc which has been replaced.  It will be removed
         %as an out_arc from the src.  This arc shoud also be removed
         
         srcNode = in_arc.srcNode;
         srcNode.removeOut_arc(in_arc);
-        in_arc_to_remove_from_product = [in_arc_to_remove_from_product, in_arc];
+        in_arc_to_remove_from_op = [in_arc_to_remove_from_op, in_arc];
         arcs_to_delete = [arcs_to_delete, in_arc];
     end
 end
 
-for i = 1:length(in_arc_to_remove_from_product)
-    in_arc = in_arc_to_remove_from_product(i);
-    productBlock.removeIn_arc(in_arc);
+for i = 1:length(in_arc_to_remove_from_op)
+    in_arc = in_arc_to_remove_from_op(i);
+    opBlock.removeIn_arc(in_arc);
 end 
 
 %Set orig node type to "Expanded" 
-productBlock.setNodeTypeFromText('Expanded');
+opBlock.setNodeTypeFromText('Expanded');
 
 end
 

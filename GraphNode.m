@@ -345,7 +345,7 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                elseif strcmp(obj.simulinkBlockType, 'Product')
                    nodeLabelStr = [nodeLabelStr, sprintf('\nInputs: %s', obj.dialogProperties('Inputs'))];
                elseif strcmp(obj.simulinkBlockType, 'Switch')
-                   nodeLabelStr = [nodeLabelStr, sprintf('\nChriteria: %s', obj.dialogProperties('Chriteria'))];
+                   nodeLabelStr = [nodeLabelStr, sprintf('\nCriteria: %s', obj.dialogProperties('Criteria'))];
                    nodeLabelStr = [nodeLabelStr, sprintf('\nZeroCross: %s', obj.dialogProperties('ZeroCross'))];
                elseif strcmp(obj.simulinkBlockType, 'DiscreteFir')
                    nodeLabelStr = [nodeLabelStr, sprintf('\nCoefSource: %s', obj.dialogProperties('CoefSource'))];
