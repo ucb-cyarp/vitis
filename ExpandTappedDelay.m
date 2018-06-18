@@ -127,7 +127,7 @@ else
     %----Handle the rest of the delay blocks
     for i = 2:numDelays
         %Create new delay
-        node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', 1); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
+        node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', i); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
         node.simulinkBlockType = 'Delay';
         node.dialogPropertiesNumeric('NumDelays') = numDelays;
         node.dialogPropertiesNumeric('vinit') = delay_init_vals(1);
