@@ -162,7 +162,17 @@ end
 % ---- Expand FIR Only ----
 
 % ---- Expand Tapped Delay ---
-
+for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
+    node = nodes(i);
+    
+    if node.isStandard() && strcmp(node.simulinkBlockType, 'TappedDelay')
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandTappedDelay(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+    end
+end
+    
 % ---- Expand Primitives ----
 %Include new nodes created durring FIR expansion
 %Also includes master nodes

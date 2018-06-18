@@ -125,6 +125,16 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'simulink/Dis
         node.dialogPropertiesNumeric('NumDelays') = GetParamEval(simulink_block_handle, 'NumDelays');
         
         node.dialogPropertiesNumeric('samptime') = GetParamEval(simulink_block_handle, 'samptime');
+        
+        %Changing block type from 'S-Function'
+        node.simulinkBlockType = 'TappedDelay';
+        
+        %Other Parameters: DelayOrder = the order in which delays are
+        %concattenated.
+        %    Oldest = the result of the last delay in the chain
+        %    is the first index in the exported bus
+        %    Newest = the result of the first delay in the chain is the
+        %    first index in the exported bus
     
 %---- Selector ----
 elseif strcmp(node.simulinkBlockType, 'Selector')
