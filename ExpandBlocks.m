@@ -216,6 +216,11 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Gain')
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandGain(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
     elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Switch')
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
         new_nodes = [new_nodes, new_expanded_nodes];

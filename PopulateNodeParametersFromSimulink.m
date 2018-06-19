@@ -56,6 +56,23 @@ if strcmp(node.simulinkBlockType, 'Constant')
     %not parse
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 
+%---- Gain ----
+elseif strcmp(node.simulinkBlockType, 'Gain')
+    node.dialogPropertiesNumeric('Gain') = GetParamEval(simulink_block_handle, 'Gain');
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+    
+    %Other Important Parameters
+    %Multiplication = Type of Multiplication
+    %    Only currently support: 'Element-wise(K.*u)'
+    %ParamDataTypeStr = The Datatype of the parameter
+    %    'Inherit: Inherit via internal rule' = Not quite sure what this
+    %        means as Matlab defaults to double but the result of passing
+    %        a fixed point input is not double the width.  It looks like it
+    %        determines the smallest type which could contain the given
+    %        number
+    %    'Inherit: Same as input' = the coefficient type is the same as the
+    %    input type
+    
 %---- Delay ----
 elseif strcmp(node.simulinkBlockType, 'Delay')
     
@@ -116,7 +133,18 @@ elseif strcmp(node.simulinkBlockType, 'DiscreteFir')
     node.dialogPropertiesNumeric('InitialStates') = GetParamEval(simulink_block_handle, 'InitialStates');
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
-
+    
+    %Other important parameters:
+    %FilterStructure = The implementation structure of the FIR filter
+    %    'Direct form' = Direct Form
+    %    'Direct form transposed' = Direct form Transposed
+    %TapSumDataTypeStr
+    %CoefDataTypeStr
+    %ProductDataTypeStr
+    %AccumDataTypeStr
+    %StateDataTypeStr
+    %OutDataTypeStr
+    
 %---- Tapped Delay ----
 %Note: block type is S-Function
 elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'simulink/Discrete/Tapped Delay' ) || strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'hdlsllib/Discrete/Tapped Delay' )
