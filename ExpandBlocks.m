@@ -163,7 +163,7 @@ end
 for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     node = nodes(i);
     
-    if node.isStandard() && strcmp(node.simulinkBlockType, 'TappedDelay')
+    if node.isStandard() && strcmp(node.simulinkBlockType, 'DiscreteFir')
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandFIR(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];

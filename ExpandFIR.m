@@ -47,8 +47,9 @@ end
 
 input_arc = [];
 coef_arc = [];
-for i = length(firNode.in_arcs)
+for i = 1:length(firNode.in_arcs)
     in_arc = firNode.in_arcs(i);
+    
     if in_arc.dstPortNumber == 1
         if isempty(input_arc)
             input_arc = in_arc;
@@ -62,6 +63,10 @@ for i = length(firNode.in_arcs)
             error('FIR: Found 2 input arcs');
         end
     end
+end
+
+if isempty(input_arc)
+    error('Could not find input arc for FIR filter');
 end
 
 % ==== Get Initial Conditions ====
@@ -194,7 +199,7 @@ elseif strcmp(accum_data_type_str, 'Inherit: Same as product output')
 elseif strcmp(accum_data_type_str, 'Inherit: Inherit via internal rule')
     typeA_obj = SimulinkType.FromStr(product_data_type);
     typeB_obj = SimulinkType.FromStr(product_data_type);
-    accum_data_type_obj = bitGrowAdd(typeA_obj, typeB_obj, coefWidth, 'typical');
+    accum_data_type_obj = SimulinkType.bitGrowAdd(typeA_obj, typeB_obj, coefWidth, 'typical');
     accum_data_type = accum_data_type_obj.toString();
     accum_use_specific_datatype = true;
 else
@@ -346,8 +351,10 @@ if coefWidth == 1
     end
     
 else
+    %==== Normal Cases ====
+    
     if input_coefs
-        vector_fan_coefs = VectorFan('Fan-Out', opBlock); %Indevidual Arcs will be fanning out from the bus
+        vector_fan_coefs = VectorFan('Fan-Out', firNode); %Indevidual Arcs will be fanning out from the bus
         vector_fans = [vector_fans, vector_fan_coefs];
 
         %rewire input coef arc
@@ -385,7 +392,7 @@ else
                     end
                 end
                 expanded_nodes = [expanded_nodes, product_node];
-                product_nodes(i) = product_node;
+                product_nodes = [product_nodes, product_node];
                 
                 %Connect a wire from input
                 product_input_arc = copy(template_input_arc);
@@ -429,7 +436,7 @@ else
                     product_node.dialogProperties('OutDataTypeStr') = product_data_type_str;
                 end
                 expanded_nodes = [expanded_nodes, product_node];
-                product_nodes(i) = product_node;
+                product_nodes = [product_nodes, product_node];
                 
                 %Connect a wire from input
                 product_input_arc = copy(template_input_arc);
@@ -460,7 +467,7 @@ else
                 accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
                 expanded_nodes = [expanded_nodes, accum_dtc_node];
-                accum_dtc_nodes(i) = accum_dtc_node;
+                accum_dtc_nodes = [accum_dtc_nodes, accum_dtc_node];
 
                 accum_dtc_arc = GraphArc(product_node, 1, accum_dtc_node, 1, 'Standard');
                 accum_dtc_arc.datatype = product_data_type;
@@ -502,7 +509,7 @@ else
             %Create Add Node
             sum_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Sum', 1);
             sum_node.simulinkBlockType = 'Sum';
-            sum_node.dialogPropertiesNumeric('Inputs') = '++';
+            sum_node.dialogProperties('Inputs') = '++';
             sum_node.dialogPropertiesNumeric('SampleTime') = -1;
             sum_node.dialogProperties('OutDataTypeStr') = accum_data_type;
             sum_node.dialogProperties('AccumDataTypeStr') = accum_data_type;
@@ -600,7 +607,7 @@ else
         input_arc2 = copy(template_input_arc);
         srcNode = template_input_arc.srcNode;
         srcNode.addOut_arc(input_arc2);
-        srcNode.appendIntermediateNodeEntry(firNode, 1, 1, 'Standard', 'In');
+        input_arc2.appendIntermediateNodeEntry(firNode, 1, 1, 'Standard', 'In');
         new_arcs = [new_arcs, input_arc2]; %Add to new arcs
         %Will set dst in next stage
         
@@ -612,9 +619,7 @@ else
         %No intermediate node entry needed since this is all internal
         new_arcs = [new_arcs, delay1_arc1]; %Add to new arcs
 
-        product_input_arcs = [];
-        product_input_arcs(1) = input_arc2;
-        product_input_arcs(2) = delay1_node;
+        product_input_arcs = [input_arc2, delay1_arc1];
         
         prev_delay_block = delay1_node;
 
@@ -673,7 +678,7 @@ else
                     end
                 end
                 expanded_nodes = [expanded_nodes, product_node];
-                product_nodes(i) = product_node;
+                product_nodes = [product_nodes, product_node];
                 
                 %Connect a wire from delay
                 product_input_arc = product_input_arcs(i);
@@ -712,7 +717,7 @@ else
                     product_node.dialogProperties('OutDataTypeStr') = product_data_type_str;
                 end
                 expanded_nodes = [expanded_nodes, product_node];
-                product_nodes(i) = product_node;
+                product_nodes = [product_nodes, product_node];
                 
                 %Connect a wire from delay
                 product_input_arc = product_input_arcs(i);
@@ -732,7 +737,7 @@ else
                 accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
                 expanded_nodes = [expanded_nodes, accum_dtc_node];
-                accum_dtc_nodes(i) = accum_dtc_node;
+                accum_dtc_nodes = [accum_dtc_nodes, accum_dtc_node];
 
                 accum_dtc_arc = GraphArc(product_node, 1, accum_dtc_node, 1, 'Standard');
                 accum_dtc_arc.datatype = product_data_type;
@@ -753,9 +758,9 @@ else
         sum_node.simulinkBlockType = 'Sum';
         sum_str = '';
         for i = 1:coefWidth
-            sum_str = [sum_str, '+']
+            sum_str = [sum_str, '+'];
         end
-        sum_node.dialogPropertiesNumeric('Inputs') = sum_str;
+        sum_node.dialogProperties('Inputs') = sum_str;
         sum_node.dialogPropertiesNumeric('SampleTime') = -1;
         sum_node.dialogProperties('OutDataTypeStr') = accum_data_type;
         sum_node.dialogProperties('AccumDataTypeStr') = accum_data_type;

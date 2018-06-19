@@ -283,7 +283,7 @@ classdef SimulinkType
             %Get the conservative type that fits both typeA and typeB
             %This handles promotion to floating point and signed if
             %nessisary.
-            obj = ConservativeType(typeA, typeB);
+            obj = SimulinkType.ConservativeType(typeA, typeB);
             
             if ~obj.floating
                 %this is an integer or fixed point type, grow bits
