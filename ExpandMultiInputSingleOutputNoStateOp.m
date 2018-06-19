@@ -110,9 +110,12 @@ for i = 1:busWidth
     if strcmp(opBlock.simulinkBlockType, 'Sum')
         node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');
         node.dialogProperties('Inputs') = opBlock.dialogProperties('Inputs');
+        node.dialogPropertiesNumeric('OutDataTypeStr') = opBlock.dialogPropertiesNumeric('OutDataTypeStr');
+        node.dialogProperties('AccumDataTypeStr') = opBlock.dialogProperties('AccumDataTypeStr');
     elseif strcmp(opBlock.simulinkBlockType, 'Product')
         node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');
         node.dialogProperties('Inputs') = opBlock.dialogProperties('Inputs');
+        node.dialogPropertiesNumeric('OutDataTypeStr') = opBlock.dialogPropertiesNumeric('OutDataTypeStr');
     elseif strcmp(opBlock.simulinkBlockType, 'Switch')
         node.dialogPropertiesNumeric('Threshold') = opBlock.dialogPropertiesNumeric('Threshold');
         node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');

@@ -109,6 +109,10 @@ elseif strcmp(node.simulinkBlockType, 'Sum')
     %Because it is not always a number, it cannot be reliably parsed into a
     %number
     
+    %OutDataTypeStr: output datatype str
+    %AccumDataTypeStr: accumulator datatype
+    %  A valid type is 'Inherit: Inherit via internal rule'
+    
 %---- Product ----
 elseif strcmp(node.simulinkBlockType, 'Product')
 %     if strcmp( get_param(simulink_block_handle, 'Multiplication'), 'Element-wise(.*)')
@@ -122,6 +126,9 @@ elseif strcmp(node.simulinkBlockType, 'Product')
     %         Can also be a string of '*' and '/'s to indicate the operations on each port
     %Because it is not always a number, it cannot be reliably parsed into a
     %number
+    
+    %OutDataTypeStr: output datatype str
+    %  A valid type is 'Inherit: Inherit via internal rule'
   
 %---- FIR ----
 elseif strcmp(node.simulinkBlockType, 'DiscreteFir')
