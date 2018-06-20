@@ -65,6 +65,7 @@ vector_fans = [vector_fan_output];
 vector_inputs = [];
 input_arc_isvector = [];
 input_arc_vectorfan_index = [];
+input_arc_ports = [];
 input_vectorfan_count = 0;
 for i = 1:length(opBlock.in_arcs)
     in_arc = opBlock.in_arcs(i);
@@ -75,10 +76,12 @@ for i = 1:length(opBlock.in_arcs)
         vector_inputs = [vector_inputs, vector_fan_input];
         input_arc_isvector = [input_arc_isvector, true];
         input_arc_vectorfan_index = [input_arc_vectorfan_index, input_vectorfan_count+1];
+        input_arc_ports = [input_arc_ports, in_arc.dstPortNumber];
         input_vectorfan_count = input_vectorfan_count + 1;
     else
         input_arc_isvector = [input_arc_isvector, false];
         input_arc_vectorfan_index = [input_arc_vectorfan_index, 0];
+        input_arc_ports = [input_arc_ports, in_arc.dstPortNumber];
     end 
 end
 
@@ -164,6 +167,7 @@ for i = 1:busWidth
     
     for j = 1:length(input_arc_isvector)
         in_arc = opBlock.in_arcs(j);
+        input_port_number = input_arc_ports(j);
         
         if input_arc_isvector(j)
             %This input comes from a VectorFan input object
@@ -182,7 +186,7 @@ for i = 1:busWidth
             %Fill in intermediate node entries
             %The intermediate node is the origional Constant
             %i is still the wire number, j is the port number
-            in_wire_arc.appendIntermediateNodeEntry(opBlock, 1, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+            in_wire_arc.appendIntermediateNodeEntry(opBlock, input_port_number, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
 
             %Add arc to VectorFan Input
             vector_fan_input_ind = input_arc_vectorfan_index(j);
@@ -211,7 +215,7 @@ for i = 1:busWidth
             %Fill in intermediate node entries
             %The intermediate node is the origional Constant
             %i is still the wire number, j is the port number
-            in_wire_arc.appendIntermediateNodeEntry(opBlock, 1, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+            in_wire_arc.appendIntermediateNodeEntry(opBlock, input_port_number, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
 
             %Add arc to origional src as an output
             %Src was unchanged in the arc copy

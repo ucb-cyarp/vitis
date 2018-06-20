@@ -556,7 +556,7 @@ else
             delay_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Delay', i);
             delay_node.simulinkBlockType = 'Delay';
             %Currently, only handling numerics
-            delay_node.dialogPropertiesNumeric('InitialCondition') = init_array(i)*coef_array(i+1); %Correct initial condition for being on other side of multiply
+            delay_node.dialogPropertiesNumeric('InitialCondition') = init_array(i); %Do not adjust since the case of external coefs does not allow us to calculate the init value a priori
             delay_node.dialogPropertiesNumeric('DelayLength') = 1; %all delay values
             delay_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
             delay_node.dialogProperties('DelayLengthSource') = 'Dialog';
