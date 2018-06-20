@@ -262,10 +262,10 @@ if coefWidth == 1
         
         if coef_use_specific_datatype
             %Cast to coef type
-            coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+            coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'CoefTypeConversion', 1);
             coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
             coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
-            coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
+            coef_dtc_node.dialogProperties('OutDataTypeStr') = coef_data_type;
             expanded_nodes = [expanded_nodes, coef_dtc_node];
             
             firNode.removeIn_arc(coef_arc);
@@ -325,7 +325,7 @@ if coefWidth == 1
     end
     
     if accum_use_specific_datatype
-        accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+        accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'AccumTypeConversion', 1);
         accum_dtc_node.simulinkBlockType = 'DataTypeConversion';
         accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
         accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
@@ -346,7 +346,7 @@ if coefWidth == 1
     end
     
     if out_use_specific_datatype
-        out_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+        out_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'OutTypeConversion', 1);
         out_dtc_node.simulinkBlockType = 'DataTypeConversion';
         out_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
         out_dtc_node.dialogProperties('Inputs') = '*';
@@ -445,10 +445,10 @@ else
                 
                 %Create coef cast if needed & connect coef wire
                 if coef_use_specific_datatype
-                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
+                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'CoefTypeConversion', i);
                     coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
                     coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
-                    coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
+                    coef_dtc_node.dialogProperties('OutDataTypeStr') = coef_data_type;
                     expanded_nodes = [expanded_nodes, coef_dtc_node];
 
                     %Add a wire from the vectorfan to the coef cast
@@ -529,7 +529,7 @@ else
         if accum_use_specific_datatype
             for i = 1:coefWidth
                 product_node = product_nodes(i);
-                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
+                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'AccumTypeConversion', i);
                 accum_dtc_node.simulinkBlockType = 'DataTypeConversion';
                 accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
@@ -609,7 +609,7 @@ else
         %Create output cast if needed
         out_dtc_block = [];
         if out_use_specific_datatype
-            out_dtc_block = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+            out_dtc_block = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'OutTypeConversion', 1);
             out_dtc_block.simulinkBlockType = 'DataTypeConversion';
             out_dtc_block.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
             out_dtc_block.dialogProperties('OutDataTypeStr') = out_data_type;
@@ -755,10 +755,10 @@ else
                 
                 %Create coef cast if needed & connect coef wire
                 if coef_use_specific_datatype
-                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
+                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'CoefTypeConversion', i);
                     coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
                     coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
-                    coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
+                    coef_dtc_node.dialogProperties('OutDataTypeStr') = coef_data_type;
                     expanded_nodes = [expanded_nodes, coef_dtc_node];
 
                     %Add a wire from the vectorfan to the coef cast
@@ -828,7 +828,7 @@ else
         if accum_use_specific_datatype
             for i = 1:coefWidth
                 product_node = product_nodes(i);
-                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
+                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'AccumTypeConversion', i);
                 accum_dtc_node.simulinkBlockType = 'DataTypeConversion';
                 accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
@@ -878,7 +878,7 @@ else
         %Add out cast block
         out_dtc_block = [];
         if out_use_specific_datatype
-            out_dtc_block = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+            out_dtc_block = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'OutTypeConversion', 1);
             out_dtc_block.simulinkBlockType = 'DataTypeConversion';
             out_dtc_block.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
             out_dtc_block.dialogProperties('OutDataTypeStr') = out_data_type;
