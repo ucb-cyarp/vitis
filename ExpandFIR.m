@@ -846,7 +846,7 @@ else
                 
             end
         else
-            accum_dtc_nodes = product_node;
+            accum_dtc_nodes = product_nodes;
         end
         
         %Make add node
