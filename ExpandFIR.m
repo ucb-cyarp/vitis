@@ -289,6 +289,12 @@ if coefWidth == 1
         end
         expanded_nodes = [expanded_nodes, product_node];
         
+        firNode.removeIn_arc(input_arc);
+        input_arc.dstNode = product_node;
+        input_arc.dstPortNumber = 1;
+        input_arc.appendIntermediateNodeEntry(firNode, 1, 1, 'Standard', 'In');
+        product_node.addIn_arc(input_arc);
+        
     end
     
     if accum_use_specific_datatype
