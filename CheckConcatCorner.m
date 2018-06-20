@@ -86,7 +86,7 @@ else
     end
     
     %Now actually remove
-    for i = length(in_arcs_to_remove)
+    for i = 1:length(in_arcs_to_remove)
         in_arc = in_arcs_to_remove(i);
         node.removeIn_arc(in_arc);
     end

@@ -230,7 +230,7 @@ classdef VectorFan < GraphNode
                 intermediatePortNumbers = [intermediatePortNumbers, cur_arc.dstPortNumber];
                 intermediateWireNumbers = [intermediateWireNumbers, cur_wire_number];
                 intermediatePortTypes = [intermediatePortTypes, cur_arc.dstPortType];
-                intermediatePortDirections = [intermediatePortDirections, portDirFromStr('In')];
+                intermediatePortDirections = [intermediatePortDirections, GraphArc.portDirFromStr('In')];
 
                 %---Calculate new wire number---
 
@@ -279,13 +279,13 @@ classdef VectorFan < GraphNode
                 intermediatePortNumbers = [intermediatePortNumbers, cur_arc.dstPortNumber];
                 intermediateWireNumbers = [intermediateWireNumbers, cur_wire_number];
                 intermediatePortTypes = [intermediatePortTypes, cur_arc.dstPortType];
-                intermediatePortDirections = [intermediatePortDirections, portDirFromStr('In')];
+                intermediatePortDirections = [intermediatePortDirections, GraphArc.portDirFromStr('In')];
 
                 %---Calculate new wire number or determine
                 %that propogation ends here---
 
-                selected_wires = node.dialogPropertiesNumeric('IndexParamArray');
-                if node.dialogPropertiesNumeric('index_mode') == 0
+                selected_wires = cursor.dialogPropertiesNumeric('IndexParamArray');
+                if cursor.dialogPropertiesNumeric('index_mode') == 0
                     %Increment selected_wires if "zero based"
                     %to be in line with matlab indexing
                     selected_wires = selected_wires + ones(size(selected_wires));
@@ -305,13 +305,13 @@ classdef VectorFan < GraphNode
                     error('Select block includes wire more than once.  This is not allowed at this time.');
                 else
                     cur_wire_number = new_wire_number;
-                end
-
-                for out_ind = 1:length(cursor.out_arcs)
-                    cur_arc = cursor.out_arcs(out_ind);
-                    [new_arcs_to_delete, new_connected] = obj.reconnectArcs_helper_inner(arc, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
-                    arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
-                    connected = connected || new_connected;
+                    
+                    for out_ind = 1:length(cursor.out_arcs)
+                        cur_arc = cursor.out_arcs(out_ind);
+                        [new_arcs_to_delete, new_connected] = obj.reconnectArcs_helper_inner(arc, cur_arc, cur_wire_number, intermediateNodes, intermediatePortNumbers, intermediateWireNumbers, intermediatePortTypes, intermediatePortDirections);
+                        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+                        connected = connected || new_connected;
+                    end
                 end
 
             else

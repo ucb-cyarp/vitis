@@ -19,7 +19,10 @@ node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
 %---Get parameters from simulink---
 %Get the list of parameter names
 dialog_params = get_param(simulink_block_handle, 'DialogParameters');
-dialog_param_names = fieldnames(dialog_params);
+dialog_param_names = [];
+if ~isempty(dialog_params)
+    dialog_param_names = fieldnames(dialog_params);
+end
 
 %Itterate through the dialog parameter names
 for i = 1:length(dialog_param_names)
@@ -182,9 +185,13 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     
     index_mode = get_param(simulink_block_handle, 'IndexMode');
     
-    if strcmp(index_mode{1}, 'One-based')
+    if iscell(index_mode)
+        index_mode = index_mode{1};
+    end
+    
+    if strcmp(index_mode, 'One-based')
         node.dialogPropertiesNumeric('index_mode') = 1;
-    elseif strcmp(index_mode{1}, 'Zero-based')
+    elseif strcmp(index_mode, 'Zero-based')
         node.dialogPropertiesNumeric('index_mode') = 0;
     else
         error('Unexpected IndexMode for Selector');
