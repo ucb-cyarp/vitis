@@ -152,7 +152,7 @@ out_use_specific_datatype = false;
 if strcmp(coef_data_type_str, 'Inherit: Same word length as input')
     %Take data type from input arc
     coef_data_type = input_data_type;
-    coef_use_specific_datatype = false;
+    coef_use_specific_datatype = true;
 else
     %will need to cast the coefficient to the requested type
     %This sets the coef type in the gain block
@@ -243,6 +243,7 @@ end
 if coefWidth == 1
     %++++ Special case for single coef ++++
     if input_coefs
+
         product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Product', 1);
         product_node.simulinkBlockType = 'Product';
         product_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
@@ -259,17 +260,43 @@ if coefWidth == 1
         end
         expanded_nodes = [expanded_nodes, product_node];
         
+        if coef_use_specific_datatype
+            %Cast to coef type
+            coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+            coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
+            coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
+            coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
+            expanded_nodes = [expanded_nodes, coef_dtc_node];
+            
+            firNode.removeIn_arc(coef_arc);
+            coef_arc.dstNode = coef_dtc_node;
+            coef_arc.dstPortNumber = 1;
+            coef_arc.appendIntermediateNodeEntry(firNode, 2, 1, 'Standard', 'In');
+            coef_dtc_node.addIn_arc(coef_arc);
+                    
+            coef_dtc_arc = GraphArc(coef_dtc_node, 1, product_node, 2, 'Standard');
+            coef_dtc_arc.datatype = coef_data_type;
+            coef_dtc_arc.complex = complex_type;
+            coef_dtc_arc.width = 1;
+            coef_dtc_arc.dimension = [1, 1];
+            new_arcs = [new_arcs, coef_dtc_arc];
+            coef_dtc_node.addOut_arc(coef_dtc_arc);
+            product_node.addIn_arc(coef_dtc_arc);
+            
+        else
+            %Do not insert cast block
+            firNode.removeIn_arc(coef_arc);
+            coef_arc.dstNode = product_node;
+            coef_arc.dstPortNumber = 2;
+            coef_arc.appendIntermediateNodeEntry(firNode, 2, 1, 'Standard', 'In');
+            product_node.addIn_arc(coef_arc);
+        end
+        
         firNode.removeIn_arc(input_arc);
         input_arc.dstNode = product_node;
         input_arc.dstPortNumber = 1;
         input_arc.appendIntermediateNodeEntry(firNode, 1, 1, 'Standard', 'In');
         product_node.addIn_arc(input_arc);
-        
-        firNode.removeIn_arc(coef_arc);
-        coef_arc.dstNode = product_node;
-        coef_arc.dstPortNumber = 2;
-        coef_arc.appendIntermediateNodeEntry(firNode, 2, 1, 'Standard', 'In');
-        product_node.addIn_arc(coef_arc);
         
     else
         product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Gain', 1);
@@ -310,6 +337,8 @@ if coefWidth == 1
         accum_dtc_atc.width = 1;
         accum_dtc_atc.dimension = [1, 1];
         new_arcs = [new_arcs, accum_dtc_atc];
+        product_node.addOut_arc(accum_dtc_atc);
+        accum_dtc_node.addIn_arc(accum_dtc_atc);
         
         prev_block = accum_dtc_node;
     else
@@ -324,12 +353,14 @@ if coefWidth == 1
         out_dtc_node.dialogProperties('OutDataTypeStr') = out_data_type;
         expanded_nodes = [expanded_nodes, out_dtc_node];
         
-        out_dtc_atc = GraphArc(product_node, 1, accum_dtc_node, 1, 'Standard');
+        out_dtc_atc = GraphArc(prev_block, 1, out_dtc_node, 1, 'Standard');
         out_dtc_atc.datatype = product_data_type;
         out_dtc_atc.complex = complex_type;
         out_dtc_atc.width = 1;
         out_dtc_atc.dimension = [1, 1];
         new_arcs = [new_arcs, out_dtc_atc];
+        prev_block.addOut_arc(out_dtc_atc);
+        out_dtc_node.addIn_arc(out_dtc_atc);
         
         prev_block = out_dtc_node;
     %else
@@ -381,6 +412,7 @@ else
         
         for i = 1:coefWidth
             if input_coefs
+            
                 %Create multiplies
                 product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Product', i);
                 product_node.simulinkBlockType = 'Product';
@@ -411,18 +443,47 @@ else
                 srcNode = product_input_arc.srcNode;
                 srcNode.addOut_arc(product_input_arc);
                 
-                %Add a wire from the vectorfan to the multiply
-                coef_wire = copy(coef_arc); %use orig arc as a template
-                coef_wire.width = 1;
-                coef_wire.dimension = [1, 1];
-                coef_wire.dstNode = product_node;
-                coef_wire.dstPortNumber = 2;
-                coef_wire.appendIntermediateNodeEntry(firNode, 2, i, 'Standard', 'In');
-                %Src will be filled in durring bus cleanup
-                new_arcs = [new_arcs, coef_wire];
-                product_node.addIn_arc(coef_wire);
-                
-                vector_fan_coefs.addArc(coef_wire, i);
+                %Create coef cast if needed & connect coef wire
+                if coef_use_specific_datatype
+                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+                    coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
+                    coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
+                    coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
+                    expanded_nodes = [expanded_nodes, coef_dtc_node];
+
+                    %Add a wire from the vectorfan to the coef cast
+                    coef_wire = copy(coef_arc); %use orig arc as a template
+                    coef_wire.width = 1;
+                    coef_wire.dimension = [1, 1];
+                    coef_wire.dstNode = coef_dtc_node;
+                    coef_wire.dstPortNumber = 1;
+                    coef_wire.appendIntermediateNodeEntry(firNode, 2, i, 'Standard', 'In');
+                    %Src will be filled in durring bus cleanup
+                    new_arcs = [new_arcs, coef_wire];
+                    coef_dtc_node.addIn_arc(coef_wire);
+                    vector_fan_coefs.addArc(coef_wire, i);
+
+                    coef_dtc_arc = GraphArc(coef_dtc_node, 1, product_node, 2, 'Standard');
+                    coef_dtc_arc.datatype = coef_data_type;
+                    coef_dtc_arc.complex = complex_type;
+                    coef_dtc_arc.width = 1;
+                    coef_dtc_arc.dimension = [1, 1];
+                    new_arcs = [new_arcs, coef_dtc_arc];
+                    coef_dtc_node.addOut_arc(coef_dtc_arc);
+                    product_node.addIn_arc(coef_dtc_arc);
+                else
+                    %Add a wire from the vectorfan to the multiply
+                    coef_wire = copy(coef_arc); %use orig arc as a template
+                    coef_wire.width = 1;
+                    coef_wire.dimension = [1, 1];
+                    coef_wire.dstNode = product_node;
+                    coef_wire.dstPortNumber = 2;
+                    coef_wire.appendIntermediateNodeEntry(firNode, 2, i, 'Standard', 'In');
+                    %Src will be filled in durring bus cleanup
+                    new_arcs = [new_arcs, coef_wire];
+                    product_node.addIn_arc(coef_wire);
+                    vector_fan_coefs.addArc(coef_wire, i);
+                end
                 
             else
                 %Create gains
@@ -692,18 +753,47 @@ else
                 product_input_arc.dstPortNumber = 1;
                 product_node.addIn_arc(product_input_arc);
                 
-                %Add a wire from the vectorfan to the multiply
-                coef_wire = copy(coef_arc); %use orig arc as a template
-                coef_wire.width = 1;
-                coef_wire.dimension = [1, 1];
-                coef_wire.dstNode = product_node;
-                coef_wire.dstPortNumber = 2;
-                coef_wire.appendIntermediateNodeEntry(firNode, 2, i, 'Standard', 'In');
-                %Src will be filled in durring bus cleanup
-                new_arcs = [new_arcs, coef_wire];
-                product_node.addIn_arc(coef_wire);
-                
-                vector_fan_coefs.addArc(coef_wire, i);
+                %Create coef cast if needed & connect coef wire
+                if coef_use_specific_datatype
+                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+                    coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
+                    coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
+                    coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
+                    expanded_nodes = [expanded_nodes, coef_dtc_node];
+
+                    %Add a wire from the vectorfan to the coef cast
+                    coef_wire = copy(coef_arc); %use orig arc as a template
+                    coef_wire.width = 1;
+                    coef_wire.dimension = [1, 1];
+                    coef_wire.dstNode = coef_dtc_node;
+                    coef_wire.dstPortNumber = 1;
+                    coef_wire.appendIntermediateNodeEntry(firNode, 2, i, 'Standard', 'In');
+                    %Src will be filled in durring bus cleanup
+                    new_arcs = [new_arcs, coef_wire];
+                    coef_dtc_node.addIn_arc(coef_wire);
+                    vector_fan_coefs.addArc(coef_wire, i);
+
+                    coef_dtc_arc = GraphArc(coef_dtc_node, 1, product_node, 2, 'Standard');
+                    coef_dtc_arc.datatype = coef_data_type;
+                    coef_dtc_arc.complex = complex_type;
+                    coef_dtc_arc.width = 1;
+                    coef_dtc_arc.dimension = [1, 1];
+                    new_arcs = [new_arcs, coef_dtc_arc];
+                    coef_dtc_node.addOut_arc(coef_dtc_arc);
+                    product_node.addIn_arc(coef_dtc_arc);
+                else
+                    %Add a wire from the vectorfan to the multiply
+                    coef_wire = copy(coef_arc); %use orig arc as a template
+                    coef_wire.width = 1;
+                    coef_wire.dimension = [1, 1];
+                    coef_wire.dstNode = product_node;
+                    coef_wire.dstPortNumber = 2;
+                    coef_wire.appendIntermediateNodeEntry(firNode, 2, i, 'Standard', 'In');
+                    %Src will be filled in durring bus cleanup
+                    new_arcs = [new_arcs, coef_wire];
+                    product_node.addIn_arc(coef_wire);
+                    vector_fan_coefs.addArc(coef_wire, i);
+                end
                 
             else
                 %Create gains
