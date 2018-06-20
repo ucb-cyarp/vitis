@@ -445,7 +445,7 @@ else
                 
                 %Create coef cast if needed & connect coef wire
                 if coef_use_specific_datatype
-                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
                     coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
                     coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                     coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
@@ -487,7 +487,7 @@ else
                 
             else
                 %Create gains
-                product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Gain', 1);
+                product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Gain', i);
                 product_node.simulinkBlockType = 'Gain';
                 product_node.dialogPropertiesNumeric('Gain') = coef_array(i); % Copy from orig
                 product_node.dialogPropertiesNumeric('SampleTime') = -1;
@@ -529,7 +529,7 @@ else
         if accum_use_specific_datatype
             for i = 1:coefWidth
                 product_node = product_nodes(i);
-                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
                 accum_dtc_node.simulinkBlockType = 'DataTypeConversion';
                 accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
@@ -574,7 +574,7 @@ else
             delay_node.addIn_arc(delay_arc);
             
             %Create Add Node
-            sum_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Sum', 1);
+            sum_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Sum', i);
             sum_node.simulinkBlockType = 'Sum';
             sum_node.dialogProperties('Inputs') = '++';
             sum_node.dialogPropertiesNumeric('SampleTime') = -1;
@@ -650,7 +650,7 @@ else
 
     elseif strcmp(topology, 'Direct form')
         % ++++ Direct Form ++++
-        delay1_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Delay', i);
+        delay1_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Delay', 1);
         delay1_node.simulinkBlockType = 'Delay';
         %Currently, only handling numerics
         delay1_node.dialogPropertiesNumeric('InitialCondition') = init_array(i);
@@ -692,7 +692,7 @@ else
 
         %Create the rest of the delays
         for i = 3:coefWidth
-            delay_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Delay', i);
+            delay_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Delay', i-1);
             delay_node.simulinkBlockType = 'Delay';
             %Currently, only handling numerics
             delay_node.dialogPropertiesNumeric('InitialCondition') = init_array(i-1);
@@ -755,7 +755,7 @@ else
                 
                 %Create coef cast if needed & connect coef wire
                 if coef_use_specific_datatype
-                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+                    coef_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
                     coef_dtc_node.simulinkBlockType = 'DataTypeConversion';
                     coef_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                     coef_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
@@ -797,7 +797,7 @@ else
                 
             else
                 %Create gains
-                product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Gain', 1);
+                product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Gain', i);
                 product_node.simulinkBlockType = 'Gain';
                 product_node.dialogPropertiesNumeric('Gain') = coef_array(i); % Copy from orig
                 product_node.dialogPropertiesNumeric('SampleTime') = -1;
@@ -828,7 +828,7 @@ else
         if accum_use_specific_datatype
             for i = 1:coefWidth
                 product_node = product_nodes(i);
-                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', 1);
+                accum_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'DataTypeConversion', i);
                 accum_dtc_node.simulinkBlockType = 'DataTypeConversion';
                 accum_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 accum_dtc_node.dialogProperties('OutDataTypeStr') = accum_data_type;
