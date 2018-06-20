@@ -215,7 +215,7 @@ for i = 1:busWidth
             %Fill in intermediate node entries
             %The intermediate node is the origional Constant
             %i is still the wire number, j is the port number
-            in_wire_arc.appendIntermediateNodeEntry(opBlock, input_port_number, i, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
+            in_wire_arc.appendIntermediateNodeEntry(opBlock, input_port_number, 1, 'Standard', 'In'); %Since we are expanding a const, the output port of the origional block would be 'standard' and the direction is 'out'
 
             %Add arc to origional src as an output
             %Src was unchanged in the arc copy
