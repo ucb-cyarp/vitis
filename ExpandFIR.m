@@ -509,7 +509,7 @@ else
                 product_input_arc = copy(template_input_arc);
                 product_input_arc.dstNode = product_node;
                 product_input_arc.dstPortNumber = 1;
-                product_input_arc.appendIntermediateNodeEntry(firNode, 1, i, 'Standard', 'In');
+                product_input_arc.appendIntermediateNodeEntry(firNode, 1, 1, 'Standard', 'In');
                 new_arcs = [new_arcs, product_input_arc];
                 product_node.addIn_arc(product_input_arc);
                 %Add as an output to the orig node since this is a copy
