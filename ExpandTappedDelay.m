@@ -87,9 +87,8 @@ else
     %----Treat first block specially----
     node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', 1); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
     node.simulinkBlockType = 'Delay';
-    node.dialogPropertiesNumeric('NumDelays') = numDelays;
-    node.dialogPropertiesNumeric('vinit') = delay_init_vals(1);
-    node.dialogPropertiesNumeric('samptime') = opBlock.dialogProperties('samptime');
+    node.dialogPropertiesNumeric('InitialCondition') = delay_init_vals(1);
+    node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogProperties('samptime');
     node.dialogProperties('DelayLengthSource') = 'Dialog';
     node.dialogProperties('InitialConditionSource') = 'Dialog';
     expanded_nodes = [expanded_nodes, node];
@@ -99,6 +98,7 @@ else
     in_arc.dstNode = node;
     opBlock.removeIn_arc(in_arc);
     node.addIn_arc(in_arc);
+    template_arc = copy(in_arc);
     in_arc.appendIntermediateNodeEntry(opBlock, 1, 1, 'Standard', 'In');
     
     %Create Arc from delay to vectorfan
@@ -122,16 +122,14 @@ else
     vector_fan_output.addArc(tap_arc, out_index);
     
     prev_delay = node;
-    template_arc = in_arc;
 
     %----Handle the rest of the delay blocks
     for i = 2:numDelays
         %Create new delay
         node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', i); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
         node.simulinkBlockType = 'Delay';
-        node.dialogPropertiesNumeric('NumDelays') = numDelays;
-        node.dialogPropertiesNumeric('vinit') = delay_init_vals(1);
-        node.dialogPropertiesNumeric('samptime') = opBlock.dialogProperties('samptime');
+        node.dialogPropertiesNumeric('InitialCondition') = delay_init_vals(i);
+        node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogProperties('samptime');
         node.dialogProperties('DelayLengthSource') = 'Dialog';
         node.dialogProperties('InitialConditionSource') = 'Dialog';
         expanded_nodes = [expanded_nodes, node];
@@ -184,6 +182,8 @@ else
     for i = 1:length(arcs_to_remove_from_opBlock)
         opBlock.removeOut_arc(arcs_to_remove_from_opBlock(i));
     end
+    
+    delete(template_arc);
     
 end
 
