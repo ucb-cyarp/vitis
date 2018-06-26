@@ -46,3 +46,4 @@ CTestTestfile.cmake
 #From me
 build
 cmake-build-debug
+docs
