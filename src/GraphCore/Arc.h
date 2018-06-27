@@ -6,9 +6,16 @@
 #define VITIS_ARC_H
 
 #include <memory>
-#include "Port.h"
-#include "Node.h"
+//#include "Port.h"
+//#include "Node.h"
 #include "DataType.h"
+
+//Forward Decls (Breaking Circular Dep)
+class Port;
+class Node;
+//class DataType;
+
+//This Class
 
 /**
  * @brief Represents Arcs in the data flow graph of a DSP design
@@ -17,10 +24,10 @@ class Arc {
 private:
     std::shared_ptr<Port> srcPort; ///< Pointer to the source port this arc is connected to
     std::shared_ptr<Port> dstPort; ///< Pointer to the destination port this arc is connected to
-    DataType dataType; ///< The datatype of the data passed via this arc
+    DataType dataType; ///< The data type of the data passed via this arc
     double sampleTime; ///< The sample time of the data passed via this arc (in s)
     int delay; ///< The delay along this arc (in cycles)
-    int slack; ///< The slack allong this arc (in cycles)
+    int slack; ///< The slack along this arc (in cycles)
 
 public:
     //==== Constructors ====

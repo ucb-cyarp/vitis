@@ -15,7 +15,7 @@
 /**
  * @brief Represents a subsystem whose execution can be enabled or disabled via an enable port
  */
-class EnabledSubSystem : SubSystem {
+class EnabledSubSystem : public SubSystem {
 protected:
     Port enablePort; ///< The enable port of the subsystem
     std::vector<std::shared_ptr<EnableInput>> enabledInputs; ///< A vector of pointers to the @ref EnableInput nodes for this @ref EnabledSubSystem

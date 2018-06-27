@@ -5,9 +5,9 @@
 #ifndef VITIS_SUBSYSTEM_H
 #define VITIS_SUBSYSTEM_H
 
-#include "Node.h"
 #include <vector>
 #include <memory>
+#include "Node.h"
 
 /**
  * @brief Represents a Sub-system within the flow graph.
@@ -15,7 +15,7 @@
  * While sub-systems are Nodes, they also can contain children.  Typically arcs will not terminate at a subsystem unless
  * there is a specific emit function for that subsystem.
  */
-class SubSystem : Node{
+class SubSystem : public Node{
 protected:
     std::vector<std::shared_ptr<Node>> children; ///< Nodes contained within this sub-system
 

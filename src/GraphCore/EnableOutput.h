@@ -13,7 +13,7 @@
  * If not enabled, the previous value of this node is fed to the downstream logic.
  * If enabled, the calculated value is fed to the downstream logic as usual.
  */
-class EnableOutput : EnableNode{
+class EnableOutput : public EnableNode{
 public:
     std::string emitCpp(int outputPort) override ;
 };

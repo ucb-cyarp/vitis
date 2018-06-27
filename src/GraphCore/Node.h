@@ -9,10 +9,18 @@
 #include <set>
 #include <string>
 #include <memory>
-#include "Port.h"
-#include "Arc.h"
-#include "SubSystem.h"
-#include "GraphMLParameter.h"
+//#include "Port.h"
+//#include "Arc.h"
+//#include "SubSystem.h"
+//#include "GraphMLParameter.h"
+
+//Forward Decls (Breaking Circular Dep)
+class Arc;
+class Port;
+class SubSystem;
+class GraphMLParameter;
+
+//This Class
 
 /**
  * @brief Generic Node in a data flow graph DSP design

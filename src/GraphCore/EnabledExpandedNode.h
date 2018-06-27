@@ -13,7 +13,7 @@
  *
  * Extends both @ref EnabledSubSystem and @ref ExpandedNode, both of which extend @ref SubSystem
  */
-class EnabledExpandedNode : EnabledSubSystem, ExpandedNode {
+class EnabledExpandedNode : public EnabledSubSystem, public ExpandedNode {
 
 };
 

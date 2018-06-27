@@ -7,7 +7,14 @@
 
 #include <memory>
 #include <vector>
-#include "Node.h"
+//#include "Node.h"
+//#include "Arc.h"
+
+//Forward Decls (Breaking Circular Dep)
+class Arc;
+class Node;
+
+//This Class
 
 /**
  * @brief The representation of a node's port

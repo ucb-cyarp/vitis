@@ -17,7 +17,7 @@
  * the expanded node, a reference to the original node (containing the original parameters used for expansion) is kept.
  *
  */
-class ExpandedNode : SubSystem{
+class ExpandedNode : public SubSystem{
 protected:
     std::shared_ptr<Node> origNode; ///< A pointer to the original node before expansion
 };

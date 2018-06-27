@@ -13,7 +13,7 @@
  * If not enabled, the downstream logic from this node is not executed in the given clock cycle and the previous state
  * is held.  If enabled, the downstream logic from this node is allowed to execute as usual and state is updated.
  */
-class EnableInput : EnableNode {
+class EnableInput : public EnableNode {
 public:
     std::string emitCpp(int outputPort) override ;
 };
