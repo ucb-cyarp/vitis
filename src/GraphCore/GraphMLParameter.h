@@ -17,6 +17,7 @@ private:
     bool nodeParam; ///<If true, this is a node parameter - if false, this is an edge parameter
 
 public:
+    //==== Constructors ====
     /**
      * @brief Construct an empty GraphML Parameter object
      */
@@ -31,13 +32,20 @@ public:
      */
     GraphMLParameter(const std::string &key, const std::string &type, bool nodeParam);
 
+    //==== Functions ====
     /**
      * @brief Deep equivalence check of GraphMLParameter objects
-     * @param a
-     * @param b
+     * @param rhs The right hand side of the equivalence check
      * @return true if the contents of both nodes are equivalent
      */
-    bool operator == (const GraphMLParameter &a, const GraphMLParameter &b);
+    bool operator==(const GraphMLParameter &rhs) const;
+
+    /**
+     * @brief Deep equivalence check of GraphMLParameter objects
+     * @param rhs The right hand side of the equivalence check
+     * @return true if the contents of both nodes are not equivalent
+     */
+    bool operator!=(const GraphMLParameter &rhs) const;
 
     /**
      * @brief Compares GraphMLParameter by key names, then types, then edege/node
@@ -46,8 +54,10 @@ public:
      * @return true if the parameter key in a precedes the parameter key in b.  If names are equivalent, types are
      * compared.  If types are equivalent, nodeParam is used as the tie breaker with "edge" proceeding "node"
      */
-    bool operator < (const GraphMLParameter &a, const GraphMLParameter &b);
-
+    bool operator<(const GraphMLParameter &rhs) const;
+    bool operator>(const GraphMLParameter &rhs) const;
+    bool operator<=(const GraphMLParameter &rhs) const;
+    bool operator>=(const GraphMLParameter &rhs) const;
 
     //====Getters/Setters====
     std::string getKey() const;

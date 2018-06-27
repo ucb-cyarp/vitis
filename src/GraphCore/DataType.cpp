@@ -43,3 +43,15 @@ int DataType::getFractionalBits() const {
 void DataType::setFractionalBits(int fractionalBits) {
     DataType::fractionalBits = fractionalBits;
 }
+
+bool DataType::operator==(const DataType &rhs) const {
+    return floatingPt == rhs.floatingPt &&
+           signedType == rhs.signedType &&
+           complex == rhs.complex &&
+           totalBits == rhs.totalBits &&
+           fractionalBits == rhs.fractionalBits;
+}
+
+bool DataType::operator!=(const DataType &rhs) const {
+    return !(rhs == *this);
+}

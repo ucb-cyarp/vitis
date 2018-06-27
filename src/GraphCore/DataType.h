@@ -53,11 +53,17 @@ public:
     //==== Functions ====
     /**
      * @brief Deep equivalence check of DataType objects
-     * @param a
-     * @param b
+     * @param rhs right hand side of the comparison
      * @return true if the types are equivalent
      */
-    bool operator == (const DataType &a, const DataType &b);
+    bool operator==(const DataType &rhs) const;
+
+    /**
+     * @brief Deep equivalence check of DataType objects
+     * @param rhs right hand side of the comparison
+     * @return true if the types are not equivalent
+     */
+    bool operator!=(const DataType &rhs) const;
 
     //==== Getters/Setters ====
     bool isFloatingPt() const;
