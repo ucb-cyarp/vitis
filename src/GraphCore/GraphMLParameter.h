@@ -49,8 +49,7 @@ public:
 
     /**
      * @brief Compares GraphMLParameter by key names, then types, then edege/node
-     * @param a
-     * @param b
+     * @param rhs Right hand side of the comparison operator (this < rhs)
      * @return true if the parameter key in a precedes the parameter key in b.  If names are equivalent, types are
      * compared.  If types are equivalent, nodeParam is used as the tie breaker with "edge" proceeding "node"
      */
