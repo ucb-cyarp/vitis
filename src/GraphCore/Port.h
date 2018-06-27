@@ -27,7 +27,7 @@ public:
     /**
      * @brief An enum representing the different Port types
      */
-    enum PortType
+    enum class PortType
     {
         INPUT, ///< An input port
         OUTPUT, ///< An output port
