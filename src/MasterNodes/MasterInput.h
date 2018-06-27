@@ -5,12 +5,12 @@
 #ifndef VITIS_MASTERINPUT_H
 #define VITIS_MASTERINPUT_H
 
-#include "../GraphCore/Node.h"
+#include "GraphCore/Node.h"
 
 /**
  * @brief Represents the inputs to the data flow graph
  */
-class MasterInput : Node {
+class MasterInput : public Node {
 
 };
 
