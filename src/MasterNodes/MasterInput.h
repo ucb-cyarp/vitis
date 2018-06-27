@@ -8,11 +8,19 @@
 #include "GraphCore/Node.h"
 
 /**
+ * \addtogroup MasterNodes Master Nodes
+ */
+/*@{*/
+
+/**
  * @brief Represents the inputs to the data flow graph
+ *
+ * \ingroup MasterNodes
  */
 class MasterInput : public Node {
 
 };
 
+/*@}*/
 
 #endif //VITIS_MASTERINPUT_H
