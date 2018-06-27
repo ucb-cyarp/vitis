@@ -3,4 +3,4 @@ project(vitis)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(vitis main.cpp Node.cpp Node.h Port.cpp Port.h SubSystem.cpp SubSystem.h Arc.cpp Arc.h GraphMLParameter.cpp GraphMLParameter.h DataType.cpp DataType.h EnabledSubSystem.cpp EnabledSubSystem.h EnableNode.cpp EnableNode.h EnableInput.cpp EnableInput.h EnableOutput.cpp EnableOutput.h EnabledExpandedNode.cpp EnabledExpandedNode.h ExpandedNode.cpp ExpandedNode.h)
+add_executable(vitis src/main.cpp src/GraphCore/Node.cpp src/GraphCore/Node.h src/GraphCore/Port.cpp src/GraphCore/Port.h src/GraphCore/SubSystem.cpp src/GraphCore/SubSystem.h src/GraphCore/Arc.cpp src/GraphCore/Arc.h src/GraphCore/GraphMLParameter.cpp src/GraphCore/GraphMLParameter.h src/GraphCore/DataType.cpp src/GraphCore/DataType.h src/GraphCore/EnabledSubSystem.cpp src/GraphCore/EnabledSubSystem.h src/GraphCore/EnableNode.cpp src/GraphCore/EnableNode.h src/GraphCore/EnableInput.cpp src/GraphCore/EnableInput.h src/GraphCore/EnableOutput.cpp src/GraphCore/EnableOutput.h src/GraphCore/EnabledExpandedNode.cpp src/GraphCore/EnabledExpandedNode.h src/GraphCore/ExpandedNode.cpp src/GraphCore/ExpandedNode.h)
