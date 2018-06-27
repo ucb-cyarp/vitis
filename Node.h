@@ -15,7 +15,7 @@
 #include "GraphMLParameter.h"
 
 /**
- * @brief Generic Node in Data Flow Graph
+ * @brief Generic Node in a data flow graph DSP design
  *
  * This class represents a generic node in the data flow graph.  It is an abstract class which provides some basic
  * utility functions as well as stub functions which should be overwritten by subclasses.
@@ -39,10 +39,22 @@ public:
     Node();
 
     /**
-     * @brief Constructs an empty node with a given parent.  Adds the new node to the children list of the parent.
+     * @brief Constructs an empty node with a given parent.
+     *
+     * @note Does not add node to parent's child list.  To do that, use @ref Node::createNode.
+     *
      * @param parent parent node
      */
     explicit Node(std::shared_ptr<SubSystem> parent);
+
+    //==== Factories ====
+    /**
+     * @brief Creates an empty node with a given parent.  Adds the child to the parent's children list
+     *
+     * @param parent of the new node
+     * @return a shared pointer to the new node
+     */
+    static std::shared_ptr<Node> createNode(std::shared_ptr<SubSystem> parent);
 
     //==== Functions ====
     /**
@@ -118,11 +130,13 @@ public:
      *     - FFT
      * - Vector Operation to Primitive Operations
      *
-     * @param nodes The nodes present in the design.  This will be updated if nodes are added or deleted.
-     * @param arcs The arcs present in the design.  This will be updated if arcs are added or deleted.
+     * @param new_nodes A vector which will be filled with the new nodes created during expansion
+     * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
+     * @param new_arcs A vector which will be filled with the new arcs created during expansion
+     * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
      * @return true if expansion occurred, false if it did not
      */
-    virtual bool expand(std::vector<std::shared_ptr<Node>> nodes, std::vector<std::shared_ptr<Arc>> arcs);
+    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Emit C++ code to calculate the value of an output port.
@@ -138,7 +152,9 @@ public:
     //==== Getters/Setters ====
     //++++ Getters/Setters With Added Functionality ++++
     /**
-     * Sets the parent of the node.  Before setting, removes from the children list of the old parent (if not NULL).
+     * @brief Sets the parent of the node.
+     *
+     * Before setting, removes from the children list of the old parent (if not NULL).
      * Adds to the children list of the new parent (if not NULL).
      * @param parent new parent
      */

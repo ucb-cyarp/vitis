@@ -50,6 +50,15 @@ public:
      */
     DataType(std::string str);
 
+    //==== Functions ====
+    /**
+     * @brief Deep equivalence check of DataType objects
+     * @param a
+     * @param b
+     * @return true if the types are equivalent
+     */
+    bool operator == (const DataType &a, const DataType &b);
+
     //==== Getters/Setters ====
     bool isFloatingPt() const;
     void setFloatingPt(bool floatingPt);
