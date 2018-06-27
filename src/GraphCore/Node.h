@@ -23,6 +23,11 @@ class GraphMLParameter;
 //This Class
 
 /**
+* \addtogroup GraphCore Graph Core
+*/
+/*@{*/
+
+/**
  * @brief Generic Node in a data flow graph DSP design
  *
  * This class represents a generic node in the data flow graph.  It is an abstract class which provides some basic
@@ -168,8 +173,8 @@ public:
      */
     void updateParent(SubSystem *parent);
 
-
 };
 
+/*@}*/
 
 #endif //VITIS_NODE_H

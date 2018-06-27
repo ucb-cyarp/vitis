@@ -8,6 +8,11 @@
 #include "EnableNode.h"
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents a special input port at the interface of an enabled subsystem.
  *
  * If not enabled, the downstream logic from this node is not executed in the given clock cycle and the previous state
@@ -17,5 +22,7 @@ class EnableInput : public EnableNode {
 public:
     std::string emitCpp(int outputPort) override ;
 };
+
+/*@}*/
 
 #endif //VITIS_ENABLEINPUT_H

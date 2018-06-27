@@ -15,6 +15,10 @@ class Arc;
 class Node;
 
 //This Class
+/**
+* \addtogroup GraphCore Graph Core
+*/
+/*@{*/
 
 /**
  * @brief The representation of a node's port
@@ -87,5 +91,6 @@ public:
 
 };
 
+/*@}*/
 
 #endif //VITIS_PORT_H

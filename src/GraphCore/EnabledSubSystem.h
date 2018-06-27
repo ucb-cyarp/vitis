@@ -13,6 +13,11 @@
 #include "EnableOutput.h"
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents a subsystem whose execution can be enabled or disabled via an enable port
  */
 class EnabledSubSystem : public SubSystem {
@@ -21,5 +26,7 @@ protected:
     std::vector<std::shared_ptr<EnableInput>> enabledInputs; ///< A vector of pointers to the @ref EnableInput nodes for this @ref EnabledSubSystem
     std::vector<std::shared_ptr<EnableOutput>> enabledOutputs; ///< A vector of pointers to the @ref EnableOutput nodes for this @ref EnabledSubSystem
 };
+
+/*@}*/
 
 #endif //VITIS_ENABLEDSUBSYSTEM_H

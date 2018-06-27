@@ -10,6 +10,11 @@
 #include "Node.h"
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents a Sub-system within the flow graph.
  *
  * While sub-systems are Nodes, they also can contain children.  Typically arcs will not terminate at a subsystem unless
@@ -34,5 +39,6 @@ public:
 
 };
 
+/*@}*/
 
 #endif //VITIS_SUBSYSTEM_H

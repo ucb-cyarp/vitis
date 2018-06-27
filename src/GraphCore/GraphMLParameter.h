@@ -8,6 +8,11 @@
 #include <string>
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents a GraphML parameter which includes a key and type.
  */
 class GraphMLParameter {
@@ -63,5 +68,6 @@ public:
     void setKey(const std::string &key);
 };
 
+/*@}*/
 
 #endif //VITIS_GRAPHMLPARAMETER_H

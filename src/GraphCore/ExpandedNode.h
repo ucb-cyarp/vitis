@@ -10,6 +10,11 @@
 #include "Node.h"
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents a node that has been expanded.
  *
  * An expansion may be conducted by an external tool or by a pass over the data flow graph.  Expanded nodes become
@@ -22,5 +27,6 @@ protected:
     std::shared_ptr<Node> origNode; ///< A pointer to the original node before expansion
 };
 
+/*@}*/
 
 #endif //VITIS_EXPANDEDNODE_H

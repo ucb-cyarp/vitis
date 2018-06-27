@@ -8,6 +8,11 @@
 #include <string>
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents data types within the DSP design
  */
 class DataType {
@@ -79,5 +84,6 @@ public:
 
 };
 
+/*@}*/
 
 #endif //VITIS_DATATYPE_H

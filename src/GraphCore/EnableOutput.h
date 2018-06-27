@@ -8,6 +8,11 @@
 #include "EnableNode.h"
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents a special output port at the interface of an enabled subsystem.
  *
  * If not enabled, the previous value of this node is fed to the downstream logic.
@@ -18,5 +23,6 @@ public:
     std::string emitCpp(int outputPort) override ;
 };
 
+/*@}*/
 
 #endif //VITIS_ENABLEOUTPUT_H

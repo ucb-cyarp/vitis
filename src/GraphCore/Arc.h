@@ -18,6 +18,11 @@ class Node;
 //This Class
 
 /**
+ * \addtogroup GraphCore Graph Core
+ */
+/*@{*/
+
+/**
  * @brief Represents Arcs in the data flow graph of a DSP design
  */
 class Arc {
@@ -65,7 +70,9 @@ public:
      * @param sampleTime sample time for data flowing via Arc (in s)
      * @return shared pointer to the newly created arc
      */
-    static std::shared_ptr<Arc> connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Node> dst, int dstPortNum, DataType dataType, double sampleTime = -1);
+    static std::shared_ptr<Arc>
+    connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Node> dst, int dstPortNum,
+                 DataType dataType, double sampleTime = -1);
 
     //==== Getters/Setters ====
     std::shared_ptr<Port> getSrcPort() const;
@@ -82,5 +89,6 @@ public:
     void setSlack(int slack);
 };
 
+/*@}*/
 
 #endif //VITIS_ARC_H

@@ -18,6 +18,11 @@ class Arc;
 //This Class
 
 /**
+* \addtogroup GraphCore Graph Core
+*/
+/*@{*/
+
+/**
 * @brief Represents a Streaming DSP Flow Graph Design
 *
 * This class acts as a container for a streaming DSP flow graph design.  It contains references to the various master
@@ -38,5 +43,6 @@ private:
 
 };
 
+/*@}*/
 
 #endif //VITIS_DESIGN_H
