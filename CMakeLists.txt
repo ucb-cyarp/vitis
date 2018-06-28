@@ -1,4 +1,9 @@
-cmake_minimum_required(VERSION 3.10)
+#Orig Version Provided by CLion
+#cmake_minimum_required(VERSION 3.10)
+
+#Version in Ubuntu 14.04
+cmake_minimum_required(VERSION 3.9.2)
+
 project(vitis)
 
 set(CMAKE_CXX_STANDARD 11)
