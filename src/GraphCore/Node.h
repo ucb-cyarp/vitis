@@ -5,6 +5,13 @@
 #ifndef VITIS_NODE_H
 #define VITIS_NODE_H
 
+//Forward Decls (Breaking Circular Dep)
+//class Arc;
+//class Port;
+class SubSystem;
+class NodeFactory;
+class GraphMLParameter;
+
 #include <vector>
 #include <set>
 #include <string>
@@ -13,12 +20,6 @@
 #include "Arc.h"
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
-
-//Forward Decls (Breaking Circular Dep)
-//class Arc;
-//class Port;
-class SubSystem;
-class GraphMLParameter;
 
 //This Class
 
@@ -33,9 +34,8 @@ class GraphMLParameter;
  * This class represents a generic node in the data flow graph.  It is an abstract class which provides some basic
  * utility functions as well as stub functions which should be overwritten by subclasses.
  */
-class Node {
+class Node : public std::enable_shared_from_this<Node> {
 protected:
-
     int id; ///<Node ID number used when reading/writing GraphML files
     std::shared_ptr<SubSystem> parent; ///<Parent of this node
     std::vector<Port> inputPorts; ///<The input ports of this node
@@ -44,33 +44,36 @@ protected:
     std::vector<bool> cOutEmitted; ///<A vector of bools indicating if a particular output has been emitted in C++
     std::vector<std::string> cOutVarName; ///<A vector of strings which hold the variable names in C++ if the output was stored in a C++ var
 
-public:
-    //==== Constructors ====
+    //==== Constructors (Protected to force use of factory - required to handle  ====
+
     /**
      * @brief Constructs an empty node
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
     Node();
 
     /**
-     * @brief Constructs an empty node with a given parent.
+     * @brief Constructs an empty node with a given parent.  This node is not added to the children list of the parent.
      *
-     * @note Does not add node to parent's child list.  To do that, use @ref Node::createNode.
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      *
      * @param parent parent node
      */
     explicit Node(std::shared_ptr<SubSystem> parent);
 
-    //==== Factories ====
     /**
-     * @brief Creates an empty node with a given parent.  Adds the child to the parent's children list
+     * @brief Initializes parts of the given object that rely on a shared_ptr to the object itself
      *
-     * @param parent of the new node
-     * @return a shared pointer to the new node
+     * This is due to how enable_shared_from_this operates.  It requires a shared_ptr to exist before any calls to shared_from_this().
      */
-    static std::shared_ptr<Node> createNode(std::shared_ptr<SubSystem> parent);
+    virtual void init();
 
+    friend class NodeFactory;
+
+public:
     //==== Functions ====
-    virtual /**
+     /**
      * @brief Add an input arc to the given node, updating referenced objects in the process
      *
      * Adds an input arc to this node.  Removes the arc from the orig port if not NULL.
@@ -80,7 +83,7 @@ public:
      * @param portNum Input port number to add the arc to
      * @param arc The arc to add
      */
-    void addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
+     void addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
 
     /**
      * @brief Add an output arc to the given node, updating referenced objects in the process
@@ -131,7 +134,7 @@ public:
      * @note The set may contain multiple parameters with the same key but different types.
      * Type conflicts must be resolved before emitting GraphML.
      */
-    virtual std::set<GraphMLParameter> graphMLParameters();
+//    virtual std::set<GraphMLParameter> graphMLParameters() = 0;
 
     /**
      * @brief Expand this node if applicable
@@ -149,7 +152,7 @@ public:
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
      * @return true if expansion occurred, false if it did not
      */
-    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+//    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) = 0;
 
     /**
      * @brief Emit C++ code to calculate the value of an output port.
@@ -160,9 +163,18 @@ public:
      * @param outputPort the output port for which the C++ code should be generated for
      * @return a string containing the C++ code for calculating the result of the output port
      */
-    virtual std::string emitCpp(int outputPort) = 0;
+//    virtual std::string emitCpp(int outputPort) = 0;
 
     //==== Getters/Setters ====
+    /**
+     * @brief Sets the parent of the node without updating the child set of the parent to include this node.
+     *
+     * Consider using @ref updateParent which updates the parents (old and new) along with changing the parent of this node.
+     *
+     * @param parent the new parent of this node
+     */
+    void setParent(std::shared_ptr<SubSystem> parent);
+
     //++++ Getters/Setters With Added Functionality ++++
     /**
      * @brief Sets the parent of the node.
@@ -171,7 +183,7 @@ public:
      * Adds to the children list of the new parent (if not NULL).
      * @param parent new parent
      */
-    void updateParent(SubSystem *parent);
+    void updateParent(std::shared_ptr<SubSystem> parent);
 
 };
 

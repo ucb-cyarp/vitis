@@ -3,3 +3,11 @@
 //
 
 #include "EnableInput.h"
+
+EnableInput::EnableInput() {
+
+}
+
+EnableInput::EnableInput(std::shared_ptr<SubSystem> parent) : EnableNode(parent) {
+
+}

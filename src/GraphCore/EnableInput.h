@@ -19,7 +19,19 @@
  * is held.  If enabled, the downstream logic from this node is allowed to execute as usual and state is updated.
  */
 class EnableInput : public EnableNode {
-public:
+friend class NodeFactory;
+
+protected:
+    /**
+     * @brief Default constructor
+     */
+    EnableInput();
+
+    /**
+     * @brief Construct a node with a given parent
+     * @param parent parent of new node
+     */
+    EnableInput(std::shared_ptr<SubSystem> parent);
 };
 
 /*@}*/

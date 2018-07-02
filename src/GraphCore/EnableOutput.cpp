@@ -3,3 +3,11 @@
 //
 
 #include "EnableOutput.h"
+
+EnableOutput::EnableOutput() {
+
+}
+
+EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent) : EnableNode(parent) {
+
+}

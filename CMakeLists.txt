@@ -34,6 +34,7 @@ set(COMMON_SRCS
         src/GraphCore/EnabledExpandedNode.h
         src/GraphCore/ExpandedNode.cpp
         src/GraphCore/ExpandedNode.h
+        src/GraphCore/NodeFactory.h
         src/MasterNodes/MasterInput.cpp
         src/MasterNodes/MasterInput.h
         src/GraphMLTools/SimulinkGraphMLImporter.cpp

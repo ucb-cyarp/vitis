@@ -5,7 +5,7 @@
 #ifndef VITIS_SUBSYSTEM_H
 #define VITIS_SUBSYSTEM_H
 
-#include <vector>
+#include <set>
 #include <memory>
 #include "Node.h"
 
@@ -21,10 +21,24 @@
  * there is a specific emit function for that subsystem.
  */
 class SubSystem : public Node{
+friend class NodeFactory;
+
 protected:
-    std::vector<std::shared_ptr<Node>> children; ///< Nodes contained within this sub-system
+    std::set<std::shared_ptr<Node>> children; ///< Nodes contained within this sub-system
 
 public:
+    //==== Constructors ====
+    /**
+     * @brief Default constructor.  Vector initialized using default behavior.
+     */
+    SubSystem();
+
+    /**
+     * @brief Construct SubSystem with given parent node.  Calls Node constructor.
+     */
+    SubSystem(std::shared_ptr<SubSystem> parent);
+
+    //==== Functions ====
     /**
      * @brief Adds a child of this node to the children list
      * @param child The child to add
@@ -36,6 +50,7 @@ public:
      * @param child The child to remove
      */
     void removeChild(std::shared_ptr<Node> child);
+
 
 };
 
