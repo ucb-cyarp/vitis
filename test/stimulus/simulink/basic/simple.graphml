@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns 
+	http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+	<key id="instance_name" for="node" attr.name="instance_name" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_node_type" for="node" attr.name="block_node_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_function" for="node" attr.name="block_function" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_intermediate_node" for="edge" attr.name="arc_intermediate_node" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_intermediate_port" for="edge" attr.name="arc_intermediate_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_intermediate_port_type" for="edge" attr.name="arc_intermediate_port_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_intermediate_direction" for="edge" attr.name="arc_intermediate_direction" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_datatype" for="edge" attr.name="arc_datatype" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_complex" for="edge" attr.name="arc_complex" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_dimension" for="edge" attr.name="arc_dimension" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_width" for="edge" attr.name="arc_width" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_vis_type" for="edge" attr.name="arc_vis_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="AccumDataTypeStr" for="node" attr.name="AccumDataTypeStr" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="CodeGenStateStorageTypeQualifier" for="node" attr.name="CodeGenStateStorageTypeQualifier" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="CollapseDim" for="node" attr.name="CollapseDim" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="CollapseMode" for="node" attr.name="CollapseMode" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DelayLength" for="node" attr.name="DelayLength" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DelayLengthSource" for="node" attr.name="DelayLengthSource" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DelayLengthUpperLimit" for="node" attr.name="DelayLengthUpperLimit" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DiagnosticForDelayLength" for="node" attr.name="DiagnosticForDelayLength" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ExternalReset" for="node" attr.name="ExternalReset" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="IconShape" for="node" attr.name="IconShape" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InitialCondition" for="node" attr.name="InitialCondition" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InitialConditionSource" for="node" attr.name="InitialConditionSource" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InputProcessing" for="node" attr.name="InputProcessing" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InputSameDT" for="node" attr.name="InputSameDT" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Inputs" for="node" attr.name="Inputs" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="LockScale" for="node" attr.name="LockScale" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Multiplication" for="node" attr.name="Multiplication" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.DelayLength" for="node" attr.name="Numeric.DelayLength" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.InitialCondition" for="node" attr.name="Numeric.InitialCondition" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.SampleTime" for="node" attr.name="Numeric.SampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutDataTypeStr" for="node" attr.name="OutDataTypeStr" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutMax" for="node" attr.name="OutMax" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutMin" for="node" attr.name="OutMin" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="PreventDirectFeedthrough" for="node" attr.name="PreventDirectFeedthrough" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RemoveDelayLengthCheckInGeneratedCode" for="node" attr.name="RemoveDelayLengthCheckInGeneratedCode" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RndMeth" for="node" attr.name="RndMeth" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SampleTime" for="node" attr.name="SampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SaturateOnIntegerOverflow" for="node" attr.name="SaturateOnIntegerOverflow" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ShowEnablePort" for="node" attr.name="ShowEnablePort" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateMustResolveToSignalObject" for="node" attr.name="StateMustResolveToSignalObject" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateName" for="node" attr.name="StateName" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateSignalObject" for="node" attr.name="StateSignalObject" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateStorageClass" for="node" attr.name="StateStorageClass" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="UseCircularBuffer" for="node" attr.name="UseCircularBuffer" attr.type="string">
+		<default>""</default>
+	</key>
+	<graph id="G" edgedefault="directed">
+		<node id="n1">
+			<data key="instance_name">Input Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Input Master
+ID: n1
+Type: Master</data>
+		</node>
+		<node id="n2">
+			<data key="instance_name">Output Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Output Master
+ID: n2
+Type: Master</data>
+		</node>
+		<node id="n3">
+			<data key="instance_name">Visualization Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Visualization Master
+ID: n3
+Type: Master</data>
+		</node>
+		<node id="n4">
+			<data key="instance_name">Unconnected Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Unconnected Master
+ID: n4
+Type: Master</data>
+		</node>
+		<node id="n5">
+			<data key="instance_name">Terminator Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Terminator Master
+ID: n5
+Type: Master</data>
+		</node>
+		<node id="n6">
+			<data key="instance_name">Sum</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Sum</data>
+			<data key="block_label">Sum
+ID: n6
+Function: Sum
+Inputs: |++
+SampleTime: -1</data>
+			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="CollapseDim">1</data>
+			<data key="CollapseMode">All dimensions</data>
+			<data key="IconShape">round</data>
+			<data key="InputSameDT">off</data>
+			<data key="Inputs">|++</data>
+			<data key="LockScale">off</data>
+			<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="RndMeth">Floor</data>
+			<data key="SampleTime">-1</data>
+			<data key="SaturateOnIntegerOverflow">off</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n7">
+			<data key="instance_name">Delay</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Delay</data>
+			<data key="block_label">Delay
+ID: n7
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 0
+SampleTime: -1</data>
+			<data key="CodeGenStateStorageTypeQualifier">[]</data>
+			<data key="DelayLength">1</data>
+			<data key="DelayLengthSource">Dialog</data>
+			<data key="DelayLengthUpperLimit">100</data>
+			<data key="DiagnosticForDelayLength">None</data>
+			<data key="ExternalReset">None</data>
+			<data key="InitialCondition">0</data>
+			<data key="InitialConditionSource">Dialog</data>
+			<data key="InputProcessing">Elements as channels (sample based)</data>
+			<data key="PreventDirectFeedthrough">off</data>
+			<data key="RemoveDelayLengthCheckInGeneratedCode">off</data>
+			<data key="SampleTime">-1</data>
+			<data key="ShowEnablePort">off</data>
+			<data key="StateMustResolveToSignalObject">off</data>
+			<data key="StateName">[]</data>
+			<data key="StateSignalObject">[]</data>
+			<data key="StateStorageClass">Auto</data>
+			<data key="UseCircularBuffer">off</data>
+			<data key="Numeric.DelayLength">1</data>
+			<data key="Numeric.InitialCondition">0</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n8">
+			<data key="instance_name">Product</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Product</data>
+			<data key="block_label">Product
+ID: n8
+Function: Product
+Inputs: 2
+SampleTime: -1</data>
+			<data key="CollapseDim">1</data>
+			<data key="CollapseMode">All dimensions</data>
+			<data key="InputSameDT">off</data>
+			<data key="Inputs">2</data>
+			<data key="LockScale">off</data>
+			<data key="Multiplication">Element-wise(.*)</data>
+			<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="RndMeth">Floor</data>
+			<data key="SampleTime">-1</data>
+			<data key="SaturateOnIntegerOverflow">off</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n9">
+			<data key="instance_name">Sum1</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Sum</data>
+			<data key="block_label">Sum1
+ID: n9
+Function: Sum
+Inputs: |++
+SampleTime: -1</data>
+			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="CollapseDim">1</data>
+			<data key="CollapseMode">All dimensions</data>
+			<data key="IconShape">round</data>
+			<data key="InputSameDT">off</data>
+			<data key="Inputs">|++</data>
+			<data key="LockScale">off</data>
+			<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="RndMeth">Floor</data>
+			<data key="SampleTime">-1</data>
+			<data key="SaturateOnIntegerOverflow">off</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<edge id="e1" source="n8" target="n5">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint32
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint32</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e2" source="n7" target="n8">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e3" source="n9" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e4" source="n9" target="n3">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1
+Vis Type: Scope</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+			<data key="arc_vis_type">Scope</data>
+		</edge>
+		<edge id="e5" source="n7" target="n9">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e6" source="n7" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e7" source="n6" target="n7">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e8" source="n1" target="n6">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e9" source="n1" target="n8">
+			<data key="arc_src_port">2</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 2
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e10" source="n1" target="n9">
+			<data key="arc_src_port">2</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 2
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e11" source="n1" target="n6">
+			<data key="arc_src_port">2</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 2
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+	</graph>
+</graphml>

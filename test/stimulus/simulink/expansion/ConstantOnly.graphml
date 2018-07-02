@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns 
+	http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+	<key id="instance_name" for="node" attr.name="instance_name" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_node_type" for="node" attr.name="block_node_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_function" for="node" attr.name="block_function" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_intermediate_node" for="edge" attr.name="arc_intermediate_node" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_intermediate_port" for="edge" attr.name="arc_intermediate_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_intermediate_port_type" for="edge" attr.name="arc_intermediate_port_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_intermediate_direction" for="edge" attr.name="arc_intermediate_direction" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_datatype" for="edge" attr.name="arc_datatype" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_complex" for="edge" attr.name="arc_complex" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_dimension" for="edge" attr.name="arc_dimension" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_width" for="edge" attr.name="arc_width" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_vis_type" for="edge" attr.name="arc_vis_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="FramePeriod" for="node" attr.name="FramePeriod" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="LockScale" for="node" attr.name="LockScale" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.SampleTime" for="node" attr.name="Numeric.SampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.Value" for="node" attr.name="Numeric.Value" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutDataTypeStr" for="node" attr.name="OutDataTypeStr" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutMax" for="node" attr.name="OutMax" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutMin" for="node" attr.name="OutMin" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SampleTime" for="node" attr.name="SampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Value" for="node" attr.name="Value" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="VectorParams1D" for="node" attr.name="VectorParams1D" attr.type="string">
+		<default>""</default>
+	</key>
+	<graph id="G" edgedefault="directed">
+		<node id="n1">
+			<data key="instance_name">Input Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Input Master
+ID: n1
+Type: Master</data>
+		</node>
+		<node id="n2">
+			<data key="instance_name">Output Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Output Master
+ID: n2
+Type: Master</data>
+		</node>
+		<node id="n3">
+			<data key="instance_name">Visualization Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Visualization Master
+ID: n3
+Type: Master</data>
+		</node>
+		<node id="n4">
+			<data key="instance_name">Unconnected Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Unconnected Master
+ID: n4
+Type: Master</data>
+		</node>
+		<node id="n5">
+			<data key="instance_name">Terminator Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Terminator Master
+ID: n5
+Type: Master</data>
+		</node>
+		<node id="n6">
+			<data key="instance_name">VectorConstant</data>
+			<data key="block_node_type">Expanded</data>
+			<data key="block_function">Constant</data>
+			<data key="block_label">VectorConstant
+ID: n6
+Function: Constant
+SampleTime: Inf
+Value: [5, 6, 7, 8]</data>
+			<data key="FramePeriod">inf</data>
+			<data key="LockScale">off</data>
+			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="SampleTime">inf</data>
+			<data key="Value">[5, 6, 7, 8]</data>
+			<data key="VectorParams1D">on</data>
+			<data key="Numeric.SampleTime">Inf</data>
+			<data key="Numeric.Value">[5, 6, 7, 8]</data>
+			<graph id="n6:" edgedefault="directed">
+				<node id="n6::n7">
+					<data key="instance_name">VectorConstant_Expanded_1_Constant</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Constant</data>
+					<data key="block_label">VectorConstant_Expanded_1_Constant
+ID: n6::n7
+Function: Constant
+SampleTime: Inf
+Value: 5</data>
+					<data key="Numeric.SampleTime">Inf</data>
+					<data key="Numeric.Value">5</data>
+				</node>
+				<node id="n6::n8">
+					<data key="instance_name">VectorConstant_Expanded_2_Constant</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Constant</data>
+					<data key="block_label">VectorConstant_Expanded_2_Constant
+ID: n6::n8
+Function: Constant
+SampleTime: Inf
+Value: 6</data>
+					<data key="Numeric.SampleTime">Inf</data>
+					<data key="Numeric.Value">6</data>
+				</node>
+				<node id="n6::n9">
+					<data key="instance_name">VectorConstant_Expanded_3_Constant</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Constant</data>
+					<data key="block_label">VectorConstant_Expanded_3_Constant
+ID: n6::n9
+Function: Constant
+SampleTime: Inf
+Value: 7</data>
+					<data key="Numeric.SampleTime">Inf</data>
+					<data key="Numeric.Value">7</data>
+				</node>
+				<node id="n6::n10">
+					<data key="instance_name">VectorConstant_Expanded_4_Constant</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Constant</data>
+					<data key="block_label">VectorConstant_Expanded_4_Constant
+ID: n6::n10
+Function: Constant
+SampleTime: Inf
+Value: 8</data>
+					<data key="Numeric.SampleTime">Inf</data>
+					<data key="Numeric.Value">8</data>
+				</node>
+			</graph>
+		</node>
+		<node id="n11">
+			<data key="instance_name">VectorFan</data>
+			<data key="block_node_type">VectorFan</data>
+			<data key="block_function"></data>
+			<data key="block_label">VectorFan
+ID: n11
+Type: VectorFan</data>
+		</node>
+		<node id="n12">
+			<data key="instance_name">VectorFan</data>
+			<data key="block_node_type">VectorFan</data>
+			<data key="block_function"></data>
+			<data key="block_label">VectorFan
+ID: n12
+Type: VectorFan</data>
+		</node>
+		<edge id="e1" source="n11" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 4]
+Width: 4</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 4]</data>
+			<data key="arc_width">4</data>
+		</edge>
+		<edge id="e2" source="n12" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 4]
+Width: 4</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 4]</data>
+			<data key="arc_width">4</data>
+		</edge>
+		<edge id="e3" source="n6::n7" target="n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[1]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [1]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e4" source="n6::n8" target="n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[2]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [2]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e5" source="n6::n9" target="n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">3</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[3]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 3
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [3]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e6" source="n6::n10" target="n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">4</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[4]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 4
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [4]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e7" source="n6::n7" target="n12">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[1]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [1]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e8" source="n6::n8" target="n12">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[2]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [2]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e9" source="n6::n9" target="n12">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">3</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[3]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 3
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [3]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e10" source="n6::n10" target="n12">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">4</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[4]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 4
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [4]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+	</graph>
+</graphml>

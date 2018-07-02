@@ -1,0 +1,975 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns 
+	http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+	<key id="instance_name" for="node" attr.name="instance_name" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_node_type" for="node" attr.name="block_node_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_function" for="node" attr.name="block_function" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_dst_port" for="edge" attr.name="arc_dst_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_intermediate_node" for="edge" attr.name="arc_intermediate_node" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_intermediate_port" for="edge" attr.name="arc_intermediate_port" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="arc_intermediate_port_type" for="edge" attr.name="arc_intermediate_port_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_intermediate_direction" for="edge" attr.name="arc_intermediate_direction" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_disp_label" for="edge" attr.name="arc_disp_label" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_datatype" for="edge" attr.name="arc_datatype" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_complex" for="edge" attr.name="arc_complex" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_dimension" for="edge" attr.name="arc_dimension" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_width" for="edge" attr.name="arc_width" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="arc_vis_type" for="edge" attr.name="arc_vis_type" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="AccumDataTypeStr" for="node" attr.name="AccumDataTypeStr" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ActiveVariant" for="node" attr.name="ActiveVariant" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ActiveVariantBlock" for="node" attr.name="ActiveVariantBlock" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="AllowZeroVariantControls" for="node" attr.name="AllowZeroVariantControls" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Amplitude" for="node" attr.name="Amplitude" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Bias" for="node" attr.name="Bias" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="BlockChoice" for="node" attr.name="BlockChoice" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="BusOutputAsStruct" for="node" attr.name="BusOutputAsStruct" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="CodeGenStateStorageTypeQualifier" for="node" attr.name="CodeGenStateStorageTypeQualifier" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="CollapseDim" for="node" attr.name="CollapseDim" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="CollapseMode" for="node" attr.name="CollapseMode" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DelayLength" for="node" attr.name="DelayLength" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DelayLengthSource" for="node" attr.name="DelayLengthSource" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DelayLengthUpperLimit" for="node" attr.name="DelayLengthUpperLimit" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="DiagnosticForDelayLength" for="node" attr.name="DiagnosticForDelayLength" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="EnsureOutportIsVirtual" for="node" attr.name="EnsureOutportIsVirtual" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ErrorFcn" for="node" attr.name="ErrorFcn" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ExternalReset" for="node" attr.name="ExternalReset" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="FramePeriod" for="node" attr.name="FramePeriod" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Frequency" for="node" attr.name="Frequency" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="FunctionInterfaceSpec" for="node" attr.name="FunctionInterfaceSpec" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="FunctionWithSeparateData" for="node" attr.name="FunctionWithSeparateData" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="GeneratePreprocessorConditionals" for="node" attr.name="GeneratePreprocessorConditionals" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="IconDisplay" for="node" attr.name="IconDisplay" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="IconShape" for="node" attr.name="IconShape" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InitialCondition" for="node" attr.name="InitialCondition" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InitialConditionSource" for="node" attr.name="InitialConditionSource" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InitialOutput" for="node" attr.name="InitialOutput" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InputProcessing" for="node" attr.name="InputProcessing" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="InputSameDT" for="node" attr.name="InputSameDT" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Inputs" for="node" attr.name="Inputs" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="IsSubsystemVirtual" for="node" attr.name="IsSubsystemVirtual" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="LockScale" for="node" attr.name="LockScale" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MaskVariable.OutDataTypeStr" for="node" attr.name="MaskVariable.OutDataTypeStr" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MaskVariable.ZeroCross" for="node" attr.name="MaskVariable.ZeroCross" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MaskVariable.blkName" for="node" attr.name="MaskVariable.blkName" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MaskVariable.relop" for="node" attr.name="MaskVariable.relop" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MaskVariable.setValue" for="node" attr.name="MaskVariable.setValue" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MemberBlocks" for="node" attr.name="MemberBlocks" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MinAlgLoopOccurrences" for="node" attr.name="MinAlgLoopOccurrences" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Multiplication" for="node" attr.name="Multiplication" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="MustResolveToSignalObject" for="node" attr.name="MustResolveToSignalObject" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.DelayLength" for="node" attr.name="Numeric.DelayLength" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.InitialCondition" for="node" attr.name="Numeric.InitialCondition" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.SampleTime" for="node" attr.name="Numeric.SampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Numeric.Value" for="node" attr.name="Numeric.Value" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Offset" for="node" attr.name="Offset" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Operator" for="node" attr.name="Operator" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutDataTypeStr" for="node" attr.name="OutDataTypeStr" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutMax" for="node" attr.name="OutMax" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutMin" for="node" attr.name="OutMin" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutputWhenDisabled" for="node" attr.name="OutputWhenDisabled" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutputWhenUnConnected" for="node" attr.name="OutputWhenUnConnected" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OutputWhenUnconnectedValue" for="node" attr.name="OutputWhenUnconnectedValue" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="OverrideUsingVariant" for="node" attr.name="OverrideUsingVariant" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Permissions" for="node" attr.name="Permissions" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="PermitHierarchicalResolution" for="node" attr.name="PermitHierarchicalResolution" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Phase" for="node" attr.name="Phase" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Port" for="node" attr.name="Port" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="PortDimensions" for="node" attr.name="PortDimensions" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="PreventDirectFeedthrough" for="node" attr.name="PreventDirectFeedthrough" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="PropExecContextOutsideSubsystem" for="node" attr.name="PropExecContextOutsideSubsystem" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="PropagateVariantConditions" for="node" attr.name="PropagateVariantConditions" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWFcnName" for="node" attr.name="RTWFcnName" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWFcnNameOpts" for="node" attr.name="RTWFcnNameOpts" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWFileName" for="node" attr.name="RTWFileName" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWFileNameOpts" for="node" attr.name="RTWFileNameOpts" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWMemSecDataConstants" for="node" attr.name="RTWMemSecDataConstants" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWMemSecDataInternal" for="node" attr.name="RTWMemSecDataInternal" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWMemSecDataParameters" for="node" attr.name="RTWMemSecDataParameters" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWMemSecFuncExecute" for="node" attr.name="RTWMemSecFuncExecute" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWMemSecFuncInitTerm" for="node" attr.name="RTWMemSecFuncInitTerm" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RTWSystemCode" for="node" attr.name="RTWSystemCode" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RemoveDelayLengthCheckInGeneratedCode" for="node" attr.name="RemoveDelayLengthCheckInGeneratedCode" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="RndMeth" for="node" attr.name="RndMeth" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SampleTime" for="node" attr.name="SampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Samples" for="node" attr.name="Samples" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SaturateOnIntegerOverflow" for="node" attr.name="SaturateOnIntegerOverflow" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ShowEnablePort" for="node" attr.name="ShowEnablePort" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ShowPortLabels" for="node" attr.name="ShowPortLabels" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SignalName" for="node" attr.name="SignalName" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SignalObject" for="node" attr.name="SignalObject" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SignalType" for="node" attr.name="SignalType" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SineType" for="node" attr.name="SineType" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SourceOfInitialOutputValue" for="node" attr.name="SourceOfInitialOutputValue" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateMustResolveToSignalObject" for="node" attr.name="StateMustResolveToSignalObject" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateName" for="node" attr.name="StateName" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateSignalObject" for="node" attr.name="StateSignalObject" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StateStorageClass" for="node" attr.name="StateStorageClass" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="StorageClass" for="node" attr.name="StorageClass" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="SystemSampleTime" for="node" attr.name="SystemSampleTime" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="TemplateBlock" for="node" attr.name="TemplateBlock" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="TimeSource" for="node" attr.name="TimeSource" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="TreatAsAtomicUnit" for="node" attr.name="TreatAsAtomicUnit" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="TreatAsGroupedWhenPropagatingVariantConditions" for="node" attr.name="TreatAsGroupedWhenPropagatingVariantConditions" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Unit" for="node" attr.name="Unit" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="UseCircularBuffer" for="node" attr.name="UseCircularBuffer" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Value" for="node" attr.name="Value" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="VarSizeSig" for="node" attr.name="VarSizeSig" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="Variant" for="node" attr.name="Variant" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="VariantControl" for="node" attr.name="VariantControl" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="VectorParams1D" for="node" attr.name="VectorParams1D" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="VectorParamsAs1DForOutWhenUnconnected" for="node" attr.name="VectorParamsAs1DForOutWhenUnconnected" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="ZeroCross" for="node" attr.name="ZeroCross" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="relop" for="node" attr.name="relop" attr.type="string">
+		<default>""</default>
+	</key>
+	<graph id="G" edgedefault="directed">
+		<node id="n1">
+			<data key="instance_name">Input Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Input Master
+ID: n1
+Type: Master</data>
+		</node>
+		<node id="n2">
+			<data key="instance_name">Output Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Output Master
+ID: n2
+Type: Master</data>
+		</node>
+		<node id="n3">
+			<data key="instance_name">Visualization Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Visualization Master
+ID: n3
+Type: Master</data>
+		</node>
+		<node id="n4">
+			<data key="instance_name">Unconnected Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Unconnected Master
+ID: n4
+Type: Master</data>
+		</node>
+		<node id="n5">
+			<data key="instance_name">Terminator Master</data>
+			<data key="block_node_type">Master</data>
+			<data key="block_function"></data>
+			<data key="block_label">Terminator Master
+ID: n5
+Type: Master</data>
+		</node>
+		<node id="n6">
+			<data key="instance_name">Compare
+To Zero</data>
+			<data key="block_node_type">Subsystem</data>
+			<data key="block_function">SubSystem</data>
+			<data key="block_label">Compare
+To Zero
+ID: n6
+Function: SubSystem</data>
+			<data key="OutDataTypeStr">boolean</data>
+			<data key="ZeroCross">on</data>
+			<data key="relop">&lt;=</data>
+			<data key="MaskVariables.OutDataTypeStr">boolean</data>
+			<data key="MaskVariables.ZeroCross">on</data>
+			<data key="MaskVariables.blkName">graphml_test_cases/non_input_drivers/Compare
+To Zero</data>
+			<data key="MaskVariables.relop">&lt;=</data>
+			<data key="MaskVariables.setValue">boolean</data>
+			<graph id="n6:" edgedefault="directed">
+				<node id="n6::n7">
+					<data key="instance_name">Compare</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">RelationalOperator</data>
+					<data key="block_label">Compare
+ID: n6::n7
+Function: RelationalOperator</data>
+					<data key="InputSameDT">on</data>
+					<data key="Operator">&lt;=</data>
+					<data key="OutDataTypeStr">boolean</data>
+					<data key="RndMeth">Nearest</data>
+					<data key="SampleTime">-1</data>
+					<data key="ZeroCross">on</data>
+				</node>
+				<node id="n6::n13">
+					<data key="instance_name">Constant</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Constant</data>
+					<data key="block_label">Constant
+ID: n6::n13
+Function: Constant
+SampleTime: Inf
+Value: 0</data>
+					<data key="FramePeriod">inf</data>
+					<data key="LockScale">off</data>
+					<data key="OutDataTypeStr">Inherit: Inherit via back propagation</data>
+					<data key="OutMax">[]</data>
+					<data key="OutMin">[]</data>
+					<data key="SampleTime">inf</data>
+					<data key="Value">0</data>
+					<data key="VectorParams1D">on</data>
+					<data key="Numeric.SampleTime">Inf</data>
+					<data key="Numeric.Value">0</data>
+				</node>
+			</graph>
+		</node>
+		<node id="n8">
+			<data key="instance_name">enabled_sine</data>
+			<data key="block_node_type">Enabled Subsystem</data>
+			<data key="block_function">SubSystem</data>
+			<data key="block_label">enabled_sine
+ID: n8
+Function: SubSystem</data>
+			<data key="ActiveVariant">[]</data>
+			<data key="ActiveVariantBlock">[]</data>
+			<data key="AllowZeroVariantControls">off</data>
+			<data key="BlockChoice">[]</data>
+			<data key="ErrorFcn">[]</data>
+			<data key="FunctionInterfaceSpec">void_void</data>
+			<data key="FunctionWithSeparateData">off</data>
+			<data key="GeneratePreprocessorConditionals">off</data>
+			<data key="IsSubsystemVirtual">off</data>
+			<data key="MemberBlocks">[]</data>
+			<data key="MinAlgLoopOccurrences">off</data>
+			<data key="OverrideUsingVariant">[]</data>
+			<data key="Permissions">ReadWrite</data>
+			<data key="PermitHierarchicalResolution">All</data>
+			<data key="PropExecContextOutsideSubsystem">off</data>
+			<data key="PropagateVariantConditions">off</data>
+			<data key="RTWFcnName">[]</data>
+			<data key="RTWFcnNameOpts">Auto</data>
+			<data key="RTWFileName">[]</data>
+			<data key="RTWFileNameOpts">Auto</data>
+			<data key="RTWMemSecDataConstants">Inherit from model</data>
+			<data key="RTWMemSecDataInternal">Inherit from model</data>
+			<data key="RTWMemSecDataParameters">Inherit from model</data>
+			<data key="RTWMemSecFuncExecute">Inherit from model</data>
+			<data key="RTWMemSecFuncInitTerm">Inherit from model</data>
+			<data key="RTWSystemCode">Auto</data>
+			<data key="ShowPortLabels">FromPortIcon</data>
+			<data key="SystemSampleTime">-1</data>
+			<data key="TemplateBlock">[]</data>
+			<data key="TreatAsAtomicUnit">off</data>
+			<data key="TreatAsGroupedWhenPropagatingVariantConditions">on</data>
+			<data key="Variant">off</data>
+			<data key="VariantControl">[]</data>
+			<graph id="n8:" edgedefault="directed">
+				<node id="n8::n17">
+					<data key="instance_name">Sine Wave
+Function</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Sin</data>
+					<data key="block_label">Sine Wave
+Function
+ID: n8::n17
+Function: Sin</data>
+					<data key="Amplitude">1</data>
+					<data key="Bias">0</data>
+					<data key="Frequency">1</data>
+					<data key="Offset">0</data>
+					<data key="Phase">0</data>
+					<data key="SampleTime">0</data>
+					<data key="Samples">10</data>
+					<data key="SineType">Time based</data>
+					<data key="TimeSource">Use simulation time</data>
+					<data key="VectorParams1D">on</data>
+				</node>
+				<node id="n8::n18">
+					<data key="instance_name">Out1</data>
+					<data key="block_node_type">Special Output Port</data>
+					<data key="block_function">Outport</data>
+					<data key="block_label">Out1
+ID: n8::n18
+Function: Outport</data>
+					<data key="BusOutputAsStruct">off</data>
+					<data key="EnsureOutportIsVirtual">off</data>
+					<data key="IconDisplay">Port number</data>
+					<data key="InitialOutput">[]</data>
+					<data key="LockScale">off</data>
+					<data key="MustResolveToSignalObject">off</data>
+					<data key="OutDataTypeStr">Inherit: auto</data>
+					<data key="OutMax">[]</data>
+					<data key="OutMin">[]</data>
+					<data key="OutputWhenDisabled">held</data>
+					<data key="OutputWhenUnConnected">off</data>
+					<data key="OutputWhenUnconnectedValue">0</data>
+					<data key="Port">1</data>
+					<data key="PortDimensions">-1</data>
+					<data key="SampleTime">-1</data>
+					<data key="SignalName">[]</data>
+					<data key="SignalObject">[]</data>
+					<data key="SignalType">auto</data>
+					<data key="SourceOfInitialOutputValue">Dialog</data>
+					<data key="StorageClass">Auto</data>
+					<data key="Unit">inherit</data>
+					<data key="VarSizeSig">Inherit</data>
+					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+				</node>
+			</graph>
+		</node>
+		<node id="n9">
+			<data key="instance_name">Sum</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Sum</data>
+			<data key="block_label">Sum
+ID: n9
+Function: Sum
+Inputs: |++
+SampleTime: -1</data>
+			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="CollapseDim">1</data>
+			<data key="CollapseMode">All dimensions</data>
+			<data key="IconShape">round</data>
+			<data key="InputSameDT">off</data>
+			<data key="Inputs">|++</data>
+			<data key="LockScale">off</data>
+			<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="RndMeth">Floor</data>
+			<data key="SampleTime">-1</data>
+			<data key="SaturateOnIntegerOverflow">off</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n10">
+			<data key="instance_name">Delay</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Delay</data>
+			<data key="block_label">Delay
+ID: n10
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 0
+SampleTime: -1</data>
+			<data key="CodeGenStateStorageTypeQualifier">[]</data>
+			<data key="DelayLength">1</data>
+			<data key="DelayLengthSource">Dialog</data>
+			<data key="DelayLengthUpperLimit">100</data>
+			<data key="DiagnosticForDelayLength">None</data>
+			<data key="ExternalReset">None</data>
+			<data key="InitialCondition">0</data>
+			<data key="InitialConditionSource">Dialog</data>
+			<data key="InputProcessing">Elements as channels (sample based)</data>
+			<data key="PreventDirectFeedthrough">off</data>
+			<data key="RemoveDelayLengthCheckInGeneratedCode">off</data>
+			<data key="SampleTime">-1</data>
+			<data key="ShowEnablePort">off</data>
+			<data key="StateMustResolveToSignalObject">off</data>
+			<data key="StateName">[]</data>
+			<data key="StateSignalObject">[]</data>
+			<data key="StateStorageClass">Auto</data>
+			<data key="UseCircularBuffer">off</data>
+			<data key="Numeric.DelayLength">1</data>
+			<data key="Numeric.InitialCondition">0</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n11">
+			<data key="instance_name">Product</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Product</data>
+			<data key="block_label">Product
+ID: n11
+Function: Product
+Inputs: 2
+SampleTime: -1</data>
+			<data key="CollapseDim">1</data>
+			<data key="CollapseMode">All dimensions</data>
+			<data key="InputSameDT">off</data>
+			<data key="Inputs">2</data>
+			<data key="LockScale">off</data>
+			<data key="Multiplication">Element-wise(.*)</data>
+			<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="RndMeth">Floor</data>
+			<data key="SampleTime">-1</data>
+			<data key="SaturateOnIntegerOverflow">off</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n12">
+			<data key="instance_name">Sum1</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Sum</data>
+			<data key="block_label">Sum1
+ID: n12
+Function: Sum
+Inputs: |++
+SampleTime: -1</data>
+			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="CollapseDim">1</data>
+			<data key="CollapseMode">All dimensions</data>
+			<data key="IconShape">round</data>
+			<data key="InputSameDT">off</data>
+			<data key="Inputs">|++</data>
+			<data key="LockScale">off</data>
+			<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
+			<data key="OutMax">[]</data>
+			<data key="OutMin">[]</data>
+			<data key="RndMeth">Floor</data>
+			<data key="SampleTime">-1</data>
+			<data key="SaturateOnIntegerOverflow">off</data>
+			<data key="Numeric.SampleTime">-1</data>
+		</node>
+		<node id="n14">
+			<data key="instance_name">Sine Wave
+Function</data>
+			<data key="block_node_type">Standard</data>
+			<data key="block_function">Sin</data>
+			<data key="block_label">Sine Wave
+Function
+ID: n14
+Function: Sin</data>
+			<data key="Amplitude">1</data>
+			<data key="Bias">0</data>
+			<data key="Frequency">1</data>
+			<data key="Offset">0</data>
+			<data key="Phase">0</data>
+			<data key="SampleTime">0</data>
+			<data key="Samples">10</data>
+			<data key="SineType">Time based</data>
+			<data key="TimeSource">Use simulation time</data>
+			<data key="VectorParams1D">on</data>
+		</node>
+		<node id="n15">
+			<data key="instance_name">constant_in_subsystem</data>
+			<data key="block_node_type">Subsystem</data>
+			<data key="block_function">SubSystem</data>
+			<data key="block_label">constant_in_subsystem
+ID: n15
+Function: SubSystem</data>
+			<data key="ActiveVariant">[]</data>
+			<data key="ActiveVariantBlock">[]</data>
+			<data key="AllowZeroVariantControls">off</data>
+			<data key="BlockChoice">[]</data>
+			<data key="ErrorFcn">[]</data>
+			<data key="FunctionInterfaceSpec">void_void</data>
+			<data key="FunctionWithSeparateData">off</data>
+			<data key="GeneratePreprocessorConditionals">off</data>
+			<data key="IsSubsystemVirtual">on</data>
+			<data key="MemberBlocks">[]</data>
+			<data key="MinAlgLoopOccurrences">off</data>
+			<data key="OverrideUsingVariant">[]</data>
+			<data key="Permissions">ReadWrite</data>
+			<data key="PermitHierarchicalResolution">All</data>
+			<data key="PropExecContextOutsideSubsystem">off</data>
+			<data key="PropagateVariantConditions">off</data>
+			<data key="RTWFcnName">[]</data>
+			<data key="RTWFcnNameOpts">Auto</data>
+			<data key="RTWFileName">[]</data>
+			<data key="RTWFileNameOpts">Auto</data>
+			<data key="RTWMemSecDataConstants">Inherit from model</data>
+			<data key="RTWMemSecDataInternal">Inherit from model</data>
+			<data key="RTWMemSecDataParameters">Inherit from model</data>
+			<data key="RTWMemSecFuncExecute">Inherit from model</data>
+			<data key="RTWMemSecFuncInitTerm">Inherit from model</data>
+			<data key="RTWSystemCode">Auto</data>
+			<data key="ShowPortLabels">FromPortIcon</data>
+			<data key="SystemSampleTime">-1</data>
+			<data key="TemplateBlock">[]</data>
+			<data key="TreatAsAtomicUnit">off</data>
+			<data key="TreatAsGroupedWhenPropagatingVariantConditions">on</data>
+			<data key="Variant">off</data>
+			<data key="VariantControl">[]</data>
+			<graph id="n15:" edgedefault="directed">
+				<node id="n15::n16">
+					<data key="instance_name">Constant</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Constant</data>
+					<data key="block_label">Constant
+ID: n15::n16
+Function: Constant
+SampleTime: Inf
+Value: 1</data>
+					<data key="FramePeriod">inf</data>
+					<data key="LockScale">off</data>
+					<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
+					<data key="OutMax">[]</data>
+					<data key="OutMin">[]</data>
+					<data key="SampleTime">inf</data>
+					<data key="Value">1</data>
+					<data key="VectorParams1D">on</data>
+					<data key="Numeric.SampleTime">Inf</data>
+					<data key="Numeric.Value">1</data>
+				</node>
+			</graph>
+		</node>
+		<edge id="e1" source="n1" target="n6::n7">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e2" source="n11" target="n5">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e3" source="n10" target="n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e4" source="n12" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e5" source="n12" target="n3">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1
+Vis Type: Scope</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+			<data key="arc_vis_type">Scope</data>
+		</edge>
+		<edge id="e6" source="n10" target="n12">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e7" source="n10" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e8" source="n9" target="n10">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e9" source="n1" target="n9">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e10" source="n6::n13" target="n6::n7">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: uint16
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">uint16</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e11" source="n14" target="n9">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e12" source="n15::n16" target="n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e13" source="n8::n17" target="n8::n18">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e14" source="n8::n18" target="n12">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e15" source="n6::n7" target="n8::n18">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Enable
+Datatype: boolean
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">boolean</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+	</graph>
+</graphml>
