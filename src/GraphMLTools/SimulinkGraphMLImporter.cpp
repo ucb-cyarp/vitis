@@ -68,6 +68,11 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
     if (parser->getDomConfig()->canSetParameter(XMLUni::fgDOMNamespaces, true))
         parser->getDomConfig()->setParameter(XMLUni::fgDOMNamespaces, true);
 
+    //According to https://xerces.apache.org/xerces-c/apiDocs-3/classDOMConfiguration.html, there is a method to remove
+    //whitespace only nodes.  However, it makes reference to this only occurring during normalization
+//    if (parser->getDomConfig()->canSetParameter(XMLUni::fgDOMElementContentWhitespace, false))
+//        parser->getDomConfig()->setParameter(XMLUni::fgDOMElementContentWhitespace, false);
+
 
     DOMDocument *doc = nullptr;
 
@@ -101,10 +106,28 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
 
         DOMNode *node = doc;
 
-        //NOTE: It appears that each node has an accompanying TEXT node, even if there was not text in the node.
-        //      When parsing, be cognisant that the data between the <></> nodes are in the child TEXT node for that
-        //      node.  The data is in the value field of the text node.  However, attributes have name/value pairs
-        //      in nodes returned by the attribute map.
+        /*NOTE: It appears that each node has an accompanying TEXT node, even if there was not text in the node.
+         *    When parsing, be cognisant that the data between the <></> nodes are in the child TEXT node for that
+         *    node.  The data is in the value field of the text node.  However, attributes have name/value pairs
+         *    in nodes returned by the attribute map.  See https://xerces.apache.org/xerces-c/apiDocs-3/classDOMNode.html
+         *    for more info.
+         *
+         *Followup: The text nodes are being inserted because of whitespace in the XML file.
+         *          For example, the xml fragment <node1><node2></node2><node1> does not include text nodes.
+         *          However, <node1>
+         *                       <node2><node2>
+         *                   </node1>
+         *          includes 2 Text nodes for node1, before and after the node2 child entry.
+         *          If two newlines are used instead of 1 (to space out node2 from the node1 tags) there are still only
+         *          2 text nodes but they both consist of 2 newline characters instead of 1.
+         *
+         *          This is expected behavior based on http://www.oracle.com/technetwork/articles/wang-whitespace-092897.html
+         *          since XML treats whitespace as significant unless the parser is told otherwise (or the schema specifies
+         *          otherwise).  There are some settings in Xerces concerning whitespace but they are part of the normalization
+         *          routines.
+         *
+         *          Inserting whitespace text nodes will likely be important when emitting readable XML.
+         */
 
         SimulinkGraphMLImporter::printXMLNodeAndChildren(node);
     }
@@ -123,9 +146,15 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
 
 void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
 {
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "Node {" << std::endl;
+
     //==== Print Name and Value ====
     char *nodeName = XMLString::transcode(node->getNodeName());
-    for(int tab = 0; tab<tabs; tab++)
+    for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
@@ -134,7 +163,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
 
     //==== Node Type ====
     DOMNode::NodeType nodeType = node->getNodeType();
-    for(int tab = 0; tab<tabs; tab++)
+    for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
@@ -197,7 +226,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     if(nodeVal != nullptr)
     {
         char *nodeValue = XMLString::transcode(nodeVal);
-        for(int tab = 0; tab<tabs; tab++)
+        for(int tab = 0; tab<tabs+1; tab++)
         {
             std::cout << "\t";
         }
@@ -206,7 +235,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     }
 
     //==== Print Attrs ====
-    for(int tab = 0; tab<tabs; tab++)
+    for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
@@ -236,7 +265,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
                 attrValueStr = "";
             }
 
-            for(int tab = 0; tab<tabs+1; tab++)
+            for(int tab = 0; tab<tabs+2; tab++)
             {
                 std::cout << "\t";
             }
@@ -244,7 +273,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
         }
     }
 
-    for(int tab = 0; tab<tabs; tab++)
+    for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
@@ -252,7 +281,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
 
 
     //==== Print Children ====
-    for(int tab = 0; tab<tabs; tab++)
+    for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
@@ -262,16 +291,19 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     {
         for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling())
         {
-            SimulinkGraphMLImporter::printXMLNodeAndChildren(child, tabs+1);
+            SimulinkGraphMLImporter::printXMLNodeAndChildren(child, tabs+2);
         }
     }
 
-    for(int tab = 0; tab<tabs; tab++)
+    for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
     std::cout << "]" << std::endl;
 
-    //Newline After
-    std::cout << std::endl;
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "}" << std::endl;
 }
