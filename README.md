@@ -9,6 +9,7 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
 ### Dependencies:
 - [CMake](https://cmake.org): Build Tool
 - [Apache Xerces-C](https://xerces.apache.org/xerces-c): XML Parser
+- [Google Test (gtest)](https://github.com/google/googletest): Testing Framework
 - gcc or clang: C++ Compiler
 
 ###Installation:

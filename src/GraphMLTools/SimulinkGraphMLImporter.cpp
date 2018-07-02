@@ -68,9 +68,11 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
         parser->getDomConfig()->setParameter(XMLUni::fgDOMNamespaces, true);
 
 
+    DOMDocument *doc = nullptr;
+
     //Try Parsing File
     try {
-        parser->parseURI(filename.c_str());
+        doc = parser->parseURI(filename.c_str());
     }
     //Catch the various exceptions
     catch (const XMLException& toCatch) {
@@ -90,8 +92,34 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
         throw std::runtime_error("XML Parsing Failed Due to an Unknown Exception");
     }
 
+    //It was suggested by Xerces that scoping be used to ensure proper destruction of Xerces objects before Terminate
+    //function is called
+    {
+
+        //Lets traverse the graph and just grab names
+
+        DOMNode* node = doc;
+
+        char* nodeName = XMLString::transcode(node->getNodeName());
+        std::cout << "Node Name: " << nodeName << std::endl;
+        XMLString::release(&nodeName);
+
+        node = node->getFirstChild();
+        nodeName = XMLString::transcode(node->getNodeName());
+        std::cout << "Node Name: " << nodeName << std::endl;
+        XMLString::release(&nodeName);
+
+        node = node->getFirstChild();
+        nodeName = XMLString::transcode(node->getNodeName());
+        std::cout << "Node Name: " << nodeName << std::endl;
+        XMLString::release(&nodeName);
+
+
+    }
+
 
     //Cleanup
+    //doc->release(); //Release the document
     parser->release(); //Should release the objects created by the parser
 
     XMLPlatformUtils::Terminate();
