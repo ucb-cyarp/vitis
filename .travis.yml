@@ -14,3 +14,8 @@ script:
   - mkdir build && cd build
   - cmake ..
   - make
+
+notifications:
+  slack:
+    secure: VwJWtiOyGFVrwP083nx+cd0IgudKH66/AIFgE4AMMJ69plCjlXlHBfm1r6k0BVoIyNCukmaCeOoG8+pmV/KgXD1mgHzZx2+mdI664MTEIBcc0J8AZEsbRTLVI3eT31wsZOSW4PeVUHBCglUct16whPts4mhYAmJgm3jF9JrITvw/5Us0ip2hLjI/htfiaU3dkiCr/gxoLaOeEvFD4BWo1D3efAlqzowplBdqOJqlupPCXz5Nv1s5zg/6nUNvfo6SJwlFg22wL7b1rccCU5D5HfaHrjtzXR0BLCwxvc69wgIkM2G4vjMrrdL9pQlMc7bpN7jE+z2t3i1CAHQVJkh24XXHos6jr7u6+aqrccLJ5UJdMxUzx8Bgimes325QXQcWq7Hr9XbzE6ijjy9m8zhuBOoFORnqtW8PTwSe66agNCmXwnI6k2QGaw83qPDNVbj7D5CPIbfoiB4WMEHvK6DOy2/NdwXlsM+y4v6KMq/P+agkezpH8KvU9w822C9bYabWAxQGFpmLWSJ3HFhYIg83MZPY/OFpVi7cwP9FpHxMP+c2AM5H9D4pdbBW74XoRgpsDsgx4/xyNBgxaYsaJOHas421ghG2i1jCTmp+nsBKZ+jtkhwSbLnyNiNfdLJxz80G3yJQXs0Vn77kVE1HBsuwtoZglRR+mQyf/TS3WhxO6FU=
+    on_success: always
