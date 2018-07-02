@@ -8,6 +8,8 @@
 #include <memory>
 #include <string>
 
+#include <xercesc/dom/DOM.hpp>
+
 #include "GraphCore/Design.h"
 
 /**
@@ -36,6 +38,13 @@ public:
      * @return A pointer to a new Design object which contains an internal representation of the design\
      */
     static std::unique_ptr<Design> importSimulinkGraphML(std::string filename);
+
+
+    /**
+     * @brief Prints an XML node.  It prints its name, value, attribute names, and attribute values.  It also prints child nodes.
+     * @param node The XML node to print
+     */
+    static void printXMLNodeAndChildren(const xercesc::DOMNode *node, int tabs=0);
 };
 
 /*@}*/

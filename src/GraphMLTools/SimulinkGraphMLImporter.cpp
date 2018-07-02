@@ -5,6 +5,7 @@
 #include "SimulinkGraphMLImporter.h"
 
 #include <iostream>
+#include <string>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <xercesc/dom/DOM.hpp>
@@ -98,23 +99,14 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
 
         //Lets traverse the graph and just grab names
 
-        DOMNode* node = doc;
+        DOMNode *node = doc;
 
-        char* nodeName = XMLString::transcode(node->getNodeName());
-        std::cout << "Node Name: " << nodeName << std::endl;
-        XMLString::release(&nodeName);
+        //NOTE: It appears that each node has an accompanying TEXT node, even if there was not text in the node.
+        //      When parsing, be cognisant that the data between the <></> nodes are in the child TEXT node for that
+        //      node.  The data is in the value field of the text node.  However, attributes have name/value pairs
+        //      in nodes returned by the attribute map.
 
-        node = node->getFirstChild();
-        nodeName = XMLString::transcode(node->getNodeName());
-        std::cout << "Node Name: " << nodeName << std::endl;
-        XMLString::release(&nodeName);
-
-        node = node->getFirstChild();
-        nodeName = XMLString::transcode(node->getNodeName());
-        std::cout << "Node Name: " << nodeName << std::endl;
-        XMLString::release(&nodeName);
-
-
+        SimulinkGraphMLImporter::printXMLNodeAndChildren(node);
     }
 
 
@@ -127,4 +119,159 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
 
     return nullptr;
 
+}
+
+void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
+{
+    //==== Print Name and Value ====
+    char *nodeName = XMLString::transcode(node->getNodeName());
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "Node Name: " << nodeName << std::endl;
+    XMLString::release(&nodeName);
+
+    //==== Node Type ====
+    DOMNode::NodeType nodeType = node->getNodeType();
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "Node Type: ";
+    if(nodeType == DOMNode::NodeType::ELEMENT_NODE)
+    {
+        std::cout << "Element Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::ATTRIBUTE_NODE)
+    {
+        std::cout << "Attribute Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::TEXT_NODE)
+    {
+        std::cout << "Text Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::CDATA_SECTION_NODE)
+    {
+        std::cout << "CDate Section Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::ENTITY_REFERENCE_NODE)
+    {
+        std::cout << "Entity Reference Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::ENTITY_NODE)
+    {
+        std::cout << "Entity Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::PROCESSING_INSTRUCTION_NODE)
+    {
+        std::cout << "Processing Instruction Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::COMMENT_NODE)
+    {
+        std::cout << "Comment Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::DOCUMENT_NODE)
+    {
+        std::cout << "Document Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::DOCUMENT_TYPE_NODE)
+    {
+        std::cout << "Document Type Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::DOCUMENT_FRAGMENT_NODE)
+    {
+        std::cout << "Document Fragment Node" << std::endl;
+    }
+    else if(nodeType == DOMNode::NodeType::NOTATION_NODE)
+    {
+        std::cout << "Notation Node" << std::endl;
+    }
+    else
+    {
+        std::cout << "ERROR" << std::endl;
+    }
+
+    //==== Node Value ====
+    const XMLCh *nodeVal = node->getNodeValue();
+    if(nodeVal != nullptr)
+    {
+        char *nodeValue = XMLString::transcode(nodeVal);
+        for(int tab = 0; tab<tabs; tab++)
+        {
+            std::cout << "\t";
+        }
+        std::cout << "Node Value: " << nodeValue << std::endl;
+        XMLString::release(&nodeValue);
+    }
+
+    //==== Print Attrs ====
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "Attributes=[" << std::endl;
+
+    if(node->hasAttributes())
+    {
+        DOMNamedNodeMap *nodeAttributes = node->getAttributes();
+        XMLSize_t numAttributes = nodeAttributes->getLength();
+
+        for (XMLSize_t i = 0; i < numAttributes; i++) {
+            DOMNode *attribute = nodeAttributes->item(i);
+            char *attrName = XMLString::transcode(attribute->getNodeName());
+
+            const XMLCh *attrVal = attribute->getNodeValue();
+
+            std::string attrValueStr;
+
+            if(attrVal != nullptr)
+            {
+                char *attrValue = XMLString::transcode(attrVal);
+                attrValueStr = attrValue;
+                XMLString::release(&attrValue);
+            }
+            else
+            {
+                attrValueStr = "";
+            }
+
+            for(int tab = 0; tab<tabs+1; tab++)
+            {
+                std::cout << "\t";
+            }
+            std::cout << attrName << "=" << attrValueStr << std::endl;
+        }
+    }
+
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "]" << std::endl;
+
+
+    //==== Print Children ====
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "Children=[" << std::endl;
+
+    if(node->hasChildNodes())
+    {
+        for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling())
+        {
+            SimulinkGraphMLImporter::printXMLNodeAndChildren(child, tabs+1);
+        }
+    }
+
+    for(int tab = 0; tab<tabs; tab++)
+    {
+        std::cout << "\t";
+    }
+    std::cout << "]" << std::endl;
+
+    //Newline After
+    std::cout << std::endl;
 }
