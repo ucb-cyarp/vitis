@@ -98,6 +98,9 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
         throw std::runtime_error("XML Parsing Failed Due to an Unknown Exception");
     }
 
+    //Create Design Object
+    std::unique_ptr<Design> design = std::unique_ptr<Design>(new Design());
+
     //It was suggested by Xerces that scoping be used to ensure proper destruction of Xerces objects before Terminate
     //function is called
     {
@@ -130,6 +133,8 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
          */
 
         SimulinkGraphMLImporter::printXMLNodeAndChildren(node);
+
+
     }
 
 
@@ -139,10 +144,10 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
 
     XMLPlatformUtils::Terminate();
 
-
-    return nullptr;
-
+    return design;
 }
+
+
 
 void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
 {

@@ -16,7 +16,11 @@
  * @brief Represents the outputs from the data flow graph
  */
 class MasterOutput : public Node{
-
+public:
+    /**
+     * @brief Default constructor.  Calls default constructor of supercass.
+     */
+    MasterOutput();
 };
 
 /*@}*/

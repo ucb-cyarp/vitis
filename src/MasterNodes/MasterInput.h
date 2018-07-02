@@ -18,7 +18,11 @@
  * \ingroup MasterNodes
  */
 class MasterInput : public Node {
-
+public:
+    /**
+     * @brief Default constructor.  Calls default constructor of supercass.
+     */
+    MasterInput();
 };
 
 /*@}*/

@@ -3,3 +3,7 @@
 //
 
 #include "MasterOutput.h"
+
+MasterOutput::MasterOutput() {
+
+}

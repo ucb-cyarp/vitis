@@ -20,7 +20,6 @@
  */
 class EnableOutput : public EnableNode{
 public:
-    std::string emitCpp(int outputPort) override ;
 };
 
 /*@}*/

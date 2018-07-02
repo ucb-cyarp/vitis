@@ -15,6 +15,8 @@ int main(int argc, char* argv[]) {
         std::cout << "simulinkGraphMLImporter: Import Simulink GraphML File and Write a vitis GraphML File" << std::endl;
         std::cout << "Usage: " << std::endl;
         std::cout << "    simulinkGraphMLImporter inputfile.graphml outputfile.graphml" << std::endl;
+
+        return 1;
     }
 
     std::string inputFilename = argv[1];

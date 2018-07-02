@@ -9,14 +9,14 @@
 #include <set>
 #include <string>
 #include <memory>
-//#include "Port.h"
-//#include "Arc.h"
+#include "Port.h"
+#include "Arc.h"
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
 
 //Forward Decls (Breaking Circular Dep)
-class Arc;
-class Port;
+//class Arc;
+//class Port;
 class SubSystem;
 class GraphMLParameter;
 
@@ -70,7 +70,7 @@ public:
     static std::shared_ptr<Node> createNode(std::shared_ptr<SubSystem> parent);
 
     //==== Functions ====
-    /**
+    virtual /**
      * @brief Add an input arc to the given node, updating referenced objects in the process
      *
      * Adds an input arc to this node.  Removes the arc from the orig port if not NULL.
@@ -160,7 +160,7 @@ public:
      * @param outputPort the output port for which the C++ code should be generated for
      * @return a string containing the C++ code for calculating the result of the output port
      */
-    virtual std::string emitCpp(int outputPort);
+    virtual std::string emitCpp(int outputPort) = 0;
 
     //==== Getters/Setters ====
     //++++ Getters/Setters With Added Functionality ++++

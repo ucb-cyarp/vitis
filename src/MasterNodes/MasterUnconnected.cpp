@@ -3,3 +3,7 @@
 //
 
 #include "MasterUnconnected.h"
+
+MasterUnconnected::MasterUnconnected() {
+
+}
