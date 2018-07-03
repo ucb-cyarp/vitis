@@ -15,7 +15,6 @@
 */
 /*@{*/
 
-template <typename T>
 /**
  * @brief Factory class for creating nodes.
  *
@@ -35,18 +34,19 @@ public:
      * @param parent Parent of the new node
      * @return pointer to the new node
      */
+    template <typename T>
     static std::shared_ptr<T> createNode(std::shared_ptr<SubSystem> parent)
     {
         std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent));
 
-        std::shared_ptr<Node> nodeCast = node;
-
-        nodeCast->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+        node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
 
         if(parent != nullptr)
         {
             parent->addChild(node);
         }
+
+        return node;
     }
 
     /**
@@ -55,31 +55,33 @@ public:
      * @param orig Origional node of new
      * @return pointer to the new node
      */
+    template <typename T>
     static std::shared_ptr<T> createNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig)
     {
         std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent));
 
-        std::shared_ptr<Node> nodeCast = node;
-
-        nodeCast->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+        node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
 
         if(parent != nullptr)
         {
             parent->addChild(node);
         }
+
+        return node;
     }
 
     /**
     * @brief Create node with no parent
     * @return pointer to the new node
     */
+    template <typename T>
     static std::shared_ptr<T> createNode()
     {
         std::shared_ptr<T> node = std::shared_ptr<T>(new T());
 
-        std::shared_ptr<Node> nodeCast = node;
+        node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
 
-        nodeCast->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+        return node;
     }
 
 };

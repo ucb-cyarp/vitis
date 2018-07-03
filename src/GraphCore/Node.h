@@ -8,8 +8,9 @@
 //Forward Decls (Breaking Circular Dep)
 //class Arc;
 //class Port;
-class SubSystem;
 class NodeFactory;
+
+class SubSystem;
 class GraphMLParameter;
 
 #include <vector>

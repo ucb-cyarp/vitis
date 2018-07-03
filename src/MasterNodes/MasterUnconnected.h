@@ -16,7 +16,10 @@
  * @brief Represents unconnected ports in the dataflow graph
  */
 class MasterUnconnected : public Node{
-public:
+
+friend class NodeFactory;
+
+protected:
     /**
      * @brief Default constructor.  Calls default constructor of supercass.
      */

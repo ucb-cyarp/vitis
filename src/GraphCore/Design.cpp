@@ -4,6 +4,7 @@
 
 #include "Design.h"
 
+#include "NodeFactory.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
@@ -13,11 +14,11 @@
 
 //==== Constructors
 Design::Design() {
-    inputMaster = std::shared_ptr<MasterInput>(new MasterInput());
-    outputMaster = std::shared_ptr<MasterOutput>(new MasterOutput());
-    visMaster = std::shared_ptr<MasterOutput>(new MasterOutput());
-    unconnectedMaster = std::shared_ptr<MasterUnconnected>(new MasterUnconnected());
-    terminatorMaster = std::shared_ptr<MasterOutput>(new MasterOutput());
+    inputMaster = NodeFactory::createNode<MasterInput>();
+    outputMaster = NodeFactory::createNode<MasterOutput>();
+    visMaster = NodeFactory::createNode<MasterOutput>();
+    unconnectedMaster = NodeFactory::createNode<MasterUnconnected>();
+    terminatorMaster = NodeFactory::createNode<MasterOutput>();
 
     std::vector<std::shared_ptr<Node>> nodes; ///< A vector of nodes in the design
     std::vector<std::shared_ptr<Arc>> arcs; ///< A vector of arcs in the design
