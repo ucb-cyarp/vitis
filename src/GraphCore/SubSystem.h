@@ -26,7 +26,6 @@ friend class NodeFactory;
 protected:
     std::set<std::shared_ptr<Node>> children; ///< Nodes contained within this sub-system
 
-public:
     //==== Constructors ====
     /**
      * @brief Default constructor.  Vector initialized using default behavior.
@@ -37,6 +36,8 @@ public:
      * @brief Construct SubSystem with given parent node.  Calls Node constructor.
      */
     SubSystem(std::shared_ptr<SubSystem> parent);
+
+public:
 
     //==== Functions ====
     /**

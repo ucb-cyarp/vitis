@@ -25,7 +25,7 @@
 class EnableOutput : public EnableNode{
 friend class NodeFactory;
 
-public:
+protected:
     /**
      * @brief Default constructor
      */

@@ -27,7 +27,6 @@ protected:
 
     void init() override;
 
-public:
     /**
      * @brief Default constructor
      */
