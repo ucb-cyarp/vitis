@@ -36,6 +36,8 @@ class GraphMLParameter;
  * utility functions as well as stub functions which should be overwritten by subclasses.
  */
 class Node : public std::enable_shared_from_this<Node> {
+    friend class NodeFactory;
+
 protected:
     int id; ///<Node ID number used when reading/writing GraphML files
     std::shared_ptr<SubSystem> parent; ///<Parent of this node
@@ -69,8 +71,6 @@ protected:
      * This is due to how enable_shared_from_this operates.  It requires a shared_ptr to exist before any calls to shared_from_this().
      */
     virtual void init();
-
-    friend class NodeFactory;
 
 public:
     //==== Functions ====
@@ -127,6 +127,17 @@ public:
      * @return GraphML description of the given node (and its descendants) as a std::string
      */
     virtual std::string emitGraphML();
+
+    /**
+     * @brief Gets a shared pointer to this node
+     *
+     * Used in port objects to get a shared pointer to the parent which they then use to return an aliased shared pointer to themselves.
+     * This is because the port objects are contained in the node.  When the node is destructed, they are too.
+     * The nodes would not be deleted if ports had a shared object to the
+     *
+     * @return shared pointer to this node
+     */
+    std::shared_ptr<Node> getSharedPointer();
 
     /**
      * @brief Identifies which GraphML parameters this node (and its descendants) can emit

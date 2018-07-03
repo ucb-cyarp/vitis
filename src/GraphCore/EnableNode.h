@@ -25,8 +25,6 @@ friend class NodeFactory;
 protected:
     Port enablePort; ///< The enable port.  The input of this port determines if a new value is propagated or not
 
-    void init() override;
-
     /**
      * @brief Default constructor
      */
