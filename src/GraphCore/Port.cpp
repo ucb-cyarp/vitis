@@ -58,5 +58,11 @@ void Port::setType(Port::PortType type) {
 }
 
 std::shared_ptr<Port> Port::getSharedPointer() {
-    return std::shared_ptr<Port>(parent->getSharedPointer(), this);
+    if(parent != nullptr) {
+        return std::shared_ptr<Port>(parent->getSharedPointer(), this);
+    }
+    else {
+        //Hopefully should not happen but just in case
+        return std::shared_ptr<Port>(nullptr);
+    }
 }

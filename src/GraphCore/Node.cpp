@@ -23,11 +23,30 @@ void Node::init() {
 }
 
 void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+    //Create the requested port if it does not exist yet
+    //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
+    unsigned long inputPortLen = inputPorts.size();
+    for(unsigned long i = inputPortLen; i <= portNum; i++)
+    {
+        inputPorts.push_back(Port(this, Port::PortType::INPUT, i));
+    }
 
+    //Set the dst port of the arc, updating the previous port and this one
+    arc->setDstPortUpdateNewUpdatePrev(inputPorts[portNum].getSharedPointer());
+}
+
+void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+    //Create the requested port if it does not exist yet
+    //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
+    unsigned long outputPortLen = outputPorts.size();
+    for (unsigned long i = outputPortLen; i <= portNum; i++) {
+        outputPorts.push_back(Port(this, Port::PortType::OUTPUT, i));
+    }
+
+    //Set the src port of the arc, updating the previous port and this one
+    arc->setSrcPortUpdateNewUpdatePrev(outputPorts[portNum].getSharedPointer());
 }
 
 std::shared_ptr<Node> Node::getSharedPointer() {
     return shared_from_this();
 }
-
-

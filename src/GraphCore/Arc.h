@@ -25,7 +25,7 @@ class Node;
 /**
  * @brief Represents Arcs in the data flow graph of a DSP design
  */
-class Arc {
+class Arc : std::enable_shared_from_this<Arc>{
 private:
     std::shared_ptr<Port> srcPort; ///< Pointer to the source port this arc is connected to
     std::shared_ptr<Port> dstPort; ///< Pointer to the destination port this arc is connected to
@@ -34,7 +34,7 @@ private:
     int delay; ///< The delay along this arc (in cycles)
     int slack; ///< The slack along this arc (in cycles)
 
-public:
+protected:
     //==== Constructors ====
     /**
      * @brief Construct a blank arc
@@ -56,6 +56,8 @@ public:
      */
     Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime = -1);
 
+public:
+
     //==== Factories ====
     /**
      * @brief Connects two nodes with a newly created Arc
@@ -74,11 +76,66 @@ public:
     connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Node> dst, int dstPortNum,
                  DataType dataType, double sampleTime = -1);
 
+    //==== Getters/Setters (With added functionality) ====
+
+    /**
+     * @brief Sets a new src port for this arc, updating the new port and the previous port in the process
+     *
+     * Removes the arc from the orig port if not NULL.
+     * Updates the given arc so that the src port is the specified new port
+     * Adds the arc to the new port.
+     *
+     * @node A std::shared_ptr must exist before this function is called because it relies on shared_from_this
+     *
+     * @param srcPort the new srcPort
+     */
+    void setSrcPortUpdateNewUpdatePrev(std::shared_ptr<Port> srcPort);
+
+    /**
+     * @brief Sets a new dst port for this arc, updating the new port and the previous port in the process
+     *
+     * Removes the arc from the orig port if not NULL.
+     * Updates the given arc so that the src port is the specified new port
+     * Adds the arc to the new port.
+     *
+     * @node A std::shared_ptr must exist before this function is called because it relies on shared_from_this
+     *
+     * @param dstPort the new dstPort
+     */
+    void setDstPortUpdateNewUpdatePrev(std::shared_ptr<Port> dstPort);
+
     //==== Getters/Setters ====
+    /**
+     * @brief Gets a pointer to the source port of the arc
+     * @return pointer to the src port of the arc
+     */
     std::shared_ptr<Port> getSrcPort() const;
+
+    /**
+     * @brief Sets the srcPort pointer for the arc.  Does not remove the arc from any previously connected port or add it to the arc list of the new port.
+     *
+     * @note To automatically remove the arc from the old port and add it to the new one, use @ref Arc::setSrcPortUpdateNewUpdatePrev
+     *
+     * @param srcPort the new srcPort for the arc.
+     */
     void setSrcPort(const std::shared_ptr<Port> &srcPort);
+
+    /**
+     * @brief Gets a pointer to the source port of the arc
+     * @return pointer to the src port of the arc
+     */
     std::shared_ptr<Port> getDstPort() const;
+
+    /**
+     * @brief Sets the dstPort pointer for the arc.  Does not remove the arc from any previously connected port or add it to the arc list of the new port.
+     *
+     * @note To automatically remove the arc from the old port and add it to the new one, use @ref Arc::setDstPortUpdateNewUpdatePrev
+     *
+     * @param dstPort the new dstPort for the arc.
+     */
     void setDstPort(const std::shared_ptr<Port> &dstPort);
+
+
     DataType getDataType() const;
     void setDataType(const DataType &dataType);
     double getSampleTime() const;

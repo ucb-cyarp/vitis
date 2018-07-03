@@ -115,6 +115,26 @@ public:
     void removeOutArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Get an aliased shared pointer to the specified input port of this node
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the input port number
+     * @return aliased shared pointer to input port
+     */
+    std::shared_ptr<Port> getInputPort(int portNum);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified output port of this node
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the output port number
+     * @return aliased shared pointer to output port
+     */
+    std::shared_ptr<Port> getOutputPort(int portNum);
+
+    /**
      * @brief Get the full hierarchical path of this node in GraphML format
      *
      * A typical GraphML formatted hierarchy would be "n1::n2::n3"
