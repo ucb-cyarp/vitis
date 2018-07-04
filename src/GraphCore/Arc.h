@@ -25,7 +25,7 @@ class Node;
 /**
  * @brief Represents Arcs in the data flow graph of a DSP design
  */
-class Arc : std::enable_shared_from_this<Arc>{
+class Arc : public std::enable_shared_from_this<Arc>{
 private:
     std::shared_ptr<Port> srcPort; ///< Pointer to the source port this arc is connected to
     std::shared_ptr<Port> dstPort; ///< Pointer to the destination port this arc is connected to
