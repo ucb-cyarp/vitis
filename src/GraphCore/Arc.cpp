@@ -4,6 +4,7 @@
 
 #include "Arc.h"
 #include "Port.h"
+#include "Node.h"
 
 Arc::Arc() {
     srcPort = std::shared_ptr<Port>(nullptr);
@@ -88,6 +89,36 @@ void Arc::setDstPortUpdateNewUpdatePrev(std::shared_ptr<Port> dstPort) {
 
     //Add this arc to the new dst port
     dstPort->addArc(shared_from_this());
+}
+
+std::shared_ptr<Arc> Arc::createArc() {
+    return std::shared_ptr<Arc>(new Arc());
+}
+
+std::shared_ptr<Arc>
+Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Node> dst, int dstPortNum,
+                  DataType dataType, double sampleTime) {
+
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+
+    //Connect arc
+    if(src != nullptr)
+    {
+        src->addOutArcUpdatePrevUpdateArc(srcPortNum, arc);
+    }
+
+    if(dst != nullptr)
+    {
+        dst->addInArcUpdatePrevUpdateArc(dstPortNum, arc);
+    }
+
+    return arc;
 }
 
 

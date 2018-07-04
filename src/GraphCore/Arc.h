@@ -60,6 +60,17 @@ public:
 
     //==== Factories ====
     /**
+     * @brief Factory function to create a new blank arc.
+     *
+     * Factory is used instead of a constructor since shared_from_this is used within Arc and this requires a shared_ptr to exist
+     *
+     * Arc has no source or destination port pointers, the default data type, a delay of 0, and a slack of zero
+     *
+     * @return a pointer to a new arc
+     */
+    static std::shared_ptr<Arc> createArc();
+
+    /**
      * @brief Connects two nodes with a newly created Arc
      *
      * This function adds the new arc to the specified ports of the source node and destination node

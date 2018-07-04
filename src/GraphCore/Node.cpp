@@ -50,3 +50,63 @@ void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
 std::shared_ptr<Node> Node::getSharedPointer() {
     return shared_from_this();
 }
+
+void Node::removeInArc(std::shared_ptr<Arc> arc) {
+    unsigned long inputPortLen = inputPorts.size();
+
+    for(unsigned long i = 0; i<inputPortLen; i++)
+    {
+        inputPorts[i].removeArc(arc);
+    }
+}
+
+void Node::removeOutArc(std::shared_ptr<Arc> arc) {
+    unsigned long outputPortLen = outputPorts.size();
+
+    for(unsigned long i = 0; i<outputPortLen; i++)
+    {
+        outputPorts[i].removeArc(arc);
+    }
+}
+
+std::shared_ptr<Port> Node::getInputPort(int portNum) {
+    if(portNum >= inputPorts.size()) {
+        return std::shared_ptr<Port>(nullptr);
+    }
+
+    return inputPorts[portNum].getSharedPointer();
+}
+
+std::shared_ptr<Port> Node::getOutputPort(int portNum) {
+    if(portNum >= outputPorts.size()) {
+        return std::shared_ptr<Port>(nullptr);
+    }
+
+    return outputPorts[portNum].getSharedPointer();
+}
+
+std::vector<std::shared_ptr<Port>> Node::getInputPorts() {
+    std::vector<std::shared_ptr<Port>> inputPortPtrs;
+
+    unsigned long inputPortLen = inputPorts.size();
+    for(unsigned long i = 0; i<inputPortLen; i++)
+    {
+        inputPortPtrs.push_back(inputPorts[i].getSharedPointer());
+    }
+
+    return inputPortPtrs;
+}
+
+std::vector<std::shared_ptr<Port>> Node::getOutputPorts() {
+    std::vector<std::shared_ptr<Port>> outputPortPtrs;
+
+    unsigned long outputPortLen = outputPorts.size();
+    for (unsigned long i = 0; i < outputPortLen; i++)
+    {
+        outputPortPtrs.push_back(outputPorts[i].getSharedPointer());
+    }
+
+    return outputPortPtrs;
+}
+
+

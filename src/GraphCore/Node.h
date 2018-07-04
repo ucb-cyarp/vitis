@@ -99,7 +99,7 @@ public:
     void addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
 
     /**
-     * @brief Removes the given input arc from the node.
+     * @brief Removes the given input arc from the node. Does not change the dstPort entry in the arc.
      *
      * Will search all input ports to find the given arc
      * @param arc Arc to remove
@@ -107,7 +107,7 @@ public:
     void removeInArc(std::shared_ptr<Arc> arc);
 
     /**
-     * @brief Removes the given output arc from the node.
+     * @brief Removes the given output arc from the node.  Does not change the srcPort entry in the arc.
      *
      * Will search all output ports to find the given arc
      * @param arc Arc to remove
@@ -115,24 +115,42 @@ public:
     void removeOutArc(std::shared_ptr<Arc> arc);
 
     /**
-     * @brief Get an aliased shared pointer to the specified input port of this node
+     * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists a null pointer is returned.
      *
      * The pointer is aliased with this node as the stored pointer.
      *
      * @param portNum the input port number
-     * @return aliased shared pointer to input port
+     * @return aliased shared pointer to input port or nullptr
      */
     std::shared_ptr<Port> getInputPort(int portNum);
 
     /**
-     * @brief Get an aliased shared pointer to the specified output port of this node
+     * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists a null pointer is returned.
      *
      * The pointer is aliased with this node as the stored pointer.
      *
      * @param portNum the output port number
-     * @return aliased shared pointer to output port
+     * @return aliased shared pointer to output port or nullptr
      */
     std::shared_ptr<Port> getOutputPort(int portNum);
+
+    /**
+     * @brief Get a vector of pointers to the current input ports of the node
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @return vector of aliased pointers to the current input ports of the node
+     */
+    std::vector<std::shared_ptr<Port>> getInputPorts();
+
+    /**
+     * @brief Get a vector of pointers to the current output ports of the node
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @return vector of aliased pointers to the current output ports of the node
+     */
+    std::vector<std::shared_ptr<Port>> getOutputPorts();
 
     /**
      * @brief Get the full hierarchical path of this node in GraphML format
