@@ -164,7 +164,7 @@ public:
      * @brief Emit GraphML for the given node (and its descendants if it is a Subsystem)
      * @return GraphML description of the given node (and its descendants) as a std::string
      */
-    virtual std::string emitGraphML();
+//    virtual std::string emitGraphML();
 
     /**
      * @brief Gets a shared pointer to this node
@@ -224,6 +224,10 @@ public:
      * @param parent the new parent of this node
      */
     void setParent(std::shared_ptr<SubSystem> parent);
+
+    int getId() const;
+
+    void setId(int id);
 
     //++++ Getters/Setters With Added Functionality ++++
     /**

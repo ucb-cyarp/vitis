@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <memory>
+#include <string>
 
 #include "SubSystem.h"
 #include "Port.h"
@@ -107,6 +108,25 @@ std::vector<std::shared_ptr<Port>> Node::getOutputPorts() {
     }
 
     return outputPortPtrs;
+}
+
+std::string Node::getFullGraphMLPath() {
+    std::string path = "n" + std::to_string(id);
+
+    for(std::shared_ptr<SubSystem> parentPtr = parent; parentPtr != nullptr; parentPtr = parentPtr->parent)
+    {
+        path = "n" + std::to_string(parentPtr->getId()) + "::" + path;
+    }
+
+    return path;
+}
+
+int Node::getId() const {
+    return id;
+}
+
+void Node::setId(int id) {
+    Node::id = id;
 }
 
 

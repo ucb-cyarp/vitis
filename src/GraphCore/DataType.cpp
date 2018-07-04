@@ -55,3 +55,10 @@ bool DataType::operator==(const DataType &rhs) const {
 bool DataType::operator!=(const DataType &rhs) const {
     return !(rhs == *this);
 }
+
+DataType::DataType() : signedType(false), complex(false), floatingPt(false), totalBits(0), fractionalBits(0){
+}
+
+DataType::DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits) : floatingPt(floatingPt), signedType(signedType), complex(complex), totalBits(totalBits), fractionalBits(fractionalBits){
+
+}
