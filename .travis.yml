@@ -14,10 +14,10 @@ before_script:
 
 os:
   - linux
-#  - osx
+  - osx
 
 dist: trusty
-#osx_image: xcode9.4
+osx_image: xcode9.4
 
 #compiler:
 #  - clang
@@ -29,6 +29,9 @@ matrix:
       env: COMPILER=g++-6
     - compiler: clang
       env: COMPILER=clang++-3.8
+  exclide:
+    - compiler: gcc
+    - compiler: clang
 
 addons:
   apt:
