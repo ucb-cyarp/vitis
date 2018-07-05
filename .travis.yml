@@ -2,6 +2,8 @@ language: cpp
 
 addons:
   apt:
+    sources:
+    - ubuntu-toolchain-r-test
     packages:
     - cmake
     - libxerces-c-dev
@@ -17,7 +19,7 @@ os:
   - linux
   - osx
 
-dist: xenial
+dist: trusty
 osx_image: xcode9.4
 
 compiler:
