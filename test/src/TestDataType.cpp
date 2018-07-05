@@ -138,3 +138,65 @@ TEST(DataType, ParseFixedPt) {
     ASSERT_EQ(fixdt_ufix32_En11Type2.getFractionalBits(), 11);
     ASSERT_EQ(fixdt_ufix32_En11Type2.isComplex(), false);
 }
+
+TEST(DataType, toStringFloats) {
+    DataType singleType = DataType("single", false);
+    ASSERT_EQ(singleType.toString(), "single");
+
+    DataType doubleType = DataType("double", false);
+    ASSERT_EQ(doubleType.toString(), "double");
+}
+
+TEST(DataType, toStringInts) {
+    DataType int8Type = DataType("int8", false);
+    ASSERT_EQ(int8Type.toString(), "int8");
+
+    DataType int16Type = DataType("int16", false);
+    ASSERT_EQ(int16Type.toString(), "int16");
+
+    DataType int32Type = DataType("int32", false);
+    ASSERT_EQ(int32Type.toString(), "int32");
+
+    DataType int64Type = DataType("int64", false);
+    ASSERT_EQ(int64Type.toString(), "int64");
+
+    DataType uint8Type = DataType("uint8", false);
+    ASSERT_EQ(uint8Type.toString(), "uint8");
+
+    DataType uint16Type = DataType("uint16", false);
+    ASSERT_EQ(uint16Type.toString(), "uint16");
+
+    DataType uint32Type = DataType("uint32", false);
+    ASSERT_EQ(uint32Type.toString(), "uint32");
+
+    DataType uint64Type = DataType("uint64", false);
+    ASSERT_EQ(uint64Type.toString(), "uint64");
+}
+
+TEST(DataType, toStringBool) {
+    DataType boolType = DataType("boolean", false);
+    ASSERT_EQ(boolType.toString(), "boolean");
+
+    DataType logicalType = DataType("logical", false);
+    ASSERT_EQ(logicalType.toString(), "boolean");
+}
+
+TEST(DataType, toStringFixedPt) {
+    DataType sfix32_En16Type = DataType("sfix32_En16", false);
+    ASSERT_EQ(sfix32_En16Type.toString(), "sfix32_En16");
+
+    DataType ufix32_En11Type = DataType("ufix32_En11", false);
+    ASSERT_EQ(ufix32_En11Type.toString(), "ufix32_En11");
+
+    DataType fixdt_sfix32_En16Type = DataType("fixdt(1,32,16)", false);
+    ASSERT_EQ(fixdt_sfix32_En16Type.toString(), "sfix32_En16");
+
+    DataType fixdt_ufix32_En11Type = DataType("fixdt(0,32,11)", false);
+    ASSERT_EQ(fixdt_ufix32_En11Type.toString(), "ufix32_En11");
+
+    DataType fixdt_sfix32_En16Type2 = DataType("fixdt(1, 32, 16)", false);
+    ASSERT_EQ(fixdt_sfix32_En16Type2.toString(), "sfix32_En16");
+
+    DataType fixdt_ufix32_En11Type2 = DataType("fixdt(0, 32, 11)", false);
+    ASSERT_EQ(fixdt_ufix32_En11Type2.toString(), "ufix32_En11");
+}
