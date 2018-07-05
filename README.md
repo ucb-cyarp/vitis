@@ -16,6 +16,8 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
 - Clone git repository
 
 - Install Dependencies:
+    - GCC Version 4.9 and Clang Version 3 Required Due to C++11 Regex Support
+        - Tested with GCC 5 and Clang 3.8
 
     - Ubuntu
     
