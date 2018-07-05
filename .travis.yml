@@ -5,6 +5,9 @@ addons:
     packages:
     - cmake
     - libxerces-c-dev
+    - gcc-5.4
+    - g++-5.4
+    - clang-3.8
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update          ; fi
