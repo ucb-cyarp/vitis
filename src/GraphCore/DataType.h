@@ -52,8 +52,9 @@ public:
      * point number with 18 total bits and 12 fractional bits.
      *
      * @param str string representation of type
+     * @param complex true if the type is complex, false if it is real
      */
-    DataType(std::string str);
+    DataType(std::string str, bool complex);
 
     //==== Functions ====
     /**
