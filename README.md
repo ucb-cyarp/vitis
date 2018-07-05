@@ -12,7 +12,7 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
 - [Google Test (gtest)](https://github.com/google/googletest): Testing Framework
 - gcc or clang: C++ Compiler
 
-###Installation:
+### Installation:
 - Clone git repository
 
 - Install Dependencies:
