@@ -41,6 +41,12 @@ public:
      */
     static std::unique_ptr<Design> importSimulinkGraphML(std::string filename);
 
+    /**
+     * @brief Prints the various DOM nodes of a graphml file;
+     * @param filename The filename of the GraphML file to import
+     */
+    static void printGraphmlDOM(std::string filename);
+
 
     /**
      * @brief Prints an XML node.  It prints its name, value, attribute names, and attribute values.  It also prints child nodes.

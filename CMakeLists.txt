@@ -8,6 +8,7 @@ project(vitis)
 
 set(CMAKE_CXX_STANDARD 11)
 
+#==== Vitis Framework ====
 #List of Common Library Files (used by many targets)
 set(COMMON_SRCS
         src/GraphCore/Node.cpp
@@ -52,20 +53,22 @@ include_directories(src)
 #Create shared static lib for common files
 add_library(VitisLib STATIC ${COMMON_SRCS})
 
-#Executables
-add_executable(vitis src/main.cpp)
-target_link_libraries(vitis VitisLib)
-add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
-target_link_libraries(simulinkGraphMLImporter VitisLib)
-
+#==== Dependencies ====
 #Set up external library dependencies
 #This was based off the CLion boost import snippit
 # see https://cmake.org/cmake/help/latest/module/FindXercesC.html
 find_package(XercesC)
 include_directories(${XercesC_INCLUDE_DIRS})
-# Note: a target should be already defined using 'add_executable' or 'add_library' 
-target_link_libraries(vitis ${XercesC_LIBRARIES})
-target_link_libraries(simulinkGraphMLImporter ${XercesC_LIBRARIES})
+
+#==== Executables ====
+add_executable(vitis src/main.cpp)
+target_link_libraries(vitis VitisLib ${XercesC_LIBRARIES})
+
+add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
+target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES})
+
+add_executable(simulinkGraphmlDOMPrint src/Tools/simulinkGraphmlDOMPrint.cpp)
+target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES})
 
 #==== Google Test ====
 set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file

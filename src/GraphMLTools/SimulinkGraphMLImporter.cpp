@@ -147,6 +147,79 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
     return design;
 }
 
+void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
+{
+    //This function does not perform schema validation or exploit some of the various advanced options Xerces provides.
+
+    //Note on Xerces.  Need to make sure all Xerces objects are released before calling the terminate function.
+
+    //From Example:
+    try
+    {
+        XMLPlatformUtils::Initialize();
+    }
+    catch (const XMLException& toCatch)
+    {
+        char* error_msg = XMLString::transcode(toCatch.getMessage());
+        std::cerr << "Error during initialization! :\n" << error_msg << std::endl;
+        XMLString::release(&error_msg);
+        throw std::runtime_error("XML Parser Env could not initialize.  Could not import GraphML File.");
+    }
+
+    //From https://xerces.apache.org/xerces-c/program-dom-3.html and DOMCount.cpp
+    XMLCh LS_literal[] = {chLatin_L, chLatin_S, chNull};
+    DOMImplementation *impl = DOMImplementationRegistry::getDOMImplementation(LS_literal);
+    DOMLSParser* parser = ((DOMImplementationLS*)impl)->createLSParser(DOMImplementationLS::MODE_SYNCHRONOUS, nullptr);
+
+    // optionally you can set some features on this builder
+    if (parser->getDomConfig()->canSetParameter(XMLUni::fgDOMValidate, false))
+        parser->getDomConfig()->setParameter(XMLUni::fgDOMValidate, false);
+    if (parser->getDomConfig()->canSetParameter(XMLUni::fgDOMNamespaces, true))
+        parser->getDomConfig()->setParameter(XMLUni::fgDOMNamespaces, true);
+
+    DOMDocument *doc = nullptr;
+
+    //Try Parsing File
+    try {
+        doc = parser->parseURI(filename.c_str());
+    }
+        //Catch the various exceptions
+    catch (const XMLException& toCatch) {
+        char* message = XMLString::transcode(toCatch.getMessage());
+        std::cerr << "Exception message is:" << std::endl << message << std::endl;
+        XMLString::release(&message);
+        throw std::runtime_error("XML Parsing Failed Due to XML Exception");
+    }
+    catch (const DOMException& toCatch) {
+        char* message = XMLString::transcode(toCatch.msg);
+        std::cout << "Exception message is:" << std::endl << message << std::endl;
+        XMLString::release(&message);
+        throw std::runtime_error("XML Parsing Failed Due to DOM Exception");
+    }
+    catch (...) {
+        std::cerr << "Unexpected Exception" << std::endl;
+        throw std::runtime_error("XML Parsing Failed Due to an Unknown Exception");
+    }
+
+    //Create Design Object
+    std::unique_ptr<Design> design = std::unique_ptr<Design>(new Design());
+
+    //It was suggested by Xerces that scoping be used to ensure proper destruction of Xerces objects before Terminate
+    //function is called
+    {
+        DOMNode *node = doc;
+
+        SimulinkGraphMLImporter::printXMLNodeAndChildren(node);
+
+
+    }
+
+    //Cleanup
+    parser->release(); //Should release the objects created by the parser
+
+    XMLPlatformUtils::Terminate();
+}
+
 
 
 void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
