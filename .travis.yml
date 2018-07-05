@@ -19,7 +19,7 @@ matrix:
         - os: linux
           dist: trusty
           compiler: clang
-          env: COMPILER=clang++-3.6
+          env: COMPILER=clang++-3.8
         - os: linux
           dist: trusty
           compiler: gcc
@@ -44,11 +44,11 @@ addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
-    - llvm-toolchain-trusty-3.6
+    - llvm-toolchain-trusty-3.8
     packages:
     - cmake
     - libxerces-c-dev
-    - clang-3.6
+    - clang-3.8
     - gcc-5
     - g++-5
 
