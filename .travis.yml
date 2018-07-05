@@ -23,9 +23,9 @@ matrix:
           compiler: gcc
           env: COMPILER=g++-5
         - os: osx
-        compiler: clang
+          compiler: clang
         - os: osx
-        compiler: gcc
+          compiler: gcc
 
 dist: trusty
 osx_image: xcode9.4
