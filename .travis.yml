@@ -6,6 +6,10 @@ addons:
     - cmake
     - libxerces-c-dev
 
+os:
+  - linux
+  - osx
+
 compiler:
   - clang
   - gcc
