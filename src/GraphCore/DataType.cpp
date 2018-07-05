@@ -191,3 +191,47 @@ DataType::DataType(std::string str, bool complex) : complex(complex) {
         fractionalBits = std::stoi(match3);
     }
 }
+
+std::string DataType::toString() {
+
+    if(floatingPt){
+        //Floing point types
+        if(totalBits == 32){
+            return "single";
+        }else if(totalBits == 64){
+            return "double";
+        }
+        else{
+            throw std::runtime_error("Floating point type which is not a \"single\" or \"double\"");
+        }
+    } else if(fractionalBits == 0 && (totalBits == 1 || totalBits == 8 || totalBits == 16 || totalBits == 32 || totalBits == 64)){
+        //Integer types
+        if(signedType){
+            //Signed
+            if(totalBits == 1){
+                //Special case of fixed which dosn't make sense but is possible
+                return "sfix1_En0";
+            } else{
+                return "int" + std::to_string(totalBits);
+            }
+        } else{
+            //Unsigned
+            if(totalBits == 1){
+                return "boolean";
+            } else{
+                return "uint" + std::to_string(totalBits);
+            }
+        }
+    } else{
+        //Fixed Point
+        std::string signedStr;
+
+        if(signedType){
+            signedStr = "s";
+        } else{
+            signedStr = "u";
+        }
+
+        return signedStr + "fix" + std::to_string(totalBits) + "_En" + std::to_string(fractionalBits);
+    }
+}

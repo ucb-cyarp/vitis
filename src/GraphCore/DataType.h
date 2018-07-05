@@ -57,6 +57,13 @@ public:
     DataType(std::string str, bool complex);
 
     //==== Functions ====
+
+    /**
+     * @brief Get the string representation of the datatype in Simulink style.  Complexity is not included in the string representation
+     * @return simulink style type string
+     */
+    std::string toString();
+
     /**
      * @brief Deep equivalence check of DataType objects
      * @param rhs right hand side of the comparison
