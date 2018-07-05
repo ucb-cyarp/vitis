@@ -12,7 +12,7 @@ before_install:
 
 os:
   - linux
-    dist: xenial
+    dist: trusty
   - osx
 
 compiler:
