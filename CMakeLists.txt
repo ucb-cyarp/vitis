@@ -61,3 +61,8 @@ include_directories(${XercesC_INCLUDE_DIRS})
 # Note: a target should be already defined using 'add_executable' or 'add_library' 
 target_link_libraries(vitis ${XercesC_LIBRARIES})
 target_link_libraries(simulinkGraphMLImporter ${XercesC_LIBRARIES})
+
+#==== Google Test ====
+set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file
+enable_testing()
+add_subdirectory(test)
