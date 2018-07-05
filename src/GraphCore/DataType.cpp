@@ -157,7 +157,8 @@ DataType::DataType(std::string str, bool complex) : complex(complex) {
         {
             //It is the other format
             matches = std::smatch(); //Reset
-            bool fixMatched = std::regex_match(str, matches, fixdtRegexExpr);
+            std::regex fixRegexExpr(fixRegex);
+            bool fixMatched = std::regex_match(str, matches, fixRegexExpr);
 
             if(!fixMatched)
             {
