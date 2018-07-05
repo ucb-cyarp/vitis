@@ -9,8 +9,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xerces-c; fi
 
 before_script:
-    - if [[ "$COMPILER" = "g++-5"        ]] && [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="g++-5" CC="gcc-5";              fi
-    - if [[ "$COMPILER" = "clang++-3.8"  ]] && [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.8" CC="clang-3.8";    fi
+    - if [[ "$COMPILER" = "g++-5"        ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="g++-5" CC="gcc-5";              fi
+    - if [[ "$COMPILER" = "clang++-3.8"  ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="clang++-3.8" CC="clang-3.8";    fi
 
 os:
   - linux
@@ -50,6 +50,7 @@ compiler:
   - gcc
 
 script:
+  - echo $CXX; echo $CC
   - mkdir build && cd build
   - cmake ..
   - make
