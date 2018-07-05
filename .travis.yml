@@ -34,11 +34,9 @@ matrix:
         - os: linux
           dist: trusty
           compiler: clang
-          env:
         - os: linux
           dist: trusty
           compiler: gcc
-          env:
 
 addons:
   apt:
