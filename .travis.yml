@@ -19,15 +19,14 @@ os:
 dist: trusty
 osx_image: xcode9.4
 
-compiler:
-  - clang
-  - gcc
+#compiler:
+#  - clang
+#  - gcc
 
 matrix:
   include:
     - compiler: gcc
       env: COMPILER=g++-6
-
     - compiler: clang
       env: COMPILER=clang++-3.8
 
