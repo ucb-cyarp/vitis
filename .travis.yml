@@ -45,10 +45,6 @@ addons:
     - gcc-5
     - g++-5
 
-compiler:
-  - clang
-  - gcc
-
 script:
   - echo $CXX; echo $CC
   - mkdir build && cd build
