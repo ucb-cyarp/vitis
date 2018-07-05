@@ -145,7 +145,7 @@ DataType::DataType(std::string str, bool complex) : complex(complex) {
         //The first form is common when declaring types while the
         //second is more commonly reported by simulink.
 
-        std::string fixdtRegex = "fixdt[(]([0-9]+),([0-9]+),([0-9]+)[)]";
+        std::string fixdtRegex = "fixdt[(]\\s*([0-9]+)\\s*,\\s*([0-9]+)\\s*,\\s*([0-9]+)\\s*[)]";
         std::string fixRegex = "([su])fix([0-9]+)_En([0-9]+)";
 
         std::regex fixdtRegexExpr(fixdtRegex);
