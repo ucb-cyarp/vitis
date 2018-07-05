@@ -6,6 +6,14 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update          ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xerces-c; fi
 
+os:
+  - linux
+  - osx
+
+compiler:
+  - clang
+  - gcc
+
 matrix:
     include:
         - os: linux
