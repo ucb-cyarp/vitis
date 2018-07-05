@@ -34,16 +34,16 @@ compiler:
       - clang-3.6
   env: COMPILER=clang++-3.6
   - gcc
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - cmake
-        - libxerces-c-dev
-        - gcc-5
-        - g++-5
-    env: COMPILER=g++-5
+  addons:
+    apt:
+      sources:
+      - ubuntu-toolchain-r-test
+      packages:
+      - cmake
+      - libxerces-c-dev
+      - gcc-5
+      - g++-5
+  env: COMPILER=g++-5
 
 script:
   - mkdir build && cd build
