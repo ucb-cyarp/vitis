@@ -37,6 +37,6 @@ endif()
 # Now simply link against gtest or gtest_main as needed.
 
 #Test
-add_executable(tester src/TestDataType.cpp ${BASE_SRC_DIR}/GraphCore/DataType.cpp)
-target_link_libraries(tester gtest_main)
+add_executable(tester src/TestDataType.cpp)
+target_link_libraries(tester gtest_main VitisLib)
 add_test(tester tester)

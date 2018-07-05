@@ -49,9 +49,14 @@ set(COMMON_SRCS
 #Add Include Directories for Project Srcs
 include_directories(src)
 
+#Create shared static lib for common files
+add_library(VitisLib STATIC ${COMMON_SRCS})
+
 #Executables
-add_executable(vitis src/main.cpp ${COMMON_SRCS})
-add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp ${COMMON_SRCS})
+add_executable(vitis src/main.cpp)
+target_link_libraries(vitis VitisLib)
+add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
+target_link_libraries(simulinkGraphMLImporter VitisLib)
 
 #Set up external library dependencies
 #This was based off the CLion boost import snippit
