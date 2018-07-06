@@ -7,8 +7,10 @@
 
 #include <memory>
 #include <string>
+#include <map>
 
 #include <xercesc/dom/DOM.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
 
 #include "GraphCore/Design.h"
 
@@ -40,6 +42,29 @@ public:
      * @return A pointer to a new Design object which contains an internal representation of the design
      */
     static std::unique_ptr<Design> importSimulinkGraphML(std::string filename);
+
+    /**
+     * @brief Imports nodes from an XML DOM tree
+     * @param node The root of the XML DOM tree from the perspective of the import
+     * @param design The design object which is modified to include the imported nodes
+     * @param nodeMap A map of nodes names to node object pointers which is populated durring the import
+     * @return The number of nodes imported
+     */
+    int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap);
+
+    /**
+     * @brief Get the text value for a given node (in the text element under this node)
+     * @param node The node to get the text value of
+     * @return the text value of the node if there is a single text node child of the given node.  "" if the node has no children, more than 1 child, or the child is not a text node
+     */
+    static std::string getTextValueOfNode(xercesc::DOMNode *node);
+
+    /**
+     * @brief Returns an XML string as a string c++ string
+     * @param xmlStr XML string to transcode
+     * @return XML string transcoded into a standard c++ string
+     */
+    static std::string getTranscodedString(const XMLCh *xmlStr);
 
     /**
      * @brief Prints the various DOM nodes of a graphml file;

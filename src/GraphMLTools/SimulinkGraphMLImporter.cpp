@@ -104,9 +104,6 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
     //It was suggested by Xerces that scoping be used to ensure proper destruction of Xerces objects before Terminate
     //function is called
     {
-
-        //Lets traverse the graph and just grab names
-
         DOMNode *node = doc;
 
         /*NOTE: It appears that each node has an accompanying TEXT node, even if there was not text in the node.
@@ -146,6 +143,58 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
 
     return design;
 }
+
+std::string SimulinkGraphMLImporter::getTranscodedString(const XMLCh *xmlStr)
+{
+    char *transcoded = XMLString::transcode(xmlStr);
+    std::string transcodedStr = transcoded;
+    XMLString::release(&transcoded); //Need to release transcode object
+
+    return transcodedStr;
+}
+
+std::string SimulinkGraphMLImporter::getTextValueOfNode(xercesc::DOMNode *node)
+{
+    if(node->hasChildNodes()){
+        DOMNode* child = node->getFirstChild();
+
+        if(child->getNodeType() == DOMNode::NodeType::TEXT_NODE){
+            std::string nodeValStr = SimulinkGraphMLImporter::getTranscodedString(child->getNodeValue());
+
+            DOMNode* nextChild = child->getNextSibling();
+            if(nextChild == nullptr){
+                return nodeValStr;
+            }else{
+                //More than 1 child
+                return "";
+            }
+        }
+        else{
+            //Not a text node
+            return "";
+        }
+
+    } else{
+        return "";
+    }
+
+}
+
+//int SimulinkGraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap)
+//{
+//    //Check for nullptr
+////    if(node != nullptr)
+////    {
+////        DOMNode::NodeType nodeType = node->getNodeType();
+////
+////        //Do different behavior based on the DOM node type
+////        if(nodeType==)
+////    } else
+////    {
+////        return 0;
+////    }
+//
+//}
 
 void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
 {
@@ -220,8 +269,6 @@ void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
     XMLPlatformUtils::Terminate();
 }
 
-
-
 void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
 {
     for(int tab = 0; tab<tabs; tab++)
@@ -231,13 +278,12 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     std::cout << "Node {" << std::endl;
 
     //==== Print Name and Value ====
-    char *nodeName = XMLString::transcode(node->getNodeName());
+    std::string nodeName = SimulinkGraphMLImporter::getTranscodedString(node->getNodeName());
     for(int tab = 0; tab<tabs+1; tab++)
     {
         std::cout << "\t";
     }
     std::cout << "Node Name: " << nodeName << std::endl;
-    XMLString::release(&nodeName);
 
     //==== Node Type ====
     DOMNode::NodeType nodeType = node->getNodeType();
@@ -303,13 +349,12 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     const XMLCh *nodeVal = node->getNodeValue();
     if(nodeVal != nullptr)
     {
-        char *nodeValue = XMLString::transcode(nodeVal);
+        std::string nodeValue = SimulinkGraphMLImporter::getTranscodedString(nodeVal);
         for(int tab = 0; tab<tabs+1; tab++)
         {
             std::cout << "\t";
         }
         std::cout << "Node Value: " << nodeValue << std::endl;
-        XMLString::release(&nodeValue);
     }
 
     //==== Print Attrs ====
@@ -326,7 +371,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
 
         for (XMLSize_t i = 0; i < numAttributes; i++) {
             DOMNode *attribute = nodeAttributes->item(i);
-            char *attrName = XMLString::transcode(attribute->getNodeName());
+            std::string attrName = SimulinkGraphMLImporter::getTranscodedString(attribute->getNodeName());
 
             const XMLCh *attrVal = attribute->getNodeValue();
 
@@ -334,9 +379,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
 
             if(attrVal != nullptr)
             {
-                char *attrValue = XMLString::transcode(attrVal);
-                attrValueStr = attrValue;
-                XMLString::release(&attrValue);
+                attrValueStr = SimulinkGraphMLImporter::getTranscodedString(attrVal);
             }
             else
             {
