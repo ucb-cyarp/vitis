@@ -25,7 +25,7 @@ Design::Design() {
 }
 
 //==== Getters/Setters ====
-const std::shared_ptr<MasterInput> Design::getInputMaster() const {
+std::shared_ptr<MasterInput> Design::getInputMaster() const {
     return inputMaster;
 }
 
@@ -33,7 +33,7 @@ void Design::setInputMaster(const std::shared_ptr<MasterInput> inputMaster) {
     Design::inputMaster = inputMaster;
 }
 
-const std::shared_ptr<MasterOutput> Design::getOutputMaster() const {
+std::shared_ptr<MasterOutput> Design::getOutputMaster() const {
     return outputMaster;
 }
 
@@ -41,7 +41,7 @@ void Design::setOutputMaster(const std::shared_ptr<MasterOutput> outputMaster) {
     Design::outputMaster = outputMaster;
 }
 
-const std::shared_ptr<MasterOutput> Design::getVisMaster() const {
+std::shared_ptr<MasterOutput> Design::getVisMaster() const {
     return visMaster;
 }
 
@@ -49,7 +49,7 @@ void Design::setVisMaster(const std::shared_ptr<MasterOutput> visMaster) {
     Design::visMaster = visMaster;
 }
 
-const std::shared_ptr<MasterUnconnected> Design::getUnconnectedMaster() const {
+std::shared_ptr<MasterUnconnected> Design::getUnconnectedMaster() const {
     return unconnectedMaster;
 }
 
@@ -57,7 +57,7 @@ void Design::setUnconnectedMaster(const std::shared_ptr<MasterUnconnected> uncon
     Design::unconnectedMaster = unconnectedMaster;
 }
 
-const std::shared_ptr<MasterOutput> Design::getTerminatorMaster() const {
+std::shared_ptr<MasterOutput> Design::getTerminatorMaster() const {
     return terminatorMaster;
 }
 
@@ -65,7 +65,7 @@ void Design::setTerminatorMaster(const std::shared_ptr<MasterOutput> terminatorM
     Design::terminatorMaster = terminatorMaster;
 }
 
-const std::vector<std::shared_ptr<Node>> Design::getNodes() const {
+std::vector<std::shared_ptr<Node>> Design::getNodes() const {
     return nodes;
 }
 
@@ -73,10 +73,18 @@ void Design::setNodes(const std::vector<std::shared_ptr<Node>> nodes) {
     Design::nodes = nodes;
 }
 
-const std::vector<std::shared_ptr<Arc>> Design::getArcs() const {
+std::vector<std::shared_ptr<Arc>> Design::getArcs() const {
     return arcs;
 }
 
 void Design::setArcs(const std::vector<std::shared_ptr<Arc>> arcs) {
     Design::arcs = arcs;
+}
+
+void Design::addNode(std::shared_ptr<Node> node) {
+    nodes.push_back(node);
+}
+
+void Design::addArc(std::shared_ptr<Arc> arc) {
+    arcs.push_back(arc);
 }

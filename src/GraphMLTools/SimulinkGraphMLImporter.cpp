@@ -3,6 +3,12 @@
 //
 
 #include "SimulinkGraphMLImporter.h"
+#include "GraphCore/NodeFactory.h"
+#include "GraphCore/EnableInput.h"
+#include "GraphCore/EnableOutput.h"
+#include "MasterNodes/MasterInput.h"
+#include "MasterNodes/MasterOutput.h"
+#include "MasterNodes/MasterUnconnected.h"
 
 #include <iostream>
 #include <string>
@@ -180,21 +186,251 @@ std::string SimulinkGraphMLImporter::getTextValueOfNode(xercesc::DOMNode *node)
 
 }
 
-//int SimulinkGraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap)
-//{
-//    //Check for nullptr
-////    if(node != nullptr)
-////    {
-////        DOMNode::NodeType nodeType = node->getNodeType();
-////
-////        //Do different behavior based on the DOM node type
-////        if(nodeType==)
-////    } else
-////    {
-////        return 0;
-////    }
-//
-//}
+DOMNode* SimulinkGraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::map<std::string, std::string> &dataMap){
+    DOMNode* subgraph = nullptr;
+
+    if(node->hasChildNodes()){
+        for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
+            if(child->getNodeType() == DOMNode::NodeType::ELEMENT_NODE) {
+                std::string childName = SimulinkGraphMLImporter::getTranscodedString(child->getNodeName());
+
+                if (childName == "graph") {
+                    if (subgraph != nullptr) {
+                        throw std::runtime_error("Node with multiple graph children encountered");
+                    }
+                    subgraph = child;
+                } else if (childName == "data") {
+                    //This is a data node which we will add to the map
+
+                    std::string dataKey;
+
+                    //The key is an attribute
+                    if(child->hasAttributes()) {
+                        DOMNamedNodeMap *nodeAttributes = child->getAttributes();
+
+                        XMLCh *keyXMLCh = XMLString::transcode("key");
+                        DOMNode *keyNode = nodeAttributes->getNamedItem(keyXMLCh);
+                        XMLString::release(&keyXMLCh);
+
+                        if (keyNode == nullptr) {
+                            throw std::runtime_error("Data node with no key encountered");
+                        } else {
+                            dataKey = SimulinkGraphMLImporter::getTranscodedString(keyNode->getNodeValue());
+                        }
+                    }
+
+                    //The value is in the text node
+                    std::string dataValue = getTextValueOfNode(child);
+
+                    dataMap[dataKey] = dataValue;
+                }
+            }
+            //Ignore other node types
+        }
+    }
+
+    return subgraph;
+}
+
+int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes){
+    SimulinkGraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
+}
+
+int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent)
+{
+    int importedNodes = 0;
+
+    //Check for nullptr
+    if(node != nullptr)
+    {
+        DOMNode::NodeType nodeType = node->getNodeType();
+
+        //==== Parse Different Node Types ====
+        if(nodeType==DOMNode::NodeType::DOCUMENT_NODE) {
+            //This is the root of the DOM document.  Traverse the children
+            if(node->hasChildNodes()) {
+                for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
+                    importedNodes += SimulinkGraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                }
+            }
+        } else if(nodeType==DOMNode::NodeType::COMMENT_NODE) {
+            //Encountered a comment node, don't do anything
+        } else if(nodeType==DOMNode::NodeType::TEXT_NODE) {
+            //Encountering a Text node that is not directly handled by an element node in this parser should be ignored
+            //It is likely whitespace
+
+            //TODO: Should we actually check this?
+            std::string text = SimulinkGraphMLImporter::getTranscodedString(node->getNodeValue()); //Text of Test Node is NodeValue
+
+            int textLen = text.size();
+            for(int i = 0; i<textLen; i++){
+                if(!std::isspace(text[i])){
+                    throw std::runtime_error("Encountered a text node that is not whitespace");
+                }
+            }
+        } else if(nodeType==DOMNode::NodeType::ELEMENT_NODE) {
+            //==== Parse Element Node Types ====
+            std::string nodeName = SimulinkGraphMLImporter::getTranscodedString(node->getNodeName());
+
+            if(nodeName=="graphml") {
+                //This is the root of the design.
+                //Right now, we do not look at the attributes
+                //Itterate over all children
+                if(node->hasChildNodes()){
+                    for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
+                        importedNodes += SimulinkGraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                    }
+                }
+
+            } else if(nodeName=="key") {
+                //For now, we do not parse these keys
+
+            } else if(nodeName=="graph") {
+                //This is a graph node, it contains other nodes below it.  Process them
+                if(node->hasChildNodes()){
+                    for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
+                        importedNodes += SimulinkGraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                    }
+                }
+
+            } else if(nodeName=="edge") {
+                //Encountered an edge node.  For now, just add it to the edge vector
+                edgeNodes.push_back(node);
+
+            } else if(nodeName=="node") {
+                importedNodes += SimulinkGraphMLImporter::importNode(node, design, nodeMap, edgeNodes, parent);
+
+            } else if(nodeName=="data") {
+                throw std::runtime_error("Encountered a GraphML data node in an unexpected location");
+            } else {
+                throw std::runtime_error("Encountered an unknown GraphML tag: " + nodeName);
+            }
+
+        } else{
+            throw std::runtime_error("Encountered a text node that is not whitespace");
+        }
+    }
+
+    return importedNodes;
+
+}
+
+int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent){
+    //Now need to parse the different types of nodes
+
+    int nodesImported = 1; //1 for this node
+
+    //Get common info: ID
+    std::string fullNodeID;
+
+    if(node->hasAttributes()) {
+        DOMNamedNodeMap *nodeAttributes = node->getAttributes();
+
+        XMLCh* idXMLCh = XMLString::transcode("id");
+        DOMNode* idNode = nodeAttributes->getNamedItem(idXMLCh);
+        XMLString::release(&idXMLCh);
+
+        if(idNode == nullptr){
+            throw std::runtime_error("Node with no ID encountered");
+        }
+        else{
+            fullNodeID = SimulinkGraphMLImporter::getTranscodedString(idNode->getNodeValue());
+        }
+
+
+    }else
+    {
+        throw std::runtime_error("Node with no ID encountered");
+    }
+
+    //Construct a map of data values (children) of this node
+    std::map<std::string, std::string> dataKeyValueMap;
+    DOMNode* subgraph = SimulinkGraphMLImporter::graphMLDataMap(node, dataKeyValueMap);
+
+    //Based of the node type, we construct nodes:
+    std::string blockType = dataKeyValueMap.at("block_node_type");
+
+    if(blockType == "Subsystem"){
+
+    } else if(blockType == "Enabled Subsystem"){
+        std::shared_ptr<SubSystem> newSubsystem = NodeFactory::createNode<SubSystem>(parent);
+        newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+
+        //Add node to design
+        design.addNode(newSubsystem);
+        //Add to map
+        nodeMap[fullNodeID]=newSubsystem;
+
+        //Traverse the children in the subgraph
+        if(subgraph != nullptr)
+        {
+            nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem);
+        }
+
+    } else if(blockType == "Special Input Port"){
+        std::shared_ptr<Node> newNode = NodeFactory::createNode<EnableInput>(parent);
+        newNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+
+        //Add node to design
+        design.addNode(newNode);
+        //Add to map
+        nodeMap[fullNodeID]=newNode;
+
+    } else if(blockType == "Special Output Port"){
+        std::shared_ptr<Node> newNode = NodeFactory::createNode<EnableOutput>(parent);
+        newNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+
+        //Add node to design
+        design.addNode(newNode);
+        //Add to map
+        nodeMap[fullNodeID]=newNode;
+
+    } else if(blockType == "Top Level"){
+        //Should not occur
+        throw std::runtime_error("Encountered Top Level Node");
+    } else if(blockType == "Master"){
+        //Determine which master it is to add to the node map
+        std::string instanceName = dataKeyValueMap.at("instance_name");
+
+        if(instanceName == "Input Master"){
+            std::shared_ptr<Node> master = design.getInputMaster();
+            nodeMap[fullNodeID]=master;
+            master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+        } else if(instanceName == "Output Master"){
+            std::shared_ptr<Node> master = design.getOutputMaster();
+            nodeMap[fullNodeID]=master;
+            master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+        } else if(instanceName == "Visualization Master"){
+            std::shared_ptr<Node> master = design.getVisMaster();
+            nodeMap[fullNodeID]=master;
+            master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+        } else if(instanceName == "Unconnected Master"){
+            std::shared_ptr<Node> master = design.getUnconnectedMaster();
+            nodeMap[fullNodeID]=master;
+            master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+        } else if(instanceName == "Terminator Master"){
+            std::shared_ptr<Node> master = design.getTerminatorMaster();
+            nodeMap[fullNodeID]=master;
+            master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+        } else {
+            throw std::runtime_error("Unknown Master Type: " + instanceName);
+        }
+
+    } else if(blockType == "VectorFan"){
+        //TODO: Implement
+        throw std::runtime_error("VectorFan not yet implemented");
+
+    } else if(blockType == "Expanded"){
+        //TODO: Implement
+        throw std::runtime_error("Expanded not yet implemented");
+
+    } else if(blockType == "Standard"){
+
+    } else{
+        throw std::runtime_error("Unknown Block Type");
+    }
+
+}
 
 void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
 {
@@ -427,4 +663,17 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
         std::cout << "\t";
     }
     std::cout << "}" << std::endl;
+}
+
+void SimulinkGraphMLImporter::importStandardNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                 Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap,
+                                                 std::shared_ptr<SubSystem> parent) {
+
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string blockFunction = dataKeyValueMap.at("block_function");
+
+    //TODO: Implement
+    //TODO: Call this from the standard node and expanded node
+    //TODO: create importers in each node class
 }

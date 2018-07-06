@@ -49,20 +49,23 @@ public:
      */
     Design();
 
+    void addNode(std::shared_ptr<Node> node);
+    void addArc(std::shared_ptr<Arc> arc);
+
     //==== Getters/Setters ====
-    const std::shared_ptr<MasterInput> getInputMaster() const;
+    std::shared_ptr<MasterInput> getInputMaster() const;
     void setInputMaster(const std::shared_ptr<MasterInput> inputMaster);
-    const std::shared_ptr<MasterOutput> getOutputMaster() const;
+    std::shared_ptr<MasterOutput> getOutputMaster() const;
     void setOutputMaster(const std::shared_ptr<MasterOutput> outputMaster);
-    const std::shared_ptr<MasterOutput> getVisMaster() const;
+    std::shared_ptr<MasterOutput> getVisMaster() const;
     void setVisMaster(const std::shared_ptr<MasterOutput> visMaster);
-    const std::shared_ptr<MasterUnconnected> getUnconnectedMaster() const;
+    std::shared_ptr<MasterUnconnected> getUnconnectedMaster() const;
     void setUnconnectedMaster(const std::shared_ptr<MasterUnconnected> unconnectedMaster);
-    const std::shared_ptr<MasterOutput> getTerminatorMaster() const;
+    std::shared_ptr<MasterOutput> getTerminatorMaster() const;
     void setTerminatorMaster(const std::shared_ptr<MasterOutput> terminatorMaster);
-    const std::vector<std::shared_ptr<Node>> getNodes() const;
+    std::vector<std::shared_ptr<Node>> getNodes() const;
     void setNodes(const std::vector<std::shared_ptr<Node>> nodes);
-    const std::vector<std::shared_ptr<Arc>> getArcs() const;
+    std::vector<std::shared_ptr<Arc>> getArcs() const;
     void setArcs(const std::vector<std::shared_ptr<Arc>> arcs);
 
 };

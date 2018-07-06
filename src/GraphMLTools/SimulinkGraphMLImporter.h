@@ -13,6 +13,7 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 #include "GraphCore/Design.h"
+#include "GraphCore/SubSystem.h"
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
@@ -47,10 +48,45 @@ public:
      * @brief Imports nodes from an XML DOM tree
      * @param node The root of the XML DOM tree from the perspective of the import
      * @param design The design object which is modified to include the imported nodes
-     * @param nodeMap A map of nodes names to node object pointers which is populated durring the import
+     * @param nodeMap A map of nodes names to node object pointers which is populated during the import
+     * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
      * @return The number of nodes imported
      */
-    int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap);
+    static int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes);
+
+    /**
+     * @brief Imports nodes from an XML DOM tree
+     * @param node The root of the XML DOM tree from the perspective of the import
+     * @param design The design object which is modified to include the imported nodes
+     * @param nodeMap A map of nodes names to node object pointers which is populated during the import
+     * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
+     * @param parent The parent Node object for the current position in the DOM
+     * @return The number of nodes imported
+     */
+    static int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent);
+
+
+    /**
+     * @brief Imports the specified node from an XML DOM node
+     * @param node The root of the XML DOM tree from the perspective of the import
+     * @param design The design object which is modified to include the imported nodes
+     * @param nodeMap A map of nodes names to node object pointers which is populated during the import
+     * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
+     * @param parent The parent Node object for the current position in the DOM
+     * @return The number of nodes imported
+     */
+    static int importNode(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Imports a Standard GraphML block
+     * @param id The id of the node
+     * @param dataKeyValueMap The map of key/value pairs for node parameters
+     * @param design The design object which is modified to include the imported nodes
+     * @param nodeMap A map of nodes names to node object pointers which is populated during the import
+     * @param parent The parent Node object for the current position in the DOM
+     * @return The number of nodes imported
+     */
+    static void importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Get the text value for a given node (in the text element under this node)
@@ -58,6 +94,17 @@ public:
      * @return the text value of the node if there is a single text node child of the given node.  "" if the node has no children, more than 1 child, or the child is not a text node
      */
     static std::string getTextValueOfNode(xercesc::DOMNode *node);
+
+    /**
+     * @brief For a GraphML XML Node element, get a map of data key/value pairs and a subgraph XML node if one exists.
+     *
+     * @note Throws an exception if more than one subgraph node exists for the given node
+     *
+     * @param node The GraphML Node XML Element
+     * @param dataMap A key/value map for data nodes under the given GraphML node
+     * @return A pointer to a subgraph node if one exists
+     */
+    static xercesc::DOMNode* graphMLDataMap(xercesc::DOMNode *node, std::map<std::string, std::string> &dataMap);
 
     /**
      * @brief Returns an XML string as a string c++ string

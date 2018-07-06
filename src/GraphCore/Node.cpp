@@ -129,4 +129,26 @@ void Node::setId(int id) {
     Node::id = id;
 }
 
+int Node::getIDFromGraphMLFullPath(std::string fullPath)
+{
+    //Find the location of the last n
+    int nIndex = -1;
+
+    int pathLen = (int) fullPath.size(); //Casting to signed to ensure loop termination
+    for(int i = pathLen-1; i >= 0; i--){
+        if(fullPath[i] == 'n'){
+            nIndex = i;
+        }
+    }
+
+    if(nIndex == -1){
+        throw std::runtime_error("Could not find node ID in full GraphML path: " + fullPath);
+    }
+
+    std::string localIDStr = fullPath.substr(nIndex+1, std::string::npos);
+
+    int localId = std::stoi(localIDStr);
+
+    return localId;
+}
 

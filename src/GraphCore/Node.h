@@ -161,6 +161,13 @@ public:
     std::string getFullGraphMLPath();
 
     /**
+     * @brief Get the node ID from a full GraphML ID path
+     * @param fullPath the full GraphML ID path
+     * @return local ID number
+     */
+    static int getIDFromGraphMLFullPath(std::string fullPath);
+
+    /**
      * @brief Emit GraphML for the given node (and its descendants if it is a Subsystem)
      * @return GraphML description of the given node (and its descendants) as a std::string
      */
