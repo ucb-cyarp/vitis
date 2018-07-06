@@ -6,9 +6,14 @@
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/EnableInput.h"
 #include "GraphCore/EnableOutput.h"
+#include "GraphCore/ExpandedNode.h"
+#include "GraphCore/SubSystem.h"
+#include "GraphCore/EnabledSubSystem.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
+
+#include "PrimitiveNodes/Sum.h"
 
 #include <iostream>
 #include <string>
@@ -233,7 +238,7 @@ DOMNode* SimulinkGraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::ma
 }
 
 int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes){
-    SimulinkGraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
+    return SimulinkGraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
 }
 
 int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent)
@@ -351,8 +356,6 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
     std::string blockType = dataKeyValueMap.at("block_node_type");
 
     if(blockType == "Subsystem"){
-
-    } else if(blockType == "Enabled Subsystem"){
         std::shared_ptr<SubSystem> newSubsystem = NodeFactory::createNode<SubSystem>(parent);
         newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
 
@@ -365,6 +368,21 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         if(subgraph != nullptr)
         {
             nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem);
+        }
+
+    } else if(blockType == "Enabled Subsystem"){
+        std::shared_ptr<EnabledSubSystem> newEnabledSubsystem = NodeFactory::createNode<EnabledSubSystem>(parent);
+        newEnabledSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+
+        //Add node to design
+        design.addNode(newEnabledSubsystem);
+        //Add to map
+        nodeMap[fullNodeID]=newEnabledSubsystem;
+
+        //Traverse the children in the subgraph
+        if(subgraph != nullptr)
+        {
+            nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem);
         }
 
     } else if(blockType == "Special Input Port"){
@@ -421,14 +439,25 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         throw std::runtime_error("VectorFan not yet implemented");
 
     } else if(blockType == "Expanded"){
-        //TODO: Implement
-        throw std::runtime_error("Expanded not yet implemented");
+        std::shared_ptr<Node> origNode = SimulinkGraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, design, nodeMap, parent);
+        //Orig node will have the same node ID as the expanded node as they they are logically combined.
 
+        std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(parent, origNode);
+        expandedNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));//
+
+        //Iterate through the children
+        //Traverse the children in the subgraph
+        if(subgraph != nullptr)
+        {
+            nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, expandedNode);
+        }
     } else if(blockType == "Standard"){
-
+        SimulinkGraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, design, nodeMap, parent); //Don't need the pointer to this node as it was already included in the map
     } else{
         throw std::runtime_error("Unknown Block Type");
     }
+
+    return nodesImported;
 
 }
 
@@ -665,15 +694,24 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     std::cout << "}" << std::endl;
 }
 
-void SimulinkGraphMLImporter::importStandardNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
-                                                 Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap,
-                                                 std::shared_ptr<SubSystem> parent) {
+std::shared_ptr<Node> SimulinkGraphMLImporter::importStandardNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                                  Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap,
+                                                                  std::shared_ptr<SubSystem> parent) {
 
     int id = Node::getIDFromGraphMLFullPath(idStr);
 
     std::string blockFunction = dataKeyValueMap.at("block_function");
 
-    //TODO: Implement
-    //TODO: Call this from the standard node and expanded node
-    //TODO: create importers in each node class
+    std::shared_ptr<Node> newNode;
+
+    if(blockFunction == "Sum"){
+        std::shared_ptr<Sum> newSum = Sum::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
+        newNode = newSum;
+    }
+
+    //Add new node to design and to name node map
+    design.addNode(newNode);
+    nodeMap[idStr] = newNode;
+
+    return newNode;
 }

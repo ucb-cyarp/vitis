@@ -96,7 +96,7 @@ public:
      * Updates the given arc so that the src port is the specified new port
      * Adds the arc to the new port.
      *
-     * @node A std::shared_ptr must exist before this function is called because it relies on shared_from_this
+     * @note A std::shared_ptr must exist before this function is called because it relies on shared_from_this
      *
      * @param srcPort the new srcPort
      */
@@ -109,7 +109,7 @@ public:
      * Updates the given arc so that the src port is the specified new port
      * Adds the arc to the new port.
      *
-     * @node A std::shared_ptr must exist before this function is called because it relies on shared_from_this
+     * @note A std::shared_ptr must exist before this function is called because it relies on shared_from_this
      *
      * @param dstPort the new dstPort
      */

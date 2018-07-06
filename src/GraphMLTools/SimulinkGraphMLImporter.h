@@ -78,15 +78,15 @@ public:
     static int importNode(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent);
 
     /**
-     * @brief Imports a Standard GraphML block
+     * @brief Imports a Standard GraphML block, adding it to both the design and the name/node map
      * @param id The id of the node
      * @param dataKeyValueMap The map of key/value pairs for node parameters
-     * @param design The design object which is modified to include the imported nodes
+     * @param design The design object which is modified to include the imported node
      * @param nodeMap A map of nodes names to node object pointers which is populated during the import
      * @param parent The parent Node object for the current position in the DOM
-     * @return The number of nodes imported
+     * @return A pointer to the newly created Standard node
      */
-    static void importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::shared_ptr<SubSystem> parent);
+    static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Get the text value for a given node (in the text element under this node)
@@ -122,6 +122,7 @@ public:
 
     /**
      * @brief Prints an XML node.  It prints its name, value, attribute names, and attribute values.  It also prints child nodes.
+     * @param tabs the number of tabs for this level of the
      * @param node The XML node to print
      */
     static void printXMLNodeAndChildren(const xercesc::DOMNode *node, int tabs=0);

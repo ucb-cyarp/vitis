@@ -45,7 +45,9 @@ set(COMMON_SRCS
         src/MasterNodes/MasterOutput.cpp
         src/MasterNodes/MasterOutput.h
         src/MasterNodes/MasterUnconnected.cpp
-        src/MasterNodes/MasterUnconnected.h)
+        src/MasterNodes/MasterUnconnected.h
+        src/PrimitiveNodes/Sum.cpp
+        src/PrimitiveNodes/Sum.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
