@@ -78,15 +78,18 @@ public:
     static int importNode(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent);
 
     /**
-     * @brief Imports a Standard GraphML block, adding it to both the design and the name/node map
+     * @brief Imports a Standard GraphML block
+     *
+     * @note This method does not add the new node to either the design or the name/node map.
+     * This is because this method is used when importing both standard nodes and expanded nodes.
+     * The orig node of the expanded node should not be added to the node list
+     *
      * @param id The id of the node
      * @param dataKeyValueMap The map of key/value pairs for node parameters
-     * @param design The design object which is modified to include the imported node
-     * @param nodeMap A map of nodes names to node object pointers which is populated during the import
      * @param parent The parent Node object for the current position in the DOM
      * @return A pointer to the newly created Standard node
      */
-    static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::shared_ptr<SubSystem> parent);
+    static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Get the text value for a given node (in the text element under this node)

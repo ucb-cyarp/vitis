@@ -23,6 +23,8 @@ set(COMMON_SRCS
         src/GraphCore/GraphMLParameter.h
         src/GraphCore/DataType.cpp
         src/GraphCore/DataType.h
+        src/GraphCore/NumericValue.cpp
+        src/GraphCore/NumericValue.h
         src/GraphCore/EnabledSubSystem.cpp
         src/GraphCore/EnabledSubSystem.h
         src/GraphCore/EnableNode.cpp
@@ -47,7 +49,11 @@ set(COMMON_SRCS
         src/MasterNodes/MasterUnconnected.cpp
         src/MasterNodes/MasterUnconnected.h
         src/PrimitiveNodes/Sum.cpp
-        src/PrimitiveNodes/Sum.h)
+        src/PrimitiveNodes/Sum.h
+        src/PrimitiveNodes/Product.cpp
+        src/PrimitiveNodes/Product.h
+        src/PrimitiveNodes/Delay.cpp
+        src/PrimitiveNodes/Delay.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
