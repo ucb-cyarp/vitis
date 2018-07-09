@@ -37,6 +37,6 @@ endif()
 # Now simply link against gtest or gtest_main as needed.
 
 #Test
-add_executable(tester src/TestDataType.cpp)
+add_executable(tester src/TestDataType.cpp src/TestNumericValue.cpp)
 target_link_libraries(tester gtest_main VitisLib)
 add_test(tester tester)
