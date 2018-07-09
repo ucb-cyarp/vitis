@@ -30,7 +30,8 @@ TEST(NumericValue, ParseRealDouble) {
 
     std::regex regexExpr("9[.]3[0]*");
     std::smatch matches;
-    bool regexMatched = std::regex_match(test[0].toString(), matches, regexExpr);
+    std::string str0 = test[0].toString();
+    bool regexMatched = std::regex_match(str0, matches, regexExpr);
     ASSERT_TRUE(regexMatched);
 
 }
@@ -59,7 +60,8 @@ TEST(NumericValue, ParseImagDouble) {
 
     std::regex regexExpr("0[.]?[0]* [-] 3[.]25[0]*i");
     std::smatch matches;
-    bool regexMatched = std::regex_match(test[0].toString(), matches, regexExpr);
+    std::string str0 = test[0].toString();
+    bool regexMatched = std::regex_match(str0, matches, regexExpr);
 
     ASSERT_TRUE(regexMatched) << "Did not match " << test[0].toString();
 }
@@ -88,7 +90,8 @@ TEST(NumericValue, ParseComplexDouble) {
 
     std::regex regexExpr("-3[.]?[0]* [+] 2[.]5[0]*i");
     std::smatch matches;
-    bool regexMatched = std::regex_match(test[0].toString(), matches, regexExpr);
+    std::string str0 = test[0].toString();
+    bool regexMatched = std::regex_match(str0, matches, regexExpr);
 
     ASSERT_TRUE(regexMatched) << "Did not match " << test[0].toString();
 }
@@ -128,7 +131,8 @@ TEST(NumericValue, ParseRealDoubleArray) {
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
     std::regex regexExpr0("9[.]3[0]*");
     std::smatch matches0;
-    bool regexMatched0 = std::regex_match(test[0].toString(), matches0, regexExpr0);
+    std::string str0 = test[0].toString();
+    bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
     ASSERT_TRUE(regexMatched0);
 
     ASSERT_EQ(test[1].isComplex(), false);
@@ -137,7 +141,8 @@ TEST(NumericValue, ParseRealDoubleArray) {
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
     std::regex regexExpr1("8[.]5[0]*");
     std::smatch matches1;
-    bool regexMatched1 = std::regex_match(test[1].toString(), matches1, regexExpr1);
+    std::string str1 = test[1].toString();
+    bool regexMatched1 = std::regex_match(str1, matches1, regexExpr1);
     ASSERT_TRUE(regexMatched1);
 
     ASSERT_EQ(test[2].isComplex(), false);
@@ -146,7 +151,8 @@ TEST(NumericValue, ParseRealDoubleArray) {
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), 0);
     std::regex regexExpr2("2[.]25[0]*");
     std::smatch matches2;
-    bool regexMatched2 = std::regex_match(test[2].toString(), matches2, regexExpr2);
+    std::string str2 = test[2].toString();
+    bool regexMatched2 = std::regex_match(str2, matches2, regexExpr2);
     ASSERT_TRUE(regexMatched2);
 }
 
@@ -185,7 +191,8 @@ TEST(NumericValue, ParseComplexDoubleArray) {
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 8.25);
     std::regex regexExpr0("[-]9[.]3[0]* [+] 8[.]25[0]*i");
     std::smatch matches0;
-    bool regexMatched0 = std::regex_match(test[0].toString(), matches0, regexExpr0);
+    std::string str0 = test[0].toString();
+    bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
     ASSERT_TRUE(regexMatched0);
 
     ASSERT_EQ(test[1].isComplex(), true);
@@ -194,7 +201,8 @@ TEST(NumericValue, ParseComplexDoubleArray) {
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), -2.5);
     std::regex regexExpr1("8[.]5[0]* [-] 2[.]5[0]*i");
     std::smatch matches1;
-    bool regexMatched1 = std::regex_match(test[1].toString(), matches1, regexExpr1);
+    std::string str1 = test[1].toString();
+    bool regexMatched1 = std::regex_match(str1, matches1, regexExpr1);
     ASSERT_TRUE(regexMatched1);
 
     ASSERT_EQ(test[2].isComplex(), true);
@@ -203,7 +211,8 @@ TEST(NumericValue, ParseComplexDoubleArray) {
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), 3.5);
     std::regex regexExpr2("2[.]25[0]* [+] 3[.]5[0]*i");
     std::smatch matches2;
-    bool regexMatched2 = std::regex_match(test[2].toString(), matches2, regexExpr2);
+    std::string str2 = test[2].toString();
+    bool regexMatched2 = std::regex_match(str2, matches2, regexExpr2);
     ASSERT_TRUE(regexMatched2);
 }
 
@@ -218,7 +227,8 @@ TEST(NumericValue, ParseRealMixedArray) {
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
     std::regex regexExpr0("9[.][0]*");
     std::smatch matches0;
-    bool regexMatched0 = std::regex_match(test[0].toString(), matches0, regexExpr0);
+    std::string str0 = test[0].toString();
+    bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
     ASSERT_TRUE(regexMatched0);
 
     ASSERT_EQ(test[1].isComplex(), false);
@@ -227,7 +237,8 @@ TEST(NumericValue, ParseRealMixedArray) {
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
     std::regex regexExpr1("8[.][0]*");
     std::smatch matches1;
-    bool regexMatched1 = std::regex_match(test[1].toString(), matches1, regexExpr1);
+    std::string str1 = test[1].toString();
+    bool regexMatched1 = std::regex_match(str1, matches1, regexExpr1);
     ASSERT_TRUE(regexMatched1);
 
     ASSERT_EQ(test[2].isComplex(), false);
@@ -236,7 +247,8 @@ TEST(NumericValue, ParseRealMixedArray) {
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), 0);
     std::regex regexExpr2("2[.]25[0]*");
     std::smatch matches2;
-    bool regexMatched2 = std::regex_match(test[2].toString(), matches2, regexExpr2);
+    std::string str2 = test[2].toString();
+    bool regexMatched2 = std::regex_match(str2, matches2, regexExpr2);
     ASSERT_TRUE(regexMatched2);
 }
 
@@ -251,7 +263,8 @@ TEST(NumericValue, ParseComplexMixedArray) {
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 6);
     std::regex regexExpr0("5[.][0]* [+] 6[.][0]*i");
     std::smatch matches0;
-    bool regexMatched0 = std::regex_match(test[0].toString(), matches0, regexExpr0);
+    std::string str0 = test[0].toString();
+    bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
     ASSERT_TRUE(regexMatched0);
 
     ASSERT_EQ(test[1].isComplex(), true);
@@ -260,7 +273,8 @@ TEST(NumericValue, ParseComplexMixedArray) {
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), -8.5);
     std::regex regexExpr1("2[.][0]* [-] 8[.]5[0]*i");
     std::smatch matches1;
-    bool regexMatched1 = std::regex_match(test[1].toString(), matches1, regexExpr1);
+    std::string str1 = test[1].toString();
+    bool regexMatched1 = std::regex_match(str1, matches1, regexExpr1);
     ASSERT_TRUE(regexMatched1);
 
     ASSERT_EQ(test[2].isComplex(), true);
@@ -269,6 +283,7 @@ TEST(NumericValue, ParseComplexMixedArray) {
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), -2);
     std::regex regexExpr2("[-]9[.][0]* [-] 2[.][0]*i");
     std::smatch matches2;
-    bool regexMatched2 = std::regex_match(test[2].toString(), matches2, regexExpr2);
+    std::string str2 = test[2].toString();
+    bool regexMatched2 = std::regex_match(str2, matches2, regexExpr2);
     ASSERT_TRUE(regexMatched2);
 }
