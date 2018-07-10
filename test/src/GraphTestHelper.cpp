@@ -14,6 +14,9 @@ void GraphTestHelper::verifyArcLinks(std::shared_ptr<Arc> arc) {
 
     std::set<std::shared_ptr<Arc>> dstPortArcs = dstPort->getArcs();
     ASSERT_TRUE(dstPortArcs.find(arc) != dstPortArcs.end());
+
+    //Check only 1 arc connected to dst port (no multi driver nets)
+    ASSERT_EQ(dstPortArcs.size(), 1);
 }
 
 void GraphTestHelper::verifyDataType(DataType dataType, bool floatingPtExpected, bool signedTypeExpected,

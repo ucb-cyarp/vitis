@@ -21,7 +21,7 @@ class GraphTestHelper {
 public:
 
     /**
-     * @brief Check if the arc connected to 2 ports have a reference to the given arc.
+     * @brief Check if the arc connected to 2 ports have a reference to the given arc.  Checks that dst has only 1 arc (no multi driver nets)
      * @param arc arc to check
      */
     static void verifyArcLinks(std::shared_ptr<Arc> arc);
@@ -37,6 +37,40 @@ public:
      * @param widthExpected
      */
     static void verifyDataType(DataType dataType, bool floatingPtExpected, bool signedTypeExpected, bool complexExpected, int totalBitsExpected, int fractionalBitsExpected, int widthExpected);
+
+    /**
+     * @brief Compare 2 vectors for equality
+     * @tparam T Type of the vectors
+     * @param tgt Target vector for check
+     * @param expected Vector of expected entries
+     */
+    template<typename T>
+    static void verifyVector(std::vector<T> &tgt, std::vector<T> &expected){
+        ASSERT_EQ(tgt.size(), expected.size());
+
+        unsigned long vecLen = expected.size();
+
+        for(unsigned long i = 0; i<vecLen; i++){
+            ASSERT_EQ(tgt[i], expected[i]);
+        }
+
+    }
+
+    /**
+     * @brief Tests if a pointer can be cast to another pointer type
+     * @tparam orig original type
+     * @tparam tgt target type
+     * @param ptr pointer to cast
+     */
+    template<typename orig, typename tgt>
+    static void assertCast(std::shared_ptr<orig> ptr){
+        //Attempt the cast
+        std::shared_ptr<tgt> castPtr = std::dynamic_pointer_cast<tgt>(ptr);
+
+        ASSERT_NE(castPtr, nullptr);
+
+        //NOTE: Cannot return cast ptr.  gtest wants the function to have a void return type
+    }
 };
 
 
