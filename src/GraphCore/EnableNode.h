@@ -35,6 +35,24 @@ protected:
      * @param parent parent of the new node
      */
     EnableNode(std::shared_ptr<SubSystem> parent);
+
+public:
+    /**
+    * @brief Set the enable arc of the given node, updating referenced objects in the process
+    *
+    * Adds an input arc to this node.  Removes the arc from the orig port if not NULL.
+    * Updates the given arc so that the destination port is set to the specified input
+    * port of this node.  If the port object for the given number is not yet created, it
+    * will be created during the call.
+    * @param arc The arc to add
+    */
+    void setEnableArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Get a reference to the enable port
+     * @return reference to the enable port
+     */
+    std::shared_ptr<Port> getEnablePort();
 };
 
 /*@}*/

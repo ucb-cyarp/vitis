@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Reading GraphML File:  " << inputFilename << std::endl;
 
-    std::unique_ptr<Design> design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
+    SimulinkGraphMLImporter::printGraphmlDOM(inputFilename);
 
     return 0;
 }

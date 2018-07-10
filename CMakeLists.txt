@@ -8,6 +8,10 @@ project(vitis)
 
 set(CMAKE_CXX_STANDARD 11)
 
+#Add DEBUG Option (For Now)
+#TODO: Remove
+add_compile_options("-DDEBUG")
+
 #==== Vitis Framework ====
 #List of Common Library Files (used by many targets)
 set(COMMON_SRCS

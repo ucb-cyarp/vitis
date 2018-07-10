@@ -22,6 +22,7 @@ private:
     bool complex; ///< True if the type is complex, false if it is real
     int totalBits; ///< The total number of bits in this type
     int fractionalBits; ///< The number of fractional bits if this is an integer or fixed point type
+    int width; ///< The width of the datatype (>1 if a vector)
 
 public:
     //==== Constructors ====
@@ -39,8 +40,9 @@ public:
      * @param complex True if complex, false if real
      * @param totalBits Total number of bits in type
      * @param fractionalBits Number of fractional bits if an integer or fixed point type
+     * @param width The width of the datatype (>1 if a vector)
      */
-    DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits);
+    DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits, int width);
 
     /**
      * @brief Constructs a DataType object from a string description of a type.
@@ -53,8 +55,9 @@ public:
      *
      * @param str string representation of type
      * @param complex true if the type is complex, false if it is real
+     * @param width The width of the datatype (>1 if a vector)
      */
-    DataType(std::string str, bool complex);
+    DataType(std::string str, bool complex, int width = 1);
 
     //==== Functions ====
 
@@ -89,6 +92,8 @@ public:
     void setTotalBits(int totalBits);
     int getFractionalBits() const;
     void setFractionalBits(int fractionalBits);
+    int getWidth() const;
+    void setWidth(int width);
 
 };
 

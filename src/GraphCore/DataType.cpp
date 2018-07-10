@@ -45,6 +45,15 @@ void DataType::setFractionalBits(int fractionalBits) {
     DataType::fractionalBits = fractionalBits;
 }
 
+int DataType::getWidth() const {
+    return width;
+}
+
+void DataType::setWidth(int width) {
+    DataType::width = width;
+}
+
+
 bool DataType::operator==(const DataType &rhs) const {
     return floatingPt == rhs.floatingPt &&
            signedType == rhs.signedType &&
@@ -57,14 +66,14 @@ bool DataType::operator!=(const DataType &rhs) const {
     return !(rhs == *this);
 }
 
-DataType::DataType() : signedType(false), complex(false), floatingPt(false), totalBits(0), fractionalBits(0){
+DataType::DataType() : signedType(false), complex(false), floatingPt(false), totalBits(0), fractionalBits(0), width(1){
 }
 
-DataType::DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits) : floatingPt(floatingPt), signedType(signedType), complex(complex), totalBits(totalBits), fractionalBits(fractionalBits){
+DataType::DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits, int width) : floatingPt(floatingPt), signedType(signedType), complex(complex), totalBits(totalBits), fractionalBits(fractionalBits), width(width){
 
 }
 
-DataType::DataType(std::string str, bool complex) : complex(complex) {
+DataType::DataType(std::string str, bool complex, int width) : complex(complex), width(width) {
     //Note: complex is handled seperatly from the string
 
     //Floating Point

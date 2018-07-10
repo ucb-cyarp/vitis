@@ -158,8 +158,17 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
         std::map<std::string, std::shared_ptr<Node>> nodeMap;
         std::vector<DOMNode*> edgeNodes;
 
-        SimulinkGraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes);
+        int numNodesImported = SimulinkGraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes);
 
+        #ifdef DEBUG
+        std::cout << "Nodes Imported: " << numNodesImported << std::endl;
+        #endif
+
+        int numArcsImported = importEdges(edgeNodes, *design, nodeMap);
+
+        #ifdef DEBUG
+        std::cout << "Arcs Imported: " << numArcsImported << std::endl;
+        #endif
     }
 
 
@@ -253,6 +262,40 @@ DOMNode* SimulinkGraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::ma
 
     return subgraph;
 }
+
+xercesc::DOMNode *
+SimulinkGraphMLImporter::graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::string, std::string> &attributeMap, std::map<std::string, std::string> &dataMap) {
+    //Get attributes from given node and add to map
+    if(node->hasAttributes())
+    {
+        DOMNamedNodeMap *nodeAttributes = node->getAttributes();
+        XMLSize_t numAttributes = nodeAttributes->getLength();
+
+        for (XMLSize_t i = 0; i < numAttributes; i++) {
+            DOMNode *attribute = nodeAttributes->item(i);
+            std::string attrName = SimulinkGraphMLImporter::getTranscodedString(attribute->getNodeName());
+
+            const XMLCh *attrVal = attribute->getNodeValue();
+
+            std::string attrValueStr;
+
+            if(attrVal != nullptr)
+            {
+                attrValueStr = SimulinkGraphMLImporter::getTranscodedString(attrVal);
+            }
+            else
+            {
+                attrValueStr = "";
+            }
+            attributeMap[attrName] = attrValueStr;
+        }
+    }
+
+    DOMNode* subgraph = SimulinkGraphMLImporter::graphMLDataMap(node, dataMap);
+
+    return subgraph;
+}
+
 
 int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes){
     return SimulinkGraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
@@ -734,4 +777,69 @@ std::shared_ptr<Node> SimulinkGraphMLImporter::importStandardNode(std::string id
     }
 
     return newNode;
+}
+
+int SimulinkGraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Design &design,
+                                         std::map<std::string, std::shared_ptr<Node>> &nodeMap) {
+    //Iterate through the list of edges
+    unsigned long numEdges = edgeNodes.size();
+
+    //Iterate through the list of edges
+    for(unsigned long i = 0; i<numEdges; i++){
+        std::map<std::string, std::string> dataKeyValueMap;
+        std::map<std::string, std::string> attributeValueMap;
+
+        SimulinkGraphMLImporter::graphMLDataAttributeMap(edgeNodes[i], attributeValueMap, dataKeyValueMap);
+
+        //==== Extract Information from "Edge" Entry ====
+        int id = Arc::getIDFromGraphMLFullPath(attributeValueMap.at("id"));
+
+        std::string srcFullPath = attributeValueMap.at("source");
+        std::string dstFullPath = attributeValueMap.at("target");
+
+        int srcPortNum = std::stoi(dataKeyValueMap.at("arc_src_port"));
+        int dstPortNum = 0;
+        //Handle case when dst port number may not be given if enabled.
+        std::string dstPortType = attributeValueMap.at("target");
+
+        bool standardDst = dstPortType == "Standard";
+        if(standardDst){
+            dstPortNum = std::stoi(dataKeyValueMap.at("arc_dst_port"));
+        }
+
+        std::string complexStr = dataKeyValueMap.at("arc_complex");
+        bool complex = complexStr == "0" || complexStr == "false";
+
+        int width = std::stoi(dataKeyValueMap.at("arc_width"));
+
+        std::string dataTypeStr = dataKeyValueMap.at("arc_datatype");
+
+
+        //==== Create DataType object ====
+        DataType dataType(dataTypeStr, complex, width);
+
+        //==== Lookup Nodes ====
+        std::shared_ptr<Node> srcNode = nodeMap.at(srcFullPath);
+        std::shared_ptr<Node> dstNode = nodeMap.at(dstFullPath);
+
+        //==== Create the Arc ====
+
+
+        std::shared_ptr<Arc> newArc;
+
+        //For now, set sample time to -1
+        //TODO: set sample time
+
+        if(standardDst) {
+            newArc = Arc::connectNodes(srcNode, srcPortNum, dstNode, dstPortNum, dataType);
+        }else {
+            std::shared_ptr<EnableNode> dstNodeEnabled = std::dynamic_pointer_cast<EnableNode>(dstNode);
+            newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeEnabled, dataType);
+        }
+
+        //==== Add Arc to Design ====
+        design.addArc(newArc);
+    }
+
+    return (int) numEdges; //We import all edges/arcs in the list
 }

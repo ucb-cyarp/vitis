@@ -9,6 +9,7 @@
 
 #include "Node.h"
 #include "SubSystem.h"
+#include "EnableNode.h"
 
 /**
 * \addtogroup GraphCore Graph Core

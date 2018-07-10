@@ -5,6 +5,7 @@
 #include "Arc.h"
 #include "Port.h"
 #include "Node.h"
+#include "EnableNode.h"
 
 Arc::Arc() {
     srcPort = std::shared_ptr<Port>(nullptr);
@@ -121,4 +122,51 @@ Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Nod
     return arc;
 }
 
+std::shared_ptr<Arc>
+Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<EnableNode> dst, DataType dataType,
+                  double sampleTime) {
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+
+    //Connect arc
+    if(src != nullptr)
+    {
+        src->addOutArcUpdatePrevUpdateArc(srcPortNum, arc);
+    }
+
+    if(dst != nullptr)
+    {
+        dst->setEnableArcUpdatePrevUpdateArc(arc);
+    }
+
+    return arc;
+}
+
+
+int Arc::getIDFromGraphMLFullPath(std::string fullPath) {
+    //Find the location of the last n
+    int nIndex = -1;
+
+    int pathLen = (int) fullPath.size(); //Casting to signed to ensure loop termination
+    for(int i = pathLen-1; i >= 0; i--){
+        if(fullPath[i] == 'e'){
+            nIndex = i;
+        }
+    }
+
+    if(nIndex == -1){
+        throw std::runtime_error("Could not find edge ID in full GraphML path: " + fullPath);
+    }
+
+    std::string localIDStr = fullPath.substr(nIndex+1, std::string::npos);
+
+    int localId = std::stoi(localIDStr);
+
+    return localId;
+}
 

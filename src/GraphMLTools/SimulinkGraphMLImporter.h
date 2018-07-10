@@ -45,6 +45,13 @@ public:
     static std::unique_ptr<Design> importSimulinkGraphML(std::string filename);
 
     /**
+     * @brief Prints the various DOM nodes of a grsaphml file;
+     * @param filename The filename of the GraphML file to import
+     */
+    static void printGraphmlDOM(std::string filename);
+
+private:
+    /**
      * @brief Imports nodes from an XML DOM tree
      * @param node The root of the XML DOM tree from the perspective of the import
      * @param design The design object which is modified to include the imported nodes
@@ -67,8 +74,8 @@ public:
 
 
     /**
-     * @brief Imports the specified node from an XML DOM node
-     * @param node The root of the XML DOM tree from the perspective of the import
+     * @brief Imports the specified DSP node from an XML DOM node
+     * @param node The DSP node's associated XML DOM node
      * @param design The design object which is modified to include the imported nodes
      * @param nodeMap A map of nodes names to node object pointers which is populated during the import
      * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
@@ -92,6 +99,18 @@ public:
     static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
 
     /**
+     * @brief Import an array of DSP Arcs (from DOM nodes) into the design
+     *
+     * The edgeNodes list and nodeMap map is populated during a call to @ref SimulinkGraphMLImporter::importNodes
+     *
+     * @param edgeNodes An array of edge XML DOM nodes
+     * @param design The Design to add these edges (arcs) to
+     * @param nodeMap A map of node names to Node object pointers
+     * @return number of edges imported
+     */
+    static int importEdges(std::vector<xercesc::DOMNode*> &edgeNodes, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap);
+
+    /**
      * @brief Get the text value for a given node (in the text element under this node)
      * @param node The node to get the text value of
      * @return the text value of the node if there is a single text node child of the given node.  "" if the node has no children, more than 1 child, or the child is not a text node
@@ -110,18 +129,23 @@ public:
     static xercesc::DOMNode* graphMLDataMap(xercesc::DOMNode *node, std::map<std::string, std::string> &dataMap);
 
     /**
+     * @brief For a GraphML XML Node element, get a map of data key/value pairs (and attribute pairs of the given node) and a subgraph XML node if one exists.
+     *
+     * @note Throws an exception if more than one subgraph node exists for the given node
+     *
+     * @param node The GraphML Node XML Element
+     * @param attributeMap A key/value map for attributes of the given GraphML node
+     * @param dataMap A key/value map for data nodes under the given GraphML node
+     * @return A pointer to a subgraph node if one exists
+     */
+    static xercesc::DOMNode* graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::string, std::string> &attributeMap, std::map<std::string, std::string> &dataMap);
+
+    /**
      * @brief Returns an XML string as a string c++ string
      * @param xmlStr XML string to transcode
      * @return XML string transcoded into a standard c++ string
      */
     static std::string getTranscodedString(const XMLCh *xmlStr);
-
-    /**
-     * @brief Prints the various DOM nodes of a graphml file;
-     * @param filename The filename of the GraphML file to import
-     */
-    static void printGraphmlDOM(std::string filename);
-
 
     /**
      * @brief Prints an XML node.  It prints its name, value, attribute names, and attribute values.  It also prints child nodes.
