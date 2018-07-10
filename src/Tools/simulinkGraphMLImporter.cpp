@@ -26,10 +26,13 @@ int main(int argc, char* argv[]) {
     std::cout << "Importing Simulink GraphML File:  " << inputFilename << std::endl;
     std::cout << "Converting to vitis GraphML File: " << outputFilename << std::endl;
 
-    std::unique_ptr<Design> design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
-
-    std::cout << "Translated" << std::endl;
-
+    std::unique_ptr<Design> design;
+    try{
+        design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }

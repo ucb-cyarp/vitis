@@ -35,8 +35,7 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
     if(!inputFile.good()){
         inputFile.close();
 
-        std::cerr << "Error: Input file does not exist" << std::endl;
-        exit(1);
+        throw std::runtime_error("Error: Input file does not exist: " + filename);
     }
     inputFile.close();
 
