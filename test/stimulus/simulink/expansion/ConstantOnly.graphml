@@ -121,6 +121,7 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="MaskVariables.ans">1+2i</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">VectorConstant</data>
@@ -211,6 +212,7 @@ Type: VectorFan</data>
 		<edge id="e1" source="n11" target="n2">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 2
 Dst Port Type: Standard
@@ -226,6 +228,7 @@ Width: 4</data>
 		<edge id="e2" source="n12" target="n2">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -241,6 +244,7 @@ Width: 4</data>
 		<edge id="e3" source="n6::n7" target="n11">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[1]</data>
@@ -266,6 +270,7 @@ Width: 1</data>
 		<edge id="e4" source="n6::n8" target="n11">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[2]</data>
@@ -291,6 +296,7 @@ Width: 1</data>
 		<edge id="e5" source="n6::n9" target="n11">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">3</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[3]</data>
@@ -316,6 +322,7 @@ Width: 1</data>
 		<edge id="e6" source="n6::n10" target="n11">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">4</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[4]</data>
@@ -341,6 +348,7 @@ Width: 1</data>
 		<edge id="e7" source="n6::n7" target="n12">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[1]</data>
@@ -366,6 +374,7 @@ Width: 1</data>
 		<edge id="e8" source="n6::n8" target="n12">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[2]</data>
@@ -391,6 +400,7 @@ Width: 1</data>
 		<edge id="e9" source="n6::n9" target="n12">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">3</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[3]</data>
@@ -416,6 +426,7 @@ Width: 1</data>
 		<edge id="e10" source="n6::n10" target="n12">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">4</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_intermediate_nodes">[n6]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[4]</data>

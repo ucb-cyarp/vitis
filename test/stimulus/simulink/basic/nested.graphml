@@ -292,6 +292,7 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="MaskVariables.ans">1+2i</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Sum</data>
@@ -654,6 +655,7 @@ SampleTime: -1</data>
 		<edge id="e1" source="n8::n11::n13" target="n2">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">3</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 3
 Dst Port Type: Standard
@@ -669,6 +671,7 @@ Width: 1</data>
 		<edge id="e2" source="n8::n11::n12" target="n8::n11::n13">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -684,6 +687,7 @@ Width: 1</data>
 		<edge id="e3" source="n8::n10" target="n8::n11::n12">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -699,6 +703,7 @@ Width: 1</data>
 		<edge id="e4" source="n8::n10" target="n2">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 2
 Dst Port Type: Standard
@@ -714,6 +719,7 @@ Width: 1</data>
 		<edge id="e5" source="n8::n9" target="n8::n10">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -729,6 +735,7 @@ Width: 1</data>
 		<edge id="e6" source="n7" target="n8::n9">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -744,6 +751,7 @@ Width: 1</data>
 		<edge id="e7" source="n14::n16" target="n2">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -759,6 +767,7 @@ Width: 1</data>
 		<edge id="e8" source="n14::n15" target="n14::n16">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -774,6 +783,7 @@ Width: 1</data>
 		<edge id="e9" source="n7" target="n14::n15">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -789,6 +799,7 @@ Width: 1</data>
 		<edge id="e10" source="n6" target="n7">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -804,6 +815,7 @@ Width: 1</data>
 		<edge id="e11" source="n1" target="n6">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
@@ -819,6 +831,7 @@ Width: 1</data>
 		<edge id="e12" source="n1" target="n8::n11::n12">
 			<data key="arc_src_port">2</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 2
 Dst Port Num: 2
 Dst Port Type: Standard
@@ -834,6 +847,7 @@ Width: 1</data>
 		<edge id="e13" source="n1" target="n8::n9">
 			<data key="arc_src_port">2</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 2
 Dst Port Num: 2
 Dst Port Type: Standard
@@ -849,6 +863,7 @@ Width: 1</data>
 		<edge id="e14" source="n1" target="n14::n15">
 			<data key="arc_src_port">2</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 2
 Dst Port Num: 2
 Dst Port Type: Standard
@@ -864,6 +879,7 @@ Width: 1</data>
 		<edge id="e15" source="n1" target="n6">
 			<data key="arc_src_port">2</data>
 			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 2
 Dst Port Num: 2
 Dst Port Type: Standard
