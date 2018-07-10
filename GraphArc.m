@@ -90,6 +90,8 @@ classdef GraphArc < handle & matlab.mixin.Copyable
            fprintf(file, '<data key="arc_src_port">%d</data>\n', obj.srcPortNumber);
            writeNTabs(file, numTabs+1);
            fprintf(file, '<data key="arc_dst_port">%d</data>\n', obj.dstPortNumber);
+           writeNTabs(file, numTabs+1);
+           fprintf(file, '<data key="arc_dst_port_type">%s</data>\n', obj.dstPortTypeStr());
            
            %Emit Intermediates
            if ~isempty(obj.intermediateNodes)
