@@ -17,6 +17,9 @@
  */
 /*@{*/
 
+/**
+ * @brief Represents a Product Block.  Parameters dictate the position of the inputs.
+ */
 class Product : public Node{
     friend NodeFactory;
 private:

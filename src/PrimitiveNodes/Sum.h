@@ -17,6 +17,9 @@
  */
 /*@{*/
 
+/**
+ * @brief Represents a Sum Block.  Parameters dictate the signs of the inputs.
+ */
 class Sum : public Node{
     friend NodeFactory;
 private:

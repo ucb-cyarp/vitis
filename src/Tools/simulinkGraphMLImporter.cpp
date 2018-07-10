@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <memory>
 #include "GraphMLTools/SimulinkGraphMLImporter.h"
@@ -26,6 +27,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Converting to vitis GraphML File: " << outputFilename << std::endl;
 
     std::unique_ptr<Design> design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
+
+    std::cout << "Translated" << std::endl;
 
 
     return 0;

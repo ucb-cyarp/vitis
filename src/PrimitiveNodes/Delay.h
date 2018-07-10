@@ -19,6 +19,9 @@
  */
 /*@{*/
 
+/**
+ * @brief Represents a Delay (z^-1) Block
+ */
 class Delay : public Node{
     friend NodeFactory;
 private:

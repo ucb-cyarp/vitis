@@ -15,8 +15,10 @@
 
 #include "PrimitiveNodes/Sum.h"
 #include "PrimitiveNodes/Product.h"
+#include "PrimitiveNodes/Delay.h"
 
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include <xercesc/util/PlatformUtils.hpp>
@@ -27,6 +29,18 @@ using namespace xercesc;
 
 std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::string filename)
 {
+    //Check if input exists (see https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c)
+    std::ifstream inputFile;
+    inputFile.open(filename);
+    if(!inputFile.good()){
+        inputFile.close();
+
+        std::cerr << "Error: Input file does not exist" << std::endl;
+        exit(1);
+    }
+    inputFile.close();
+
+
     //Is a 3 phase pass over the GraphML file.  These passes may be combined
 
     //Pass 1 (Optional): Get attribute descriptions
@@ -141,8 +155,11 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
          *          Inserting whitespace text nodes will likely be important when emitting readable XML.
          */
 
-        SimulinkGraphMLImporter::printXMLNodeAndChildren(node);
+        //Create Map and Edge Vector to be Populated Durring Node Traversal
+        std::map<std::string, std::shared_ptr<Node>> nodeMap;
+        std::vector<DOMNode*> edgeNodes;
 
+        SimulinkGraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes);
 
     }
 
@@ -711,6 +728,10 @@ std::shared_ptr<Node> SimulinkGraphMLImporter::importStandardNode(std::string id
         newNode = Sum::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
     }else if(blockFunction == "Product"){
         newNode = Product::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
+    }else if(blockFunction == "Delay"){
+        newNode = Delay::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
+    }else{
+        throw std::runtime_error("Unknown block type: " + blockFunction);
     }
 
     return newNode;

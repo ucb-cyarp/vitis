@@ -34,15 +34,17 @@ std::shared_ptr<Product> Product::createFromSimulinkGraphML(int id, std::map<std
 
     if(simulinkInputs.empty()){
         throw std::runtime_error("Empty Inputs parameter passed to Product");
-    }else if(simulinkInputs[0] == '*' || simulinkInputs[0] == '/'){
+    }else if(simulinkInputs[0] == '*' || simulinkInputs[0] == '/' || simulinkInputs[0] == '|'){
         //An array of *,/
         unsigned long inputLength = simulinkInputs.size();
         for(unsigned long i = 0; i<inputLength; i++){
             bool op;
             if(simulinkInputs[i] == '*'){
-                op = true;
+                ops.push_back(true);
             }else if(simulinkInputs[i] == '/'){
-                op = false;
+                ops.push_back(false);
+            }else if(simulinkInputs[i] == '|'){
+                //This is is a placeholder character that changes the position of the ports in the GUI but does not effect their numbering
             }else{
                 throw std::runtime_error("Unknown format for Product Input Parameter");
             }

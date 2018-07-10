@@ -35,8 +35,16 @@ endif()
 
 
 # Now simply link against gtest or gtest_main as needed.
+set(TEST_WORKING_DIR, ${CMAKE_CURRENT_BINARY_DIR})
 
-#Test
-add_executable(tester src/TestDataType.cpp src/TestNumericValue.cpp)
-target_link_libraries(tester gtest_main VitisLib)
-add_test(tester tester)
+#Tests
+add_executable(coreTester src/TestDataType.cpp src/TestNumericValue.cpp)
+target_link_libraries(coreTester gtest_main VitisLib)
+add_test(coreTester coreTester WORKING_DIRECTORY ${TEST_WORKING_DIR}/test)
+
+add_executable(xmlTester src/TestSimulinkImport.cpp)
+target_link_libraries(xmlTester gtest_main VitisLib ${XercesC_LIBRARIES})
+add_test(xmlTester xmlTester WORKING_DIRECTORY ${TEST_WORKING_DIR}/test)
+
+#Copy Stimulus Files (https://cmake.org/cmake/help/v3.0/command/file.html)
+file(COPY "stimulus" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
