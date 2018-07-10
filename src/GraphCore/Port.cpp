@@ -63,6 +63,7 @@ std::shared_ptr<Port> Port::getSharedPointer() {
     }
     else {
         //Hopefully should not happen but just in case
-        return std::shared_ptr<Port>(nullptr);
+        //return std::shared_ptr<Port>(nullptr);
+        throw std::runtime_error("Pointer requested from port that has no parent");
     }
 }

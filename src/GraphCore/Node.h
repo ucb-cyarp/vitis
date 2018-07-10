@@ -41,8 +41,15 @@ class Node : public std::enable_shared_from_this<Node> {
 protected:
     int id; ///<Node ID number used when reading/writing GraphML files
     std::shared_ptr<SubSystem> parent; ///<Parent of this node
-    std::vector<Port> inputPorts; ///<The input ports of this node
-    std::vector<Port> outputPorts; ///<The output ports of this node
+    //Vectors to unique pointers because we actually need to pass pointers to these ports around (esp to arcs).
+    //Since vectors can re-allocate memory as items are added or deleted, the pointer location is not guaranteed to remain
+    //in the same location.  Putting the ports in the heap and having the nodes have a sole ownership pointer to them which is
+    //contained in the vector allows the location of the object to remain the same (making passing this valid) even if more
+    //entries are added to the vector.  When the node is destroyed, the ports are destroyed as well due to the sole ownership.
+    //shared_ptrs to the ports can be generated but these are aliased pointers that account for the shared ownership of the
+    //nodes, they alias to the port.
+    std::vector<std::unique_ptr<Port>> inputPorts; ///<The input ports of this node
+    std::vector<std::unique_ptr<Port>> outputPorts; ///<The output ports of this node
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     std::vector<bool> cOutEmitted; ///<A vector of bools indicating if a particular output has been emitted in C++
     std::vector<std::string> cOutVarName; ///<A vector of strings which hold the variable names in C++ if the output was stored in a C++ var
@@ -53,6 +60,8 @@ protected:
      * @brief Constructs an empty node
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
      */
     Node();
 
@@ -60,6 +69,8 @@ protected:
      * @brief Constructs an empty node with a given parent.  This node is not added to the children list of the parent.
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
      *
      * @param parent parent node
      */

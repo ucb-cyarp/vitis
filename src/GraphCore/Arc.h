@@ -28,6 +28,7 @@ class EnableNode;
  */
 class Arc : public std::enable_shared_from_this<Arc>{
 private:
+    int id; ///< ID number for arc
     std::shared_ptr<Port> srcPort; ///< Pointer to the source port this arc is connected to
     std::shared_ptr<Port> dstPort; ///< Pointer to the destination port this arc is connected to
     DataType dataType; ///< The data type of the data passed via this arc
@@ -179,6 +180,8 @@ public:
     void setDelay(int delay);
     int getSlack() const;
     void setSlack(int slack);
+    int getId() const;
+    void setId(int id);
 };
 
 /*@}*/

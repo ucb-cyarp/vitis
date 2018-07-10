@@ -7,12 +7,12 @@
 #include "Node.h"
 #include "EnableNode.h"
 
-Arc::Arc() {
+Arc::Arc() : sampleTime(-1), delay(0), slack(0){
     srcPort = std::shared_ptr<Port>(nullptr);
     dstPort = std::shared_ptr<Port>(nullptr);
 }
 
-Arc::Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime) : srcPort(srcPort), dstPort(dstPort), dataType(dataType), sampleTime(sampleTime) {
+Arc::Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime) : srcPort(srcPort), dstPort(dstPort), dataType(dataType), sampleTime(sampleTime), delay(0), slack(0){
 
 }
 
@@ -66,8 +66,7 @@ void Arc::setSlack(int slack) {
 
 void Arc::setSrcPortUpdateNewUpdatePrev(std::shared_ptr<Port> srcPort) {
     //Remove arc from old port if not null
-    if(Arc::srcPort != nullptr)
-    {
+    if (Arc::srcPort != nullptr) {
         Arc::srcPort->removeArc(shared_from_this());
     }
 
@@ -75,7 +74,9 @@ void Arc::setSrcPortUpdateNewUpdatePrev(std::shared_ptr<Port> srcPort) {
     Arc::srcPort = srcPort;
 
     //Add this arc to the new src port
-    srcPort->addArc(shared_from_this());
+    if (srcPort != nullptr){
+        srcPort->addArc(shared_from_this());
+    }
 }
 
 void Arc::setDstPortUpdateNewUpdatePrev(std::shared_ptr<Port> dstPort) {
@@ -89,7 +90,9 @@ void Arc::setDstPortUpdateNewUpdatePrev(std::shared_ptr<Port> dstPort) {
     Arc::dstPort = dstPort;
 
     //Add this arc to the new dst port
-    dstPort->addArc(shared_from_this());
+    if(dstPort != nullptr) {
+        dstPort->addArc(shared_from_this());
+    }
 }
 
 std::shared_ptr<Arc> Arc::createArc() {
@@ -168,5 +171,13 @@ int Arc::getIDFromGraphMLFullPath(std::string fullPath) {
     int localId = std::stoi(localIDStr);
 
     return localId;
+}
+
+int Arc::getId() const {
+    return id;
+}
+
+void Arc::setId(int id) {
+    Arc::id = id;
 }
 

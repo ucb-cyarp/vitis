@@ -23,7 +23,8 @@ class EnableNode : public Node {
 friend class NodeFactory;
 
 protected:
-    Port enablePort; ///< The enable port.  The input of this port determines if a new value is propagated or not
+    //NOTE: made into a unique pointer so that a pointer to the port can be reliably shared.
+    std::unique_ptr<Port> enablePort; ///< The enable port.  The input of this port determines if a new value is propagated or not
 
     /**
      * @brief Default constructor

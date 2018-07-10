@@ -798,17 +798,16 @@ int SimulinkGraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNo
         std::string dstFullPath = attributeValueMap.at("target");
 
         int srcPortNum = std::stoi(dataKeyValueMap.at("arc_src_port"));
-        int dstPortNum = 0;
+        int dstPortNum = 1; //So that decrement puts it to 0 if dst is enable port (for error check below)
         //Handle case when dst port number may not be given if enabled.
-        std::string dstPortType = attributeValueMap.at("target");
-
+        std::string dstPortType = dataKeyValueMap.at("arc_dst_port_type");
         bool standardDst = dstPortType == "Standard";
         if(standardDst){
             dstPortNum = std::stoi(dataKeyValueMap.at("arc_dst_port"));
         }
 
         std::string complexStr = dataKeyValueMap.at("arc_complex");
-        bool complex = complexStr == "0" || complexStr == "false";
+        bool complex = !(complexStr == "0" || complexStr == "false");
 
         int width = std::stoi(dataKeyValueMap.at("arc_width"));
 
@@ -822,9 +821,27 @@ int SimulinkGraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNo
         std::shared_ptr<Node> srcNode = nodeMap.at(srcFullPath);
         std::shared_ptr<Node> dstNode = nodeMap.at(dstFullPath);
 
+        if(srcNode == nullptr){
+            throw std::runtime_error("Null Src Node Ptr");
+        }
+
+        if(dstNode == nullptr){
+            throw std::runtime_error("Null Dst Node Ptr");
+        }
+
+        //==== Adjust Port Numbers to be 0 based rather than 1 based ====
+        srcPortNum--;
+        dstPortNum--;
+
+        if(srcPortNum < 0){
+            throw std::runtime_error("Src Port Num < 0");
+        }
+
+        if(dstPortNum < 0){
+            throw std::runtime_error("Dst Port Num < 0");
+        }
+
         //==== Create the Arc ====
-
-
         std::shared_ptr<Arc> newArc;
 
         //For now, set sample time to -1
@@ -836,6 +853,8 @@ int SimulinkGraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNo
             std::shared_ptr<EnableNode> dstNodeEnabled = std::dynamic_pointer_cast<EnableNode>(dstNode);
             newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeEnabled, dataType);
         }
+
+        newArc->setId(id);
 
         //==== Add Arc to Design ====
         design.addArc(newArc);
