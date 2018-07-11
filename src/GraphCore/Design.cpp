@@ -65,6 +65,14 @@ void Design::setTerminatorMaster(const std::shared_ptr<MasterOutput> terminatorM
     Design::terminatorMaster = terminatorMaster;
 }
 
+std::vector<std::shared_ptr<Node>> Design::getTopLevelNodes() const {
+    return topLevelNodes;
+}
+
+void Design::setTopLevelNodes(const std::vector<std::shared_ptr<Node>> topLevelNodes) {
+    Design::topLevelNodes = topLevelNodes;
+}
+
 std::vector<std::shared_ptr<Node>> Design::getNodes() const {
     return nodes;
 }
@@ -79,6 +87,10 @@ std::vector<std::shared_ptr<Arc>> Design::getArcs() const {
 
 void Design::setArcs(const std::vector<std::shared_ptr<Arc>> arcs) {
     Design::arcs = arcs;
+}
+
+void Design::addTopLevelNode(std::shared_ptr<Node> node) {
+    topLevelNodes.push_back(node);
 }
 
 void Design::addNode(std::shared_ptr<Node> node) {

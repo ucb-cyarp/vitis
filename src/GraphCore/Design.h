@@ -38,6 +38,7 @@ private:
     std::shared_ptr<MasterUnconnected> unconnectedMaster; ///< A pointer to the unconnected master node of the design, representing unconnected ports in the design
     std::shared_ptr<MasterOutput> terminatorMaster; ///< A pointer to the unconnected master node of the design, representing terminated ports
 
+    std::vector<std::shared_ptr<Node>> topLevelNodes;///< A vector of nodes at the top level of the design (ie. not under a subsystem)
     std::vector<std::shared_ptr<Node>> nodes; ///< A vector of nodes in the design
     std::vector<std::shared_ptr<Arc>> arcs; ///< A vector of arcs in the design
 
@@ -50,6 +51,7 @@ public:
     Design();
 
     void addNode(std::shared_ptr<Node> node);
+    void addTopLevelNode(std::shared_ptr<Node> node);
     void addArc(std::shared_ptr<Arc> arc);
 
     //==== Getters/Setters ====
@@ -63,6 +65,8 @@ public:
     void setUnconnectedMaster(const std::shared_ptr<MasterUnconnected> unconnectedMaster);
     std::shared_ptr<MasterOutput> getTerminatorMaster() const;
     void setTerminatorMaster(const std::shared_ptr<MasterOutput> terminatorMaster);
+    std::vector<std::shared_ptr<Node>> getTopLevelNodes() const;
+    void setTopLevelNodes(const std::vector<std::shared_ptr<Node>> topLevelNodes);
     std::vector<std::shared_ptr<Node>> getNodes() const;
     void setNodes(const std::vector<std::shared_ptr<Node>> nodes);
     std::vector<std::shared_ptr<Arc>> getArcs() const;

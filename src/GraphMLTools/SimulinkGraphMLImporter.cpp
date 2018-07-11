@@ -421,6 +421,9 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
 
         //Add node to design
         design.addNode(newSubsystem);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newSubsystem);
+        }
         //Add to map
         nodeMap[fullNodeID]=newSubsystem;
 
@@ -436,6 +439,9 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
 
         //Add node to design
         design.addNode(newEnabledSubsystem);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newEnabledSubsystem);
+        }
         //Add to map
         nodeMap[fullNodeID]=newEnabledSubsystem;
 
@@ -451,6 +457,9 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
 
         //Add node to design
         design.addNode(newNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
         //Add to map
         nodeMap[fullNodeID]=newNode;
 
@@ -460,6 +469,9 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
 
         //Add node to design
         design.addNode(newNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
         //Add to map
         nodeMap[fullNodeID]=newNode;
 
@@ -515,6 +527,9 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         std::shared_ptr<Node> newNode = SimulinkGraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
         //Add new node to design and to name node map
         design.addNode(newNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
         nodeMap[fullNodeID] = newNode;
     } else{
         throw std::runtime_error("Unknown Block Type");

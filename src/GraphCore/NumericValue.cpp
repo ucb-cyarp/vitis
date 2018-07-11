@@ -16,6 +16,15 @@ realInt(realInt), imagInt(imagInt), complexDouble(complexDouble), complex(comple
 
 }
 
+NumericValue::NumericValue(double realDouble) : realInt(0), imagInt(0), complexDouble(std::complex<double>(realDouble, 0)), complex(false), fractional(true) {
+
+}
+
+
+NumericValue::NumericValue(long int realInt) : realInt(realInt), imagInt(0), complexDouble(std::complex<double>(0, 0)), complex(false), fractional(false) {
+
+}
+
 long NumericValue::getRealInt() const {
     return realInt;
 }
@@ -56,7 +65,7 @@ void NumericValue::setFractional(bool fractional) {
     NumericValue::fractional = fractional;
 }
 
-std::string NumericValue::toString() {
+std::string NumericValue::toString() const{
     std::string val;
     if(fractional){
         val = std::to_string(complexDouble.real());
@@ -265,4 +274,21 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
     }
 
     return rtnVal;
+}
+
+bool NumericValue::operator==(const NumericValue &rhs) const {
+    return realInt == rhs.realInt &&
+           imagInt == rhs.imagInt &&
+           complexDouble == rhs.complexDouble &&
+           complex == rhs.complex &&
+           fractional == rhs.fractional;
+}
+
+bool NumericValue::operator!=(const NumericValue &rhs) const {
+    return !(rhs == *this);
+}
+
+std::ostream &operator<<(std::ostream &os, const NumericValue &value) {
+    os << value.toString();
+    return os;
 }

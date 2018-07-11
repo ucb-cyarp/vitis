@@ -11,8 +11,8 @@ set(CMAKE_CXX_STANDARD 11)
 #Add DEBUG Option (For Now)
 #TODO: Remove
 add_compile_options("-DDEBUG")
-SET(CMAKE_CXX_FLAGS "-g -O0")
-SET(CMAKE_C_FLAGS "-g -O0")
+#SET(CMAKE_CXX_FLAGS "-g -O0")
+#SET(CMAKE_C_FLAGS "-g -O0")
 
 #==== Vitis Framework ====
 #List of Common Library Files (used by many targets)

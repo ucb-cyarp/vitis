@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <complex>
+#include <ostream>
 #include "DataType.h"
 
 /**
@@ -37,6 +38,18 @@ public:
     NumericValue();
 
     /**
+     * @brief Construct a real integer
+     * @param realInt the real integer
+     */
+    NumericValue(long int realInt);
+
+    /**
+     * @brief Construct a real double
+     * @param realInt the real double
+     */
+    NumericValue(double realDouble);
+
+    /**
      * @brief Construct a numeric double with the specified values
      * @param realInt
      * @param imagInt
@@ -50,7 +63,7 @@ public:
      * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with their stored datatypes
      * @return string representation of the numeric value
      */
-    std::string toString();
+    std::string toString() const;
 
 //    /**
 //     * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype
@@ -90,6 +103,12 @@ public:
     bool isFractional() const;
 
     void setFractional(bool fractional);
+
+    bool operator==(const NumericValue &rhs) const;
+
+    bool operator!=(const NumericValue &rhs) const;
+
+    friend std::ostream &operator<<(std::ostream &os, const NumericValue &value);
 };
 
 /*@}*/
