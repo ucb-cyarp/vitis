@@ -36,6 +36,10 @@ private:
     int delay; ///< The delay along this arc (in cycles)
     int slack; ///< The slack along this arc (in cycles)
 
+    //For use in destructor, a weak pointer to itself is kept
+    std::weak_ptr<Arc> weakSelf;
+
+
 protected:
     //==== Constructors ====
     /**
@@ -59,6 +63,14 @@ protected:
     Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime = -1);
 
 public:
+    /**
+     * @brief Arc destructor removes itself from ports it is connected to
+     *
+     * @note Because the arc is being destructed, shared_from_this will not work because the shared owner count has
+     * dropped to zero and creation of a new shared_ptr is not possible.  To fix this, a weak_ptr to itself is passed
+     * to the delete function in the ports.  This ptr MUST be set by the factory function when the arc is created.
+     */
+    ~Arc();
 
     //==== Factories ====
     /**

@@ -42,7 +42,9 @@ private:
     Node* parent; ///< The node this port belongs to (not a shared ptr because the port is a component of the node - there would always be a shared ptr to a node and would therefore never be deleted)
     int portNum; ///< The number of this port
     Port::PortType type; ///< The type of port (Input, Output, Enable)
-    std::set<std::shared_ptr<Arc>> arcs; ///< A vector containg pointers to arcs connected to this port
+    //Issue with ordering weak pointers described in: https://stackoverflow.com/questions/23210092/is-it-safe-to-use-a-weak-ptr-in-a-stdset-or-key-of-stdmap
+    //Note that the ownership comparision is OK in this case since shared_ptrs to Arc objects are not aliased
+    std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>> arcs; ///< A vector containing pointers to arcs connected to this port
 
 public:
 //==== Constructors ====
@@ -90,28 +92,55 @@ public:
     void removeArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Removes the given arc from this port.
+     *
+     * This varient with weak_ptr is provided for the ~Arc
+     *
+     * If no such arc exists in this port, no action is taken
+     *
+     * @note This function does not update any previous node/port object if this is the reassignment of the arc.
+     * It also does not update entries in the Arc object.
+     *
+     * @param arc The arc to remove
+     */
+    void removeArc(std::weak_ptr<Arc> arc);
+
+
+    /**
      * @brief Get the current set of arcs connected to this port
-     * @return A copy of the set of arcs connected to this port
+     * @return A copy of the set of arcs connected to this port (as stored as weak ptrs)
+     */
+    std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>> getArcsRaw();
+
+    /**
+     * @brief Get the current set of arcs connected to this port
+     * @return A copy of the set of arcs connected to this port (with weak pointers converted to shared ptrs)
      */
     std::set<std::shared_ptr<Arc>> getArcs();
+
+    /**
+     * @brief Get the number of arcs connected to this port
+     * @return number of arcs connected to this port
+     */
+    unsigned long numArcs();
 
     /**
      * @brief Replaces the set of arc assigned to this port
      * @param arcs The new set of arcs for this port
      */
-    void setArcs(std::set<std::shared_ptr<Arc>> arcs);
+    void setArcs(std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>> arcs);
 
     /**
      * @brief Get an iterator to the first arc
      * @return iterator to the first arc in the arc set
      */
-    std::set<std::shared_ptr<Arc>>::iterator arcsBegin();
+    std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>>::iterator arcsBegin();
 
     /**
      * @brief Get an iterator to the last arc
      * @return iterator to the first arc in the arc set
      */
-    std::set<std::shared_ptr<Arc>>::iterator arcsEnd();
+    std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>>::iterator arcsEnd();
 
     /**
      * @brief Get a shared pointer to the port.  Aliased with the parent node object as the stored pointer.

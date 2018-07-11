@@ -16,6 +16,16 @@ Arc::Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType 
 
 }
 
+Arc::~Arc() {
+    if (srcPort != nullptr) {
+        srcPort->removeArc(weakSelf);
+    }
+
+    if (dstPort != nullptr) {
+        dstPort->removeArc(weakSelf);
+    }
+}
+
 std::shared_ptr<Port> Arc::getSrcPort() const {
     return srcPort;
 }
@@ -135,6 +145,7 @@ Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Ena
     //Set params of arc
     arc->setDataType(dataType);
     arc->setSampleTime(sampleTime);
+    arc->weakSelf = arc; //Store reference to self as weak ptr
 
     //Connect arc
     if(src != nullptr)

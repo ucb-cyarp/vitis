@@ -34,6 +34,17 @@ class GraphMLParameter;
  *
  * This class represents a generic node in the data flow graph.  It is an abstract class which provides some basic
  * utility functions as well as stub functions which should be overwritten by subclasses.
+ *
+ * ## Ownership Semantics:
+ *   - Nodes are owned buy the design, parent nodes (if applicable), and arcs
+ *   - Arcs are owned by the design.
+ *   - Ports are owned by nodes
+ *   - Ports have weak pointers to arcs
+ *
+ * If the design removes an arc from its list, it is destroyed.  It removes it's weak ptrs from ports it is connected to to avoid stale pointer access from the port.
+ * The arc relinquishes its partial ownership of the nodes it was connected to.
+ * If the design relinquishes its partial ownership of the nodes as well, the only ownership is from parent nodes.
+ * A cascading destruction will occur
  */
 class Node : public std::enable_shared_from_this<Node> {
     friend class NodeFactory;

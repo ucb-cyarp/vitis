@@ -84,8 +84,8 @@ TEST(SimulinkImport, SimpleDesign) {
 
     //++++ Get 1st Arc Of Input Master++++
     std::shared_ptr<Port> inPort0 = inputs->getOutputPort(0);
-    std::set<std::shared_ptr<Arc>> inPort0Arcs = inPort0->getArcs();
-    std::shared_ptr<Arc> inPort0Arc = *(inPort0->arcsBegin());
+    std::set<std::shared_ptr<Arc>> inPort0Arcs = inPort0->getArcs(); //Test getArcs, should use getArcsRaw if performance is a concern or if checking for size
+    std::shared_ptr<Arc> inPort0Arc = inPort0->arcsBegin()->lock();
 
     //Check Arc
     std::shared_ptr<Port> srcPort = inPort0Arc->getSrcPort();
@@ -124,7 +124,7 @@ TEST(SimulinkImport, SimpleDesign) {
     ASSERT_EQ(SumNode->getOutputPorts().size(), 1);
 
     //----Check 2nd Input Arc----
-    std::shared_ptr<Arc> In2 = *(SumNode->getInputPort(1)->arcsBegin());
+    std::shared_ptr<Arc> In2 = SumNode->getInputPort(1)->arcsBegin()->lock();
 
     //Check Src is Master Input's 2nd port (port 1)
     ASSERT_EQ(In2->getSrcPort(), design->getInputMaster()->getOutputPort(1));
@@ -142,10 +142,10 @@ TEST(SimulinkImport, SimpleDesign) {
     }
 
     //----Check Only 1 Output----
-    ASSERT_EQ(SumNode->getOutputPort(0)->getArcs().size(), 1);
+    ASSERT_EQ(SumNode->getOutputPort(0)->numArcs(), 1);
 
     //----Check Output Arc----
-    std::shared_ptr<Arc> delayIn = *(SumNode->getOutputPort(0)->arcsBegin());
+    std::shared_ptr<Arc> delayIn = SumNode->getOutputPort(0)->arcsBegin()->lock();
 
     //Verify Arc Links
     {
@@ -185,7 +185,7 @@ TEST(SimulinkImport, SimpleDesign) {
     ASSERT_EQ(delayIn->getDstPort()->getPortNum(), 0);
 
     //----Check Outputs of Delay----
-    ASSERT_EQ(DelayNode->getOutputPort(0)->getArcs().size(), 3);
+    ASSERT_EQ(DelayNode->getOutputPort(0)->numArcs(), 3);
 
     //find which output arc is which
     std::shared_ptr<Arc> OutArc = nullptr;
@@ -193,15 +193,15 @@ TEST(SimulinkImport, SimpleDesign) {
     std::shared_ptr<Arc> ProductArc = nullptr;
 
     for(auto i = DelayNode->getOutputPort(0)->arcsBegin(); i != DelayNode->getOutputPort(0)->arcsEnd(); i++){
-        std::shared_ptr<Port> dstPort = (*i)->getDstPort();
+        std::shared_ptr<Port> dstPort = i->lock()->getDstPort();
         std::shared_ptr<Node> dstNode = dstPort->getParent();
 
         if(std::dynamic_pointer_cast<MasterOutput>(dstNode) != nullptr){
-            OutArc = *i;
+            OutArc = i->lock();
         } else if(std::dynamic_pointer_cast<Sum>(dstNode) != nullptr){
-            Sum2Arc = *i;
+            Sum2Arc = i->lock();
         } else if(std::dynamic_pointer_cast<Product>(dstNode) != nullptr){
-            ProductArc = *i;
+            ProductArc = i->lock();
         }
     }
 
@@ -265,13 +265,13 @@ TEST(SimulinkImport, SimpleDesign) {
     //Verify Number of Ports And Number of Output Arcs
     ASSERT_EQ(Sum2Node->getInputPorts().size(), 2);
     ASSERT_EQ(Sum2Node->getOutputPorts().size(), 1);
-    ASSERT_EQ(Sum2Node->getOutputPort(0)->getArcs().size(), 2);
+    ASSERT_EQ(Sum2Node->getOutputPort(0)->numArcs(), 2);
 
     //Check Input Port From Delay
     ASSERT_EQ(Sum2Arc->getDstPort(), Sum2Node->getInputPort(0));
 
     //Check Input from Input Master
-    std::shared_ptr<Arc> Sum2Input2 = *(Sum2Node->getInputPort(1)->arcsBegin());
+    std::shared_ptr<Arc> Sum2Input2 = Sum2Node->getInputPort(1)->arcsBegin()->lock();
     //Verify Arc Links
     {
         SCOPED_TRACE("");
@@ -289,7 +289,7 @@ TEST(SimulinkImport, SimpleDesign) {
     ASSERT_EQ(OutArc->getDstPort(), outputs->getInputPort(0));
 
     //Check Sum Output
-    std::shared_ptr<Arc> Sum2Out = *(outputs->getInputPort(1)->arcsBegin());
+    std::shared_ptr<Arc> Sum2Out = outputs->getInputPort(1)->arcsBegin()->lock();
     //Verify Arc Links
     {
         SCOPED_TRACE("");
@@ -304,7 +304,7 @@ TEST(SimulinkImport, SimpleDesign) {
     ASSERT_EQ(Sum2Out->getSrcPort(), Sum2Node->getOutputPort(0));
 
     //Check Sum Vis
-    std::shared_ptr<Arc> Sum2Vis = *(vis->getInputPort(0)->arcsBegin());
+    std::shared_ptr<Arc> Sum2Vis = vis->getInputPort(0)->arcsBegin()->lock();
     //Verify Arc Links
     {
         SCOPED_TRACE("");
@@ -343,7 +343,7 @@ TEST(SimulinkImport, SimpleDesign) {
     ASSERT_EQ(ProductArc->getDstPort(), ProductNode->getInputPort(0));
 
     //Check 2nd Product Input
-    std::shared_ptr<Arc> ProductInput2 = *(ProductNode->getInputPort(1)->arcsBegin());
+    std::shared_ptr<Arc> ProductInput2 = ProductNode->getInputPort(1)->arcsBegin()->lock();
     //Verify Arc Links
     {
         SCOPED_TRACE("");
@@ -359,7 +359,7 @@ TEST(SimulinkImport, SimpleDesign) {
     ASSERT_EQ(ProductInput2->getSrcPort(), inputs->getOutputPort(1));
 
     //Check Product Output
-    std::shared_ptr<Arc> ProductTerm = *(ProductNode->getOutputPort(0)->arcsBegin());
+    std::shared_ptr<Arc> ProductTerm = ProductNode->getOutputPort(0)->arcsBegin()->lock();
     //Verify Arc Links
     {
         SCOPED_TRACE("");
