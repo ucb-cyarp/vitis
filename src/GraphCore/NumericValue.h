@@ -65,6 +65,16 @@ public:
      */
     std::string toString() const;
 
+    /**
+     * @brief Constructs a string from an array of numeric values.
+     *
+     * Has the form "[vector[0], vector[1], ...]"
+     *
+     * @param vector vector to construct string from
+     * @return string representation of vector
+     */
+    static std::string toString(std::vector<NumericValue> vector);
+
 //    /**
 //     * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype
 //     * @param dataType the datatype which determines the format of the output.  The numeric number will be cast to this type

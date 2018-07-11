@@ -43,6 +43,8 @@ private:
     explicit Sum(std::shared_ptr<SubSystem> parent);
 
 public:
+    std::set<GraphMLParameter> graphMLParameters() override;
+
     //====Getters/Setters====
     std::vector<bool> getInputSign() const;
     void setInputSign(const std::vector<bool> &inputSign);

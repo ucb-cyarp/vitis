@@ -48,6 +48,8 @@ private:
     explicit Delay(std::shared_ptr<SubSystem> parent);
 
 public:
+    std::set<GraphMLParameter> graphMLParameters() override;
+
     //====Getters/Setters====
     int getDelayValue() const;
     void setDelayValue(int delayValue);

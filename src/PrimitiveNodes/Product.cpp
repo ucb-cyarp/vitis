@@ -64,3 +64,12 @@ std::shared_ptr<Product> Product::createFromSimulinkGraphML(int id, std::map<std
 
     return newNode;
 }
+
+std::set<GraphMLParameter> Product::graphMLParameters() {
+    std::set<GraphMLParameter> parameters;
+
+    //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
+    parameters.insert(GraphMLParameter("InputOps", "string", true));
+
+    return parameters;
+}

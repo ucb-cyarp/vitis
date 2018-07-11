@@ -20,3 +20,17 @@ SubSystem::SubSystem(std::shared_ptr<SubSystem> parent) : Node(parent) {
 
 }
 
+//Collect the parameters from the child nodes
+std::set<GraphMLParameter> SubSystem::graphMLParameters() {
+    //This node has no parameters itself, however, its children may
+    std::set<GraphMLParameter> parameters;
+
+    for(std::set<std::shared_ptr<Node>>::iterator child = children.begin(); child != children.end(); child++){
+        //insert the parameters from the child into the set
+        std::set<GraphMLParameter> childParameters = (*child)->graphMLParameters();
+        parameters.insert(childParameters.begin(), childParameters.end());
+    }
+
+    return parameters;
+}
+

@@ -52,6 +52,7 @@ public:
      */
     void removeChild(std::shared_ptr<Node> child);
 
+    std::set<GraphMLParameter> graphMLParameters() override;
 
 };
 

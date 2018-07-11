@@ -4,6 +4,14 @@
 
 #include "GraphMLParameter.h"
 
+GraphMLParameter::GraphMLParameter() : key(""), type(""), nodeParam(false) {
+
+}
+
+GraphMLParameter::GraphMLParameter(const std::string &key, const std::string &type, bool nodeParam) : key(key), type(type), nodeParam(nodeParam) {
+
+}
+
 std::string GraphMLParameter::getKey() const{
     return key;
 }

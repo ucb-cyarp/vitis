@@ -43,6 +43,8 @@ private:
     explicit Product(std::shared_ptr<SubSystem> parent);
 
 public:
+    std::set<GraphMLParameter> graphMLParameters() override;
+
     //====Getters/Setters====
     std::vector<bool> getInputOp() const;
     void setInputOp(const std::vector<bool> &inputOp);

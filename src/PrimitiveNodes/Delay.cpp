@@ -63,3 +63,13 @@ std::shared_ptr<Delay> Delay::createFromSimulinkGraphML(int id, std::map<std::st
 
     return newNode;
 }
+
+std::set<GraphMLParameter> Delay::graphMLParameters() {
+    std::set<GraphMLParameter> parameters;
+
+    //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
+    parameters.insert(GraphMLParameter("DelayLength", "string", true));
+    parameters.insert(GraphMLParameter("InitialCondition", "string", true));
+
+    return parameters;
+}

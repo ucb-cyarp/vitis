@@ -152,3 +152,7 @@ int Node::getIDFromGraphMLFullPath(std::string fullPath)
     return localId;
 }
 
+//Default behavior is to return an empty set
+std::set<GraphMLParameter> Node::graphMLParameters() {
+    return std::set<GraphMLParameter>();
+}

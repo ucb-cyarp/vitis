@@ -292,3 +292,22 @@ std::ostream &operator<<(std::ostream &os, const NumericValue &value) {
     os << value.toString();
     return os;
 }
+
+std::string NumericValue::toString(std::vector<NumericValue> vector) {
+    std::string val = "[";
+
+    //insert 1st element if it exists
+    if(!vector.empty()){
+        val += vector[0].toString();
+    }
+
+    unsigned long vectorLen = vector.size();
+
+    for(unsigned long i = 1; i < vectorLen; i++){
+       val += ", " + vector[i].toString();
+    }
+
+    val += "]";
+
+    return val;
+}

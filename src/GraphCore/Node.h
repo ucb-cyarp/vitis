@@ -19,6 +19,7 @@ class GraphMLParameter;
 #include <memory>
 #include "Port.h"
 #include "Arc.h"
+#include "GraphMLParameter.h"
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
 
@@ -213,7 +214,7 @@ public:
      * @note The set may contain multiple parameters with the same key but different types.
      * Type conflicts must be resolved before emitting GraphML.
      */
-//    virtual std::set<GraphMLParameter> graphMLParameters() = 0;
+    virtual std::set<GraphMLParameter> graphMLParameters();
 
     /**
      * @brief Expand this node if applicable

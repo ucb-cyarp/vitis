@@ -60,3 +60,12 @@ std::shared_ptr<Sum> Sum::createFromSimulinkGraphML(int id, std::map<std::string
 
     return newNode;
 }
+
+std::set<GraphMLParameter> Sum::graphMLParameters() {
+    std::set<GraphMLParameter> parameters;
+
+    //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
+    parameters.insert(GraphMLParameter("InputSigns", "string", true));
+
+    return parameters;
+}
