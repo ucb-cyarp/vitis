@@ -14,7 +14,7 @@ Port::Port(Node* parent, Port::PortType type, int portNum) : portNum(portNum), t
 }
 
 void Port::addArc(std::shared_ptr<Arc> arc) {
-    arcs.emplace(arc);
+    arcs.insert(arc);
 }
 
 void Port::removeArc(std::shared_ptr<Arc> arc) {
@@ -46,7 +46,7 @@ std::set<std::shared_ptr<Arc>> Port::getArcs() {
             throw std::runtime_error("A weak pointer to an Arc in a port expired.  This should not occur");
         }
         {
-            convertedPtrs.emplace(arc->lock());
+            convertedPtrs.insert(arc->lock());
         }
     }
     return convertedPtrs;

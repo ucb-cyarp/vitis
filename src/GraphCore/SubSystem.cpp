@@ -9,11 +9,11 @@ SubSystem::SubSystem() {
 }
 
 void SubSystem::addChild(std::shared_ptr<Node> child) {
-    children.emplace(child);
+    children.insert(child);
 }
 
 void SubSystem::removeChild(std::shared_ptr<Node> child) {
-    children.erase(child);
+    children.insert(child);
 }
 
 SubSystem::SubSystem(std::shared_ptr<SubSystem> parent) : Node(parent) {
