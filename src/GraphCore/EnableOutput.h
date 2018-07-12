@@ -36,6 +36,8 @@ protected:
      * @param parent parent of new node
      */
     EnableOutput(std::shared_ptr<SubSystem> parent);
+
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 };
 
 /*@}*/

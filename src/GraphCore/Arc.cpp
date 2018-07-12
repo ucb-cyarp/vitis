@@ -7,12 +7,12 @@
 #include "Node.h"
 #include "EnableNode.h"
 
-Arc::Arc() : sampleTime(-1), delay(0), slack(0){
+Arc::Arc() : id(-1), sampleTime(-1), delay(0), slack(0){
     srcPort = std::shared_ptr<Port>(nullptr);
     dstPort = std::shared_ptr<Port>(nullptr);
 }
 
-Arc::Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime) : srcPort(srcPort), dstPort(dstPort), dataType(dataType), sampleTime(sampleTime), delay(0), slack(0){
+Arc::Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime) : id(-1), srcPort(srcPort), dstPort(dstPort), dataType(dataType), sampleTime(sampleTime), delay(0), slack(0){
 
 }
 

@@ -7,6 +7,9 @@
 
 #include <memory>
 #include <vector>
+#include <set>
+
+#include "GraphMLParameter.h"
 
 //Forward Declaration of Classes
 class MasterInput;
@@ -53,6 +56,40 @@ public:
     void addNode(std::shared_ptr<Node> node);
     void addTopLevelNode(std::shared_ptr<Node> node);
     void addArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Re-number node IDs
+     *
+     * @note The node IDs may change in node that previously had valid IDs
+     */
+    void reNumberNodeIDs();
+
+    /**
+     * @brief Assigns node IDs to nodes which have an ID < 0
+     *
+     * Finds the maximum ID of all nodes in the design and begins numbering from there
+     */
+    void assignNodeIDs();
+
+    /**
+     * @brief Re-number arc IDs
+     *
+     * @note The arc IDs may change in node that previously had valid IDs
+     */
+    void reNumberArcIDs();
+
+    /**
+     * @brief Assigns arc IDs to nodes which have an ID < 0
+     *
+     * Finds the maximum ID of all arcs in the design and begins numbering from there
+     */
+    void assignArcIDs();
+
+    /**
+     * @brief Get a set of GraphML parameters for this design by querying the nodes within it
+     * @return set of GraphML parameters for this design
+     */
+    std::set<GraphMLParameter> graphMLParameters();
 
     //==== Getters/Setters ====
     std::shared_ptr<MasterInput> getInputMaster() const;

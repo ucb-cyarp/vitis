@@ -17,6 +17,8 @@ add_compile_options("-DDEBUG")
 #==== Vitis Framework ====
 #List of Common Library Files (used by many targets)
 set(COMMON_SRCS
+        src/General/GeneralHelper.cpp
+        src/General/GeneralHelper.h
         src/GraphCore/Node.cpp
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
@@ -44,10 +46,14 @@ set(COMMON_SRCS
         src/GraphCore/ExpandedNode.cpp
         src/GraphCore/ExpandedNode.h
         src/GraphCore/NodeFactory.h
+        src/MasterNodes/MasterNode.cpp
+        src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
         src/MasterNodes/MasterInput.h
         src/GraphMLTools/SimulinkGraphMLImporter.cpp
         src/GraphMLTools/SimulinkGraphMLImporter.h
+        src/GraphMLTools/GraphMLHelper.cpp
+        src/GraphMLTools/GraphMLHelper.h
         src/GraphCore/Design.cpp
         src/GraphCore/Design.h
         src/MasterNodes/MasterOutput.cpp

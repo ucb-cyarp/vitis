@@ -141,13 +141,6 @@ private:
     static xercesc::DOMNode* graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::string, std::string> &attributeMap, std::map<std::string, std::string> &dataMap);
 
     /**
-     * @brief Returns an XML string as a string c++ string
-     * @param xmlStr XML string to transcode
-     * @return XML string transcoded into a standard c++ string
-     */
-    static std::string getTranscodedString(const XMLCh *xmlStr);
-
-    /**
      * @brief Prints an XML node.  It prints its name, value, attribute names, and attribute values.  It also prints child nodes.
      * @param tabs the number of tabs for this level of the
      * @param node The XML node to print

@@ -20,6 +20,10 @@ class GraphMLParameter;
 #include "Port.h"
 #include "Arc.h"
 #include "GraphMLParameter.h"
+
+#include <xercesc/dom/DOM.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
+
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
 
@@ -51,6 +55,7 @@ class Node : public std::enable_shared_from_this<Node> {
     friend class NodeFactory;
 
 protected:
+    std::string name; ///< An optional human readable name for the node
     int id; ///<Node ID number used when reading/writing GraphML files
     std::shared_ptr<SubSystem> parent; ///<Parent of this node
     //Vectors to unique pointers because we actually need to pass pointers to these ports around (esp to arcs).
@@ -217,6 +222,31 @@ public:
     virtual std::set<GraphMLParameter> graphMLParameters();
 
     /**
+     * @brief Emits the current node as GraphML
+     *
+     * Include Data node entries for parameters
+     *
+     * @param doc the XML document containing graphNode
+     * @param graphNode the node representing the \<graph\> XMLNode that this node object is contained within
+     * @param include_block_node_type if true, the data entry "block_node_type" is included in the output, if false it is not (used when the type should be superceeded - ex expanded node)
+     *
+     * @return pointer to this node's associated DOMNode
+     */
+    virtual xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) = 0;
+
+    /**
+     * @brief Emits the current node as GraphML node without inserting data entries that change depending on the node type
+     *
+     * creates the \<node id="n2"\> entry but nothing below that
+     *
+     * @param doc the XML document containing graphNode
+     * @param graphNode the node representing the \<graph\> XMLNode that this node object is contained within
+     *
+     * @return pointer to this node's associated DOMNode
+     */
+    virtual xercesc::DOMElement* emitGraphMLBasics(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
+
+    /**
      * @brief Expand this node if applicable
      *
      * Typical reasons for expansion include:
@@ -258,6 +288,10 @@ public:
     int getId() const;
 
     void setId(int id);
+
+    const std::string &getName() const;
+
+    void setName(const std::string &name);
 
     //++++ Getters/Setters With Added Functionality ++++
     /**

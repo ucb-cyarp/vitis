@@ -61,6 +61,9 @@ public:
      * @return a pointer to the new Sum node
      */
     static std::shared_ptr<Sum> createFromSimulinkGraphML(int id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
+
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
 };
 
 /*@}*/

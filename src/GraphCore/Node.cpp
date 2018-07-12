@@ -10,6 +10,8 @@
 #include "Port.h"
 #include "Node.h"
 
+#include "GraphMLTools/GraphMLHelper.h"
+
 Node::Node() : id(-1), partitionNum(0)
 {
     parent = std::shared_ptr<SubSystem>(nullptr);
@@ -129,6 +131,14 @@ void Node::setId(int id) {
     Node::id = id;
 }
 
+const std::string &Node::getName() const {
+    return name;
+}
+
+void Node::setName(const std::string &name) {
+    Node::name = name;
+}
+
 int Node::getIDFromGraphMLFullPath(std::string fullPath)
 {
     //Find the location of the last n
@@ -155,4 +165,23 @@ int Node::getIDFromGraphMLFullPath(std::string fullPath)
 //Default behavior is to return an empty set
 std::set<GraphMLParameter> Node::graphMLParameters() {
     return std::set<GraphMLParameter>();
+}
+
+
+xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode) {
+    //Used CreateDOMDocument.cpp example from Xerces as a guide
+
+    //Will not insert newlines under the assumption that format-pretty-print will be enabled in the serializer
+
+    xercesc::DOMElement* nodeElement = GraphMLHelper::createNode(doc, "node");
+    GraphMLHelper::setAttribute(nodeElement, "id", getFullGraphMLPath());
+
+    if(!name.empty()){
+        GraphMLHelper::addDataNode(doc, nodeElement, "instance_name", name);
+    }
+
+    //Add to graph node
+    graphNode->appendChild(nodeElement);
+
+    return nodeElement;
 }

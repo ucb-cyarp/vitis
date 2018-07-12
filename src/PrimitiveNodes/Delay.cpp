@@ -8,6 +8,8 @@
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/NumericValue.h"
 
+#include "General/GeneralHelper.h"
+
 Delay::Delay() : delayValue(0){
 
 }
@@ -72,4 +74,20 @@ std::set<GraphMLParameter> Delay::graphMLParameters() {
     parameters.insert(GraphMLParameter("InitialCondition", "string", true));
 
     return parameters;
+}
+
+xercesc::DOMElement *
+Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
+    if(include_block_node_type) {
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+    }
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Delay");
+
+    GraphMLHelper::addDataNode(doc, thisNode, "DelayLength", std::to_string(delayValue));
+
+    GraphMLHelper::addDataNode(doc, thisNode, "InitialCondition", NumericValue::toString(initCondition));
+
+    return thisNode;
 }

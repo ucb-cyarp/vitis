@@ -4,6 +4,7 @@
 
 #include "Sum.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/GeneralHelper.h"
 
 Sum::Sum() {
 
@@ -68,4 +69,18 @@ std::set<GraphMLParameter> Sum::graphMLParameters() {
     parameters.insert(GraphMLParameter("InputSigns", "string", true));
 
     return parameters;
+}
+
+xercesc::DOMElement *
+Sum::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
+    if(include_block_node_type) {
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+    }
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Sum");
+
+    GraphMLHelper::addDataNode(doc, thisNode, "InputSigns", GeneralHelper::vectorToString(inputSign, "+", "-", "", false));
+
+    return thisNode;
 }

@@ -10,6 +10,7 @@
 #include "Node.h"
 #include "SubSystem.h"
 #include "EnableNode.h"
+#include "GraphMLTools/GraphMLHelper.h"
 
 /**
 * \addtogroup GraphCore Graph Core

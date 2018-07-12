@@ -4,6 +4,8 @@
 
 #include "Product.h"
 #include "GraphCore/NodeFactory.h"
+#include "GraphMLTools/GraphMLHelper.h"
+#include "General/GeneralHelper.h"
 
 Product::Product() {
 
@@ -72,4 +74,18 @@ std::set<GraphMLParameter> Product::graphMLParameters() {
     parameters.insert(GraphMLParameter("InputOps", "string", true));
 
     return parameters;
+}
+
+xercesc::DOMElement *
+Product::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
+    if(include_block_node_type) {
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+    }
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Product");
+
+    GraphMLHelper::addDataNode(doc, thisNode, "InputOps", GeneralHelper::vectorToString(inputOp, "*", "/", "", false));
+
+    return thisNode;
 }

@@ -51,6 +51,8 @@ public:
     const std::shared_ptr<Node> getOrigNode() const;
     void setOrigNode(std::shared_ptr<Node> origNode);
 
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
 };
 
 /*@}*/

@@ -37,6 +37,17 @@ protected:
      */
     SubSystem(std::shared_ptr<SubSystem> parent);
 
+    /**
+     * @brief Emits the subgraph entry for this subsystem as well as calling the emitGraphML functions on each child node
+     *
+     * Was broken into a seperate helper function so the logic could be re-used in enabled subsystem
+     *
+     * @param doc the XML document thisNode resides in
+     * @param thisNode the XML DOMElement node corresponding to this node
+     * @return a pointer to the new XML subgraph node
+     */
+    xercesc::DOMElement* emitGramphMLSubgraphAndChildren(xercesc::DOMDocument* doc, xercesc::DOMElement* thisNode);
+
 public:
 
     //==== Functions ====
@@ -53,6 +64,8 @@ public:
     void removeChild(std::shared_ptr<Node> child);
 
     std::set<GraphMLParameter> graphMLParameters() override;
+
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
 };
 
