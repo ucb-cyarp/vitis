@@ -53,3 +53,19 @@ bool GraphMLParameter::operator<=(const GraphMLParameter &rhs) const {
 bool GraphMLParameter::operator>=(const GraphMLParameter &rhs) const {
     return !(*this < rhs);
 }
+
+const std::string GraphMLParameter::getType() const {
+    return type;
+}
+
+void GraphMLParameter::setType(const std::string &type) {
+    GraphMLParameter::type = type;
+}
+
+bool GraphMLParameter::isNodeParam() const {
+    return nodeParam;
+}
+
+void GraphMLParameter::setNodeParam(bool nodeParam) {
+    GraphMLParameter::nodeParam = nodeParam;
+}

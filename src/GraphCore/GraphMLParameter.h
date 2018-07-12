@@ -66,6 +66,10 @@ public:
     //====Getters/Setters====
     std::string getKey() const;
     void setKey(const std::string &key);
+    const std::string getType() const;
+    void setType(const std::string &type);
+    bool isNodeParam() const;
+    void setNodeParam(bool nodeParam);
 };
 
 /*@}*/

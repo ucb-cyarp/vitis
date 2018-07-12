@@ -11,6 +11,9 @@
 
 #include "GraphMLParameter.h"
 
+#include <xercesc/dom/DOM.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
+
 //Forward Declaration of Classes
 class MasterInput;
 class MasterOutput;
@@ -84,6 +87,16 @@ public:
      * Finds the maximum ID of all arcs in the design and begins numbering from there
      */
     void assignArcIDs();
+
+    /**
+     * @brief Emits the given design as GraphML XML
+     *
+     * @Note: @ref assignNodeIDs and @ref assignArcIDs should be called before this is called.  Otherwise, there may be name colissions.
+     * This function does not call them to allow for either assignment or complete re-numbering to occur based on the situation.
+     *
+     * @param doc the XML document for the design to emit into
+     */
+    void emitGraphML(xercesc::DOMDocument* doc);
 
     /**
      * @brief Get a set of GraphML parameters for this design by querying the nodes within it

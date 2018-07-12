@@ -204,3 +204,61 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
 
     return parameters;
 }
+
+void Design::emitGraphML(xercesc::DOMDocument *doc) {
+    //--Emit GraphML Parameters---
+    std::set<GraphMLParameter> parameterSet = graphMLParameters();
+
+    for(auto parameter = parameterSet.begin(); parameter != parameterSet.end(); parameter++){
+        xercesc::DOMElement* keyElement = GraphMLHelper::createNode(doc, "key");
+        GraphMLHelper::setAttribute(keyElement, "id", parameter->getKey());
+        std::string forStr = parameter->isNodeParam() ? "node" : "edge";
+        GraphMLHelper::setAttribute(keyElement, "for", forStr);
+        GraphMLHelper::setAttribute(keyElement, "attr.name", parameter->getKey());
+        GraphMLHelper::setAttribute(keyElement, "attr.type", parameter->getType());
+
+        std::string defaultVal;
+
+        if(parameter->getType() == "string"){
+            defaultVal = "\"\"";
+        } else if(parameter->getType() == "int"){
+            defaultVal = "0";
+        } else if(parameter->getType() == "double"){
+            defaultVal = "0.0";
+        } else{
+            throw std::runtime_error("Unexpected attribute type");
+        }
+
+        xercesc::DOMElement* defaultNode = GraphMLHelper::createEncapulatedTextNode(doc, "default", defaultVal);
+        keyElement->appendChild(defaultNode);
+
+        //Add to document
+        doc->appendChild(keyElement);
+    }
+
+    //----Create Top Level Graph Node----
+    xercesc::DOMElement* graphElement = GraphMLHelper::createNode(doc, "graph");
+    GraphMLHelper::setAttribute(graphElement, "id", "G");
+    GraphMLHelper::setAttribute(graphElement, "edgedefault", "directed");
+
+    //Add to doc
+    doc->appendChild(graphElement);
+
+    //----Emit Each Node----
+    //Master Nodes
+    inputMaster->emitGraphML(doc, graphElement);
+    outputMaster->emitGraphML(doc, graphElement);
+    visMaster->emitGraphML(doc, graphElement);
+    unconnectedMaster->emitGraphML(doc, graphElement);
+    terminatorMaster->emitGraphML(doc, graphElement);
+
+    //Top Level Nodes (will recursivly emit children)
+    for(auto node=topLevelNodes.begin(); node!=topLevelNodes.end(); node++){
+        (*node)->emitGraphML(doc, graphElement);
+    }
+
+    //Arcs
+    for(auto arc=arcs.begin(); arc!=arcs.end(); arc++){
+        (*arc)->emitGraphML(doc, graphElement);
+    }
+}
