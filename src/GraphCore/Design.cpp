@@ -106,8 +106,8 @@ void Design::addArc(std::shared_ptr<Arc> arc) {
 void Design::reNumberNodeIDs() {
     unsigned long numNodes = nodes.size();
 
-    for(unsigned long i = 0; i<numNodes; i++){
-        nodes[i]->setId(i);  //Start at ID 0
+    for(unsigned long i = 6; i<numNodes; i++){
+        nodes[i]->setId(i);  //Start at ID 6 since there are 5 master nodes that start at index 1
     }
 }
 
@@ -129,6 +129,10 @@ void Design::assignNodeIDs() {
     }
 
     int newID = maxID+1;
+
+    if(newID < 6){
+        newID = 6; //This is because there are 5 master node starting with index 1
+    }
 
     for(unsigned long i = 0; i<numNodes; i++){
         if(nodes[i]->getId()<0){
