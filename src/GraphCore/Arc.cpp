@@ -7,6 +7,9 @@
 #include "Node.h"
 #include "EnableNode.h"
 
+#include "GraphMLTools/GraphMLHelper.h"
+#include "General/GeneralHelper.h"
+
 Arc::Arc() : id(-1), sampleTime(-1), delay(0), slack(0){
     srcPort = std::shared_ptr<Port>(nullptr);
     dstPort = std::shared_ptr<Port>(nullptr);
@@ -190,5 +193,43 @@ int Arc::getId() const {
 
 void Arc::setId(int id) {
     Arc::id = id;
+}
+
+xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode) {
+    //Used CreateDOMDocument.cpp example from Xerces as a guide
+
+    //Will not insert newlines under the assumption that format-pretty-print will be enabled in the serializer
+
+    //---Create the Edge Node---
+    xercesc::DOMElement* arcElement = GraphMLHelper::createNode(doc, "edge");
+    //Set ID
+    GraphMLHelper::setAttribute(arcElement, "id", "e"+std::to_string(id)); //Do not need a full path for the edge
+    //Set Src & Dst
+    GraphMLHelper::setAttribute(arcElement, "source", srcPort->getParent()->getFullGraphMLPath());
+    GraphMLHelper::setAttribute(arcElement, "target", dstPort->getParent()->getFullGraphMLPath());
+
+    //---Add data entries---
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_src_port", std::to_string(srcPort->getPortNum()));
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_dst_port", std::to_string(dstPort->getPortNum()));
+    std::string dstPortType;
+    if(dstPort->getType() == Port::PortType::INPUT){
+        dstPortType = "Standard";
+    }else if(dstPort->getType() == Port::PortType::ENABLE){
+        dstPortType = "Enable";
+    }else{
+        throw std::runtime_error("Unexpected port type when exporting GraphML");
+    }
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_dst_port_type", dstPortType);
+
+    //---DataType----
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_datatype", dataType.toString());
+    std::string complexStr = (dataType.isComplex() ? "true" : "false");
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_complex", complexStr);
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_width", std::to_string(dataType.getWidth()));
+
+    //---Add to graph node---
+    graphNode->appendChild(arcElement);
+
+    return arcElement;
 }
 

@@ -10,6 +10,9 @@
 //#include "Node.h"
 #include "DataType.h"
 
+#include <xercesc/dom/DOM.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
+
 //Forward Decls (Breaking Circular Dep)
 class Port;
 class Node;
@@ -123,6 +126,19 @@ public:
      * @return local ID number
      */
     static int getIDFromGraphMLFullPath(std::string fullPath);
+
+    /**
+     * @brief Emits the current arc as GraphML
+     *
+     * Include Data node entries for parameters
+     *
+     * @param doc the XML document containing graphNode
+     * @param graphNode the node representing the \<graph\> XMLNode that this node object is contained within
+     *
+     * @return pointer to this arcs's associated DOMNode
+     */
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
+
 
     //==== Getters/Setters (With added functionality) ====
 

@@ -196,12 +196,6 @@ public:
     static int getIDFromGraphMLFullPath(std::string fullPath);
 
     /**
-     * @brief Emit GraphML for the given node (and its descendants if it is a Subsystem)
-     * @return GraphML description of the given node (and its descendants) as a std::string
-     */
-//    virtual std::string emitGraphML();
-
-    /**
      * @brief Gets a shared pointer to this node
      *
      * Used in port objects to get a shared pointer to the parent which they then use to return an aliased shared pointer to themselves.
