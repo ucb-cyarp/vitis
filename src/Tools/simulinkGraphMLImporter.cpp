@@ -7,6 +7,7 @@
 #include <string>
 #include <memory>
 #include "GraphMLTools/SimulinkGraphMLImporter.h"
+#include "GraphMLTools/GraphMLExporter.h"
 #include "GraphCore/Design.h"
 
 int main(int argc, char* argv[]) {
@@ -27,8 +28,18 @@ int main(int argc, char* argv[]) {
     std::cout << "Converting to vitis GraphML File: " << outputFilename << std::endl;
 
     std::unique_ptr<Design> design;
+
+    //Import
     try{
         design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+
+    //Export
+    try{
+        GraphMLExporter::exportGraphML(outputFilename, *design);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;
