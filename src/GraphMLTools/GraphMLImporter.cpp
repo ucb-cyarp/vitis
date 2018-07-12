@@ -2,7 +2,7 @@
 // Created by Christopher Yarp on 6/27/18.
 //
 
-#include "SimulinkGraphMLImporter.h"
+#include "GraphMLImporter.h"
 #include "GraphMLHelper.h"
 
 #include "GraphCore/NodeFactory.h"
@@ -29,7 +29,7 @@
 
 using namespace xercesc;
 
-std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::string filename)
+std::unique_ptr<Design> GraphMLImporter::importSimulinkGraphML(std::string filename)
 {
     //Check if input exists (see https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c)
     std::ifstream inputFile;
@@ -160,7 +160,7 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
         std::map<std::string, std::shared_ptr<Node>> nodeMap;
         std::vector<DOMNode*> edgeNodes;
 
-        int numNodesImported = SimulinkGraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes);
+        int numNodesImported = GraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes);
 
         #ifdef DEBUG
         std::cout << "Nodes Imported: " << numNodesImported << std::endl;
@@ -183,7 +183,7 @@ std::unique_ptr<Design> SimulinkGraphMLImporter::importSimulinkGraphML(std::stri
     return design;
 }
 
-std::string SimulinkGraphMLImporter::getTextValueOfNode(xercesc::DOMNode *node)
+std::string GraphMLImporter::getTextValueOfNode(xercesc::DOMNode *node)
 {
     if(node->hasChildNodes()){
         DOMNode* child = node->getFirstChild();
@@ -210,7 +210,7 @@ std::string SimulinkGraphMLImporter::getTextValueOfNode(xercesc::DOMNode *node)
 
 }
 
-DOMNode* SimulinkGraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::map<std::string, std::string> &dataMap){
+DOMNode* GraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::map<std::string, std::string> &dataMap){
     DOMNode* subgraph = nullptr;
 
     if(node->hasChildNodes()){
@@ -257,7 +257,7 @@ DOMNode* SimulinkGraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::ma
 }
 
 xercesc::DOMNode *
-SimulinkGraphMLImporter::graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::string, std::string> &attributeMap, std::map<std::string, std::string> &dataMap) {
+GraphMLImporter::graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::string, std::string> &attributeMap, std::map<std::string, std::string> &dataMap) {
     //Get attributes from given node and add to map
     if(node->hasAttributes())
     {
@@ -284,17 +284,17 @@ SimulinkGraphMLImporter::graphMLDataAttributeMap(xercesc::DOMNode *node, std::ma
         }
     }
 
-    DOMNode* subgraph = SimulinkGraphMLImporter::graphMLDataMap(node, dataMap);
+    DOMNode* subgraph = GraphMLImporter::graphMLDataMap(node, dataMap);
 
     return subgraph;
 }
 
 
-int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes){
-    return SimulinkGraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
+int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes){
+    return GraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
 }
 
-int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent)
+int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent)
 {
     int importedNodes = 0;
 
@@ -308,7 +308,7 @@ int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map
             //This is the root of the DOM document.  Traverse the children
             if(node->hasChildNodes()) {
                 for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
-                    importedNodes += SimulinkGraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                    importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
                 }
             }
         } else if(nodeType==DOMNode::NodeType::COMMENT_NODE) {
@@ -336,7 +336,7 @@ int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map
                 //Itterate over all children
                 if(node->hasChildNodes()){
                     for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
-                        importedNodes += SimulinkGraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                        importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
                     }
                 }
 
@@ -347,7 +347,7 @@ int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map
                 //This is a graph node, it contains other nodes below it.  Process them
                 if(node->hasChildNodes()){
                     for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
-                        importedNodes += SimulinkGraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                        importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
                     }
                 }
 
@@ -356,7 +356,7 @@ int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map
                 edgeNodes.push_back(node);
 
             } else if(nodeName=="node") {
-                importedNodes += SimulinkGraphMLImporter::importNode(node, design, nodeMap, edgeNodes, parent);
+                importedNodes += GraphMLImporter::importNode(node, design, nodeMap, edgeNodes, parent);
 
             } else if(nodeName=="data") {
                 throw std::runtime_error("Encountered a GraphML data node in an unexpected location");
@@ -373,7 +373,7 @@ int SimulinkGraphMLImporter::importNodes(DOMNode *node, Design &design, std::map
 
 }
 
-int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent){
+int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent){
     //Now need to parse the different types of nodes
 
     int nodesImported = 1; //1 for this node
@@ -403,7 +403,7 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
 
     //Construct a map of data values (children) of this node
     std::map<std::string, std::string> dataKeyValueMap;
-    DOMNode* subgraph = SimulinkGraphMLImporter::graphMLDataMap(node, dataKeyValueMap);
+    DOMNode* subgraph = GraphMLImporter::graphMLDataMap(node, dataKeyValueMap);
 
     //Get the human readable instance name if one exists
     std::string name = "";
@@ -435,7 +435,7 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
         {
-            nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem);
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem);
         }
 
     } else if(blockType == "Enabled Subsystem"){
@@ -453,7 +453,7 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
         {
-            nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem);
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem);
         }
 
     } else if(blockType == "Special Input Port"){
@@ -537,7 +537,7 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         throw std::runtime_error("VectorFan not yet implemented");
 
     } else if(blockType == "Expanded"){
-        std::shared_ptr<Node> origNode = SimulinkGraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
+        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
         //Do not add the orig node to the node list
 
         std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(parent, origNode);
@@ -550,10 +550,10 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
         {
-            nodesImported += SimulinkGraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, expandedNode);
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, expandedNode);
         }
     } else if(blockType == "Standard"){
-        std::shared_ptr<Node> newNode = SimulinkGraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
+        std::shared_ptr<Node> newNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
         //Add new node to design and to name node map
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
@@ -568,7 +568,7 @@ int SimulinkGraphMLImporter::importNode(DOMNode *node, Design &design, std::map<
 
 }
 
-void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
+void GraphMLImporter::printGraphmlDOM(std::string filename)
 {
     //This function does not perform schema validation or exploit some of the various advanced options Xerces provides.
 
@@ -630,7 +630,7 @@ void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
     {
         DOMNode *node = doc;
 
-        SimulinkGraphMLImporter::printXMLNodeAndChildren(node);
+        GraphMLImporter::printXMLNodeAndChildren(node);
 
 
     }
@@ -641,7 +641,7 @@ void SimulinkGraphMLImporter::printGraphmlDOM(std::string filename)
     XMLPlatformUtils::Terminate();
 }
 
-void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
+void GraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
 {
     for(int tab = 0; tab<tabs; tab++)
     {
@@ -784,7 +784,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     {
         for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling())
         {
-            SimulinkGraphMLImporter::printXMLNodeAndChildren(child, tabs+2);
+            GraphMLImporter::printXMLNodeAndChildren(child, tabs+2);
         }
     }
 
@@ -801,7 +801,7 @@ void SimulinkGraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int t
     std::cout << "}" << std::endl;
 }
 
-std::shared_ptr<Node> SimulinkGraphMLImporter::importStandardNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
                                                                   std::shared_ptr<SubSystem> parent) {
 
     int id = Node::getIDFromGraphMLFullPath(idStr);
@@ -829,7 +829,7 @@ std::shared_ptr<Node> SimulinkGraphMLImporter::importStandardNode(std::string id
     return newNode;
 }
 
-int SimulinkGraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Design &design,
+int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Design &design,
                                          std::map<std::string, std::shared_ptr<Node>> &nodeMap) {
     //Iterate through the list of edges
     unsigned long numEdges = edgeNodes.size();
@@ -839,7 +839,7 @@ int SimulinkGraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNo
         std::map<std::string, std::string> dataKeyValueMap;
         std::map<std::string, std::string> attributeValueMap;
 
-        SimulinkGraphMLImporter::graphMLDataAttributeMap(edgeNodes[i], attributeValueMap, dataKeyValueMap);
+        GraphMLImporter::graphMLDataAttributeMap(edgeNodes[i], attributeValueMap, dataKeyValueMap);
 
         //==== Extract Information from "Edge" Entry ====
         int id = Arc::getIDFromGraphMLFullPath(attributeValueMap.at("id"));

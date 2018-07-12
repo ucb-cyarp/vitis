@@ -12,7 +12,7 @@
 #include <set>
 
 #include "gtest/gtest.h"
-#include "GraphMLTools/SimulinkGraphMLImporter.h"
+#include "GraphMLTools/GraphMLImporter.h"
 #include "GraphCore/Design.h"
 #include "GraphCore/Port.h"
 #include "MasterNodes/MasterInput.h"

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string>
 #include <memory>
-#include "GraphMLTools/SimulinkGraphMLImporter.h"
+#include "GraphMLTools/GraphMLImporter.h"
 #include "GraphMLTools/GraphMLExporter.h"
 #include "GraphCore/Design.h"
 
@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
     //Import
     try{
-        design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
+        design = GraphMLImporter::importSimulinkGraphML(inputFilename);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

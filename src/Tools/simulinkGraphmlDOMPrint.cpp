@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
-#include "GraphMLTools/SimulinkGraphMLImporter.h"
+#include "GraphMLTools/GraphMLImporter.h"
 #include "GraphCore/Design.h"
 
 int main(int argc, char* argv[]) {
@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Reading GraphML File:  " << inputFilename << std::endl;
 
-    SimulinkGraphMLImporter::printGraphmlDOM(inputFilename);
+    GraphMLImporter::printGraphmlDOM(inputFilename);
 
     return 0;
 }

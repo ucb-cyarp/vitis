@@ -50,8 +50,8 @@ set(COMMON_SRCS
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
         src/MasterNodes/MasterInput.h
-        src/GraphMLTools/SimulinkGraphMLImporter.cpp
-        src/GraphMLTools/SimulinkGraphMLImporter.h
+        src/GraphMLTools/GraphMLImporter.cpp
+        src/GraphMLTools/GraphMLImporter.h
         src/GraphMLTools/GraphMLExporter.cpp
         src/GraphMLTools/GraphMLExporter.h
         src/GraphMLTools/XMLTranscoder.cpp

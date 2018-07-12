@@ -29,7 +29,7 @@
  *
  * However, since GraphML files are XML files, XML parsers are leveraged
  */
-class SimulinkGraphMLImporter {
+class GraphMLImporter {
 public:
     /**
      * @brief Imports a GraphML file which contains an exported Simulink design.
