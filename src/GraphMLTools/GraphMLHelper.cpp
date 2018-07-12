@@ -4,6 +4,8 @@
 
 #include "GraphMLHelper.h"
 
+#include "XMLTranscoder.h"
+
 using namespace xercesc;
 
 std::string GraphMLHelper::getTranscodedString(const XMLCh *xmlStr)
@@ -15,19 +17,15 @@ std::string GraphMLHelper::getTranscodedString(const XMLCh *xmlStr)
     return transcodedStr;
 }
 
-XMLCh *GraphMLHelper::getTranscodedString(const std::string str) {
-    return XMLString::transcode(str.c_str());
-}
-
 void GraphMLHelper::setAttribute(xercesc::DOMElement *node, std::string name, std::string val) {
-    node->setAttribute(xercesc::XMLString::transcode(name.c_str()), xercesc::XMLString::transcode(val.c_str()));
+    node->setAttribute(TranscodeToXMLCh(name.c_str()), TranscodeToXMLCh(val.c_str()));
 }
 
 xercesc::DOMElement *GraphMLHelper::addDataNode(xercesc::DOMDocument *doc, xercesc::DOMElement *node, std::string key, std::string val) {
-    DOMElement* dataNode = doc->createElement(XMLString::transcode("data"));
+    DOMElement* dataNode = doc->createElement(TranscodeToXMLCh("data"));
     setAttribute(dataNode, "key", key);
 
-    DOMText* dataValue = doc->createTextNode(getTranscodedString(val));
+    DOMText* dataValue = doc->createTextNode(TranscodeToXMLCh(val));
     dataNode->appendChild(dataValue);
 
     node->appendChild(dataNode);
@@ -36,5 +34,15 @@ xercesc::DOMElement *GraphMLHelper::addDataNode(xercesc::DOMDocument *doc, xerce
 }
 
 xercesc::DOMElement *GraphMLHelper::createNode(xercesc::DOMDocument *doc, std::string name) {
-    return doc->createElement(getTranscodedString(name));
+    return doc->createElement(TranscodeToXMLCh(name));
+}
+
+xercesc::DOMElement *
+GraphMLHelper::createEncapulatedTextNode(xercesc::DOMDocument *doc, std::string name, std::string txt) {
+    DOMElement* node = doc->createElement(TranscodeToXMLCh(name));
+
+    DOMText* textNode = doc->createTextNode(TranscodeToXMLCh(txt));
+    node->appendChild(textNode);
+
+    return node;
 }

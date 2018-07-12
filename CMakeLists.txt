@@ -52,6 +52,8 @@ set(COMMON_SRCS
         src/MasterNodes/MasterInput.h
         src/GraphMLTools/SimulinkGraphMLImporter.cpp
         src/GraphMLTools/SimulinkGraphMLImporter.h
+        src/GraphMLTools/XMLTranscoder.cpp
+        src/GraphMLTools/XMLTranscoder.h
         src/GraphMLTools/GraphMLHelper.cpp
         src/GraphMLTools/GraphMLHelper.h
         src/GraphCore/Design.cpp

@@ -17,24 +17,15 @@
 
 class GraphMLHelper {
 public:
-
     /**
      * @brief Returns an XML string as a string c++ string
      * @param xmlStr XML string to transcode
+     *
+     * @note For the inverse transform, use @ref XMLTranscoder
+     *
      * @return XML string transcoded into a standard c++ string
      */
     static std::string getTranscodedString(const XMLCh *xmlStr);
-
-    /**
-     * @brief Returns an XML Unicode string from an std::string
-     *
-     * @note: Does not free the memory allocated by XMLString::transcode.  Needs to be freed later in program.
-     *
-     * @param str string to transcode
-     * @return XML unicode string
-     */
-    static XMLCh* getTranscodedString(const std::string str);
-
 
     /**
      * @brief Set the XML attribute of the given DOMElement
@@ -55,12 +46,24 @@ public:
     static xercesc::DOMElement* addDataNode(xercesc::DOMDocument *doc, xercesc::DOMElement* node, std::string key, std::string val);
 
     /**
-     * @brief Create a new element in the given XML document
+     * @brief Create a new element in the given XML document.  This element is not added as the child of another element
      * @param doc XML document to create new element in
      * @param name name of new XML element
      * @return pointer to the new XML element
      */
     static xercesc::DOMElement* createNode(xercesc::DOMDocument *doc, std::string name);
+
+    /**
+     * @brief Create a new element in the given XML document.  This element contains no attributes but contains a single text node.
+     * This element is not added as the child of another element
+     *
+     * An example would be \<default\>some text\</default\>
+     *
+     * @param doc XML document to create new element in
+     * @param name name of new XML element
+     * @return pointer to the new XML element
+     */
+    static xercesc::DOMElement* createEncapulatedTextNode(xercesc::DOMDocument *doc, std::string name, std::string txt);
 };
 
 /*@}*/
