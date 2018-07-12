@@ -22,7 +22,7 @@ void GraphMLHelper::setAttribute(xercesc::DOMElement *node, std::string name, st
 }
 
 xercesc::DOMElement *GraphMLHelper::addDataNode(xercesc::DOMDocument *doc, xercesc::DOMElement *node, std::string key, std::string val) {
-    DOMElement* dataNode = doc->createElement(TranscodeToXMLCh("data"));
+    DOMElement* dataNode = doc->createElementNS(TranscodeToXMLCh(GRAPHML_NS), TranscodeToXMLCh("data"));
     setAttribute(dataNode, "key", key);
 
     DOMText* dataValue = doc->createTextNode(TranscodeToXMLCh(val));
@@ -34,12 +34,12 @@ xercesc::DOMElement *GraphMLHelper::addDataNode(xercesc::DOMDocument *doc, xerce
 }
 
 xercesc::DOMElement *GraphMLHelper::createNode(xercesc::DOMDocument *doc, std::string name) {
-    return doc->createElement(TranscodeToXMLCh(name));
+    return doc->createElementNS(TranscodeToXMLCh(GRAPHML_NS), TranscodeToXMLCh(name));
 }
 
 xercesc::DOMElement *
 GraphMLHelper::createEncapulatedTextNode(xercesc::DOMDocument *doc, std::string name, std::string txt) {
-    DOMElement* node = doc->createElement(TranscodeToXMLCh(name));
+    DOMElement* node = doc->createElementNS(TranscodeToXMLCh(GRAPHML_NS), TranscodeToXMLCh(name));
 
     DOMText* textNode = doc->createTextNode(TranscodeToXMLCh(txt));
     node->appendChild(textNode);

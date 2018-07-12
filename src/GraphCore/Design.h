@@ -95,8 +95,9 @@ public:
      * This function does not call them to allow for either assignment or complete re-numbering to occur based on the situation.
      *
      * @param doc the XML document for the design to emit into
+     * @param root root XML element of document
      */
-    void emitGraphML(xercesc::DOMDocument* doc);
+    void emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* root);
 
     /**
      * @brief Get a set of GraphML parameters for this design by querying the nodes within it

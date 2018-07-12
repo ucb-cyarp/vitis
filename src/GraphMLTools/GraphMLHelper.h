@@ -15,6 +15,11 @@
  */
 /*@{*/
 
+/**
+ * @brief GraphML Namespace String
+ */
+#define GRAPHML_NS "http://graphml.graphdrawing.org/xmlns"
+
 class GraphMLHelper {
 public:
     /**

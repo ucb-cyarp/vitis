@@ -33,14 +33,17 @@ void GraphMLExporter::exportGraphML(std::string filename, Design &design) {
     DOMImplementation *impl = DOMImplementationRegistry::getDOMImplementation(LS_literal);
 
     //Using comments from CreateDOMDocument.cpp as a guide
-    DOMDocument* doc = impl->createDocument(XMLString::transcode("http://graphml.graphdrawing.org/xmlns"), XMLString::transcode("graphml"), nullptr);
-    //Add Namespace Entries
-    doc->createAttributeNS(XMLString::transcode("http://www.w3.org/2001/XMLSchema-instance"), XMLString::transcode("xmlns:xsi"));
-    doc->createAttributeNS(XMLString::transcode("http://graphml.graphdrawing.org/xmlns \n"
-                                                "http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"), XMLString::transcode("xsi:schemaLocation"));
+    //Create document with GraphML namespace
+    DOMDocument* doc = impl->createDocument(TranscodeToXMLCh(GRAPHML_NS), TranscodeToXMLCh("graphml"), nullptr);
+
+    //Get Root Element for Document
+    DOMElement *root = doc->getDocumentElement();
+    //Add additional namespace entries to root element
+    GraphMLHelper::setAttribute(root, "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+    GraphMLHelper::setAttribute(root, "xsi:schemaLocation", "http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd");
 
     //Emit the design;
-    design.emitGraphML(doc);
+    design.emitGraphML(doc, root);
 
     //---Serialize it---
 
@@ -54,6 +57,9 @@ void GraphMLExporter::exportGraphML(std::string filename, Design &design) {
     }
     if (serializerConfig->canSetParameter(XMLUni::fgDOMWRTDiscardDefaultContent, false)) {
         serializerConfig->setParameter(XMLUni::fgDOMWRTDiscardDefaultContent, false);
+    }
+    if (serializerConfig->canSetParameter(XMLUni::fgDOMNamespaceDeclarations, false)) {
+        serializerConfig->setParameter(XMLUni::fgDOMNamespaceDeclarations, false);
     }
 
     bool writeSuccess = serializer->writeToURI(doc, TranscodeToXMLCh(filename));

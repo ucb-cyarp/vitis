@@ -205,7 +205,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     return parameters;
 }
 
-void Design::emitGraphML(xercesc::DOMDocument *doc) {
+void Design::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *root) {
     //--Emit GraphML Parameters---
     std::set<GraphMLParameter> parameterSet = graphMLParameters();
 
@@ -233,7 +233,7 @@ void Design::emitGraphML(xercesc::DOMDocument *doc) {
         keyElement->appendChild(defaultNode);
 
         //Add to document
-        doc->appendChild(keyElement);
+        root->appendChild(keyElement);
     }
 
     //----Create Top Level Graph Node----
@@ -242,7 +242,7 @@ void Design::emitGraphML(xercesc::DOMDocument *doc) {
     GraphMLHelper::setAttribute(graphElement, "edgedefault", "directed");
 
     //Add to doc
-    doc->appendChild(graphElement);
+    root->appendChild(graphElement);
 
     //----Emit Each Node----
     //Master Nodes
