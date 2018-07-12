@@ -12,14 +12,14 @@
 
 #include "GraphMLTools/GraphMLHelper.h"
 
-Node::Node() : id(-1), partitionNum(0)
+Node::Node() : id(-1), name(""), partitionNum(0)
 {
     parent = std::shared_ptr<SubSystem>(nullptr);
 
     //NOTE: CANNOT init ports here since we need a shared pointer to this object
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), partitionNum(0), parent(parent) { }
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(0), parent(parent) { }
 
 void Node::init() {
     //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports

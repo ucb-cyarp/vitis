@@ -806,16 +806,22 @@ std::shared_ptr<Node> SimulinkGraphMLImporter::importStandardNode(std::string id
 
     int id = Node::getIDFromGraphMLFullPath(idStr);
 
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
     std::string blockFunction = dataKeyValueMap.at("block_function");
 
     std::shared_ptr<Node> newNode;
 
     if(blockFunction == "Sum"){
-        newNode = Sum::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
+        newNode = Sum::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent);
     }else if(blockFunction == "Product"){
-        newNode = Product::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
+        newNode = Product::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent);
     }else if(blockFunction == "Delay"){
-        newNode = Delay::createFromSimulinkGraphML(id, dataKeyValueMap, parent);
+        newNode = Delay::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }

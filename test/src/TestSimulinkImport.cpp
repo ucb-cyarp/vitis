@@ -28,28 +28,33 @@ TEST(SimulinkImport, SimpleDesign) {
 
     //==== Traverse Design and Check ====
 
-    //++++ Check Master Node Sizes ++++
+    //++++ Check Master Node Sizes & Names ++++
     std::shared_ptr<MasterInput> inputs = design->getInputMaster();
     ASSERT_EQ(inputs->getInputPorts().size(), 0);
     ASSERT_EQ(inputs->getOutputPorts().size(), 2);
     ASSERT_EQ(inputs->getOutputPort(0)->getArcs().size(), 1);
     ASSERT_EQ(inputs->getOutputPort(1)->getArcs().size(), 3);
+    ASSERT_EQ(inputs->getName(), "Input Master");
 
     std::shared_ptr<MasterOutput> outputs = design->getOutputMaster();
     ASSERT_EQ(outputs->getInputPorts().size(), 2);
     ASSERT_EQ(outputs->getOutputPorts().size(), 0);
+    ASSERT_EQ(outputs->getName(), "Output Master");
 
     std::shared_ptr<MasterOutput> terminator = design->getTerminatorMaster();
     ASSERT_EQ(terminator->getInputPorts().size(), 1);
     ASSERT_EQ(terminator->getOutputPorts().size(), 0);
+    ASSERT_EQ(terminator->getName(), "Terminator Master");
 
     std::shared_ptr<MasterOutput> vis = design->getVisMaster();
     ASSERT_EQ(vis->getInputPorts().size(), 1);
     ASSERT_EQ(vis->getOutputPorts().size(), 0);
+    ASSERT_EQ(vis->getName(), "Visualization Master");
 
     std::shared_ptr<MasterUnconnected> unconnected = design->getUnconnectedMaster();
     ASSERT_EQ(unconnected->getInputPorts().size(), 0);
     ASSERT_EQ(unconnected->getOutputPorts().size(), 0);
+    ASSERT_EQ(unconnected->getName(), "Unconnected Master");
 
     //++++ Check Node Port Numbers ++++
     {
@@ -112,6 +117,7 @@ TEST(SimulinkImport, SimpleDesign) {
         GraphTestHelper::assertCast<Node, Sum>(SumNodeSuper); //Check that this node is a Sum (or subclass)
     }
     std::shared_ptr<Sum> SumNode = std::dynamic_pointer_cast<Sum>(SumNodeSuper);
+    ASSERT_EQ(SumNode->getName(), "Sum");
 
     //Check Input Signs
     {
@@ -168,6 +174,7 @@ TEST(SimulinkImport, SimpleDesign) {
         GraphTestHelper::assertCast<Node, Delay>(DelayNodeSuper);
     }
     std::shared_ptr<Delay> DelayNode = std::dynamic_pointer_cast<Delay>(DelayNodeSuper);
+    ASSERT_EQ(DelayNode->getName(), "Delay");
 
     //Check Delay Values
     ASSERT_EQ(DelayNode->getDelayValue(), 1);
@@ -255,6 +262,7 @@ TEST(SimulinkImport, SimpleDesign) {
         GraphTestHelper::assertCast<Node, Sum>(Sum2NodeSuper);
     }
     std::shared_ptr<Sum> Sum2Node = std::dynamic_pointer_cast<Sum>(Sum2NodeSuper);
+    ASSERT_EQ(Sum2Node->getName(), "Sum1");
 
     //Check Input Signs
     {
@@ -327,6 +335,7 @@ TEST(SimulinkImport, SimpleDesign) {
         GraphTestHelper::assertCast<Node, Product>(ProductNodeSuper);
     }
     std::shared_ptr<Product> ProductNode = std::dynamic_pointer_cast<Product>(ProductNodeSuper);
+    ASSERT_EQ(ProductNode->getName(), "Product");
 
     //Check Input Ops
     {

@@ -60,7 +60,7 @@ public:
      * @param parent The parent of this node in the hierarchy
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<Product> createFromSimulinkGraphML(int id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
+    static std::shared_ptr<Product> createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 };
