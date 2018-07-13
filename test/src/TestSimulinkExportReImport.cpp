@@ -38,6 +38,10 @@ TEST(ImportExport, SimpleDesignSimulinkImportExportReImport) {
 
     //NOTE: Import Verified Separately in TEST(SimulinkImport, SimpleDesign)
 
+    //Assign node and arc IDs if they were not assigned already
+    design->assignNodeIDs();
+    design->assignArcIDs();
+
     //==== Export Vitis File ====
     {
         SCOPED_TRACE("Exporting Vitis File");
