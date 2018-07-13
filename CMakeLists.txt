@@ -58,6 +58,7 @@ set(COMMON_SRCS
         src/GraphMLTools/XMLTranscoder.h
         src/GraphMLTools/GraphMLHelper.cpp
         src/GraphMLTools/GraphMLHelper.h
+        src/GraphMLTools/GraphMLDialect.h
         src/GraphCore/Design.cpp
         src/GraphCore/Design.h
         src/MasterNodes/MasterOutput.cpp

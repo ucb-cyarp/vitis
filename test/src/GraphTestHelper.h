@@ -58,7 +58,7 @@ public:
      */
     template<typename T>
     static void verifyVector(std::vector<T> tgt, std::vector<T> expected){
-        ASSERT_EQ(tgt.size(), expected.size());
+        ASSERT_EQ(tgt.size(), expected.size()) << "Vector lengths do not match";
 
         unsigned long vecLen = expected.size();
 

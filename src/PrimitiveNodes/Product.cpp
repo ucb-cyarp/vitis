@@ -24,39 +24,47 @@ void Product::setInputOp(const std::vector<bool> &inputOp) {
 }
 
 std::shared_ptr<Product> Product::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                                            std::shared_ptr<SubSystem> parent) {
+                                                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     std::shared_ptr<Product> newNode = NodeFactory::createNode<Product>(parent);
     newNode->setId(id);
     newNode->setName(name);
 
     //==== Import important property -- Inputs ====
-    std::string simulinkInputs = dataKeyValueMap.at("Inputs");
+    std::string inputOperations;
+
+    if(dialect == GraphMLDialect::VITIS){
+        //Vitis Name -- InputOps
+        inputOperations = dataKeyValueMap.at("InputOps");
+    } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+        //Simulink Name -- Inputs
+        inputOperations = dataKeyValueMap.at("Inputs");
+    } else
+    {
+        throw std::runtime_error("Unsupported Dialect when parsing XML - Product");
+    }
 
     //There are multiple cases for inputs.  One is a string of * or /.  The other is a number.
     std::vector<bool> ops;
 
-    if(simulinkInputs.empty()){
+    if(inputOperations.empty()){
         throw std::runtime_error("Empty Inputs parameter passed to Product");
-    }else if(simulinkInputs[0] == '*' || simulinkInputs[0] == '/' || simulinkInputs[0] == '|'){
+    }else if(inputOperations[0] == '*' || inputOperations[0] == '/' || inputOperations[0] == '|'){
         //An array of *,/
-        unsigned long inputLength = simulinkInputs.size();
+        unsigned long inputLength = inputOperations.size();
         for(unsigned long i = 0; i<inputLength; i++){
-            bool op;
-            if(simulinkInputs[i] == '*'){
+            if(inputOperations[i] == '*'){
                 ops.push_back(true);
-            }else if(simulinkInputs[i] == '/'){
+            }else if(inputOperations[i] == '/'){
                 ops.push_back(false);
-            }else if(simulinkInputs[i] == '|'){
+            }else if(inputOperations[i] == '|'){
                 //This is is a placeholder character that changes the position of the ports in the GUI but does not effect their numbering
             }else{
                 throw std::runtime_error("Unknown format for Product Input Parameter");
             }
-
-            ops.push_back(op);
         }
     }else{
         //Parmater is a number
-        int numInputs = std::stoi(simulinkInputs);
+        int numInputs = std::stoi(inputOperations);
 
         for(int i = 0; i<numInputs; i++){
             ops.push_back(true);

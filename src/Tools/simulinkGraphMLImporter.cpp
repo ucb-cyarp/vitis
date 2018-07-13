@@ -9,6 +9,7 @@
 #include "GraphMLTools/GraphMLImporter.h"
 #include "GraphMLTools/GraphMLExporter.h"
 #include "GraphCore/Design.h"
+#include "GraphMLTools/GraphMLDialect.h"
 
 int main(int argc, char* argv[]) {
 
@@ -31,7 +32,7 @@ int main(int argc, char* argv[]) {
 
     //Import
     try{
-        design = GraphMLImporter::importSimulinkGraphML(inputFilename);
+        design = GraphMLImporter::importGraphML(inputFilename, GraphMLDialect::SIMULINK_EXPORT);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

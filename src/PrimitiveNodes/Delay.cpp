@@ -35,31 +35,44 @@ void Delay::setInitCondition(const std::vector<NumericValue> &initCondition) {
 }
 
 std::shared_ptr<Delay> Delay::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                                        std::shared_ptr<SubSystem> parent) {
+                                                        std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     std::shared_ptr<Delay> newNode = NodeFactory::createNode<Delay>(parent);
     newNode->setId(id);
     newNode->setName(name);
 
-    //==== Check Supported Config ====
-    std::string delayLengthSource = dataKeyValueMap.at("DelayLengthSource");
+    if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
+        //==== Check Supported Config (Only if Simulink Import)====
+        std::string delayLengthSource = dataKeyValueMap.at("DelayLengthSource");
 
-    if(delayLengthSource != "Dialog"){
-        throw std::runtime_error("Delay block must specify Delay Source as \"Dialog\"");
+        if (delayLengthSource != "Dialog") {
+            throw std::runtime_error("Delay block must specify Delay Source as \"Dialog\"");
+        }
+
+        std::string initialConditionSource = dataKeyValueMap.at("InitialConditionSource");
+        if (initialConditionSource != "Dialog") {
+            throw std::runtime_error("Delay block must specify Initial Condition Source source as \"Dialog\"");
+        }
     }
 
-    std::string initialConditionSource = dataKeyValueMap.at("InitialConditionSource");
-    if(initialConditionSource != "Dialog"){
-        throw std::runtime_error("Delay block must specify Initial Condition Source source as \"Dialog\"");
-    }
+    //==== Import important properties ====
+    std::string delayStr;
+    std::string initialConditionStr;
 
-    //==== Import important property -- DelayLength ====
-    std::string delayStr = dataKeyValueMap.at("Numeric.DelayLength");
+    if (dialect == GraphMLDialect::VITIS) {
+        //Vitis Names -- DelayLength, InitialCondit
+        delayStr = dataKeyValueMap.at("DelayLength");
+        initialConditionStr = dataKeyValueMap.at("InitialCondition");
+    } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
+        //Simulink Names -- Numeric.DelayLength, Numeric.InitialCondition
+        delayStr = dataKeyValueMap.at("Numeric.DelayLength");
+        initialConditionStr = dataKeyValueMap.at("Numeric.InitialCondition");
+    } else
+    {
+        throw std::runtime_error("Unsupported Dialect when parsing XML - Delay");
+    }
 
     int delayVal = std::stoi(delayStr);
     newNode->setDelayValue(delayVal);
-
-    //==== Import important property -- InitialCondition ====
-    std::string initialConditionStr = dataKeyValueMap.at("Numeric.InitialCondition");
 
     std::vector<NumericValue> initialConds = NumericValue::parseXMLString(initialConditionStr);
     newNode->setInitCondition(initialConds);

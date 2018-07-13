@@ -13,6 +13,8 @@
 
 #include "GraphCore/Node.h"
 #include "GraphCore/NumericValue.h"
+#include "GraphMLTools/GraphMLDialect.h"
+
 
 /**
  * \addtogroup PrimitiveNodes Primitives
@@ -58,16 +60,17 @@ public:
 
     //====Factories====
     /**
-     * @brief Creates a delay node from a Simulink GraphML Description
+     * @brief Creates a delay node from a GraphML Description
      *
      * @note This function does not add the node to the design or to the nodeID/pointer map
      *
      * @param id the ID number of the node
      * @param dataKeyValueMap A map of property keys and values extracted from the data nodes in the GraphML
      * @param parent The parent of this node in the hierarchy
+     * @param dialect The dialect of the GraphML file being imported
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<Delay> createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
+    static std::shared_ptr<Delay> createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 

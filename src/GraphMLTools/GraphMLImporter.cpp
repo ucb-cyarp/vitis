@@ -29,7 +29,7 @@
 
 using namespace xercesc;
 
-std::unique_ptr<Design> GraphMLImporter::importSimulinkGraphML(std::string filename)
+std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, GraphMLDialect dialect)
 {
     //Check if input exists (see https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c)
     std::ifstream inputFile;
@@ -160,13 +160,13 @@ std::unique_ptr<Design> GraphMLImporter::importSimulinkGraphML(std::string filen
         std::map<std::string, std::shared_ptr<Node>> nodeMap;
         std::vector<DOMNode*> edgeNodes;
 
-        int numNodesImported = GraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes);
+        int numNodesImported = GraphMLImporter::importNodes(node, *design, nodeMap, edgeNodes, dialect);
 
         #ifdef DEBUG
         std::cout << "Nodes Imported: " << numNodesImported << std::endl;
         #endif
 
-        int numArcsImported = importEdges(edgeNodes, *design, nodeMap);
+        int numArcsImported = importEdges(edgeNodes, *design, nodeMap, dialect);
 
         #ifdef DEBUG
         std::cout << "Arcs Imported: " << numArcsImported << std::endl;
@@ -290,11 +290,11 @@ GraphMLImporter::graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::s
 }
 
 
-int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes){
-    return GraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr));
+int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, GraphMLDialect dialect){
+    return GraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr), dialect);
 }
 
-int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent)
+int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect)
 {
     int importedNodes = 0;
 
@@ -308,7 +308,7 @@ int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::st
             //This is the root of the DOM document.  Traverse the children
             if(node->hasChildNodes()) {
                 for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
-                    importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                    importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent, dialect);
                 }
             }
         } else if(nodeType==DOMNode::NodeType::COMMENT_NODE) {
@@ -336,7 +336,7 @@ int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::st
                 //Itterate over all children
                 if(node->hasChildNodes()){
                     for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
-                        importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                        importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent, dialect);
                     }
                 }
 
@@ -347,7 +347,7 @@ int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::st
                 //This is a graph node, it contains other nodes below it.  Process them
                 if(node->hasChildNodes()){
                     for(DOMNode* child = node->getFirstChild(); child != nullptr; child = child->getNextSibling()){
-                        importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent);
+                        importedNodes += GraphMLImporter::importNodes(child, design, nodeMap, edgeNodes, parent, dialect);
                     }
                 }
 
@@ -356,7 +356,7 @@ int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::st
                 edgeNodes.push_back(node);
 
             } else if(nodeName=="node") {
-                importedNodes += GraphMLImporter::importNode(node, design, nodeMap, edgeNodes, parent);
+                importedNodes += GraphMLImporter::importNode(node, design, nodeMap, edgeNodes, parent, dialect);
 
             } else if(nodeName=="data") {
                 throw std::runtime_error("Encountered a GraphML data node in an unexpected location");
@@ -373,7 +373,7 @@ int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::st
 
 }
 
-int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent){
+int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect){
     //Now need to parse the different types of nodes
 
     int nodesImported = 1; //1 for this node
@@ -435,7 +435,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
         {
-            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem);
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem, dialect);
         }
 
     } else if(blockType == "Enabled Subsystem"){
@@ -453,7 +453,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
         {
-            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem);
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem, dialect);
         }
 
     } else if(blockType == "Special Input Port"){
@@ -537,7 +537,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         throw std::runtime_error("VectorFan not yet implemented");
 
     } else if(blockType == "Expanded"){
-        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
+        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent, dialect);
         //Do not add the orig node to the node list
 
         std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(parent, origNode);
@@ -550,10 +550,10 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
         {
-            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, expandedNode);
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, expandedNode, dialect);
         }
     } else if(blockType == "Standard"){
-        std::shared_ptr<Node> newNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent);
+        std::shared_ptr<Node> newNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent, dialect);
         //Add new node to design and to name node map
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
@@ -802,7 +802,7 @@ void GraphMLImporter::printXMLNodeAndChildren(const DOMNode *node, int tabs)
 }
 
 std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
-                                                                  std::shared_ptr<SubSystem> parent) {
+                                                                  std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
 
     int id = Node::getIDFromGraphMLFullPath(idStr);
 
@@ -817,11 +817,11 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     std::shared_ptr<Node> newNode;
 
     if(blockFunction == "Sum"){
-        newNode = Sum::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent);
+        newNode = Sum::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Product"){
-        newNode = Product::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent);
+        newNode = Product::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Delay"){
-        newNode = Delay::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent);
+        newNode = Delay::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
@@ -830,7 +830,7 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
 }
 
 int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Design &design,
-                                         std::map<std::string, std::shared_ptr<Node>> &nodeMap) {
+                                         std::map<std::string, std::shared_ptr<Node>> &nodeMap, GraphMLDialect dialect) {
     //Iterate through the list of edges
     unsigned long numEdges = edgeNodes.size();
 
@@ -879,9 +879,11 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
             throw std::runtime_error("Null Dst Node Ptr");
         }
 
-        //==== Adjust Port Numbers to be 0 based rather than 1 based ====
-        srcPortNum--;
-        dstPortNum--;
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            //==== Adjust Port Numbers to be 0 based rather than 1 based (only when importing from Simulink)====
+            srcPortNum--;
+            dstPortNum--;
+        }
 
         if(srcPortNum < 0){
             throw std::runtime_error("Src Port Num < 0");

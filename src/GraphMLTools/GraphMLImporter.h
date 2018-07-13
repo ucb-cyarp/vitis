@@ -14,6 +14,7 @@
 
 #include "GraphCore/Design.h"
 #include "GraphCore/SubSystem.h"
+#include "GraphMLDialect.h"
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
@@ -40,9 +41,10 @@ public:
      * @note The port numbers will be changed from starting at 1 to starting at 0 to better match C++
      *
      * @param filename The filename of the GraphML file to import
+     * @param dialect The dialect of the GraphML file to import
      * @return A pointer to a new Design object which contains an internal representation of the design
      */
-    static std::unique_ptr<Design> importSimulinkGraphML(std::string filename);
+    static std::unique_ptr<Design> importGraphML(std::string filename, GraphMLDialect dialect = GraphMLDialect::VITIS);
 
     /**
      * @brief Prints the various DOM nodes of a grsaphml file;
@@ -57,9 +59,10 @@ private:
      * @param design The design object which is modified to include the imported nodes
      * @param nodeMap A map of nodes names to node object pointers which is populated during the import
      * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
+     * @param dialect The dialect of the GraphML file being imported
      * @return The number of nodes imported
      */
-    static int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes);
+    static int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, GraphMLDialect dialect);
 
     /**
      * @brief Imports nodes from an XML DOM tree
@@ -68,9 +71,10 @@ private:
      * @param nodeMap A map of nodes names to node object pointers which is populated during the import
      * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
      * @param parent The parent Node object for the current position in the DOM
+     * @param dialect The dialect of the GraphML file being imported
      * @return The number of nodes imported
      */
-    static int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent);
+    static int importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
 
     /**
@@ -80,9 +84,10 @@ private:
      * @param nodeMap A map of nodes names to node object pointers which is populated during the import
      * @param edgeNodes A vector of edge node DOM nodes which are found while traversing the XML and importing nodes
      * @param parent The parent Node object for the current position in the DOM
+     * @param dialect Dialect of GraphML file being imported
      * @return The number of nodes imported
      */
-    static int importNode(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent);
+    static int importNode(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     /**
      * @brief Imports a Standard GraphML block
@@ -94,9 +99,10 @@ private:
      * @param id The id of the node
      * @param dataKeyValueMap The map of key/value pairs for node parameters
      * @param parent The parent Node object for the current position in the DOM
+     * @param dialect The dialect of the GraphML file being imported
      * @return A pointer to the newly created Standard node
      */
-    static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent);
+    static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     /**
      * @brief Import an array of DSP Arcs (from DOM nodes) into the design
@@ -106,9 +112,10 @@ private:
      * @param edgeNodes An array of edge XML DOM nodes
      * @param design The Design to add these edges (arcs) to
      * @param nodeMap A map of node names to Node object pointers
+     * @param dialect The dialect of the GraphML file being imported
      * @return number of edges imported
      */
-    static int importEdges(std::vector<xercesc::DOMNode*> &edgeNodes, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap);
+    static int importEdges(std::vector<xercesc::DOMNode*> &edgeNodes, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, GraphMLDialect dialect);
 
     /**
      * @brief Get the text value for a given node (in the text element under this node)

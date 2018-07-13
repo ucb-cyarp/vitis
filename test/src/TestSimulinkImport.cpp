@@ -7,6 +7,7 @@
 #include <set>
 #include "gtest/gtest.h"
 #include "GraphMLTools/GraphMLImporter.h"
+#include "GraphMLTools/GraphMLDialect.h"
 #include "GraphCore/Design.h"
 #include "GraphCore/Port.h"
 #include "MasterNodes/MasterInput.h"
@@ -22,8 +23,10 @@
 TEST(SimulinkImport, SimpleDesign) {
     //==== Import File ====
     std::string inputFile = "./stimulus/simulink/basic/simple.graphml";
-    std::unique_ptr<Design> design = GraphMLImporter::importSimulinkGraphML(inputFile);
+    std::unique_ptr<Design> design = GraphMLImporter::importGraphML(inputFile, GraphMLDialect::SIMULINK_EXPORT);
 
-    SCOPED_TRACE("");
-    SimpleDesignValidator::validate(*design);
+    {
+        SCOPED_TRACE("");
+        SimpleDesignValidator::validate(*design);
+    }
 }

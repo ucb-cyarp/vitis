@@ -22,28 +22,40 @@ void Sum::setInputSign(const std::vector<bool> &inputSign) {
     Sum::inputSign = inputSign;
 }
 
-std::shared_ptr<Sum> Sum::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent) {
+std::shared_ptr<Sum> Sum::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
+                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     std::shared_ptr<Sum> newNode = NodeFactory::createNode<Sum>(parent);
     newNode->setId(id);
     newNode->setName(name);
 
-    //==== Import important property -- Inputs ====
-    std::string simulinkInputs = dataKeyValueMap.at("Inputs");
+    //==== Import important property ====
+    std::string inputSigns;
+
+    if(dialect == GraphMLDialect::VITIS){
+        //Vitis Name -- InputSigns
+        inputSigns = dataKeyValueMap.at("InputSigns");
+    } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+        //Simulink Name -- Inputs
+        inputSigns = dataKeyValueMap.at("Inputs");
+    } else
+    {
+        throw std::runtime_error("Unsupported Dialect when parsing XML - Product");
+    }
 
     //There are multiple cases for inputs.  One is a string of + or - signs.  The other is a number.
     std::vector<bool> signs;
 
-    if(simulinkInputs.empty()){
+    if(inputSigns.empty()){
         throw std::runtime_error("Empty Inputs parameter passed to Sum");
-    }else if(simulinkInputs[0] == '+' || simulinkInputs[0] == '-' || simulinkInputs[0] == '|'){
+    }else if(inputSigns[0] == '+' || inputSigns[0] == '-' || inputSigns[0] == '|'){
         //An array of +,-,|
-        unsigned long inputLength = simulinkInputs.size();
+        unsigned long inputLength = inputSigns.size();
         for(unsigned long i = 0; i<inputLength; i++){
-            if(simulinkInputs[i] == '+'){
+            if(inputSigns[i] == '+'){
                 signs.push_back(true);
-            }else if(simulinkInputs[i] == '-'){
+            }else if(inputSigns[i] == '-'){
                 signs.push_back(false);
-            }else if(simulinkInputs[i] == '|'){
+            }else if(inputSigns[i] == '|'){
                 //This is is a placeholder character that changes the position of the ports in the GUI but does not effect their numbering
             }else{
                 throw std::runtime_error("Unknown format for Sum Input Parameter");
@@ -51,7 +63,7 @@ std::shared_ptr<Sum> Sum::createFromSimulinkGraphML(int id, std::string name, st
         }
     }else{
         //Parmater is a number
-        int numInputs = std::stoi(simulinkInputs);
+        int numInputs = std::stoi(inputSigns);
 
         for(int i = 0; i<numInputs; i++){
             signs.push_back(true);

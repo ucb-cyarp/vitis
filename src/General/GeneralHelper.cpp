@@ -19,7 +19,7 @@ GeneralHelper::vectorToString(std::vector<bool> vec, std::string trueStr, std::s
 
     unsigned long vecLen = vec.size();
     for(unsigned long i = 1; i<vecLen; i++){
-        str += separator + str += (vec[i] ? trueStr : falseStr);
+        str += separator + (vec[i] ? trueStr : falseStr);
     }
 
     if(includeBrackets){
