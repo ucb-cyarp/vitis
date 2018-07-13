@@ -105,3 +105,11 @@ Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bo
 
     return thisNode;
 }
+
+std::string Delay::labelStr() {
+    std::string label = Node::labelStr();
+
+    label += "\nFunction: Delay\nDelayLength:" + std::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
+
+    return label;
+}

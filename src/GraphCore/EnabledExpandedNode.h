@@ -42,6 +42,8 @@ protected:
 
     //Init should be overwritten by EnabledSubSystem
 
+    std::string labelStr() override ;
+
 };
 
 /*@}*/

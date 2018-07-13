@@ -226,10 +226,27 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
     std::string complexStr = (dataType.isComplex() ? "true" : "false");
     GraphMLHelper::addDataNode(doc, arcElement, "arc_complex", complexStr);
     GraphMLHelper::addDataNode(doc, arcElement, "arc_width", std::to_string(dataType.getWidth()));
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_disp_label", labelStr());
 
     //---Add to graph node---
     graphNode->appendChild(arcElement);
 
     return arcElement;
+}
+
+std::string Arc::labelStr() {
+
+    std::string dstPortType = "Standard";
+    if(dstPort->getType() == Port::PortType::ENABLE){
+        dstPortType = "Enable";
+    }
+
+    std::string label = "ID: e" + std::to_string(id) +
+                        "\nSrc Port: " + std::to_string(srcPort->getPortNum()) +
+                        "\nDst Port: " + std::to_string(dstPort->getPortNum()) + " (" + dstPortType + ")"
+                        "\nDatatype: " + dataType.toString() + " (" + (dataType.isComplex() ? "Complex" : "Real") + ")" +
+                        "\nWidth: " + std::to_string(dataType.getWidth());
+
+    return label;
 }
 

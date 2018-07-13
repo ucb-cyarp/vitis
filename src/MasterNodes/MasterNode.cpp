@@ -18,3 +18,11 @@ MasterNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNod
 
     return thisNode;
 }
+
+std::string MasterNode::labelStr() {
+    std::string label = Node::labelStr();
+
+    label += "\nType: Master";
+
+    return label;
+}

@@ -20,7 +20,7 @@
 /**
  * @brief Represents a subsystem whose execution can be enabled or disabled via an enable port
  */
-class EnabledSubSystem : public SubSystem {
+class EnabledSubSystem : public virtual SubSystem {
 friend class NodeFactory;
 
 protected:
@@ -38,6 +38,8 @@ protected:
      * @param parent parent of the new node
      */
     EnabledSubSystem(std::shared_ptr<SubSystem> parent);
+
+    std::string labelStr() override ;
 
 public:
 

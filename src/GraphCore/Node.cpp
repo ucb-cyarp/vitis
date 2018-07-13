@@ -180,8 +180,25 @@ xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc:
         GraphMLHelper::addDataNode(doc, nodeElement, "instance_name", name);
     }
 
+    std::string label = labelStr();
+    if(!label.empty()){
+        GraphMLHelper::addDataNode(doc, nodeElement, "block_label", label);
+    }
+
     //Add to graph node
     graphNode->appendChild(nodeElement);
 
     return nodeElement;
+}
+
+std::string Node::labelStr() {
+    std::string label = "";
+
+    if(!name.empty()){
+        label += name + "\n";
+    }
+
+    label +=  "ID: " + getFullGraphMLPath();
+
+    return label;
 }

@@ -15,3 +15,12 @@ EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent) : En
 EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : EnabledSubSystem(parent), ExpandedNode(parent, orig) {
 
 }
+
+
+std::string EnabledExpandedNode::labelStr() {
+    std::string label = Node::labelStr();
+
+    label += "\nType: Enabled Expanded";
+
+    return label;
+}

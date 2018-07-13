@@ -97,3 +97,11 @@ Sum::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool
 
     return thisNode;
 }
+
+std::string Sum::labelStr() {
+    std::string label = Node::labelStr();
+
+    label += "\nFunction: Sum\nInputOps:" + GeneralHelper::vectorToString(inputSign, "+", "-", "", false);
+
+    return label;
+}

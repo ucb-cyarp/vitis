@@ -40,3 +40,11 @@ ExpandedNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphN
 
     return thisNode;
 }
+
+std::string ExpandedNode::labelStr() {
+    std::string label = Node::labelStr();
+
+    label += "\nType: Expanded";
+
+    return label;
+}

@@ -22,3 +22,11 @@ xercesc::DOMElement *EnableOutput::emitGraphML(xercesc::DOMDocument *doc, xerces
 
     return thisNode;
 }
+
+std::string EnableOutput::labelStr() {
+    std::string label = Node::labelStr();
+
+    label += "\nType: Enable Output";
+
+    return label;
+}

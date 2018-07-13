@@ -139,6 +139,11 @@ public:
      */
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
 
+    /**
+     * @brief Get a human readable description of the arc
+     * @return human readable description of arc
+     */
+    std::string labelStr();
 
     //==== Getters/Setters (With added functionality) ====
 

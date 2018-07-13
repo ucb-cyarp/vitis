@@ -269,6 +269,12 @@ public:
      */
 //    virtual std::string emitCpp(int outputPort) = 0;
 
+    /**
+     * @brief Get a human readable description of the node
+     * @return human readable description of node
+     */
+    virtual std::string labelStr();
+
     //==== Getters/Setters ====
     /**
      * @brief Sets the parent of the node without updating the child set of the parent to include this node.

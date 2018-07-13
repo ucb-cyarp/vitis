@@ -22,7 +22,7 @@
  * the expanded node, a reference to the original node (containing the original parameters used for expansion) is kept.
  *
  */
-class ExpandedNode : public SubSystem{
+class ExpandedNode : public virtual SubSystem{
 friend class NodeFactory;
 
 protected:
@@ -53,6 +53,7 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string labelStr() override ;
 };
 
 /*@}*/
