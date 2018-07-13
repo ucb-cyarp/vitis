@@ -30,10 +30,6 @@ int main(int argc, char* argv[]) {
 
     std::unique_ptr<Design> design;
 
-    //Assign node and arc IDs if they were not assigned already (should be a rare occurance)
-    design->assignNodeIDs();
-    design->assignArcIDs();
-
     //Import
     try{
         design = GraphMLImporter::importGraphML(inputFilename, GraphMLDialect::SIMULINK_EXPORT);
@@ -41,6 +37,10 @@ int main(int argc, char* argv[]) {
         std::cerr << e.what() << std::endl;
         return 1;
     }
+
+    //Assign node and arc IDs if they were not assigned already (should be a rare occurance)
+    design->assignNodeIDs();
+    design->assignArcIDs();
 
     //Export
     try{
