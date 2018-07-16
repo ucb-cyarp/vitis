@@ -16,6 +16,9 @@
  */
 /*@{*/
 
+/**
+ * @brief Exporter for exporting a DSP design to a GraphML file
+ */
 class GraphMLExporter {
 public:
     /**

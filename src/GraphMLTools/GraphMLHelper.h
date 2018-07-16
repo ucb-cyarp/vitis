@@ -20,6 +20,9 @@
  */
 #define GRAPHML_NS "http://graphml.graphdrawing.org/xmlns"
 
+/**
+ * @brief Container for helper functions used when dealing with GraphML files (importing/exporting)
+ */
 class GraphMLHelper {
 public:
     /**
