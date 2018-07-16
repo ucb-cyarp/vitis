@@ -14,8 +14,8 @@
  * @brief Describes the different dialects of GraphML Documment that can be handled.
  */
 enum class GraphMLDialect{
-    VITIS, //<The standard dialect for this program.  Can Read & Write This Dialect
-    SIMULINK_EXPORT //<The dialect from the Simulink Export Scripts which contains many Simulink specific parameters.  Can Import This Dialect.
+    VITIS, ///<The standard dialect for this program.  Can Read & Write This Dialect
+    SIMULINK_EXPORT ///<The dialect from the Simulink Export Scripts which contains many Simulink specific parameters.  Can Import This Dialect.
 };
 
 /*@}*/
