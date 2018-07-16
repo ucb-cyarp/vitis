@@ -70,7 +70,9 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Product.cpp
         src/PrimitiveNodes/Product.h
         src/PrimitiveNodes/Delay.cpp
-        src/PrimitiveNodes/Delay.h)
+        src/PrimitiveNodes/Delay.h
+        src/PrimitiveNodes/Constant.cpp
+        src/PrimitiveNodes/Constant.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

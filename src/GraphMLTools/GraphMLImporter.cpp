@@ -18,6 +18,7 @@
 #include "PrimitiveNodes/Sum.h"
 #include "PrimitiveNodes/Product.h"
 #include "PrimitiveNodes/Delay.h"
+#include "PrimitiveNodes/Constant.h"
 
 #include <iostream>
 #include <fstream>
@@ -820,8 +821,10 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = Sum::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Product"){
         newNode = Product::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "Delay"){
+    }else if(blockFunction == "Delay") {
         newNode = Delay::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Constant"){
+        newNode = Constant::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
