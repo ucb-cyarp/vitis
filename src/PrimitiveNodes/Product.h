@@ -64,6 +64,7 @@ public:
      */
     static std::shared_ptr<Product> createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
+    //==== Emit Functions ====
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
     std::string labelStr() override ;
