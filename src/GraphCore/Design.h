@@ -91,7 +91,7 @@ public:
     /**
      * @brief Emits the given design as GraphML XML
      *
-     * @Note: @ref assignNodeIDs and @ref assignArcIDs should be called before this is called.  Otherwise, there may be name colissions.
+     * @note: @ref assignNodeIDs and @ref assignArcIDs should be called before this is called.  Otherwise, there may be name colissions.
      * This function does not call them to allow for either assignment or complete re-numbering to occur based on the situation.
      *
      * @param doc the XML document for the design to emit into

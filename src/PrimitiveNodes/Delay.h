@@ -63,6 +63,7 @@ public:
      * @note This function does not add the node to the design or to the nodeID/pointer map
      *
      * @param id the ID number of the node
+     * @param name the human readable name of a node
      * @param dataKeyValueMap A map of property keys and values extracted from the data nodes in the GraphML
      * @param parent The parent of this node in the hierarchy
      * @param dialect The dialect of the GraphML file being imported

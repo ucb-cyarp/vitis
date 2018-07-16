@@ -45,7 +45,7 @@ public:
 
     /**
      * @brief Construct a real double
-     * @param realInt the real double
+     * @param realDouble the real double
      */
     NumericValue(double realDouble);
 
@@ -75,11 +75,11 @@ public:
      */
     static std::string toString(std::vector<NumericValue> vector);
 
-//    /**
-//     * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype
-//     * @param dataType the datatype which determines the format of the output.  The numeric number will be cast to this type
-//     * @return string representation of the numeric value
-//     */
+    /*
+     * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype
+     * @param dataType the datatype which determines the format of the output.  The numeric number will be cast to this type
+     * @return string representation of the numeric value
+     */
 //    std::string toString(DataType dataType);
 
     /**

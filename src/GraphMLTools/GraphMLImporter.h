@@ -107,7 +107,7 @@ private:
     /**
      * @brief Import an array of DSP Arcs (from DOM nodes) into the design
      *
-     * The edgeNodes list and nodeMap map is populated during a call to @ref SimulinkGraphMLImporter::importNodes
+     * The edgeNodes list and nodeMap map is populated during a call to @ref GraphMLImporter::importNodes
      *
      * @param edgeNodes An array of edge XML DOM nodes
      * @param design The Design to add these edges (arcs) to

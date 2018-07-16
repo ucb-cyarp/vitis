@@ -240,7 +240,7 @@ public:
      */
     virtual xercesc::DOMElement* emitGraphMLBasics(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
 
-    /**
+    /*
      * @brief Expand this node if applicable
      *
      * Typical reasons for expansion include:
@@ -258,7 +258,7 @@ public:
      */
 //    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) = 0;
 
-    /**
+    /*
      * @brief Emit C++ code to calculate the value of an output port.
      *
      * If the output is dependant on the result of other operations, those dependant operations will be emitted

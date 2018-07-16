@@ -66,6 +66,7 @@ public:
      *
      * @param doc XML document to create new element in
      * @param name name of new XML element
+     * @param txt text content of text node
      * @return pointer to the new XML element
      */
     static xercesc::DOMElement* createEncapulatedTextNode(xercesc::DOMDocument *doc, std::string name, std::string txt);
