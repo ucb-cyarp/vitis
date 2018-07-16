@@ -50,8 +50,6 @@ private:
     explicit Delay(std::shared_ptr<SubSystem> parent);
 
 public:
-    std::set<GraphMLParameter> graphMLParameters() override;
-
     //====Getters/Setters====
     int getDelayValue() const;
     void setDelayValue(int delayValue);
@@ -73,6 +71,8 @@ public:
     static std::shared_ptr<Delay> createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     //==== Emit Functions ====
+    std::set<GraphMLParameter> graphMLParameters() override;
+
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
     std::string labelStr() override ;
