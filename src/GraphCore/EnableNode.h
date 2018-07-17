@@ -8,6 +8,7 @@
 #include <memory>
 #include "Node.h"
 #include "SubSystem.h"
+#include "EnablePort.h"
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -24,7 +25,7 @@ friend class NodeFactory;
 
 protected:
     //NOTE: made into a unique pointer so that a pointer to the port can be reliably shared.
-    std::unique_ptr<Port> enablePort; ///< The enable port.  The input of this port determines if a new value is propagated or not
+    std::unique_ptr<EnablePort> enablePort; ///< The enable port.  The input of this port determines if a new value is propagated or not
 
     /**
      * @brief Default constructor
@@ -54,6 +55,11 @@ public:
      * @return reference to the enable port
      */
     std::shared_ptr<Port> getEnablePort();
+
+    /**
+     * @brief Performs check of @ref Node in addition to checking the enable port
+     */
+    void validate() override;
 };
 
 /*@}*/

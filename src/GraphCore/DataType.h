@@ -95,6 +95,9 @@ public:
     int getWidth() const;
     void setWidth(int width);
 
+    //==== Added Functions ====
+    bool isBool();
+
 };
 
 /*@}*/

@@ -18,6 +18,8 @@ class GraphMLParameter;
 #include <string>
 #include <memory>
 #include "Port.h"
+#include "InputPort.h"
+#include "OutputPort.h"
 #include "Arc.h"
 #include "GraphMLParameter.h"
 
@@ -65,8 +67,8 @@ protected:
     //entries are added to the vector.  When the node is destroyed, the ports are destroyed as well due to the sole ownership.
     //shared_ptrs to the ports can be generated but these are aliased pointers that account for the shared ownership of the
     //nodes, they alias to the port.
-    std::vector<std::unique_ptr<Port>> inputPorts; ///<The input ports of this node
-    std::vector<std::unique_ptr<Port>> outputPorts; ///<The output ports of this node
+    std::vector<std::unique_ptr<InputPort>> inputPorts; ///<The input ports of this node
+    std::vector<std::unique_ptr<OutputPort>> outputPorts; ///<The output ports of this node
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     std::vector<bool> cOutEmitted; ///<A vector of bools indicating if a particular output has been emitted in C++
     std::vector<std::string> cOutVarName; ///<A vector of strings which hold the variable names in C++ if the output was stored in a C++ var
@@ -150,7 +152,7 @@ public:
      * @param portNum the input port number
      * @return aliased shared pointer to input port or nullptr
      */
-    std::shared_ptr<Port> getInputPort(int portNum);
+    std::shared_ptr<InputPort> getInputPort(int portNum);
 
     /**
      * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists a null pointer is returned.
@@ -160,7 +162,7 @@ public:
      * @param portNum the output port number
      * @return aliased shared pointer to output port or nullptr
      */
-    std::shared_ptr<Port> getOutputPort(int portNum);
+    std::shared_ptr<OutputPort> getOutputPort(int portNum);
 
     /**
      * @brief Get a vector of pointers to the current input ports of the node
@@ -169,7 +171,7 @@ public:
      *
      * @return vector of aliased pointers to the current input ports of the node
      */
-    std::vector<std::shared_ptr<Port>> getInputPorts();
+    std::vector<std::shared_ptr<InputPort>> getInputPorts();
 
     /**
      * @brief Get a vector of pointers to the current output ports of the node
@@ -178,7 +180,7 @@ public:
      *
      * @return vector of aliased pointers to the current output ports of the node
      */
-    std::vector<std::shared_ptr<Port>> getOutputPorts();
+    std::vector<std::shared_ptr<OutputPort>> getOutputPorts();
 
     /**
      * @brief Get the full hierarchical path of this node in GraphML format
@@ -274,6 +276,19 @@ public:
      * @return human readable description of node
      */
     virtual std::string labelStr();
+
+    /**
+     * @brief Validate if the node has a valid configuration.
+     * This may involve looking at arcs or nodes connected to this node.
+     *
+     * If an invalid configuration is detected, the function will throw an exception
+     */
+    virtual void validate();
+
+    /**
+     * @brief Propagates properties from Arcs (and potentially connected nodes) into this node.  Should only be called after nodes and arcs are imported
+     */
+    virtual void propagateProperties();
 
     //==== Getters/Setters ====
     /**

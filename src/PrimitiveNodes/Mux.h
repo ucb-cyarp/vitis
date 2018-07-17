@@ -7,7 +7,7 @@
 
 #include "GraphCore/Node.h"
 #include "GraphCore/NodeFactory.h"
-#include "GraphCore/Port.h"
+#include "GraphCore/SelectPort.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
 
@@ -40,7 +40,7 @@ class Mux : public Node{
     friend NodeFactory;
 
 private:
-    std::unique_ptr<Port> selectorPort;
+    std::unique_ptr<SelectPort> selectorPort;
 
     //==== Constructors ====
     /**
@@ -68,7 +68,7 @@ public:
      *
      * @return aliased shared pointer to the selector port
      */
-    std::shared_ptr<Port> getSelectorPort() const;
+    std::shared_ptr<SelectPort> getSelectorPort() const;
 
     //==== Factories ====
     /**
@@ -93,6 +93,11 @@ public:
     std::set<GraphMLParameter> graphMLParameters() override;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
+    /**
+     * @brief Performs check of @ref Node in addition to checking the select port
+     */
+    void validate() override;
 
     std::string labelStr() override ;
 

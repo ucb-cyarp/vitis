@@ -77,10 +77,10 @@ public:
 
     /*
      * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype
-     * @param dataType the datatype which determines the format of the output.  The numeric number will be cast to this type
+     * @param tgtDataType the datatype which determines the format of the output.  The numeric number will be cast to this type
      * @return string representation of the numeric value
      */
-//    std::string toString(DataType dataType);
+//    std::string toString(DataType tgtDataType);
 
     /**
      * @brief Parse an XML string (which may be an array) and produce NumericValue objects

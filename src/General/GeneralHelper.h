@@ -59,6 +59,26 @@ public:
      */
     static std::string vectorToString(std::vector<bool> vec, std::string trueStr, std::string falseStr, std::string separator = ", ",  bool includeBrackets = false);
 
+    /**
+     * @brief Checks if a given pointer type can be cast to another pointer type.
+     * @tparam fromT the origional type of the pointer
+     * @tparam toT the target type of the pointer
+     * @param ptr the pointer to inspect
+     * @return a pointer to the new type if possible, nullptr if it is not possible
+     */
+    template<typename fromT, typename toT>
+    static std::shared_ptr<toT> isType(std::shared_ptr<fromT> ptr){
+        std::shared_ptr<toT> castPtr;
+
+        try {
+            castPtr = std::dynamic_pointer_cast<toT>(ptr);
+        }catch(std::bad_cast &e){
+            //The cast was not possible, return a nullptr
+            castPtr = nullptr;
+        }
+
+        return castPtr;
+    };
 };
 
 /*@}*/

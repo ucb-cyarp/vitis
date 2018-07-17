@@ -5,18 +5,18 @@
 #include "Mux.h"
 
 Mux::Mux() {
-    selectorPort = std::unique_ptr<Port>(new Port(this, Port::PortType::SELECT, 0)); //Don't need to do this in init as a raw pointer is passed to the port
+    selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
 
 Mux::Mux(std::shared_ptr<SubSystem> parent) : Node(parent) {
-    selectorPort = std::unique_ptr<Port>(new Port(this, Port::PortType::SELECT, 0)); //Don't need to do this in init as a raw pointer is passed to the port
+    selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
 
-std::shared_ptr<Port> Mux::getSelectorPort() const {
+std::shared_ptr<SelectPort> Mux::getSelectorPort() const {
     //Selector port should never be null as it is creates by the Mux constructor and accessors to change it to null do not exist.
-    return selectorPort->getSharedPointer();
+    return selectorPort->getSharedPointerSelectPort();
 }
 
 std::shared_ptr<Mux>
@@ -63,5 +63,11 @@ std::string Mux::labelStr() {
     label += "\nFunction: Mux";
 
     return label;
+}
+
+void Mux::validate() {
+    Node::validate();
+
+    selectorPort->validate();
 }
 

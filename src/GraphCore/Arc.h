@@ -15,6 +15,8 @@
 
 //Forward Decls (Breaking Circular Dep)
 class Port;
+class InputPort;
+class OutputPort;
 class Node;
 class EnableNode;
 //class DataType;
@@ -32,8 +34,8 @@ class EnableNode;
 class Arc : public std::enable_shared_from_this<Arc>{
 private:
     int id; ///< ID number for arc
-    std::shared_ptr<Port> srcPort; ///< Pointer to the source port this arc is connected to
-    std::shared_ptr<Port> dstPort; ///< Pointer to the destination port this arc is connected to
+    std::shared_ptr<OutputPort> srcPort; ///< Pointer to the source port this arc is connected to
+    std::shared_ptr<InputPort> dstPort; ///< Pointer to the destination port this arc is connected to
     DataType dataType; ///< The data type of the data passed via this arc
     double sampleTime; ///< The sample time of the data passed via this arc (in s)
     int delay; ///< The delay along this arc (in cycles)
@@ -63,7 +65,7 @@ protected:
      * @param dataType
      * @param sampleTime
      */
-    Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime = -1);
+    Arc(std::shared_ptr<OutputPort> srcPort, std::shared_ptr<InputPort> dstPort, DataType dataType, double sampleTime = -1);
 
 public:
     /**
@@ -158,7 +160,7 @@ public:
      *
      * @param srcPort the new srcPort
      */
-    void setSrcPortUpdateNewUpdatePrev(std::shared_ptr<Port> srcPort);
+    void setSrcPortUpdateNewUpdatePrev(std::shared_ptr<OutputPort> srcPort);
 
     /**
      * @brief Sets a new dst port for this arc, updating the new port and the previous port in the process
@@ -171,14 +173,14 @@ public:
      *
      * @param dstPort the new dstPort
      */
-    void setDstPortUpdateNewUpdatePrev(std::shared_ptr<Port> dstPort);
+    void setDstPortUpdateNewUpdatePrev(std::shared_ptr<InputPort> dstPort);
 
     //==== Getters/Setters ====
     /**
      * @brief Gets a pointer to the source port of the arc
      * @return pointer to the src port of the arc
      */
-    std::shared_ptr<Port> getSrcPort() const;
+    std::shared_ptr<OutputPort> getSrcPort() const;
 
     /**
      * @brief Sets the srcPort pointer for the arc.  Does not remove the arc from any previously connected port or add it to the arc list of the new port.
@@ -187,13 +189,13 @@ public:
      *
      * @param srcPort the new srcPort for the arc.
      */
-    void setSrcPort(const std::shared_ptr<Port> &srcPort);
+    void setSrcPort(const std::shared_ptr<OutputPort> &srcPort);
 
     /**
      * @brief Gets a pointer to the source port of the arc
      * @return pointer to the src port of the arc
      */
-    std::shared_ptr<Port> getDstPort() const;
+    std::shared_ptr<InputPort> getDstPort() const;
 
     /**
      * @brief Sets the dstPort pointer for the arc.  Does not remove the arc from any previously connected port or add it to the arc list of the new port.
@@ -202,7 +204,7 @@ public:
      *
      * @param dstPort the new dstPort for the arc.
      */
-    void setDstPort(const std::shared_ptr<Port> &dstPort);
+    void setDstPort(const std::shared_ptr<InputPort> &dstPort);
 
 
     DataType getDataType() const;

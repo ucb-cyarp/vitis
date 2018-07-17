@@ -9,6 +9,8 @@
 #include "SubSystem.h"
 #include "Port.h"
 #include "Node.h"
+#include "InputPort.h"
+#include "OutputPort.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
 
@@ -31,11 +33,11 @@ void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
     unsigned long inputPortLen = inputPorts.size();
     for(unsigned long i = inputPortLen; i <= portNum; i++)
     {
-        inputPorts.push_back(std::unique_ptr<Port>(new Port(this, Port::PortType::INPUT, i)));
+        inputPorts.push_back(std::unique_ptr<InputPort>(new InputPort(this, i)));
     }
 
     //Set the dst port of the arc, updating the previous port and this one
-    arc->setDstPortUpdateNewUpdatePrev(inputPorts[portNum]->getSharedPointer());
+    arc->setDstPortUpdateNewUpdatePrev(inputPorts[portNum]->getSharedPointerInputPort());
 }
 
 void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
@@ -43,11 +45,11 @@ void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
     //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
     unsigned long outputPortLen = outputPorts.size();
     for (unsigned long i = outputPortLen; i <= portNum; i++) {
-        outputPorts.push_back(std::unique_ptr<Port>(new Port(this, Port::PortType::OUTPUT, i)));
+        outputPorts.push_back(std::unique_ptr<OutputPort>(new OutputPort(this, i)));
     }
 
     //Set the src port of the arc, updating the previous port and this one
-    arc->setSrcPortUpdateNewUpdatePrev(outputPorts[portNum]->getSharedPointer());
+    arc->setSrcPortUpdateNewUpdatePrev(outputPorts[portNum]->getSharedPointerOutputPort());
 }
 
 std::shared_ptr<Node> Node::getSharedPointer() {
@@ -72,41 +74,41 @@ void Node::removeOutArc(std::shared_ptr<Arc> arc) {
     }
 }
 
-std::shared_ptr<Port> Node::getInputPort(int portNum) {
+std::shared_ptr<InputPort> Node::getInputPort(int portNum) {
     if(portNum >= inputPorts.size()) {
-        return std::shared_ptr<Port>(nullptr);
+        return std::shared_ptr<InputPort>(nullptr);
     }
 
-    return inputPorts[portNum]->getSharedPointer();
+    return inputPorts[portNum]->getSharedPointerInputPort();
 }
 
-std::shared_ptr<Port> Node::getOutputPort(int portNum) {
+std::shared_ptr<OutputPort> Node::getOutputPort(int portNum) {
     if(portNum >= outputPorts.size()) {
-        return std::shared_ptr<Port>(nullptr);
+        return std::shared_ptr<OutputPort>(nullptr);
     }
 
-    return outputPorts[portNum]->getSharedPointer();
+    return outputPorts[portNum]->getSharedPointerOutputPort();
 }
 
-std::vector<std::shared_ptr<Port>> Node::getInputPorts() {
-    std::vector<std::shared_ptr<Port>> inputPortPtrs;
+std::vector<std::shared_ptr<InputPort>> Node::getInputPorts() {
+    std::vector<std::shared_ptr<InputPort>> inputPortPtrs;
 
     unsigned long inputPortLen = inputPorts.size();
     for(unsigned long i = 0; i<inputPortLen; i++)
     {
-        inputPortPtrs.push_back(inputPorts[i]->getSharedPointer());
+        inputPortPtrs.push_back(inputPorts[i]->getSharedPointerInputPort());
     }
 
     return inputPortPtrs;
 }
 
-std::vector<std::shared_ptr<Port>> Node::getOutputPorts() {
-    std::vector<std::shared_ptr<Port>> outputPortPtrs;
+std::vector<std::shared_ptr<OutputPort>> Node::getOutputPorts() {
+    std::vector<std::shared_ptr<OutputPort>> outputPortPtrs;
 
     unsigned long outputPortLen = outputPorts.size();
     for (unsigned long i = 0; i < outputPortLen; i++)
     {
-        outputPortPtrs.push_back(outputPorts[i]->getSharedPointer());
+        outputPortPtrs.push_back(outputPorts[i]->getSharedPointerOutputPort());
     }
 
     return outputPortPtrs;
@@ -201,4 +203,23 @@ std::string Node::labelStr() {
     label +=  "ID: " + getFullGraphMLPath();
 
     return label;
+}
+
+void Node::validate() {
+    //Check each port
+    for(auto port = inputPorts.begin(); port != inputPorts.end(); port++){
+        (*port)->validate();
+    }
+
+    for(auto port = outputPorts.begin(); port != outputPorts.end(); port++){
+        (*port)->validate();
+    }
+}
+
+void Node::propagateProperties() {
+    //Default behavior will do nothing
+}
+
+void Node::setParent(std::shared_ptr<SubSystem> parent) {
+    Node::parent = parent;
 }

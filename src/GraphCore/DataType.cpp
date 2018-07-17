@@ -245,3 +245,7 @@ std::string DataType::toString() {
         return signedStr + "fix" + std::to_string(totalBits) + "_En" + std::to_string(fractionalBits);
     }
 }
+
+bool DataType::isBool() {
+    return !floatingPt && !signedType && !isComplex() && totalBits == 1 && fractionalBits == 0;
+}

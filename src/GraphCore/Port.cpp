@@ -5,11 +5,11 @@
 #include "Port.h"
 #include "Node.h"
 
-Port::Port() : portNum(0), type(Port::PortType::INPUT), parent(nullptr)  {
+Port::Port() : portNum(0), parent(nullptr)  {
 
 }
 
-Port::Port(Node* parent, Port::PortType type, int portNum) : portNum(portNum), type(type), parent(parent) {
+Port::Port(Node* parent, int portNum) : portNum(portNum), parent(parent) {
 
 }
 
@@ -74,14 +74,6 @@ int Port::getPortNum() const {
 
 void Port::setPortNum(int portNum) {
     Port::portNum = portNum;
-}
-
-Port::PortType Port::getType() const {
-    return type;
-}
-
-void Port::setType(Port::PortType type) {
-    Port::type = type;
 }
 
 std::shared_ptr<Port> Port::getSharedPointer() {

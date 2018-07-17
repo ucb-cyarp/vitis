@@ -26,46 +26,33 @@ class Node;
  * Primarily serves as a container for pointers to arcs connected to the given port.
  */
 class Port {
-public:
-
-    /**
-     * @brief An enum representing the different Port types
-     */
-    enum class PortType
-    {
-        INPUT, ///< An input port
-        OUTPUT, ///< An output port
-        ENABLE, ///< An enable port
-        SELECT ///< A selector port (for a mux or switch)
-    };
-
-private:
+protected:
     Node* parent; ///< The node this port belongs to (not a shared ptr because the port is a component of the node - there would always be a shared ptr to a node and would therefore never be deleted)
     int portNum; ///< The number of this port
-    Port::PortType type; ///< The type of port (Input, Output, Enable)
     //Issue with ordering weak pointers described in: https://stackoverflow.com/questions/23210092/is-it-safe-to-use-a-weak-ptr-in-a-stdset-or-key-of-stdmap
     //Note that the ownership comparision is OK in this case since shared_ptrs to Arc objects are not aliased
     std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>> arcs; ///< A vector containing pointers to arcs connected to this port
 
-public:
-//==== Constructors ====
+protected:
+//==== Constructors (Abstract Class) ====
     /**
      * @brief Construct an empty port object
      *
-     * The port object has number 0, type INPUT, no parent, and no arcs.
+     * The port object has number 0, no parent, and no arcs.
      */
     Port();
 
     /**
-     * @brief Construct a port object with the specified parent, type, and port numbers.
+     * @brief Construct a port object with the specified parent and port numbers.
      *
      * The port object is initialized with an empty arc list
      *
      * @param parent The node this port belongs to
-     * @param type The type of this port (Input, Output, Enable)
      * @param portNum The port number
      */
-    Port(Node* parent, Port::PortType type, int portNum);
+    Port(Node* parent, int portNum);
+
+public:
 
 //==== Methods ====
     /**
@@ -154,6 +141,21 @@ public:
      */
     std::shared_ptr<Port> getSharedPointer(); //NOTE: should never return a bare pointer or an unaliased shared pointer to a port
 
+
+    /**
+     * @brief Validate if the connections to this port are correct.
+     *
+     *   - For Input, Enable, and Select ports, verify that 1 and only 1 arc is connected (unconnected ports should have an arc from the unconnected master node)
+     *   - For Enable Ports, verify that the input port is a boolean type and width 1.
+     *   - For Select Ports, verify that the input port has an integer type and width 1.
+     *   - For Output Ports, verify that all output arcs have the same type.  Also check that there is at least 1 arc (unconnected ports should have an arc to the unconnected master)
+     *
+     * This may involve looking at arcs or nodes connected to this node.
+     *
+     * If an invalid configuration is detected, the function will throw an exception
+     */
+    virtual void validate() = 0;
+
     //==== Getters/Setters ====
 
     //Do not provide setter to parent as the port is contained within the parent.  Needs to be initialized at the constructor.
@@ -163,8 +165,6 @@ public:
 
     int getPortNum() const;
     void setPortNum(int portNum);
-    PortType getType() const;
-    void setType(PortType type);
 
 };
 

@@ -174,6 +174,18 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
         #ifdef DEBUG
         std::cout << "Arcs Imported: " << numArcsImported << std::endl;
         #endif
+
+        //Propagate in nodes
+        std::vector<std::shared_ptr<Node>> nodes = design->getNodes();
+        for(auto node = nodes.begin(); node != nodes.end(); node++){
+            (*node)->propagateProperties();
+        }
+
+        //Validate nodes (get the node vector again in case nodes were added)
+        nodes = design->getNodes();
+        for(auto node = nodes.begin(); node != nodes.end(); node++){
+            (*node)->validate();
+        }
     }
 
 

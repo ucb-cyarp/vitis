@@ -23,6 +23,14 @@ set(COMMON_SRCS
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
         src/GraphCore/Port.h
+        src/GraphCore/InputPort.cpp
+        src/GraphCore/InputPort.h
+        src/GraphCore/OutputPort.cpp
+        src/GraphCore/OutputPort.h
+        src/GraphCore/EnablePort.cpp
+        src/GraphCore/EnablePort.h
+        src/GraphCore/SelectPort.cpp
+        src/GraphCore/SelectPort.h
         src/GraphCore/SubSystem.cpp
         src/GraphCore/SubSystem.h
         src/GraphCore/Arc.cpp

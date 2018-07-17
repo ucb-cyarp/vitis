@@ -4,6 +4,10 @@
 
 #include "Arc.h"
 #include "Port.h"
+#include "InputPort.h"
+#include "OutputPort.h"
+#include "EnablePort.h"
+#include "SelectPort.h"
 #include "Node.h"
 #include "EnableNode.h"
 
@@ -11,11 +15,11 @@
 #include "General/GeneralHelper.h"
 
 Arc::Arc() : id(-1), sampleTime(-1), delay(0), slack(0){
-    srcPort = std::shared_ptr<Port>(nullptr);
-    dstPort = std::shared_ptr<Port>(nullptr);
+    srcPort = std::shared_ptr<OutputPort>(nullptr);
+    dstPort = std::shared_ptr<InputPort>(nullptr);
 }
 
-Arc::Arc(std::shared_ptr<Port> srcPort, std::shared_ptr<Port> dstPort, DataType dataType, double sampleTime) : id(-1), srcPort(srcPort), dstPort(dstPort), dataType(dataType), sampleTime(sampleTime), delay(0), slack(0){
+Arc::Arc(std::shared_ptr<OutputPort> srcPort, std::shared_ptr<InputPort> dstPort, DataType dataType, double sampleTime) : id(-1), srcPort(srcPort), dstPort(dstPort), dataType(dataType), sampleTime(sampleTime), delay(0), slack(0){
 
 }
 
@@ -29,19 +33,19 @@ Arc::~Arc() {
     }
 }
 
-std::shared_ptr<Port> Arc::getSrcPort() const {
+std::shared_ptr<OutputPort> Arc::getSrcPort() const {
     return srcPort;
 }
 
-void Arc::setSrcPort(const std::shared_ptr<Port> &srcPort) {
+void Arc::setSrcPort(const std::shared_ptr<OutputPort> &srcPort) {
     Arc::srcPort = srcPort;
 }
 
-std::shared_ptr<Port> Arc::getDstPort() const {
+std::shared_ptr<InputPort> Arc::getDstPort() const {
     return dstPort;
 }
 
-void Arc::setDstPort(const std::shared_ptr<Port> &dstPort) {
+void Arc::setDstPort(const std::shared_ptr<InputPort> &dstPort) {
     Arc::dstPort = dstPort;
 }
 
@@ -77,7 +81,7 @@ void Arc::setSlack(int slack) {
     Arc::slack = slack;
 }
 
-void Arc::setSrcPortUpdateNewUpdatePrev(std::shared_ptr<Port> srcPort) {
+void Arc::setSrcPortUpdateNewUpdatePrev(std::shared_ptr<OutputPort> srcPort) {
     //Remove arc from old port if not null
     if (Arc::srcPort != nullptr) {
         Arc::srcPort->removeArc(shared_from_this());
@@ -92,7 +96,7 @@ void Arc::setSrcPortUpdateNewUpdatePrev(std::shared_ptr<Port> srcPort) {
     }
 }
 
-void Arc::setDstPortUpdateNewUpdatePrev(std::shared_ptr<Port> dstPort) {
+void Arc::setDstPortUpdateNewUpdatePrev(std::shared_ptr<InputPort> dstPort) {
     //Remove arc from old port if not null
     if(Arc::dstPort != nullptr)
     {
@@ -212,12 +216,13 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
     GraphMLHelper::addDataNode(doc, arcElement, "arc_src_port", std::to_string(srcPort->getPortNum()));
     GraphMLHelper::addDataNode(doc, arcElement, "arc_dst_port", std::to_string(dstPort->getPortNum()));
     std::string dstPortType;
-    if(dstPort->getType() == Port::PortType::INPUT){
-        dstPortType = "Standard";
-    }else if(dstPort->getType() == Port::PortType::ENABLE){
+    //Check for Specific Input Types
+    if(GeneralHelper::isType<InputPort, EnablePort>(dstPort) != nullptr){
         dstPortType = "Enable";
+    }else if(GeneralHelper::isType<InputPort, SelectPort>(dstPort) != nullptr){
+        dstPortType = "Select";
     }else{
-        throw std::runtime_error("Unexpected port type when exporting GraphML");
+        dstPortType = "Standard";
     }
     GraphMLHelper::addDataNode(doc, arcElement, "arc_dst_port_type", dstPortType);
 
@@ -235,10 +240,13 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
 }
 
 std::string Arc::labelStr() {
-
-    std::string dstPortType = "Standard";
-    if(dstPort->getType() == Port::PortType::ENABLE){
+    std::string dstPortType;
+    if(GeneralHelper::isType<InputPort, EnablePort>(dstPort) != nullptr){
         dstPortType = "Enable";
+    }else if(GeneralHelper::isType<InputPort, SelectPort>(dstPort) != nullptr){
+        dstPortType = "Select";
+    }else{
+        dstPortType = "Standard";
     }
 
     std::string label = "ID: e" + std::to_string(id) +
