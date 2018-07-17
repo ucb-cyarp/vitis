@@ -23,7 +23,7 @@
  *
  * The selector port is a special port in this block
  * Ports 0-(n-1) are the input lines which are selected from.  The use of a seperate selector port allows the user to use
- * the standard @getInputPort method without re-mapping indexes of ports.
+ * the standard @ref getInputPort method without re-mapping indexes of ports.
  *
  * The selector port's value directly maps to the input port index which is passed through.
  *
