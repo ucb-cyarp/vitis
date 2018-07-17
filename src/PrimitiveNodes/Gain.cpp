@@ -21,8 +21,8 @@ void Gain::setGain(const std::vector<NumericValue> &gain) {
 }
 
 std::shared_ptr<Gain>
-Gain::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+Gain::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
+                        std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     //==== Create Node & Set Common Properties ====
     std::shared_ptr<Gain> newNode = NodeFactory::createNode<Gain>(parent);
     newNode->setId(id);

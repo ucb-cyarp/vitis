@@ -819,15 +819,15 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     std::shared_ptr<Node> newNode;
 
     if(blockFunction == "Sum"){
-        newNode = Sum::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
+        newNode = Sum::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Product"){
-        newNode = Product::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
+        newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Delay") {
-        newNode = Delay::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
+        newNode = Delay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Constant"){
-        newNode = Constant::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
+        newNode = Constant::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Gain"){
-        newNode = Gain::createFromSimulinkGraphML(id, name, dataKeyValueMap, parent, dialect);
+        newNode = Gain::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }

@@ -21,8 +21,8 @@ void Constant::setValue(const std::vector<NumericValue> &values) {
 }
 
 std::shared_ptr<Constant>
-Constant::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+Constant::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
+                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
 
     //==== Create Node and set common properties ====
     std::shared_ptr<Constant> newNode = NodeFactory::createNode<Constant>(parent);

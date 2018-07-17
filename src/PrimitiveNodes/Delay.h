@@ -69,7 +69,9 @@ public:
      * @param dialect The dialect of the GraphML file being imported
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<Delay> createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+    static std::shared_ptr<Delay> createFromGraphML(int id, std::string name,
+                                                    std::map<std::string, std::string> dataKeyValueMap,
+                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;

@@ -23,8 +23,9 @@ void Product::setInputOp(const std::vector<bool> &inputOp) {
     Product::inputOp = inputOp;
 }
 
-std::shared_ptr<Product> Product::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+std::shared_ptr<Product> Product::createFromGraphML(int id, std::string name,
+                                                    std::map<std::string, std::string> dataKeyValueMap,
+                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     std::shared_ptr<Product> newNode = NodeFactory::createNode<Product>(parent);
     newNode->setId(id);
     newNode->setName(name);

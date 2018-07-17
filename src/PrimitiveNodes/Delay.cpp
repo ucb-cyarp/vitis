@@ -34,8 +34,9 @@ void Delay::setInitCondition(const std::vector<NumericValue> &initCondition) {
     Delay::initCondition = initCondition;
 }
 
-std::shared_ptr<Delay> Delay::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                                        std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
+                                                std::map<std::string, std::string> dataKeyValueMap,
+                                                std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     std::shared_ptr<Delay> newNode = NodeFactory::createNode<Delay>(parent);
     newNode->setId(id);
     newNode->setName(name);

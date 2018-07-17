@@ -22,8 +22,9 @@ void Sum::setInputSign(const std::vector<bool> &inputSign) {
     Sum::inputSign = inputSign;
 }
 
-std::shared_ptr<Sum> Sum::createFromSimulinkGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+std::shared_ptr<Sum> Sum::createFromGraphML(int id, std::string name,
+                                            std::map<std::string, std::string> dataKeyValueMap,
+                                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     std::shared_ptr<Sum> newNode = NodeFactory::createNode<Sum>(parent);
     newNode->setId(id);
     newNode->setName(name);
