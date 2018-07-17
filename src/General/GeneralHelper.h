@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 /**
  * \addtogroup General General Helper Classes
