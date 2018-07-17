@@ -35,7 +35,8 @@ public:
     {
         INPUT, ///< An input port
         OUTPUT, ///< An output port
-        ENABLE ///< An enable port
+        ENABLE, ///< An enable port
+        SELECT ///< A selector port (for a mux or switch)
     };
 
 private:

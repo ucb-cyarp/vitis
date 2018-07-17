@@ -20,6 +20,7 @@
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Gain.h"
+#include "PrimitiveNodes/Mux.h"
 
 #include <iostream>
 #include <fstream>
@@ -828,7 +829,10 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = Constant::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Gain"){
         newNode = Gain::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else{
+    }else if(blockFunction == "Mux"){
+        newNode = Mux::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }
+    else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
 
