@@ -46,3 +46,8 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
     cmake ..
     make
     ```
+    
+- Test
+    ```
+    make test ARGS="-V"
+    ```
