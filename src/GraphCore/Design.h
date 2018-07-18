@@ -25,6 +25,8 @@ class Arc;
 
 /**
 * \addtogroup GraphCore Graph Core
+*
+* @brief Core Classes for Representing a Data Flow Graph
 */
 /*@{*/
 

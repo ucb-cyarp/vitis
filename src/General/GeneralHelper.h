@@ -11,6 +11,8 @@
 
 /**
  * \addtogroup General General Helper Classes
+ *
+ * @brief A set of general helper classes.
  */
 /*@{*/
 

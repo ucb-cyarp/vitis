@@ -9,6 +9,8 @@
 
 /**
  * \addtogroup MasterNodes Master Nodes
+ *
+ * @brief A set of classes which represent the different boundaries of the design
  */
 /*@{*/
 

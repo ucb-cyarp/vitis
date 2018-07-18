@@ -19,7 +19,7 @@
 #include "PrimitiveNodes/Product.h"
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/Constant.h"
-#include "PrimitiveNodes/Gain.h"
+#include "MediumLevelNodes/Gain.h"
 #include "PrimitiveNodes/Mux.h"
 #include "PrimitiveNodes/DataTypeConversion.h"
 

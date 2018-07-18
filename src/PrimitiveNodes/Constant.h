@@ -16,6 +16,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
+ *
+ * @brief A set of primitive nodes in a Data Flow Graph
  */
 /*@{*/
 

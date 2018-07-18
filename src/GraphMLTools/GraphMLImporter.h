@@ -18,6 +18,8 @@
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
+ *
+ * @brief A set of classes which handle the import/export of a design from/to a GraphML file.
  */
 /*@{*/
 
