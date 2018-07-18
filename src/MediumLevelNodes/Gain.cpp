@@ -8,7 +8,7 @@ Gain::Gain() {
 
 }
 
-Gain::Gain(std::shared_ptr<SubSystem> parent) : Node(parent) {
+Gain::Gain(std::shared_ptr<SubSystem> parent) : MediumLevelNode(parent) {
 
 }
 

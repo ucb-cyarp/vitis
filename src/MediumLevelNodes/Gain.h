@@ -5,7 +5,7 @@
 #ifndef VITIS_GAIN_H
 #define VITIS_GAIN_H
 
-#include "GraphCore/Node.h"
+#include "MediumLevelNode.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/SubSystem.h"
 #include "GraphCore/NumericValue.h"
@@ -16,14 +16,14 @@
 #include <string>
 
 /**
- * \addtogroup PrimitiveNodes Primitives
+ * \addtogroup MediumLevelNodes Medium Level Nodes
  */
 /*@{*/
 
 /**
  * @brief Represents a gain (multiply by constant) block
  */
-class Gain : public Node{
+class Gain : public MediumLevelNode{
     friend NodeFactory;
 
 private:

@@ -8,7 +8,7 @@ Constant::Constant() {
 
 }
 
-Constant::Constant(std::shared_ptr<SubSystem> parent) : Node(parent){
+Constant::Constant(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent){
 
 }
 

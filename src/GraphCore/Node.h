@@ -290,6 +290,14 @@ public:
      */
     virtual void propagateProperties();
 
+    /**
+     * @brief Check if the node can be expanded.
+     *
+     * The @ref expand method can still be called even if this function returns false, however, no change to the design will be made
+     * @return true if the node can be expanded, false otherwise
+     */
+    virtual bool canExpand() = 0;
+
     //==== Getters/Setters ====
     /**
      * @brief Sets the parent of the node without updating the child set of the parent to include this node.

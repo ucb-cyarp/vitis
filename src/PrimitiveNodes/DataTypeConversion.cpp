@@ -8,7 +8,7 @@ DataTypeConversion::DataTypeConversion() {
 
 }
 
-DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent) : Node(parent) {
+DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
 
 }
 

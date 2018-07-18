@@ -73,6 +73,8 @@ set(COMMON_SRCS
         src/MasterNodes/MasterOutput.h
         src/MasterNodes/MasterUnconnected.cpp
         src/MasterNodes/MasterUnconnected.h
+        src/PrimitiveNodes/PrimitiveNode.cpp
+        src/PrimitiveNodes/PrimitiveNode.h
         src/PrimitiveNodes/Sum.cpp
         src/PrimitiveNodes/Sum.h
         src/PrimitiveNodes/Product.cpp
@@ -81,12 +83,14 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Delay.h
         src/PrimitiveNodes/Constant.cpp
         src/PrimitiveNodes/Constant.h
-        src/PrimitiveNodes/Gain.cpp
-        src/PrimitiveNodes/Gain.h
         src/PrimitiveNodes/Mux.cpp
         src/PrimitiveNodes/Mux.h
         src/PrimitiveNodes/DataTypeConversion.cpp
-        src/PrimitiveNodes/DataTypeConversion.h)
+        src/PrimitiveNodes/DataTypeConversion.h
+        src/MediumLevelNodes/MediumLevelNode.cpp
+        src/MediumLevelNodes/MediumLevelNode.h
+        src/MediumLevelNodes/Gain.cpp
+        src/MediumLevelNodes/Gain.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

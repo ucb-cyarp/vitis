@@ -5,7 +5,7 @@
 #ifndef VITIS_DATATYPECONVERSION_H
 #define VITIS_DATATYPECONVERSION_H
 
-#include "GraphCore/Node.h"
+#include "PrimitiveNode.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphCore/DataType.h"
@@ -23,7 +23,7 @@
 /**
  * @brief Represents a data type conversion occurring between 2 arcs
  */
-class DataTypeConversion :public Node{
+class DataTypeConversion :public PrimitiveNode{
     friend NodeFactory;
 
 public:

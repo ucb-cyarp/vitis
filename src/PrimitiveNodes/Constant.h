@@ -5,7 +5,7 @@
 #ifndef VITIS_CONSTANT_H
 #define VITIS_CONSTANT_H
 
-#include "GraphCore/Node.h"
+#include "PrimitiveNode.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
@@ -16,15 +16,13 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- *
- * @brief A set of primitive nodes in a Data Flow Graph
  */
 /*@{*/
 
 /**
  * @brief Represents a block storing a constant value
  */
-class Constant : public Node{
+class Constant : public PrimitiveNode{
     friend NodeFactory;
 
 private:

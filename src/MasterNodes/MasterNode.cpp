@@ -26,3 +26,7 @@ std::string MasterNode::labelStr() {
 
     return label;
 }
+
+bool MasterNode::canExpand() {
+    return false;
+}

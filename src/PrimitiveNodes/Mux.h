@@ -5,7 +5,7 @@
 #ifndef VITIS_MUX_H
 #define VITIS_MUX_H
 
-#include "GraphCore/Node.h"
+#include "PrimitiveNode.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/SelectPort.h"
 #include "GraphCore/NumericValue.h"
@@ -36,7 +36,7 @@
  * class is provided.  The @ref SimulinkMultiportSwitch expands to a mux and a -1 on the select line.
  *
  */
-class Mux : public Node{
+class Mux : public PrimitiveNode{
     friend NodeFactory;
 
 private:

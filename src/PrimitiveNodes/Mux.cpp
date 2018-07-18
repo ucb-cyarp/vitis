@@ -9,7 +9,7 @@ Mux::Mux() {
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
 
-Mux::Mux(std::shared_ptr<SubSystem> parent) : Node(parent) {
+Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }

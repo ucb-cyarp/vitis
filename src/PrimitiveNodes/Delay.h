@@ -11,7 +11,7 @@
 #include <string>
 #include <complex>
 
-#include "GraphCore/Node.h"
+#include "PrimitiveNode.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
 
@@ -24,7 +24,7 @@
 /**
  * @brief Represents a Delay (z^-1) Block
  */
-class Delay : public Node{
+class Delay : public PrimitiveNode{
     friend NodeFactory;
 private:
     int delayValue; ///<The amount of delay in this node

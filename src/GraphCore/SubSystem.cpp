@@ -71,3 +71,7 @@ std::string SubSystem::labelStr() {
     return label;
 }
 
+bool SubSystem::canExpand() {
+    return false;
+}
+

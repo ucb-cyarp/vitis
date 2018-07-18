@@ -10,7 +10,7 @@
 #include <map>
 #include <string>
 
-#include "GraphCore/Node.h"
+#include "PrimitiveNode.h"
 #include "GraphMLTools/GraphMLDialect.h"
 
 /**
@@ -21,7 +21,7 @@
 /**
  * @brief Represents a Sum Block.  Parameters dictate the signs of the inputs.
  */
-class Sum : public Node{
+class Sum : public PrimitiveNode{
     friend NodeFactory;
 private:
     std::vector<bool> inputSign; ///<An array of input signs to the sum operation.  True = positive, False = negative.  Or a number indicating the number of + inputs

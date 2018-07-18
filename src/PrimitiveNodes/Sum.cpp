@@ -10,7 +10,7 @@ Sum::Sum() {
 
 }
 
-Sum::Sum(std::shared_ptr<SubSystem> parent) : Node(parent) {
+Sum::Sum(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
 
 }
 

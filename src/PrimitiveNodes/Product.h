@@ -10,7 +10,7 @@
 #include <map>
 #include <string>
 
-#include "GraphCore/Node.h"
+#include "PrimitiveNode.h"
 #include "GraphMLTools/GraphMLDialect.h"
 
 /**
@@ -21,7 +21,7 @@
 /**
  * @brief Represents a Product Block.  Parameters dictate the position of the inputs.
  */
-class Product : public Node{
+class Product : public PrimitiveNode{
     friend NodeFactory;
 private:
     std::vector<bool> inputOp; ///<An array of *, / to indicate the operation on the input.  * = Multiply (Numerator), / = Divide (Denominator)

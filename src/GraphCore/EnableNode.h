@@ -60,6 +60,8 @@ public:
      * @brief Performs check of @ref Node in addition to checking the enable port
      */
     void validate() override;
+
+    bool canExpand() override;
 };
 
 /*@}*/

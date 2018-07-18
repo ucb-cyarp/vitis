@@ -29,3 +29,7 @@ void EnableNode::validate() {
 
     enablePort->validate();
 }
+
+bool EnableNode::canExpand() {
+    return false;
+}

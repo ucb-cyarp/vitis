@@ -11,7 +11,7 @@ Product::Product() {
 
 }
 
-Product::Product(std::shared_ptr<SubSystem> parent) : Node(parent) {
+Product::Product(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
 
 }
 

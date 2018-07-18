@@ -14,7 +14,7 @@ Delay::Delay() : delayValue(0){
 
 }
 
-Delay::Delay(std::shared_ptr<SubSystem> parent) : Node(parent), delayValue(0) {
+Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0) {
 
 }
 
