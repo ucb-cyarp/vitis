@@ -19,9 +19,10 @@
 #include "PrimitiveNodes/Product.h"
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/Constant.h"
-#include "MediumLevelNodes/Gain.h"
 #include "PrimitiveNodes/Mux.h"
 #include "PrimitiveNodes/DataTypeConversion.h"
+#include "PrimitiveNodes/Compare.h"
+#include "MediumLevelNodes/Gain.h"
 
 #include <iostream>
 #include <fstream>
@@ -846,7 +847,9 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = Mux::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DataTypeConversion"){
         newNode = DataTypeConversion::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    } else{
+    }else if(blockFunction == "Compare" || blockFunction == "RelationalOperator"){ //Vitis name is Compare, Simulink name is RelationalOperator
+        newNode = Compare::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
 
