@@ -35,6 +35,13 @@ protected:
 
     /**
      * @brief Construct a node with a given parent and given orig node.
+     *
+     * Copies the Input/Output ports of the orig node to aid in restoration of orig node if required (see note in @ref ExpandedNode description).
+     *
+     * @warning Enable port needs to be handled manually as it is not known which port is connected to the enable.
+     *
+     * @note Expansion should be run after arcs have been added to the design
+     *
      * @param parent of new node
      * @param orig original node
      */

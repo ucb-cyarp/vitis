@@ -14,6 +14,10 @@ EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent) : SubSyste
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
 
+std::shared_ptr<EnablePort> EnabledSubSystem::getEnablePort() const {
+    return enablePort->getSharedPointerEnablePort();
+}
+
 std::string EnabledSubSystem::labelStr() {
     std::string label = Node::labelStr();
 

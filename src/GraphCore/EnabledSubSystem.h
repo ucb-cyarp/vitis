@@ -47,6 +47,7 @@ protected:
     std::string labelStr() override ;
 
 public:
+    std::shared_ptr<EnablePort> getEnablePort() const;
 
 };
 

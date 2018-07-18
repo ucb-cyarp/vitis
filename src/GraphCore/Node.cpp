@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <map>
 
 #include "SubSystem.h"
 #include "Port.h"
@@ -222,4 +223,11 @@ void Node::propagateProperties() {
 
 void Node::setParent(std::shared_ptr<SubSystem> parent) {
     Node::parent = parent;
+}
+
+//Default behavior is to not do any expansion and to return false.
+bool Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                  std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                  std::map<std::string, std::shared_ptr<Node>> nodeMap) {
+    return false;
 }

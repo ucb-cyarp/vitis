@@ -74,6 +74,27 @@ public:
     }
 
     /**
+     * @brief Create (enabled expanded) node with parent set to given parent and orig node set to given orig.  Add new node to the parent's children list (if parent is not null).
+     * @param parent Parent of the new node
+     * @param orig Origional node of new
+     * @return pointer to the new node
+     */
+    template <typename T>
+    static std::shared_ptr<T> createNodeEnableSubsystem(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnabledSubSystem> orig)
+    {
+        std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent));
+
+        node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+
+        if(parent != nullptr)
+        {
+            parent->addChild(node);
+        }
+
+        return node;
+    }
+
+    /**
     * @brief Create node with no parent
     * @return pointer to the new node
     */

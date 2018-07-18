@@ -17,6 +17,8 @@ class GraphMLParameter;
 #include <set>
 #include <string>
 #include <memory>
+#include <map>
+
 #include "Port.h"
 #include "InputPort.h"
 #include "OutputPort.h"
@@ -242,7 +244,7 @@ public:
      */
     virtual xercesc::DOMElement* emitGraphMLBasics(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
 
-    /*
+    /**
      * @brief Expand this node if applicable
      *
      * Typical reasons for expansion include:
@@ -250,15 +252,17 @@ public:
      *     - FIR Filter
      *     - Tapped Delay Line
      *     - FFT
-     * - Vector Operation to Primitive Operations
+     * - Medium Level Blocks to Primitive Operations
+     *     - Gain
      *
      * @param new_nodes A vector which will be filled with the new nodes created during expansion
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     * @param nodeMap A map of node ID to pointer mappings, will be modified to reflect the expanded node replacing the orig node in the ID map
      * @return true if expansion occurred, false if it did not
      */
-//    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) = 0;
+    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs, std::map<std::string, std::shared_ptr<Node>> nodeMap);
 
     /*
      * @brief Emit C++ code to calculate the value of an output port.
