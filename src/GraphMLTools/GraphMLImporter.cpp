@@ -21,6 +21,7 @@
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Gain.h"
 #include "PrimitiveNodes/Mux.h"
+#include "PrimitiveNodes/DataTypeConversion.h"
 
 #include <iostream>
 #include <fstream>
@@ -843,8 +844,9 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = Gain::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Mux"){
         newNode = Mux::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }
-    else{
+    }else if(blockFunction == "DataTypeConversion"){
+        newNode = DataTypeConversion::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    } else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
 

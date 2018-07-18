@@ -84,7 +84,9 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Gain.cpp
         src/PrimitiveNodes/Gain.h
         src/PrimitiveNodes/Mux.cpp
-        src/PrimitiveNodes/Mux.h)
+        src/PrimitiveNodes/Mux.h
+        src/PrimitiveNodes/DataTypeConversion.cpp
+        src/PrimitiveNodes/DataTypeConversion.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
