@@ -83,3 +83,15 @@ std::string Gain::labelStr() {
     return label;
 }
 
+void Gain::validate() {
+    Node::validate();
+
+    if(inputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Input Port");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Output Port");
+    }
+}
+

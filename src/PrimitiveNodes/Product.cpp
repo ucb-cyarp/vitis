@@ -107,3 +107,15 @@ std::string Product::labelStr() {
 
     return label;
 }
+
+void Product::validate() {
+    Node::validate();
+
+    if(inputPorts.size() < 2){
+        throw std::runtime_error("Validation Failed - Product - Should Have 2 or More Input Ports");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Product - Should Have Exactly 1 Output Port");
+    }
+}

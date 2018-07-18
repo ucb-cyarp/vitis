@@ -66,12 +66,17 @@ public:
                                                    std::map<std::string, std::string> dataKeyValueMap,
                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
+    //==== Expand ====
+    //TODO: Implement Expansion
+
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
     std::string labelStr() override ;
+
+    void validate() override ;
 
 };
 

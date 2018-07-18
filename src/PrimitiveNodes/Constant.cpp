@@ -82,3 +82,16 @@ std::string Constant::labelStr() {
 
     return label;
 }
+
+void Constant::validate() {
+    Node::validate();
+
+    //Should have 0 input ports and 1 output port
+    if(inputPorts.size() != 0){
+        throw std::runtime_error("Validation Failed - Constant - Should Have Exactly 0 Input Ports");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Constant - Should Have Exactly 1 Output Port");
+    }
+}

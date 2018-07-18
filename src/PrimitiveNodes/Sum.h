@@ -72,6 +72,8 @@ public:
 
     std::string labelStr() override ;
 
+    void validate() override ;
+
 };
 
 /*@}*/

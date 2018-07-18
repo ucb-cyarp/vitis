@@ -106,3 +106,15 @@ std::string Sum::labelStr() {
 
     return label;
 }
+
+void Sum::validate() {
+    Node::validate();
+
+    if(inputPorts.size() < 2){
+        throw std::runtime_error("Validation Failed - Sum - Should Have 2 or More Input Ports");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Sum - Should Have Exactly 1 Output Port");
+    }
+}

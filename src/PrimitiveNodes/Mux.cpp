@@ -69,5 +69,15 @@ void Mux::validate() {
     Node::validate();
 
     selectorPort->validate();
+
+    if(inputPorts.size() < 1){
+        throw std::runtime_error("Validation Failed - Mux - Should Have 1 or More Input Ports");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Mux - Should Have Exactly 1 Output Port");
+    }
+
+
 }
 

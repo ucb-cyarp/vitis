@@ -168,12 +168,12 @@ void DataTypeConversion::propagateProperties() {
 void DataTypeConversion::validate() {
     Node::validate(); //Perform the node level validation
 
-    if(inheritType == InheritType::SPECIFIED){
+    if(inheritType == InheritType::SPECIFIED) {
         //Perform the type check
         //Only need to do for 1 arc since Node validation checks that all arcs have the same type
 
-        if(getOutputPorts().size() < 1){
-            throw std::runtime_error("Validation Error - DataTypeConvert - No Output Ports");
+        if(getOutputPorts().size() < 1) {
+            throw std::runtime_error("Validation Error - DataTypeConversion - No Output Ports");
         }
 
         std::shared_ptr<OutputPort> output = getOutputPort(0);
@@ -181,8 +181,17 @@ void DataTypeConversion::validate() {
 
         std::shared_ptr<Arc> outArc = *(output->getArcs().begin());
 
-        if(outArc->getDataType() != tgtDataType){
-            throw std::runtime_error("Validation Error - DataTypeConvert - Type Specified and Disagrees with Type of Output Arc");
+        if(outArc->getDataType() != tgtDataType) {
+            throw std::runtime_error("Validation Error - DataTypeConversion - Type Specified and Disagrees with Type of Output Arc");
         }
+    }
+
+    //Should have 1 input ports and 1 output port
+    if(inputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - DataTypeConversion - Should Have Exactly 0 Input Port");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - DataTypeConversion - Should Have Exactly 1 Output Port");
     }
 }

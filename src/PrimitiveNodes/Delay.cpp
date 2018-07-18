@@ -114,3 +114,16 @@ std::string Delay::labelStr() {
 
     return label;
 }
+
+void Delay::validate() {
+    Node::validate();
+
+    //Should have 1 input ports and 1 output port
+    if(inputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Delay - Should Have Exactly 1 Input Port");
+    }
+
+    if(outputPorts.size() != 1){
+        throw std::runtime_error("Validation Failed - Delay - Should Have Exactly 1 Output Port");
+    }
+}
