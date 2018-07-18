@@ -291,7 +291,9 @@ public:
     virtual void propagateProperties();
 
     /**
-     * @brief Check if the node can be expanded.
+     * @brief Check if the node can be expanded (to primitive nodes).
+     *
+     * @note Does not check for vector expansion.
      *
      * The @ref expand method can still be called even if this function returns false, however, no change to the design will be made
      * @return true if the node can be expanded, false otherwise
