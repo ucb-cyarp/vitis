@@ -59,6 +59,66 @@ if strcmp(node.simulinkBlockType, 'Constant')
     %not parse
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 
+%---- LUT ----
+elseif strcmp(node.simulinkBlockType, 'Lookup_n-D')
+    %Check
+    if ~strcmp(get_param(simulink_block_handle, 'DataSpecification'), 'Table and breakpoints')
+        error('Currently LUT Export Only Supports ''Table and breakpoints'' Specification');
+    end
+    
+    if ~strcmp(get_param(simulink_block_handle, 'BreakpointsSpecification'), 'Explicit values')
+        error('Currently LUT Export Only Supports ''Explicit values'' Specification');
+    end
+    
+    numDimensions = GetParamEval(simulink_block_handle, 'NumberOfTableDimensions');
+    node.dialogPropertiesNumeric('NumberOfTableDimensions') = numDimensions;
+    
+    %Get Breakpoint Scales
+    for dimension = 1:numDimensions
+        breakpointForDimensionName = ['BreakpointsForDimension' num2str(dimension)];
+        node.dialogPropertiesNumeric(breakpointForDimensionName) = GetParamEval(simulink_block_handle, breakpointForDimensionName);
+    end
+    
+    %Get Table Data
+    node.dialogPropertiesNumeric('Table') = GetParamEval(simulink_block_handle, 'Table');
+    
+    %Other Important Parameters:
+    %DataSpecification = How the LUT Is Specified
+    %    Needs to be 'Table and breakpoints'
+    %
+    %BreakpointsSpecification = How the BreakPoints are Specified
+    %    Needs to be 'Explicit values' for now
+    %       If First Point and Spacing were to be supported in the future,
+    %       BreakpointsForDimension1FirstPoint and
+    %       BreakpointsForDimension1Spacing would be needed
+    %
+    %BreakpointsForDimension1DataTypeStr = DataType of the breakpoints
+    %
+    %IndexSearchMethod = The Method By Which The LUT is searched
+    %    - Evenly spaced points = Only looks at 1st and Last breakpoint and
+    %      assumes even spacing -> allows a simple array lookup after 
+    %      scaling the input
+    %    - Linear Search
+    %    - Binary Search
+    %
+    %BeginIndexSearchUsingPreviousIndexResult = Specifies if Linear or
+    %Binary Search start from the previous result.  If value rarely
+    %changes, this can save time.
+    %
+    %TableDataTypeStr = The DataType of the table data
+    %
+    %InterpMethod = How to deal with an input between breakpoints
+    %    - Flat = take the breakpoint below
+    %    - Nearest = take the nearest breakpoint, if equidistent, round up
+    %    - Linear = linear interpolation between breakpoints
+    %    - Cubic spline = Cubic spline interpolation between breakpoints
+    %ExtrapMethod = How to deal with inputs outside of breakpoint range
+    %    - Clip = no extrapolation, returns end of range
+    %    - Linear = linear extrapolation between outer pair of breakpoints
+    %    - Cubic spline = 
+    %    NOTE: Extrap Method is Clip for Flat or Nearest Inter Method.
+    %    HOWEVER will display linear if queried
+    
 %---- Gain ----
 elseif strcmp(node.simulinkBlockType, 'Gain')
     node.dialogPropertiesNumeric('Gain') = GetParamEval(simulink_block_handle, 'Gain');
