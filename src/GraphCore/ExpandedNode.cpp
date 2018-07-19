@@ -22,6 +22,10 @@ void ExpandedNode::setOrigNode(std::shared_ptr<Node> origNode) {
 }
 
 ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : SubSystem(parent), origNode(orig) {
+    //Set ID
+    id = orig->getId();
+    name = "Expanded(" + orig->getName() + ")";
+
     //Copy input ports of orig node
     std::vector<std::shared_ptr<InputPort>> origInputPorts = orig->getInputPorts();
     unsigned long numInputPorts = origInputPorts.size();

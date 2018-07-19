@@ -259,10 +259,9 @@ public:
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
-     * @param nodeMap A map of node ID to pointer mappings, will be modified to reflect the expanded node replacing the orig node in the ID map
      * @return true if expansion occurred, false if it did not
      */
-    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs, std::map<std::string, std::shared_ptr<Node>> nodeMap);
+    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /*
      * @brief Emit C++ code to calculate the value of an output port.

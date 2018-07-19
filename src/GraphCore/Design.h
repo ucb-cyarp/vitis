@@ -107,6 +107,34 @@ public:
      */
     std::set<GraphMLParameter> graphMLParameters();
 
+    /**
+     * @brief Check if any of the nodes in the design can be expanded
+     * @return true if any node in the design can be expanded, false if all nodes cannot be expanded
+     */
+    bool canExpand();
+
+    /**
+     * @brief Expand the design
+     *
+     * Traverse each node in the design and call the Node::expand function
+     *
+     * @note Expanded nodes may produce nodes that can further be expanded.  May need to call this function multiple times to get a full expansion.
+     *
+     * @return true if a node expanded, false if no node expanded
+     */
+    bool expand();
+
+    /**
+     * @brief Expand the design until it cannot be expanded further
+     *
+     * Calls expand() until it returns false
+     *
+     * @note Assumes that once expand() returns false, the design cannot be expanded further no matter how many times expand() is called
+     *
+     * @return true if an expansion was made, false if no node was expanded
+     */
+    bool expandToPrimitive();
+
     //==== Getters/Setters ====
     std::shared_ptr<MasterInput> getInputMaster() const;
     void setInputMaster(const std::shared_ptr<MasterInput> inputMaster);

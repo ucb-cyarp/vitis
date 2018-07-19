@@ -117,6 +117,9 @@ target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES})
 add_executable(simulinkGraphmlDOMPrint src/Tools/simulinkGraphmlDOMPrint.cpp)
 target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES})
 
+add_executable(designExpander src/Tools/designExpander.cpp)
+target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
+
 #==== Google Test ====
 set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file
 enable_testing()

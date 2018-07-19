@@ -262,3 +262,72 @@ void Design::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *root) {
         (*arc)->emitGraphML(doc, graphElement);
     }
 }
+
+bool Design::canExpand() {
+    bool canExpand = false;
+
+    for(auto node = nodes.begin(); node != nodes.end(); node++){
+        canExpand |= (*node)->canExpand();
+    }
+
+    return canExpand;
+}
+
+bool Design::expand() {
+    bool expanded = false;
+
+    std::vector<std::shared_ptr<Node>> newNodes;
+    std::vector<std::shared_ptr<Node>> deletedNodes;
+    std::vector<std::shared_ptr<Arc>> newArcs;
+    std::vector<std::shared_ptr<Arc>> deletedArcs;
+
+    for(auto node = nodes.begin(); node != nodes.end(); node++){
+        expanded |= (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
+    }
+
+    //Add new nodes first, then delete old ones
+    for(auto node = newNodes.begin(); node != newNodes.end(); node++){
+        nodes.push_back(*node);
+    }
+
+    for(auto node = deletedNodes.begin(); node != deletedNodes.end(); node++){
+        //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
+        for(auto candidate = nodes.begin(); candidate != nodes.end(); ){//Will handle iteration in body since erase returns next iterator pos
+            if((*candidate) == (*node)){
+                candidate = nodes.erase(candidate);
+            }else{
+                candidate++;
+            }
+        }
+    }
+
+    //Add new arcs first, then delete old ones
+    for(auto arc = newArcs.begin(); arc != newArcs.end(); arc++){
+        arcs.push_back(*arc);
+    }
+
+    for(auto arc = deletedArcs.begin(); arc != deletedArcs.end(); arc++){
+        //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
+        for(auto candidate = arcs.begin(); candidate != arcs.end(); ){//Will handle iteration in body since erase returns next iterator pos
+            if((*candidate) == (*arc)){
+                candidate = arcs.erase(candidate);
+            }else{
+                candidate++;
+            }
+        }
+    }
+
+}
+
+bool Design::expandToPrimitive() {
+    bool expanded = false;
+
+    bool done = false;
+    while(!done){
+        bool localExpanded = expand();
+        expanded |= localExpanded;
+        done = !localExpanded;
+    }
+
+    return expanded;
+}

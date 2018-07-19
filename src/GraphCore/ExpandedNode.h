@@ -48,6 +48,9 @@ protected:
      *
      * Copies the Input/Output ports of the orig node to aid in restoration of orig node if required (see note in @ref ExpandedNode description).
      *
+     * Sets the ID of the ExpandedNode to that of the original.
+     * Sets name to Expanded(<OrigName>)
+     *
      * @note Expansion should be run after arcs have been added to the design
      *
      * @param parent of new node
