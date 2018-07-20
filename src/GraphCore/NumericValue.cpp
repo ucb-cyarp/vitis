@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "NumericValue.h"
+#include "General/GeneralHelper.h"
 
 NumericValue::NumericValue() : realInt(0), imagInt(0), complexDouble(std::complex<double>(0, 0)), complex(false), fractional(true){
 
@@ -310,4 +311,44 @@ std::string NumericValue::toString(std::vector<NumericValue> vector) {
     val += "]";
 
     return val;
+}
+
+bool NumericValue::isSigned() {
+    if(fractional){
+        if(complex){
+            return complexDouble.real() < 0 || complexDouble.imag() < 0;
+        }else{
+            return complexDouble.real() < 0;
+        }
+    }else{
+        if(complex){
+            return realInt < 0 || imagInt < 0;
+        }else{
+            return realInt < 0;
+        }
+    }
+}
+
+unsigned long NumericValue::numIntegerBits() {
+    bool sign = isSigned();
+
+    if(fractional){
+        if(complex){
+            unsigned long realBits = GeneralHelper::numIntegerBits(complexDouble.real(), sign);
+            unsigned long imagBits = GeneralHelper::numIntegerBits(complexDouble.imag(), sign);
+
+            return realBits > imagBits ? realBits : imagBits;
+        }else{
+            return GeneralHelper::numIntegerBits(complexDouble.real(), sign);
+        }
+    }else{
+        if(complex){
+            unsigned long realBits = GeneralHelper::numIntegerBits(realInt, sign);
+            unsigned long imagBits = GeneralHelper::numIntegerBits(imagInt, sign);
+
+            return realBits > imagBits ? realBits : imagBits;
+        }else{
+            return GeneralHelper::numIntegerBits(realInt, sign);
+        }
+    }
 }

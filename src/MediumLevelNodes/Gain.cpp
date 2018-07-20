@@ -4,6 +4,12 @@
 
 #include "Gain.h"
 
+#include "GraphCore/ExpandedNode.h"
+#include "PrimitiveNodes/Product.h"
+#include "PrimitiveNodes/Constant.h"
+#include "General/GeneralHelper.h"
+#include <cmath>
+
 Gain::Gain() {
 
 }
@@ -93,5 +99,126 @@ void Gain::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Output Port");
     }
+
+    //Check that there is at least 1 value
+    if(gain.size() < 1){
+        throw std::runtime_error("Validation Failed - Gain - Should Have At Least 1 Gain Value");
+    }
+}
+
+bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                  std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    //Validate first to check that Gain is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
+    validate();
+
+    //---- Expand the Gain Node to a multiply and constant ----
+    std::shared_ptr<SubSystem> thisParent = parent;
+
+    //Create Expanded Node and Add to Parent
+    std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(thisParent, shared_from_this());
+
+    //Remove Current Node from Parent and Set Parent to nullptr
+    thisParent->removeChild(shared_from_this());
+    parent = nullptr;
+    //Add This node to the list of nodes to remove from the node vector
+    deleted_nodes.push_back(shared_from_this());
+
+    //Add Expanded Node to Node List
+    new_nodes.push_back(expandedNode);
+
+    //++++ Create Multiply Block and Rewire ++++
+    std::shared_ptr<Product> multiplyNode = NodeFactory::createNode<Product>(thisParent);
+    multiplyNode->setName("Multiply");
+    new_nodes.push_back(multiplyNode);
+
+    std::shared_ptr<Arc> inputArc = *(inputPorts[0]->getArcs().begin());
+    multiplyNode->addInArcUpdatePrevUpdateArc(0, inputArc); //Should remove the arc from this node's port
+
+    std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[0]->getArcs(); //Make a copy of the arc set since re-assigning the arc will remove it from the port's set
+    for(auto outputArc = outputArcs.begin(); outputArc != outputArcs.end(); outputArc++){
+        multiplyNode->addOutArcUpdatePrevUpdateArc(0, *outputArc);
+    }
+
+    //++++ Create Constant Node and Wire ++++
+    std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(parent);
+    constantNode->setName("Constant");
+    constantNode->setValue(gain);
+    new_nodes.push_back(constantNode);
+
+    /*
+     * Constant Type Logic:
+     *   - If output type is a floating point type, the constant takes on the same type as the output
+     *   - If the 1st input is a floating point type, the constant takes the same type as the 1st input.
+     *   - If the output is an integer type, the constant takes the smallest integer type which accommodates the constant.
+     *   - If the output is a fixed point type, the constant takes on a fixed point type with the integer portion is the smallest that supports the given constant
+     *     the fractional bits are the max(fractional bits in output, fractional bits in 1st input).
+     *
+     * Signed is determined by checking if the constant value is negative, if the 1st input is negative
+     *
+     * Complexity and width are taken from the gain NumericValue
+     */
+    DataType outputType = (*outputArcs.begin())->getDataType();
+    DataType firstInputType = inputArc->getDataType();
+
+    //Check if Constant is Signed
+    bool constSigned = false;
+    for(auto constant = gain.begin(); constant != gain.end(); constant++){
+        constSigned |= constant->isSigned();
+    }
+
+    DataType constantType = DataType();
+
+    if(outputType.isFloatingPt()){
+        //Floating Pt
+        constantType = outputType;
+    }else if(firstInputType.isFloatingPt()) {
+        constantType = firstInputType;
+    }else{
+        //Integer or Fixed Point
+        unsigned long numIntBits = 0;
+
+        for (auto constant = gain.begin(); constant != gain.end(); constant++) {
+            unsigned long localNumBits = constant->numIntegerBits();
+            if (localNumBits > numIntBits) {
+                numIntBits = localNumBits;
+            }
+        }
+
+        if (outputType.getFractionalBits() == 0) {
+            //Integer
+            numIntBits = GeneralHelper::roundUpToCPUBits(numIntBits);
+
+            //Set type information
+            constantType.setFloatingPt(false);
+            constantType.setTotalBits(numIntBits);
+            constantType.setFractionalBits(0);
+        }else {
+            //Fixed Point
+            unsigned long firstInputFractionalBits = firstInputType.getFractionalBits();
+            unsigned long outputFractionalBits = outputType.getFractionalBits();
+
+            unsigned long fractionalBits = firstInputFractionalBits > outputFractionalBits ? firstInputFractionalBits : outputFractionalBits;
+
+            unsigned long totalBits = fractionalBits + numIntBits;
+
+            constantType.setFloatingPt(false);
+            constantType.setTotalBits(totalBits);
+            constantType.setFractionalBits(fractionalBits);
+        }
+
+    }
+
+    //Get complexity and width from value
+    //Width can be different from output width (ex. vector*scalar = vector)
+    constantType.setWidth(gain.size());
+    constantType.setComplex(gain[0].isComplex());
+    constantType.setSignedType(constSigned);
+
+    //Connect constant node to multiply node
+    std::shared_ptr<Arc> constantArc = Arc::connectNodes(constantNode, 0, multiplyNode, 1, constantType);
+    new_arcs.push_back(constantArc);
+
+    return true;
 }
 

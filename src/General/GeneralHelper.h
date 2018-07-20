@@ -82,6 +82,32 @@ public:
 
         return castPtr;
     };
+
+    /**
+     * @brief Find the number of integer bits required to represent this number (if rounded up if positive or down if negative)
+     *
+     * If signed, 2's complement is assumed
+     *
+     * @param num number to inspect
+     * @param forceSigned if true, forces the number of bits to support a signed number, even if @ref num is unsigned
+     * @return number of integer bits required to represent the number
+     */
+    static unsigned long numIntegerBits(double num, bool forceSigned);
+
+    /**
+     * @brief Find the width of the smallest standard CPU datatype that can accommodate a number of the given number of bits.
+     *
+     * For example:
+     *   - 1 bit number can be stored in a bool (1)
+     *   - 2 bit number can be stored in a char (8)
+     *   - 9 but number can be stored in a short (16)
+     *
+     *   The largest number supported, currently is 64 bits wide
+     *
+     * @param bits The number of bits which need to be represented.
+     * @return bit width of the smallest standard CPU datatype that can accommodate the number
+     */
+    static unsigned long roundUpToCPUBits(unsigned long bits);
 };
 
 /*@}*/

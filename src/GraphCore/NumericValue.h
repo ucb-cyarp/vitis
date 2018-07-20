@@ -60,6 +60,22 @@ public:
     NumericValue(long int realInt, long int imagInt, std::complex<double> complexDouble, bool complex, bool fractional);
 
     /**
+     * @brief Check if the numeric value is signed
+     * @return true if signed, false otherwise
+     */
+    bool isSigned();
+
+    /**
+     * @brief Get the number of integer bits required to represent the number.
+     *
+     * Does not specify the number of fractional bits required.
+     *
+     * @note Number of bits is for either the real or imag component.  If complex, double this number for thr total number of integer bits required.
+     * @return number of integer bits required to represent the number
+     */
+    unsigned long numIntegerBits();
+
+    /**
      * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with their stored datatypes
      * @return string representation of the numeric value
      */

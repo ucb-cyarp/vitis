@@ -67,7 +67,20 @@ public:
                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     //==== Expand ====
-    //TODO: Implement Expansion
+    /**
+     * @brief Expands the gain block into a multiply block and a constant block.
+     *
+     * Validates before expansion to check assumptions are fulfilled.
+     *
+     * The type of the constant is determined in the following manner:
+     *   - If output type is a floating point type, the constant takes on the same type as the output
+     *   - If the output is an integer type, the constant takes the smallest integer type which accommodates the constant.
+     *   - If the output is a fixed point type, the constant takes on a fixed point type with the integer portion is the smallest that supports the given constant
+     *     the number of fractional bits are the max(fractional bits in output, fractional bits in 1st input)
+     *
+     *   Complexity and width are taken from the gain NumericValue
+     */
+    bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;

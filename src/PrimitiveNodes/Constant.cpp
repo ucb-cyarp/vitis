@@ -94,4 +94,9 @@ void Constant::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Constant - Should Have Exactly 1 Output Port");
     }
+
+    //Check there is at least 1 constant value
+    if(value.size() < 1){
+        throw std::runtime_error("Validation Failed - Constant - Should Have at Least 1 Value");
+    }
 }
