@@ -89,6 +89,8 @@ set(COMMON_SRCS
         src/PrimitiveNodes/DataTypeConversion.h
         src/PrimitiveNodes/Compare.cpp
         src/PrimitiveNodes/Compare.h
+        src/PrimitiveNodes/LUT.cpp
+        src/PrimitiveNodes/LUT.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
