@@ -317,6 +317,7 @@ bool Design::expand() {
         }
     }
 
+    return expanded;
 }
 
 bool Design::expandToPrimitive() {
