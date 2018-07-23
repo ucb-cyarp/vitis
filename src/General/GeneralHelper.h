@@ -89,7 +89,7 @@ public:
      * If signed, 2's complement is assumed
      *
      * @param num number to inspect
-     * @param forceSigned if true, forces the number of bits to support a signed number, even if @ref num is unsigned
+     * @param forceSigned if true, forces the number of bits to support a signed number, even if num is unsigned
      * @return number of integer bits required to represent the number
      */
     static unsigned long numIntegerBits(double num, bool forceSigned);

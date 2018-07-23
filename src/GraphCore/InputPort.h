@@ -48,9 +48,9 @@ public:
     /**
      * @brief Get an aliased shared pointer to this InputPort
      *
-     * This is a more specialized version of @ref Port:getSharedPointer
+     * This is a more specialized version of @ref Port::getSharedPointer
      *
-     * @note Does not override @ref Port:getSharedPointer due to the different return type
+     * @note Does not override @ref Port::getSharedPointer due to the different return type
      *
      * @return an aliased shared pointer to the port
      */

@@ -310,11 +310,11 @@ GraphMLImporter::graphMLDataAttributeMap(xercesc::DOMNode *node, std::map<std::s
 }
 
 
-int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, GraphMLDialect dialect){
+int GraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, GraphMLDialect dialect){
     return GraphMLImporter::importNodes(node, design, nodeMap, edgeNodes, std::shared_ptr<SubSystem>(nullptr), dialect);
 }
 
-int GraphMLImporter::importNodes(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect)
+int GraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<xercesc::DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect)
 {
     int importedNodes = 0;
 
@@ -651,8 +651,6 @@ void GraphMLImporter::printGraphmlDOM(std::string filename)
         DOMNode *node = doc;
 
         GraphMLImporter::printXMLNodeAndChildren(node);
-
-
     }
 
     //Cleanup
