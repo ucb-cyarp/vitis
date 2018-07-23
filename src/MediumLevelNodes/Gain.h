@@ -32,6 +32,8 @@ private:
     //==== Constructors ====
     /**
      * @brief Constructs a gain node with no value
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
     Gain();
 

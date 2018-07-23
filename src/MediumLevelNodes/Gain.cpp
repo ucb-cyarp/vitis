@@ -161,11 +161,6 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     DataType outputType = (*outputArcs.begin())->getDataType();
     DataType firstInputType = inputArc->getDataType();
 
-    //Check if Constant is Signed
-    bool constSigned = false;
-    for(auto constant = gain.begin(); constant != gain.end(); constant++){
-        constSigned |= constant->isSigned();
-    }
 
     DataType constantType = DataType();
 
@@ -176,13 +171,18 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
         constantType = firstInputType;
     }else{
         //Integer or Fixed Point
+
+        //Calc Integer Bits and Check if Constant is Signed
         unsigned long numIntBits = 0;
+        bool constSigned = false;
 
         for (auto constant = gain.begin(); constant != gain.end(); constant++) {
             unsigned long localNumBits = constant->numIntegerBits();
             if (localNumBits > numIntBits) {
                 numIntBits = localNumBits;
             }
+
+            constSigned |= constant->isSigned();
         }
 
         if (outputType.getFractionalBits() == 0) {
@@ -207,13 +207,14 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
             constantType.setFractionalBits(fractionalBits);
         }
 
+        constantType.setSignedType(constSigned); //This must be set for int or Fixed Point types.  Floating point should be true
+
     }
 
     //Get complexity and width from value
     //Width can be different from output width (ex. vector*scalar = vector)
     constantType.setWidth(gain.size());
     constantType.setComplex(gain[0].isComplex());
-    constantType.setSignedType(constSigned);
 
     //Connect constant node to multiply node
     std::shared_ptr<Arc> constantArc = Arc::connectNodes(constantNode, 0, multiplyNode, 1, constantType);
