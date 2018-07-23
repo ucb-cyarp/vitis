@@ -70,6 +70,17 @@ public:
      */
     std::shared_ptr<SelectPort> getSelectorPort() const;
 
+    /**
+    * @brief Add a select arc to the given node, updating referenced objects in the process
+    *
+    * Adds an select arc to this node.  Removes the arc from the orig port if not NULL.
+    * Updates the given arc so that the destination port is set to the specified input
+    * port of this node.  If the port object for the given number is not yet created, it
+    * will be created during the call.
+    * @param arc The arc to add
+    */
+    void addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
+
     //==== Factories ====
     /**
      * @brief Creates a mux node from a GraphML Description
@@ -100,6 +111,8 @@ public:
     void validate() override;
 
     std::string labelStr() override ;
+
+    //TODO: When syntehsizing C/C++ check that boolean is handled (false = 0, true = 1)
 
 };
 

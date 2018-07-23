@@ -14,6 +14,8 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
 
+#include "PrimitiveNodes/Mux.h"
+
 Arc::Arc() : id(-1), sampleTime(-1), delay(0), slack(0){
     srcPort = std::shared_ptr<OutputPort>(nullptr);
     dstPort = std::shared_ptr<InputPort>(nullptr);
@@ -168,6 +170,31 @@ Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Ena
     return arc;
 }
 
+std::shared_ptr<Arc>
+Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Mux> dst, DataType dataType,
+                  double sampleTime) {
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+    arc->weakSelf = arc; //Store reference to self as weak ptr
+
+    //Connect arc
+    if(src != nullptr)
+    {
+        src->addOutArcUpdatePrevUpdateArc(srcPortNum, arc);
+    }
+
+    if(dst != nullptr)
+    {
+        dst->addSelectArcUpdatePrevUpdateArc(arc);
+    }
+
+    return arc;
+}
 
 int Arc::getIDFromGraphMLFullPath(std::string fullPath) {
     //Find the location of the last n

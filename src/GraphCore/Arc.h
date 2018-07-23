@@ -19,6 +19,7 @@ class InputPort;
 class OutputPort;
 class Node;
 class EnableNode;
+class Mux;
 //class DataType;
 
 //This Class
@@ -120,6 +121,22 @@ public:
      */
     static std::shared_ptr<Arc>
     connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<EnableNode> dst,
+                 DataType dataType, double sampleTime = -1);
+
+    /**
+     * @brief Connects two nodes with a newly created Arc.  Dst port is the select port.
+     *
+     * This function adds the new arc to the specified ports of the source node.  Adds the arc to the enable port of the destination.
+     *
+     * @param src source node for Arc
+     * @param srcPortNum source port number for Arc
+     * @param dst destination node for Arc
+     * @param dataType data type for data flowing via Arc
+     * @param sampleTime sample time for data flowing via Arc (in s)
+     * @return shared pointer to the newly created arc
+     */
+    static std::shared_ptr<Arc>
+    connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Mux> dst,
                  DataType dataType, double sampleTime = -1);
 
     /**

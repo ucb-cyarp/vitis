@@ -25,6 +25,7 @@
 #include "PrimitiveNodes/LUT.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
+#include "MediumLevelNodes/ThresholdSwitch.h"
 
 #include <iostream>
 #include <fstream>
@@ -855,6 +856,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = LUT::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "CompareToConstant"){
         newNode = CompareToConstant::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "ThresholdSwitch" || blockFunction == "Switch"){ //Vitis name is ThresholdSwitch, Simulink name is Switch
+        newNode = ThresholdSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }

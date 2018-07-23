@@ -81,3 +81,9 @@ void Mux::validate() {
 
 }
 
+void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
+
+    //Set the dst port of the arc, updating the previous port and this one
+    arc->setDstPortUpdateNewUpdatePrev(selectorPort->getSharedPointerInputPort());
+}
+
