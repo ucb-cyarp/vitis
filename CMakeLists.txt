@@ -94,7 +94,9 @@ set(COMMON_SRCS
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
-        src/MediumLevelNodes/Gain.h)
+        src/MediumLevelNodes/Gain.h
+        src/MediumLevelNodes/CompareToConstant.cpp
+        src/MediumLevelNodes/CompareToConstant.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
