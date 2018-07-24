@@ -5,6 +5,7 @@
 #include "ThresholdSwitch.h"
 #include "PrimitiveNodes/Mux.h"
 #include "MediumLevelNodes/CompareToConstant.h"
+#include "GraphCore/ExpandedNode.h"
 
 ThresholdSwitch::ThresholdSwitch() : compareOp(Compare::CompareOp::LT) {
 
@@ -88,7 +89,7 @@ bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     std::shared_ptr<SubSystem> thisParent = parent;
 
     //Create Expanded Node and Add to Parent
-    std::shared_ptr<ThresholdSwitch> expandedNode = NodeFactory::createNode<ThresholdSwitch>(thisParent, shared_from_this());
+    std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(thisParent, shared_from_this());
 
     //Remove Current Node from Parent and Set Parent to nullptr
     thisParent->removeChild(shared_from_this());

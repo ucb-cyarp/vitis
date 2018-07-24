@@ -64,6 +64,7 @@ public:
         std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent));
 
         node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+        node->setOrigNode(orig);
 
         if(parent != nullptr)
         {
@@ -85,6 +86,7 @@ public:
         std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent));
 
         node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+        node->setOrigNode(orig);
 
         if(parent != nullptr)
         {
