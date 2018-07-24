@@ -66,6 +66,9 @@
 	<key id="DiagnosticForDelayLength" for="node" attr.name="DiagnosticForDelayLength" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="Direction" for="node" attr.name="Direction" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="ExternalReset" for="node" attr.name="ExternalReset" attr.type="string">
 		<default>""</default>
 	</key>
@@ -178,13 +181,12 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
-			<data key="MaskVariables.ans">1+2i</data>
 		</node>
 		<node id="n6">
-			<data key="instance_name">SclarInitDelay</data>
+			<data key="instance_name">SclarInitDelay1</data>
 			<data key="block_node_type">Expanded</data>
 			<data key="block_function">Delay</data>
-			<data key="block_label">SclarInitDelay
+			<data key="block_label">SclarInitDelay1
 ID: n6
 Function: Delay
 DelayLengthSource: Dialog
@@ -214,29 +216,11 @@ SampleTime: -1</data>
 			<data key="Numeric.InitialCondition">1</data>
 			<data key="Numeric.SampleTime">-1</data>
 			<graph id="n6:" edgedefault="directed">
-				<node id="n6::n10">
-					<data key="instance_name">SclarInitDelay_Expanded_1_Delay</data>
-					<data key="block_node_type">Standard</data>
-					<data key="block_function">Delay</data>
-					<data key="block_label">SclarInitDelay_Expanded_1_Delay
-ID: n6::n10
-Function: Delay
-DelayLengthSource: Dialog
-InitialConditionSource: Dialog
-DelayLength: 1
-InitialCondition: 1
-SampleTime: -1</data>
-					<data key="DelayLengthSource">Dialog</data>
-					<data key="InitialConditionSource">Dialog</data>
-					<data key="Numeric.DelayLength">1</data>
-					<data key="Numeric.InitialCondition">1</data>
-					<data key="Numeric.SampleTime">-1</data>
-				</node>
 				<node id="n6::n11">
-					<data key="instance_name">SclarInitDelay_Expanded_2_Delay</data>
+					<data key="instance_name">SclarInitDelay1_Expanded_1_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
-					<data key="block_label">SclarInitDelay_Expanded_2_Delay
+					<data key="block_label">SclarInitDelay1_Expanded_1_Delay
 ID: n6::n11
 Function: Delay
 DelayLengthSource: Dialog
@@ -251,10 +235,10 @@ SampleTime: -1</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
 				<node id="n6::n12">
-					<data key="instance_name">SclarInitDelay_Expanded_3_Delay</data>
+					<data key="instance_name">SclarInitDelay1_Expanded_2_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
-					<data key="block_label">SclarInitDelay_Expanded_3_Delay
+					<data key="block_label">SclarInitDelay1_Expanded_2_Delay
 ID: n6::n12
 Function: Delay
 DelayLengthSource: Dialog
@@ -269,11 +253,29 @@ SampleTime: -1</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
 				<node id="n6::n13">
-					<data key="instance_name">SclarInitDelay_Expanded_4_Delay</data>
+					<data key="instance_name">SclarInitDelay1_Expanded_3_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
-					<data key="block_label">SclarInitDelay_Expanded_4_Delay
+					<data key="block_label">SclarInitDelay1_Expanded_3_Delay
 ID: n6::n13
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 1
+SampleTime: -1</data>
+					<data key="DelayLengthSource">Dialog</data>
+					<data key="InitialConditionSource">Dialog</data>
+					<data key="Numeric.DelayLength">1</data>
+					<data key="Numeric.InitialCondition">1</data>
+					<data key="Numeric.SampleTime">-1</data>
+				</node>
+				<node id="n6::n14">
+					<data key="instance_name">SclarInitDelay1_Expanded_4_Delay</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Delay</data>
+					<data key="block_label">SclarInitDelay1_Expanded_4_Delay
+ID: n6::n14
 Function: Delay
 DelayLengthSource: Dialog
 InitialConditionSource: Dialog
@@ -289,11 +291,119 @@ SampleTime: -1</data>
 			</graph>
 		</node>
 		<node id="n7">
+			<data key="instance_name">SclarInitDelay</data>
+			<data key="block_node_type">Expanded</data>
+			<data key="block_function">Delay</data>
+			<data key="block_label">SclarInitDelay
+ID: n7
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 1
+SampleTime: -1</data>
+			<data key="CodeGenStateStorageTypeQualifier">[]</data>
+			<data key="DelayLength">1</data>
+			<data key="DelayLengthSource">Dialog</data>
+			<data key="DelayLengthUpperLimit">100</data>
+			<data key="DiagnosticForDelayLength">None</data>
+			<data key="ExternalReset">None</data>
+			<data key="InitialCondition">1</data>
+			<data key="InitialConditionSource">Dialog</data>
+			<data key="InputProcessing">Elements as channels (sample based)</data>
+			<data key="PreventDirectFeedthrough">off</data>
+			<data key="RemoveDelayLengthCheckInGeneratedCode">off</data>
+			<data key="SampleTime">-1</data>
+			<data key="ShowEnablePort">off</data>
+			<data key="StateMustResolveToSignalObject">off</data>
+			<data key="StateName">[]</data>
+			<data key="StateSignalObject">[]</data>
+			<data key="StateStorageClass">Auto</data>
+			<data key="UseCircularBuffer">off</data>
+			<data key="Numeric.DelayLength">1</data>
+			<data key="Numeric.InitialCondition">1</data>
+			<data key="Numeric.SampleTime">-1</data>
+			<graph id="n7:" edgedefault="directed">
+				<node id="n7::n15">
+					<data key="instance_name">SclarInitDelay_Expanded_1_Delay</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Delay</data>
+					<data key="block_label">SclarInitDelay_Expanded_1_Delay
+ID: n7::n15
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 1
+SampleTime: -1</data>
+					<data key="DelayLengthSource">Dialog</data>
+					<data key="InitialConditionSource">Dialog</data>
+					<data key="Numeric.DelayLength">1</data>
+					<data key="Numeric.InitialCondition">1</data>
+					<data key="Numeric.SampleTime">-1</data>
+				</node>
+				<node id="n7::n16">
+					<data key="instance_name">SclarInitDelay_Expanded_2_Delay</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Delay</data>
+					<data key="block_label">SclarInitDelay_Expanded_2_Delay
+ID: n7::n16
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 1
+SampleTime: -1</data>
+					<data key="DelayLengthSource">Dialog</data>
+					<data key="InitialConditionSource">Dialog</data>
+					<data key="Numeric.DelayLength">1</data>
+					<data key="Numeric.InitialCondition">1</data>
+					<data key="Numeric.SampleTime">-1</data>
+				</node>
+				<node id="n7::n17">
+					<data key="instance_name">SclarInitDelay_Expanded_3_Delay</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Delay</data>
+					<data key="block_label">SclarInitDelay_Expanded_3_Delay
+ID: n7::n17
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 1
+SampleTime: -1</data>
+					<data key="DelayLengthSource">Dialog</data>
+					<data key="InitialConditionSource">Dialog</data>
+					<data key="Numeric.DelayLength">1</data>
+					<data key="Numeric.InitialCondition">1</data>
+					<data key="Numeric.SampleTime">-1</data>
+				</node>
+				<node id="n7::n18">
+					<data key="instance_name">SclarInitDelay_Expanded_4_Delay</data>
+					<data key="block_node_type">Standard</data>
+					<data key="block_function">Delay</data>
+					<data key="block_label">SclarInitDelay_Expanded_4_Delay
+ID: n7::n18
+Function: Delay
+DelayLengthSource: Dialog
+InitialConditionSource: Dialog
+DelayLength: 1
+InitialCondition: 1
+SampleTime: -1</data>
+					<data key="DelayLengthSource">Dialog</data>
+					<data key="InitialConditionSource">Dialog</data>
+					<data key="Numeric.DelayLength">1</data>
+					<data key="Numeric.InitialCondition">1</data>
+					<data key="Numeric.SampleTime">-1</data>
+				</node>
+			</graph>
+		</node>
+		<node id="n8">
 			<data key="instance_name">VectorConstant</data>
 			<data key="block_node_type">Expanded</data>
 			<data key="block_function">Constant</data>
 			<data key="block_label">VectorConstant
-ID: n7
+ID: n8
 Function: Constant
 SampleTime: Inf
 Value: [5, 6, 7, 8]</data>
@@ -307,49 +417,49 @@ Value: [5, 6, 7, 8]</data>
 			<data key="VectorParams1D">on</data>
 			<data key="Numeric.SampleTime">Inf</data>
 			<data key="Numeric.Value">[5, 6, 7, 8]</data>
-			<graph id="n7:" edgedefault="directed">
-				<node id="n7::n14">
+			<graph id="n8:" edgedefault="directed">
+				<node id="n8::n19">
 					<data key="instance_name">VectorConstant_Expanded_1_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant_Expanded_1_Constant
-ID: n7::n14
+ID: n8::n19
 Function: Constant
 SampleTime: Inf
 Value: 5</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">5</data>
 				</node>
-				<node id="n7::n15">
+				<node id="n8::n20">
 					<data key="instance_name">VectorConstant_Expanded_2_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant_Expanded_2_Constant
-ID: n7::n15
+ID: n8::n20
 Function: Constant
 SampleTime: Inf
 Value: 6</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">6</data>
 				</node>
-				<node id="n7::n16">
+				<node id="n8::n21">
 					<data key="instance_name">VectorConstant_Expanded_3_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant_Expanded_3_Constant
-ID: n7::n16
+ID: n8::n21
 Function: Constant
 SampleTime: Inf
 Value: 7</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">7</data>
 				</node>
-				<node id="n7::n17">
+				<node id="n8::n22">
 					<data key="instance_name">VectorConstant_Expanded_4_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant_Expanded_4_Constant
-ID: n7::n17
+ID: n8::n22
 Function: Constant
 SampleTime: Inf
 Value: 8</data>
@@ -358,12 +468,12 @@ Value: 8</data>
 				</node>
 			</graph>
 		</node>
-		<node id="n8">
+		<node id="n9">
 			<data key="instance_name">VectorInitDelay</data>
 			<data key="block_node_type">Expanded</data>
 			<data key="block_function">Delay</data>
 			<data key="block_label">VectorInitDelay
-ID: n8
+ID: n9
 Function: Delay
 DelayLengthSource: Dialog
 InitialConditionSource: Dialog
@@ -391,13 +501,13 @@ SampleTime: -1</data>
 			<data key="Numeric.DelayLength">1</data>
 			<data key="Numeric.InitialCondition">[1, 2, 3, 4]</data>
 			<data key="Numeric.SampleTime">-1</data>
-			<graph id="n8:" edgedefault="directed">
-				<node id="n8::n18">
+			<graph id="n9:" edgedefault="directed">
+				<node id="n9::n23">
 					<data key="instance_name">VectorInitDelay_Expanded_1_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
 					<data key="block_label">VectorInitDelay_Expanded_1_Delay
-ID: n8::n18
+ID: n9::n23
 Function: Delay
 DelayLengthSource: Dialog
 InitialConditionSource: Dialog
@@ -410,12 +520,12 @@ SampleTime: -1</data>
 					<data key="Numeric.InitialCondition">1</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
-				<node id="n8::n19">
+				<node id="n9::n24">
 					<data key="instance_name">VectorInitDelay_Expanded_2_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
 					<data key="block_label">VectorInitDelay_Expanded_2_Delay
-ID: n8::n19
+ID: n9::n24
 Function: Delay
 DelayLengthSource: Dialog
 InitialConditionSource: Dialog
@@ -428,12 +538,12 @@ SampleTime: -1</data>
 					<data key="Numeric.InitialCondition">2</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
-				<node id="n8::n20">
+				<node id="n9::n25">
 					<data key="instance_name">VectorInitDelay_Expanded_3_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
 					<data key="block_label">VectorInitDelay_Expanded_3_Delay
-ID: n8::n20
+ID: n9::n25
 Function: Delay
 DelayLengthSource: Dialog
 InitialConditionSource: Dialog
@@ -446,12 +556,12 @@ SampleTime: -1</data>
 					<data key="Numeric.InitialCondition">3</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
-				<node id="n8::n21">
+				<node id="n9::n26">
 					<data key="instance_name">VectorInitDelay_Expanded_4_Delay</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Delay</data>
 					<data key="block_label">VectorInitDelay_Expanded_4_Delay
-ID: n8::n21
+ID: n9::n26
 Function: Delay
 DelayLengthSource: Dialog
 InitialConditionSource: Dialog
@@ -466,12 +576,12 @@ SampleTime: -1</data>
 				</node>
 			</graph>
 		</node>
-		<node id="n9">
+		<node id="n10">
 			<data key="instance_name">VectorConstant1</data>
 			<data key="block_node_type">Expanded</data>
 			<data key="block_function">Constant</data>
 			<data key="block_label">VectorConstant1
-ID: n9
+ID: n10
 Function: Constant
 SampleTime: Inf
 Value: [5, 6, 7, 8]</data>
@@ -485,49 +595,49 @@ Value: [5, 6, 7, 8]</data>
 			<data key="VectorParams1D">on</data>
 			<data key="Numeric.SampleTime">Inf</data>
 			<data key="Numeric.Value">[5, 6, 7, 8]</data>
-			<graph id="n9:" edgedefault="directed">
-				<node id="n9::n22">
+			<graph id="n10:" edgedefault="directed">
+				<node id="n10::n27">
 					<data key="instance_name">VectorConstant1_Expanded_1_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant1_Expanded_1_Constant
-ID: n9::n22
+ID: n10::n27
 Function: Constant
 SampleTime: Inf
 Value: 5</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">5</data>
 				</node>
-				<node id="n9::n23">
+				<node id="n10::n28">
 					<data key="instance_name">VectorConstant1_Expanded_2_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant1_Expanded_2_Constant
-ID: n9::n23
+ID: n10::n28
 Function: Constant
 SampleTime: Inf
 Value: 6</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">6</data>
 				</node>
-				<node id="n9::n24">
+				<node id="n10::n29">
 					<data key="instance_name">VectorConstant1_Expanded_3_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant1_Expanded_3_Constant
-ID: n9::n24
+ID: n10::n29
 Function: Constant
 SampleTime: Inf
 Value: 7</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">7</data>
 				</node>
-				<node id="n9::n25">
+				<node id="n10::n30">
 					<data key="instance_name">VectorConstant1_Expanded_4_Constant</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VectorConstant1_Expanded_4_Constant
-ID: n9::n25
+ID: n10::n30
 Function: Constant
 SampleTime: Inf
 Value: 8</data>
@@ -536,28 +646,52 @@ Value: 8</data>
 				</node>
 			</graph>
 		</node>
-		<node id="n26">
+		<node id="n31">
 			<data key="instance_name">VectorFan</data>
 			<data key="block_node_type">VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
-ID: n26
-Type: VectorFan</data>
+ID: n31
+Type: VectorFan
+Direction: Fan-Out</data>
+			<data key="Direction">Fan-Out</data>
 		</node>
-		<node id="n27">
+		<node id="n32">
 			<data key="instance_name">VectorFan</data>
 			<data key="block_node_type">VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
-ID: n27
-Type: VectorFan</data>
+ID: n32
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
-		<edge id="e1" source="n26" target="n2">
+		<node id="n33">
+			<data key="instance_name">VectorFan</data>
+			<data key="block_node_type">VectorFan</data>
+			<data key="block_function"></data>
+			<data key="block_label">VectorFan
+ID: n33
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
+		</node>
+		<node id="n34">
+			<data key="instance_name">VectorFan</data>
+			<data key="block_node_type">VectorFan</data>
+			<data key="block_function"></data>
+			<data key="block_label">VectorFan
+ID: n34
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
+		</node>
+		<edge id="e1" source="n32" target="n2">
 			<data key="arc_src_port">1</data>
-			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port">3</data>
 			<data key="arc_dst_port_type">Standard</data>
 			<data key="arc_disp_label">Src Port Num: 1
-Dst Port Num: 2
+Dst Port Num: 3
 Dst Port Type: Standard
 Datatype: double
 Complex: 0
@@ -568,7 +702,7 @@ Width: 4</data>
 			<data key="arc_dimension">[1, 4]</data>
 			<data key="arc_width">4</data>
 		</edge>
-		<edge id="e2" source="n27" target="n2">
+		<edge id="e2" source="n1" target="n31">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -584,7 +718,39 @@ Width: 4</data>
 			<data key="arc_dimension">[1, 4]</data>
 			<data key="arc_width">4</data>
 		</edge>
-		<edge id="e3" source="n6::n10" target="n26">
+		<edge id="e3" source="n33" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 4]
+Width: 4</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 4]</data>
+			<data key="arc_width">4</data>
+		</edge>
+		<edge id="e4" source="n34" target="n2">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Datatype: double
+Complex: 0
+Dimension: [1, 4]
+Width: 4</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 4]</data>
+			<data key="arc_width">4</data>
+		</edge>
+		<edge id="e5" source="n6::n11" target="n32">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -610,7 +776,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e4" source="n6::n11" target="n26">
+		<edge id="e6" source="n6::n12" target="n32">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -636,7 +802,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e5" source="n6::n12" target="n26">
+		<edge id="e7" source="n6::n13" target="n32">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">3</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -662,7 +828,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e6" source="n6::n13" target="n26">
+		<edge id="e8" source="n6::n14" target="n32">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">4</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -688,11 +854,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e7" source="n8::n18" target="n27">
+		<edge id="e9" source="n7::n15" target="n33">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n8]</data>
+			<data key="arc_intermediate_nodes">[n7]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[1]</data>
 			<data key="arc_intermediate_port_types">[Standard]</data>
@@ -700,7 +866,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n8]
+Intermediate Node: [n7]
 Intermediate Port Number: [1]
 Intermediate Wire Number: [1]
 Intermediate Port Type: [Standard]
@@ -714,11 +880,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e8" source="n8::n19" target="n27">
+		<edge id="e10" source="n7::n16" target="n33">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n8]</data>
+			<data key="arc_intermediate_nodes">[n7]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[2]</data>
 			<data key="arc_intermediate_port_types">[Standard]</data>
@@ -726,7 +892,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 2
 Dst Port Type: Standard
-Intermediate Node: [n8]
+Intermediate Node: [n7]
 Intermediate Port Number: [1]
 Intermediate Wire Number: [2]
 Intermediate Port Type: [Standard]
@@ -740,11 +906,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e9" source="n8::n20" target="n27">
+		<edge id="e11" source="n7::n17" target="n33">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">3</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n8]</data>
+			<data key="arc_intermediate_nodes">[n7]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[3]</data>
 			<data key="arc_intermediate_port_types">[Standard]</data>
@@ -752,7 +918,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 3
 Dst Port Type: Standard
-Intermediate Node: [n8]
+Intermediate Node: [n7]
 Intermediate Port Number: [1]
 Intermediate Wire Number: [3]
 Intermediate Port Type: [Standard]
@@ -766,11 +932,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e10" source="n8::n21" target="n27">
+		<edge id="e12" source="n7::n18" target="n33">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">4</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n8]</data>
+			<data key="arc_intermediate_nodes">[n7]</data>
 			<data key="arc_intermediate_ports">[1]</data>
 			<data key="arc_intermediate_wires">[4]</data>
 			<data key="arc_intermediate_port_types">[Standard]</data>
@@ -778,7 +944,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 4
 Dst Port Type: Standard
-Intermediate Node: [n8]
+Intermediate Node: [n7]
 Intermediate Port Number: [1]
 Intermediate Wire Number: [4]
 Intermediate Port Type: [Standard]
@@ -792,11 +958,219 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e11" source="n9::n22" target="n6::n10">
+		<edge id="e13" source="n9::n23" target="n34">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n9, n6]</data>
+			<data key="arc_intermediate_nodes">[n9]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[1]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n9]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [1]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e14" source="n9::n24" target="n34">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">2</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n9]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[2]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 2
+Dst Port Type: Standard
+Intermediate Node: [n9]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [2]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e15" source="n9::n25" target="n34">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">3</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n9]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[3]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 3
+Dst Port Type: Standard
+Intermediate Node: [n9]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [3]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e16" source="n9::n26" target="n34">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">4</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n9]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[4]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[Out]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 4
+Dst Port Type: Standard
+Intermediate Node: [n9]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [4]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [Out]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e17" source="n31" target="n6::n11">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[1]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[In]</data>
+			<data key="arc_disp_label">Src Port Num: 1
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [1]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [In]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e18" source="n31" target="n6::n12">
+			<data key="arc_src_port">2</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[2]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[In]</data>
+			<data key="arc_disp_label">Src Port Num: 2
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [2]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [In]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e19" source="n31" target="n6::n13">
+			<data key="arc_src_port">3</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[3]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[In]</data>
+			<data key="arc_disp_label">Src Port Num: 3
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [3]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [In]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e20" source="n31" target="n6::n14">
+			<data key="arc_src_port">4</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n6]</data>
+			<data key="arc_intermediate_ports">[1]</data>
+			<data key="arc_intermediate_wires">[4]</data>
+			<data key="arc_intermediate_port_types">[Standard]</data>
+			<data key="arc_intermediate_directions">[In]</data>
+			<data key="arc_disp_label">Src Port Num: 4
+Dst Port Num: 1
+Dst Port Type: Standard
+Intermediate Node: [n6]
+Intermediate Port Number: [1]
+Intermediate Wire Number: [4]
+Intermediate Port Type: [Standard]
+Intermediate Port Direction: [In]
+Datatype: double
+Complex: 0
+Dimension: [1, 1]
+Width: 1</data>
+			<data key="arc_datatype">double</data>
+			<data key="arc_complex">0</data>
+			<data key="arc_dimension">[1, 1]</data>
+			<data key="arc_width">1</data>
+		</edge>
+		<edge id="e21" source="n10::n27" target="n7::n15">
+			<data key="arc_src_port">1</data>
+			<data key="arc_dst_port">1</data>
+			<data key="arc_dst_port_type">Standard</data>
+			<data key="arc_intermediate_nodes">[n10, n7]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[1, 1]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -804,7 +1178,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n9, n6]
+Intermediate Node: [n10, n7]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [1, 1]
 Intermediate Port Type: [Standard, Standard]
@@ -818,11 +1192,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e12" source="n9::n23" target="n6::n11">
+		<edge id="e22" source="n10::n28" target="n7::n16">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n9, n6]</data>
+			<data key="arc_intermediate_nodes">[n10, n7]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[2, 2]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -830,7 +1204,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n9, n6]
+Intermediate Node: [n10, n7]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [2, 2]
 Intermediate Port Type: [Standard, Standard]
@@ -844,11 +1218,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e13" source="n9::n24" target="n6::n12">
+		<edge id="e23" source="n10::n29" target="n7::n17">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n9, n6]</data>
+			<data key="arc_intermediate_nodes">[n10, n7]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[3, 3]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -856,7 +1230,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n9, n6]
+Intermediate Node: [n10, n7]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [3, 3]
 Intermediate Port Type: [Standard, Standard]
@@ -870,11 +1244,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e14" source="n9::n25" target="n6::n13">
+		<edge id="e24" source="n10::n30" target="n7::n18">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n9, n6]</data>
+			<data key="arc_intermediate_nodes">[n10, n7]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[4, 4]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -882,7 +1256,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n9, n6]
+Intermediate Node: [n10, n7]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [4, 4]
 Intermediate Port Type: [Standard, Standard]
@@ -896,11 +1270,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e15" source="n7::n14" target="n8::n18">
+		<edge id="e25" source="n8::n19" target="n9::n23">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n7, n8]</data>
+			<data key="arc_intermediate_nodes">[n8, n9]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[1, 1]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -908,7 +1282,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n7, n8]
+Intermediate Node: [n8, n9]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [1, 1]
 Intermediate Port Type: [Standard, Standard]
@@ -922,11 +1296,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e16" source="n7::n15" target="n8::n19">
+		<edge id="e26" source="n8::n20" target="n9::n24">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n7, n8]</data>
+			<data key="arc_intermediate_nodes">[n8, n9]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[2, 2]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -934,7 +1308,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n7, n8]
+Intermediate Node: [n8, n9]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [2, 2]
 Intermediate Port Type: [Standard, Standard]
@@ -948,11 +1322,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e17" source="n7::n16" target="n8::n20">
+		<edge id="e27" source="n8::n21" target="n9::n25">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n7, n8]</data>
+			<data key="arc_intermediate_nodes">[n8, n9]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[3, 3]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -960,7 +1334,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n7, n8]
+Intermediate Node: [n8, n9]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [3, 3]
 Intermediate Port Type: [Standard, Standard]
@@ -974,11 +1348,11 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e18" source="n7::n17" target="n8::n21">
+		<edge id="e28" source="n8::n22" target="n9::n26">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_intermediate_nodes">[n7, n8]</data>
+			<data key="arc_intermediate_nodes">[n8, n9]</data>
 			<data key="arc_intermediate_ports">[1, 1]</data>
 			<data key="arc_intermediate_wires">[4, 4]</data>
 			<data key="arc_intermediate_port_types">[Standard, Standard]</data>
@@ -986,7 +1360,7 @@ Width: 1</data>
 			<data key="arc_disp_label">Src Port Num: 1
 Dst Port Num: 1
 Dst Port Type: Standard
-Intermediate Node: [n7, n8]
+Intermediate Node: [n8, n9]
 Intermediate Port Number: [1, 1]
 Intermediate Wire Number: [4, 4]
 Intermediate Port Type: [Standard, Standard]

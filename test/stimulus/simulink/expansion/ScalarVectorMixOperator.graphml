@@ -60,6 +60,9 @@
 	<key id="CollapseMode" for="node" attr.name="CollapseMode" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="Direction" for="node" attr.name="Direction" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="FramePeriod" for="node" attr.name="FramePeriod" attr.type="string">
 		<default>""</default>
 	</key>
@@ -148,7 +151,6 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
-			<data key="MaskVariables.ans">1+2i</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Product</data>
@@ -2228,7 +2230,9 @@ Value: 8</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n142
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n143">
 			<data key="instance_name">VectorFan</data>
@@ -2236,7 +2240,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n143
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n144">
 			<data key="instance_name">VectorFan</data>
@@ -2244,7 +2250,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n144
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n145">
 			<data key="instance_name">VectorFan</data>
@@ -2252,7 +2260,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n145
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n146">
 			<data key="instance_name">VectorFan</data>
@@ -2260,7 +2270,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n146
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n147">
 			<data key="instance_name">VectorFan</data>
@@ -2268,7 +2280,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n147
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n148">
 			<data key="instance_name">VectorFan</data>
@@ -2276,7 +2290,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n148
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n149">
 			<data key="instance_name">VectorFan</data>
@@ -2284,7 +2300,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n149
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n150">
 			<data key="instance_name">VectorFan</data>
@@ -2292,7 +2310,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n150
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n151">
 			<data key="instance_name">VectorFan</data>
@@ -2300,7 +2320,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n151
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n152">
 			<data key="instance_name">VectorFan</data>
@@ -2308,7 +2330,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n152
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<edge id="e1" source="n142" target="n2">
 			<data key="arc_src_port">1</data>

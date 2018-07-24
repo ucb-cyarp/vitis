@@ -51,6 +51,9 @@
 	<key id="arc_vis_type" for="edge" attr.name="arc_vis_type" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="Direction" for="node" attr.name="Direction" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="FramePeriod" for="node" attr.name="FramePeriod" attr.type="string">
 		<default>""</default>
 	</key>
@@ -121,7 +124,6 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
-			<data key="MaskVariables.ans">1+2i</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">VectorConstant</data>
@@ -199,7 +201,9 @@ Value: 8</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n11
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n12">
 			<data key="instance_name">VectorFan</data>
@@ -207,7 +211,9 @@ Type: VectorFan</data>
 			<data key="block_function"></data>
 			<data key="block_label">VectorFan
 ID: n12
-Type: VectorFan</data>
+Type: VectorFan
+Direction: Fan-In</data>
+			<data key="Direction">Fan-In</data>
 		</node>
 		<edge id="e1" source="n11" target="n2">
 			<data key="arc_src_port">1</data>

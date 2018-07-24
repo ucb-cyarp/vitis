@@ -253,7 +253,6 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
-			<data key="MaskVariables.ans">1+2i</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Compare
