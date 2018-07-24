@@ -98,8 +98,8 @@ elseif strcmp(node.simulinkBlockType, 'Lookup_n-D')
     %    - Evenly spaced points = Only looks at 1st and Last breakpoint and
     %      assumes even spacing -> allows a simple array lookup after 
     %      scaling the input
-    %    - Linear Search
-    %    - Binary Search
+    %    - Linear search
+    %    - Binary search
     %
     %BeginIndexSearchUsingPreviousIndexResult = Specifies if Linear or
     %Binary Search start from the previous result.  If value rarely
@@ -115,7 +115,7 @@ elseif strcmp(node.simulinkBlockType, 'Lookup_n-D')
     %ExtrapMethod = How to deal with inputs outside of breakpoint range
     %    - Clip = no extrapolation, returns end of range
     %    - Linear = linear extrapolation between outer pair of breakpoints
-    %    - Cubic spline = 
+    %    - Cubic spline = cubic spline extrapolation between outer pair of breakpoints
     %    NOTE: Extrap Method is Clip for Flat or Nearest Inter Method.
     %    HOWEVER will display linear if queried
     

@@ -35,9 +35,12 @@ for i = 1:length(node.out_arcs)
         arc_copy = copy(out_arc);
         new_arcs = [new_arcs, arc_copy];
         
+        dstNode = out_arc.dstNode;
+        
         %Connect orig arc to the bus side of the Fan-Out
         %*Since this node is not traversed (and must be emitted), let's add
         %this arc directly as an in_arc.
+        dstNode.removeIn_arc(out_arc);
         out_arc.dstNode = fan_out;
         fan_out.addIn_arc(out_arc);
         %Still an out_arc of the srcNode
@@ -45,6 +48,7 @@ for i = 1:length(node.out_arcs)
         %Connect the arc copy to the bus side of the Fan-In
         arc_copy.srcNode = fan_in;
         fan_in.addBusArc(arc_copy);
+        dstNode.addIn_arc(arc_copy);
         
         %Create indevidual wires between the VectorFan objects
         for j = 1:out_arc.width

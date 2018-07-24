@@ -335,6 +335,9 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                    nodeLabelStr = [nodeLabelStr, sprintf('\nFunction: %s', obj.simulinkBlockType)];
                else
                    nodeLabelStr = [nodeLabelStr, sprintf('\nType: %s', obj.getNodeTypeText())];
+                   if(isa(obj, 'VectorFan'))
+                      nodeLabelStr = [nodeLabelStr, sprintf('\nDirection: %s', obj.dialogProperties('Direction'))];
+                   end
                end
                
                if strcmp(obj.simulinkBlockType, 'Delay')
