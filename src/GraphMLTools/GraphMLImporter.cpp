@@ -27,6 +27,9 @@
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
 #include "MediumLevelNodes/SimulinkMultiPortSwitch.h"
+#include "BusNodes/VectorFan.h"
+#include "BusNodes/VectorFanIn.h"
+#include "BusNodes/VectorFanOut.h"
 
 #include <iostream>
 #include <fstream>
@@ -553,10 +556,14 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             throw std::runtime_error("Unknown Master Type: " + instanceName);
         }
 
-    } else if(blockType == "VectorFan"){
-        //TODO: Implement
-        throw std::runtime_error("VectorFan not yet implemented");
-
+    } else if(blockType == "VectorFan"){ //This is the Simulink VectorFan type, will call the VectorFan constructor which will return either a VectorFanIn or VectorFanOut
+        std::shared_ptr<Node> newNode = GraphMLImporter::importVectorFanNode(fullNodeID, dataKeyValueMap, parent, dialect);
+        //Add new node to design and to name node map
+        design.addNode(newNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
+        nodeMap[fullNodeID] = newNode;
     } else if(blockType == "Expanded"){
         std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent, dialect);
         //Do not add the orig node to the node list
@@ -861,6 +868,38 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
+    }
+
+    return newNode;
+}
+
+std::shared_ptr<Node> GraphMLImporter::importVectorFanNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
+    std::shared_ptr<Node> newNode;
+
+    if(dialect == GraphMLDialect::VITIS){
+        //Check the blockFunction for the type of VectorFan
+        std::string blockFunction = dataKeyValueMap.at("block_function");
+
+        if(blockFunction == "VectorFanIn"){
+            newNode = VectorFanIn::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(blockFunction == "VectorFanOut"){
+            newNode = VectorFanOut::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            throw std::runtime_error("Unknown VectorFan type: " + blockFunction);
+        }
+    }else if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+        newNode = VectorFan::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else{
+        throw std::runtime_error("Unknown XML Dialect when Parsing VectorFan");
     }
 
     return newNode;

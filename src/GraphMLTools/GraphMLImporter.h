@@ -107,6 +107,17 @@ private:
     static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     /**
+     * @brief Imports a VectorFan (or VectorFanIn or VectorFanOut) GraphML block
+     *
+     * @param id The id of the node
+     * @param dataKeyValueMap The map of key/value pairs for node parameters
+     * @param parent The parent Node object for the current position in the DOM
+     * @param dialect The dialect of the GraphML file being imported
+     * @return A pointer to the newly created Standard node
+     */
+    static std::shared_ptr<Node> importVectorFanNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    /**
      * @brief Import an array of DSP Arcs (from DOM nodes) into the design
      *
      * The edgeNodes list and nodeMap map is populated during a call to @ref GraphMLImporter::importNodes
