@@ -98,7 +98,9 @@ set(COMMON_SRCS
         src/MediumLevelNodes/CompareToConstant.cpp
         src/MediumLevelNodes/CompareToConstant.h
         src/MediumLevelNodes/ThresholdSwitch.cpp
-        src/MediumLevelNodes/ThresholdSwitch.h)
+        src/MediumLevelNodes/ThresholdSwitch.h
+        src/MediumLevelNodes/SimulinkMultiPortSwitch.cpp
+        src/MediumLevelNodes/SimulinkMultiPortSwitch.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

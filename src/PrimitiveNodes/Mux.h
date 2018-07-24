@@ -32,8 +32,9 @@
  * @note This mux assumes the selector port input is the index of the input to forward.  If a switch with a threshold is desired,
  * use @ref ThresholdSwitch.
  *
- * @note The Simulink Multiport Switch maps to this excpet that the index is off by 1.  To prevent confusion, a seperate @SimulinkMultiPortSwitch
- * class is provided.  The @ref SimulinkMultiportSwitch expands to a mux and a -1 on the select line.
+ * @note The Simulink Multiport Switch maps to this excpet that the index may be off by 1 (depending on the indexing scheme used).
+ * To prevent confusion, a seperate @ref SimulinkMultiPortSwitch class is provided.  The @ref SimulinkMultiPortSwitch expands to a
+ * mux and a -1 on the select line.
  *
  */
 class Mux : public PrimitiveNode{

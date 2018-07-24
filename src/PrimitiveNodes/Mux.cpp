@@ -3,6 +3,7 @@
 //
 
 #include "Mux.h"
+#include <iostream>
 
 Mux::Mux() {
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
@@ -78,7 +79,16 @@ void Mux::validate() {
         throw std::runtime_error("Validation Failed - Mux - Should Have Exactly 1 Output Port");
     }
 
+    //Check that the select port is real
+    if((*selectorPort->getArcs().begin())->getDataType().isComplex()){
+        throw std::runtime_error("Validation Failed - Mux - Select Port Cannot be Complex");
+    }
 
+    //warn if floating point type
+    //TODO: enforce integer for select (need to rectify Simulink use of double)
+    if((*selectorPort->getArcs().begin())->getDataType().isFloatingPt()){
+        std::cerr << "Warning: MUX Select Port is Driven by Floating Point" << std::endl;
+    }
 }
 
 void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
