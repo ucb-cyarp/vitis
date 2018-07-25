@@ -156,49 +156,67 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
 
         std::string fixdtRegex = "fixdt[(]\\s*([0-9]+)\\s*,\\s*([0-9]+)\\s*,\\s*([0-9]+)\\s*[)]";
         std::string fixRegex = "([su])fix([0-9]+)_En([0-9]+)";
+        std::string fixRegexAbrv = "([su])fix([0-9]+)";
 
         std::regex fixdtRegexExpr(fixdtRegex);
 
         std::smatch matches;
         bool fixdtMatched = std::regex_match(str, matches, fixdtRegexExpr);
 
+        bool fixMatched = false;
+        bool fixAbrvMatched = false;
         if(!fixdtMatched)
         {
             //It is the other format
             matches = std::smatch(); //Reset
             std::regex fixRegexExpr(fixRegex);
-            bool fixMatched = std::regex_match(str, matches, fixRegexExpr);
+            fixMatched = std::regex_match(str, matches, fixRegexExpr);
 
             if(!fixMatched)
             {
-                throw std::invalid_argument("String does match one of the expected type formats");
+                matches = std::smatch(); //Reset
+                std::regex fixRegexAbrvExpr(fixRegexAbrv);
+                fixAbrvMatched = std::regex_match(str, matches, fixRegexAbrvExpr);
+
+                if(!fixAbrvMatched) {
+                    throw std::invalid_argument("String does match one of the expected type formats: " + str);
+                }
             }
         }
 
         //Set parameters
         floatingPt = false;
 
-        if(matches.size() < 4) {
-            throw std::invalid_argument("String does match one of the expected type formats");
+        if ((fixMatched || fixdtMatched) && matches.size() < 4) {
+            throw std::invalid_argument("String does match one of the expected type formats: " + str);
+        }else if(fixAbrvMatched && matches.size() < 3){
+            throw std::invalid_argument("String does match one of the expected type formats: " + str);
         }
 
         //First match (0) is the whole string.
         //Submatches happen starting at index 1
         //--The reason why the size is 4 not 3
         std::string match1 = matches[1].str();
-        if(match1 == "s" || match1 == "1") {
+        if (match1 == "s" || match1 == "1") {
             signedType = true;
-        }else if(match1 == "u" || match1 == "0"){
+        } else if (match1 == "u" || match1 == "0") {
             signedType = false;
         } else {
-            throw std::invalid_argument("String does match one of the expected type formats");
+            throw std::invalid_argument("String does match one of the expected type formats: " + str);
         }
 
         std::string match2 = matches[2].str();
         totalBits = std::stoi(match2);
 
-        std::string match3 = matches[3].str();
-        fractionalBits = std::stoi(match3);
+        if (fixMatched || fixdtMatched){
+            std::string match3 = matches[3].str();
+            fractionalBits = std::stoi(match3);
+        }else if(fixAbrvMatched){
+            fractionalBits = 0;
+        }else{
+            throw std::invalid_argument("String does match one of the expected type formats: " + str);
+        }
+
     }
 }
 

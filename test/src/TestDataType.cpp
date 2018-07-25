@@ -110,7 +110,14 @@ TEST(DataType, ParseFixedPt) {
     ASSERT_EQ(ufix32_En11Type.getFractionalBits(), 11);
     ASSERT_EQ(ufix32_En11Type.isComplex(), false);
 
-    DataType fixdt_sfix32_En16Type = DataType("fixdt(1,32,16)", false);
+    DataType ufix32Type = DataType("ufix42", false);
+    ASSERT_EQ(ufix32Type.isFloatingPt(), false);
+    ASSERT_EQ(ufix32Type.isSignedType(), false);
+    ASSERT_EQ(ufix32Type.getTotalBits(), 42);
+    ASSERT_EQ(ufix32Type.getFractionalBits(), 0);
+    ASSERT_EQ(ufix32Type.isComplex(), false);
+
+DataType fixdt_sfix32_En16Type = DataType("fixdt(1,32,16)", false);
     ASSERT_EQ(fixdt_sfix32_En16Type.isFloatingPt(), false);
     ASSERT_EQ(fixdt_sfix32_En16Type.isSignedType(), true);
     ASSERT_EQ(fixdt_sfix32_En16Type.getTotalBits(), 32);
