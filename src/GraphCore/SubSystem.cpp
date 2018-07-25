@@ -55,6 +55,7 @@ SubSystem::emitGramphMLSubgraphAndChildren(xercesc::DOMDocument *doc, xercesc::D
     std::string subgraphID = getFullGraphMLPath() + ":";
     GraphMLHelper::setAttribute(graphElement, "id", subgraphID);
     GraphMLHelper::setAttribute(graphElement, "edgedefault", "directed");
+    thisNode->appendChild(graphElement);
 
     for(auto child = children.begin(); child != children.end(); child++){
         (*child)->emitGraphML(doc, graphElement);

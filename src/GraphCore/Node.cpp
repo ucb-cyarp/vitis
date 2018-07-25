@@ -118,9 +118,9 @@ std::vector<std::shared_ptr<OutputPort>> Node::getOutputPorts() {
 std::string Node::getFullGraphMLPath() {
     std::string path = "n" + std::to_string(id);
 
-    for(std::shared_ptr<SubSystem> parentPtr = parent; parentPtr != nullptr; parentPtr = parentPtr->parent)
+    for(std::shared_ptr<SubSystem> cursor = parent; cursor != nullptr; cursor = cursor->getParent())
     {
-        path = "n" + std::to_string(parentPtr->getId()) + "::" + path;
+        path = "n" + std::to_string(cursor->getId()) + "::" + path;
     }
 
     return path;
@@ -151,6 +151,7 @@ int Node::getIDFromGraphMLFullPath(std::string fullPath)
     for(int i = pathLen-1; i >= 0; i--){
         if(fullPath[i] == 'n'){
             nIndex = i;
+            break;
         }
     }
 
