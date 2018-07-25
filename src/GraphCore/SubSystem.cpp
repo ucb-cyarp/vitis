@@ -75,3 +75,11 @@ bool SubSystem::canExpand() {
     return false;
 }
 
+std::set<std::shared_ptr<Node>> SubSystem::getChildren() const {
+    return children;
+}
+
+void SubSystem::setChildren(const std::set<std::shared_ptr<Node>> &children) {
+    SubSystem::children = children;
+}
+

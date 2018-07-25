@@ -193,6 +193,20 @@ public:
     std::string getFullGraphMLPath();
 
     /**
+     * @brief Get the parent of this node
+     * @return the parent of the node or nullptr if no parent exists
+     */
+    std::shared_ptr<SubSystem> getParent();
+
+    /**
+     * @brief Get the fully qualified human readable name of the node
+     *
+     * A typical fully qualified name would be "subsysName/nodeName"
+     * @return Fully qualified human readable name of the node as a std::string
+     */
+    std::string getFullyQualifiedName();
+
+    /**
      * @brief Get the node ID from a full GraphML ID path
      * @param fullPath the full GraphML ID path
      * @return local ID number

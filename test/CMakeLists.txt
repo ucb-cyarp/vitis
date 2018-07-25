@@ -43,7 +43,7 @@ add_executable(coreTester src/TestDataType.cpp src/TestNumericValue.cpp)
 target_link_libraries(coreTester gtest_main VitisLib)
 add_test(coreTester coreTester WORKING_DIRECTORY ${TEST_WORKING_DIR})
 
-add_executable(xmlTester src/TestSimulinkImport.cpp src/GraphTestHelper.h src/GraphTestHelper.cpp src/SimpleDesignValidator.h src/SimpleDesignValidator.cpp src/TestSimulinkExportReImport.cpp)
+add_executable(xmlTester src/TestSimulinkImport.cpp src/GraphTestHelper.h src/GraphTestHelper.cpp src/SimpleDesignValidator.h src/SimpleDesignValidator.cpp src/TestSimulinkExportReImport.cpp src/NestedSubSystemValidator.cpp src/NestedSubSystemValidator.h src/TestNestedSubsystems.cpp)
 target_link_libraries(xmlTester gtest_main VitisLib ${XercesC_LIBRARIES})
 add_test(xmlTester xmlTester WORKING_DIRECTORY ${TEST_WORKING_DIR})
 

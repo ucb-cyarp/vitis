@@ -63,6 +63,9 @@ public:
      */
     void removeChild(std::shared_ptr<Node> child);
 
+    std::set<std::shared_ptr<Node>> getChildren() const;
+    void setChildren(const std::set<std::shared_ptr<Node>>& children);
+
     std::set<GraphMLParameter> graphMLParameters() override;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;

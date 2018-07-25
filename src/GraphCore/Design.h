@@ -153,6 +153,20 @@ public:
     std::vector<std::shared_ptr<Arc>> getArcs() const;
     void setArcs(const std::vector<std::shared_ptr<Arc>> arcs);
 
+    /**
+     * @brief Get a node by its name path
+     *
+     * The name path would have the form {"subsys", "nested subsys", "nodeName"}
+     *
+     * The node list is not checked, rather the node hierarchy is traversed.
+     *
+     * @warning Assumes fully qualified node names are unique in the design.  If duplicates exist, only one of the 2 will be returned.
+     *
+     * @param namePath The name path of the node given as a vector from most general to most specific
+     * @return a pointer to the node if it exists, nullptr if it cannot be found
+     */
+    std::shared_ptr<Node> getNodeByNamePath(std::vector<std::string> namePath);
+
 };
 
 /*@}*/

@@ -332,3 +332,45 @@ bool Design::expandToPrimitive() {
 
     return expanded;
 }
+
+std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePath) {
+    unsigned long pathLen = namePath.size();
+
+    if(pathLen < 1){
+        return nullptr;
+    }
+
+    //first, search top level nodes
+    unsigned long numTopLevel = topLevelNodes.size();
+    std::shared_ptr<Node> cursor = nullptr;
+    for(unsigned long i = 0; i<numTopLevel; i++){
+        if(topLevelNodes[i]->getName() == namePath[0]){
+            cursor = topLevelNodes[i];
+            break;
+        }
+    }
+
+    if(cursor == nullptr){
+        return nullptr;
+    }
+
+    for(unsigned long i = 1; i<pathLen; i++){
+        std::set<std::shared_ptr<Node>> children = std::dynamic_pointer_cast<SubSystem>(cursor)->getChildren();
+
+        bool found = false;
+        for(auto nodeIter = children.begin(); nodeIter!=children.end(); nodeIter++){
+            if((*nodeIter)->getName() == namePath[i]){
+                cursor = (*nodeIter);
+                found = true;
+                break;
+            }
+        }
+
+        if(!found){
+            return nullptr;
+        }
+
+    }
+
+    return cursor;
+}

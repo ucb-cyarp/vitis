@@ -230,3 +230,18 @@ bool Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
                   std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
     return false;
 }
+
+std::string Node::getFullyQualifiedName() {
+    std::string fullName = name;
+
+    for(std::shared_ptr<SubSystem> parentPtr = parent; parentPtr != nullptr; parentPtr = parentPtr->parent)
+    {
+        fullName = parentPtr->getName() + "/" + fullName;
+    }
+
+    return fullName;
+}
+
+std::shared_ptr<SubSystem> Node::getParent() {
+    return parent;
+}
