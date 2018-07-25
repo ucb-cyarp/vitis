@@ -66,7 +66,7 @@ void SimpleDesignValidator::validate(Design &design) {
     {
         {
             SCOPED_TRACE("Node: " + std::to_string(i));
-            GraphTestHelper::verifyPortNumbers(unconnected);
+            GraphTestHelper::verifyPortNumbers(nodes[i]);
         }
     }
 
