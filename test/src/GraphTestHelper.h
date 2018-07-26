@@ -72,6 +72,24 @@ public:
     }
 
     /**
+     * @brief Compare 2 vectors for equality
+     * @tparam T Type of the vectors
+     * @param tgt Target vector for check
+     * @param expected Vector of expected entries
+     */
+    static void verifyVector(std::vector<NumericValue> tgt, std::vector<NumericValue> expected, double magnitudeEpsilon){
+        ASSERT_EQ(tgt.size(), expected.size()) << "Vector lengths do not match";
+
+        unsigned long vecLen = expected.size();
+
+        for(unsigned long i = 0; i<vecLen; i++){
+            NumericValue diff = tgt[i]-expected[i];
+            ASSERT_LE(diff.magnitude(), magnitudeEpsilon) << "Failed at index " << i;
+        }
+
+    }
+
+    /**
      * @brief Tests if a pointer can be cast to another pointer type
      * @tparam orig original type
      * @tparam tgt target type

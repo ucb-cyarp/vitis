@@ -134,6 +134,10 @@ public:
 
     bool operator!=(const NumericValue &rhs) const;
 
+    NumericValue operator-(const NumericValue &rhs) const;
+
+    double magnitude() const;
+
     friend std::ostream &operator<<(std::ostream &os, const NumericValue &value);
 };
 

@@ -229,9 +229,9 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
     for(int i = 1; i <= dimension; i++){
         std::string breakpointsForDimensionStr;
         if(dialect == GraphMLDialect::VITIS) {
-            breakpointsForDimensionStr = "BreakpointsForDimensionStr" + std::to_string(i);
+            breakpointsForDimensionStr = "BreakpointsForDimension" + std::to_string(i);
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
-            breakpointsForDimensionStr = "Numeric.BreakpointsForDimensionStr" + std::to_string(i);
+            breakpointsForDimensionStr = "Numeric.BreakpointsForDimension" + std::to_string(i);
         } else {
             throw std::runtime_error("Unsupported Dialect when parsing XML - LUT");
         }
@@ -336,7 +336,7 @@ LUT::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool
 
     for(unsigned long i = 1; i<=dimension; i++){
         std::string breakpointStr = "BreakpointsForDimension" + std::to_string(i);
-        GraphMLHelper::addDataNode(doc, thisNode, "breakpointStr", NumericValue::toString(breakpoints[i-1]));
+        GraphMLHelper::addDataNode(doc, thisNode, breakpointStr, NumericValue::toString(breakpoints[i-1]));
     }
 
     return thisNode;

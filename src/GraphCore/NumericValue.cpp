@@ -352,3 +352,49 @@ unsigned long NumericValue::numIntegerBits() {
         }
     }
 }
+
+NumericValue NumericValue::operator-(const NumericValue &rhs) const {
+    NumericValue rtnValue;
+
+    if(!fractional && !rhs.fractional){
+        //Both values are ints, return an int
+        rtnValue.complex = complex || rhs.complex;
+        rtnValue.fractional = false;
+        rtnValue.complexDouble = std::complex<double>(0, 0);
+        rtnValue.realInt = realInt - rhs.realInt;
+        rtnValue.imagInt = imagInt - rhs.imagInt;
+    }else if(fractional && !rhs.fractional){
+        //Need to promote rhs to double
+        rtnValue.complex = complex || rhs.complex;
+        rtnValue.fractional = true;
+        rtnValue.complexDouble = std::complex<double>(complexDouble.real() - rhs.realInt, complexDouble.imag() - rhs.imagInt);
+        rtnValue.realInt = 0;
+        rtnValue.imagInt = 0;
+    }else if(!fractional && rhs.fractional){
+        //Need to promote this to double
+        rtnValue.complex = complex || rhs.complex;
+        rtnValue.fractional = true;
+        rtnValue.complexDouble = std::complex<double>(realInt - rhs.complexDouble.real(), imagInt - rhs.complexDouble.imag());
+        rtnValue.realInt = 0;
+        rtnValue.imagInt = 0;
+    }else{
+        //Both are double, return a double
+        rtnValue.complex = complex || rhs.complex;
+        rtnValue.fractional = true;
+        rtnValue.complexDouble = std::complex<double>(complexDouble.real() - rhs.complexDouble.real(), complexDouble.imag() - rhs.complexDouble.imag());
+        rtnValue.realInt = 0;
+        rtnValue.imagInt = 0;
+    }
+
+    return rtnValue;
+}
+
+double NumericValue::magnitude() const {
+    if(fractional){
+        //Get the vectors from the complexDouble
+        return std::sqrt(complexDouble.real()*complexDouble.real() + complexDouble.imag()*complexDouble.imag());
+    }else{
+        //Get the vectors from the integer variables
+        return std::sqrt(realInt*realInt + imagInt*imagInt);
+    }
+}
