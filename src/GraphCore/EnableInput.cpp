@@ -4,6 +4,7 @@
 
 #include "EnableInput.h"
 #include "GraphMLTools/GraphMLHelper.h"
+#include "EnabledSubSystem.h"
 
 EnableInput::EnableInput() {
 
@@ -28,4 +29,26 @@ std::string EnableInput::labelStr() {
     label += "\nType: Enable Input";
 
     return label;
+}
+
+void EnableInput::validate() {
+    EnableNode::validate();
+
+    //Parent checked above to be an Enabled SubSystem
+    std::shared_ptr<EnabledSubSystem> parentEnabled = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
+
+    std::vector<std::shared_ptr<EnableInput>> parentInputNodes = parentEnabled->getEnableInputs();
+
+    unsigned long numEnableInputs = parentInputNodes.size();
+    bool found = false;
+    for(unsigned long i = 0; i<numEnableInputs; i++){
+        if(parentInputNodes[i] == getSharedPointer()){
+            found = true;
+            break;
+        }
+    }
+
+    if(!found){
+        throw std::runtime_error("EnableInput not found in parent EnabledInput list");
+    }
 }
