@@ -465,6 +465,9 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
     } else if(blockType == "Enabled Subsystem"){
         std::shared_ptr<EnabledSubSystem> newEnabledSubsystem = NodeFactory::createNode<EnabledSubSystem>(parent);
         newEnabledSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
+        if(hasName){
+            newEnabledSubsystem->setName(name);
+        }
 
         //Add node to design
         design.addNode(newEnabledSubsystem);
