@@ -481,10 +481,18 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         }
 
     } else if(blockType == "Special Input Port"){
-        std::shared_ptr<Node> newNode = NodeFactory::createNode<EnableInput>(parent);
+        std::shared_ptr<EnableInput> newNode = NodeFactory::createNode<EnableInput>(parent);
         newNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
         if(hasName){
             newNode->setName(name);
+        }
+
+        //Add to enableInputs of parent (EnableNodes exist directly below their EnableSubsystem parent)
+        std::shared_ptr<EnabledSubSystem> parentSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
+        if(parentSubsystem){
+            parentSubsystem->addEnableInput(newNode);
+        }else{
+            throw std::runtime_error("EnableInput parent is not an Enabled Subsystem");
         }
 
         //Add node to design
@@ -496,10 +504,18 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         nodeMap[fullNodeID]=newNode;
 
     } else if(blockType == "Special Output Port"){
-        std::shared_ptr<Node> newNode = NodeFactory::createNode<EnableOutput>(parent);
+        std::shared_ptr<EnableOutput> newNode = NodeFactory::createNode<EnableOutput>(parent);
         newNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
         if(hasName){
             newNode->setName(name);
+        }
+
+        //Add to enableOutputs of parent (EnableNodes exist directly below their EnableSubsystem parent)
+        std::shared_ptr<EnabledSubSystem> parentSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
+        if(parentSubsystem){
+            parentSubsystem->addEnableOutput(newNode);
+        }else{
+            throw std::runtime_error("EnableOutput parent is not an Enabled Subsystem");
         }
 
         //Add node to design
