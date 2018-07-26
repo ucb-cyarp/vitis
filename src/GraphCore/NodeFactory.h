@@ -12,6 +12,8 @@
 #include "EnableNode.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
+#include "EnabledExpandedNode.h"
+
 
 /**
 * \addtogroup GraphCore Graph Core

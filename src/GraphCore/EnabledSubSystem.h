@@ -69,6 +69,7 @@ public:
      */
     std::shared_ptr<Port> getEnableSrc();
 
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 };
 
 /*@}*/

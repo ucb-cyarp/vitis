@@ -4,6 +4,8 @@
 
 #include "EnabledSubSystem.h"
 
+#include "GraphMLTools/GraphMLHelper.h"
+
 EnabledSubSystem::EnabledSubSystem() {
 }
 
@@ -127,3 +129,18 @@ std::vector<std::shared_ptr<EnableOutput>> EnabledSubSystem::getEnableOutputs() 
     return enabledOutputs;
 }
 
+xercesc::DOMElement *
+EnabledSubSystem::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    //Performs the same function as the Subsystem emit GraphML except that the block type is changed
+
+    //Emit the basic info for this node
+    xercesc::DOMElement *thisNode = emitGraphMLBasics(doc, graphNode);
+
+    if (include_block_node_type){
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Enabled Subsystem");
+    }
+
+    emitGramphMLSubgraphAndChildren(doc, thisNode);
+
+    return thisNode;
+}

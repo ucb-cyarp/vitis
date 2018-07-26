@@ -51,6 +51,7 @@ protected:
 
     std::string labelStr() override ;
 
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 };
 
 /*@}*/
