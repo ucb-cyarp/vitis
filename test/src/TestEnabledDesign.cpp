@@ -1,5 +1,5 @@
 //
-// Created by Christopher Yarp on 7/25/18.
+// Created by Christopher Yarp on 7/26/18.
 //
 
 #include <memory>
@@ -19,26 +19,26 @@
 #include "PrimitiveNodes/Delay.h"
 
 #include "GraphTestHelper.h"
-#include "LUTDesignValidator.h"
+#include "EnabledSubsystemDesignValidator.h"
 
-TEST(SimulinkImport, LUTSubSystem) {
+TEST(SimulinkImport, NestedEnabledSubSystem) {
     //==== Import File ====
-    std::string inputFile = "./stimulus/simulink/basic/lut_subsystem.graphml";
+    std::string inputFile = "./stimulus/simulink/basic/enabled.graphml";
     std::unique_ptr<Design> design = GraphMLImporter::importGraphML(inputFile, GraphMLDialect::SIMULINK_EXPORT);
 
     {
         SCOPED_TRACE("");
-        LUTDesignValidator::validate(*design);
+        EnabledSubsystemDesignValidator::validate(*design);
     }
 }
 
-TEST(ImportExport, LUTSubSystemSimulinkImportExportReImport) {
+TEST(ImportExport, NestedEnabledSubSystemSimulinkImportExportReImport) {
     //==== Cleanup Any Residual Results ====
-    std::string vitisFile = "./lut_subsystem_vitis_export.graphml";
+    std::string vitisFile = "./enabled_vitis_export.graphml";
     remove(vitisFile.c_str());
 
     //==== Import Simulink File ====
-    std::string simulinkFile = "./stimulus/simulink/basic/lut_subsystem.graphml";
+    std::string simulinkFile = "./stimulus/simulink/basic/enabled.graphml";
     std::unique_ptr<Design> design;
     {
         SCOPED_TRACE("Importing Simulink File");
@@ -63,7 +63,7 @@ TEST(ImportExport, LUTSubSystemSimulinkImportExportReImport) {
     //==== Validate Re-Imported File ====
     {
         SCOPED_TRACE("Verify Re-Imported Nested Design (from Vitis File)");
-        LUTDesignValidator::validate(*reimportedDesign);
+        EnabledSubsystemDesignValidator::validate(*reimportedDesign);
     }
 
     //Cleanup and Erase Exported File

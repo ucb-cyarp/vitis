@@ -268,7 +268,7 @@ void NestedSubSystemValidator::validate(Design &design) {
 
     unsigned long arcCheckCount = 0;
 
-    //Master Input Arcs (6)
+    //Master Input Arcs (5)
     {
         SCOPED_TRACE("");
         GraphTestHelper::verifyConnection(design, inputs, 0, sum, GraphTestHelper::InPortType::STANDARD, 0, real_uint16_width1, arcCheckCount);
