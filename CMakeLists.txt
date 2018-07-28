@@ -16,7 +16,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     add_compile_options("$<$<CONFIG:DEBUG>:-fprofile-instr-generate>")
     add_compile_options("$<$<CONFIG:DEBUG>:-fcoverage-mapping>")
     set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fprofile-instr-generate -fcoverage-mapping")
-elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GCC")
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GCC")
     # using GCC
     add_compile_options("$<$<CONFIG:DEBUG>:-ftest-coverage>")
     add_compile_options("$<$<CONFIG:DEBUG>:-fprofile-arcs>")
