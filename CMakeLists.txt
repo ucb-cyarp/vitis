@@ -8,6 +8,21 @@ project(vitis)
 
 set(CMAKE_CXX_STANDARD 11)
 
+add_compile_options("$<$<CONFIG:DEBUG>:-O0>")
+add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
+
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    # using Clang
+    add_compile_options("$<$<CONFIG:DEBUG>:-fprofile-instr-generate>")
+    add_compile_options("$<$<CONFIG:DEBUG>:-fcoverage-mapping>")
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fprofile-instr-generate -fcoverage-mapping")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GCC")
+    # using GCC
+    add_compile_options("$<$<CONFIG:DEBUG>:-ftest-coverage>")
+    add_compile_options("$<$<CONFIG:DEBUG>:-fprofile-arcs>")
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -ftest-coverage -fprofile-arcs")
+endif()
+
 #Add DEBUG Option (For Now)
 #TODO: Remove
 add_compile_options("-DDEBUG")
