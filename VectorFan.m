@@ -33,6 +33,7 @@ classdef VectorFan < GraphNode
             obj.arcList = [];
             obj.wireIndexList = [];
             obj.busDirection = VectorFan.busDirFromStr(busDirectionStr);
+            obj.dialogProperties('Direction') = busDirectionStr; %Add the direction as a property so that it is easier to import
             obj.busArc = [];
             obj.parent = parent;
             obj.markedForDeletion = false;

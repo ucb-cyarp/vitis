@@ -68,7 +68,7 @@ arcs = [];
 special_nodes = [];
 node_handle_ir_map = containers.Map('KeyType','double','ValueType','any');
 
-%% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1
+%% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1 (Also Add Name to Input Master Node)
 %Get a list of Inports within system
 inports = find_system(system,  'FollowLinks', 'on', 'LoadFullyIfNeeded', 'on', 'LookUnderMasks', 'on', 'SearchDepth', 1, 'BlockType', 'Inport');
 
@@ -80,6 +80,10 @@ for i = 1:length(inports)
     %the different inputs.
     port_number_str = get_param(inport, 'Port'); %Returned as a string
     port_number = str2double(port_number_str);
+    
+    %Get port name and create entry in Input Master Node
+    port_name = get_param(inport, 'Name');
+    input_master_node.outputPorts{port_number} = port_name{1};
     
     inport_block_port_handles = get_param(inport, 'PortHandles');
     inport_block_port_handles = inport_block_port_handles{1};
@@ -96,6 +100,24 @@ for i = 1:length(inports)
     nodes = [nodes, new_nodes_recur];
     arcs = [arcs, new_arcs_recur];
     special_nodes = [special_nodes, new_special_nodes_recur];
+end
+
+%% Add Names to Output Master Node 
+%Get a list of Inports within system
+outports = find_system(system,  'FollowLinks', 'on', 'LoadFullyIfNeeded', 'on', 'LookUnderMasks', 'on', 'SearchDepth', 1, 'BlockType', 'Outport');
+
+%Call the arc follower on each
+for i = 1:length(outports)
+    outport = outports(i);
+    
+    %Get the port number of the inport, this will be used to distinguish
+    %the different inputs.
+    port_number_str = get_param(outport, 'Port'); %Returned as a string
+    port_number = str2double(port_number_str);
+    
+    %Get port name and create entry in Input Master Node
+    port_name = get_param(outport, 'Name');
+    output_master_node.inputPorts{port_number} = port_name{1}; 
 end
 
 %% Traverse Remaining Nodes (ie. ones that would not be reached by just following inputs
@@ -182,6 +204,34 @@ for i = 1:length(nodes)
         param_names{next_ind} = ['Numeric.' param_numeric_name];
     end
     
+    for j = 1:length(node.inputPorts)
+        next_ind = length(param_names)+1;
+        param_names{next_ind} = ['input_port_name_' num2str(j)];
+    end
+    
+    for j = 1:length(node.outputPorts)
+        next_ind = length(param_names)+1;
+        param_names{next_ind} = ['output_port_name_' num2str(j)];
+    end
+    
+    node_param_names = union(node_param_names, param_names);
+end
+
+%Get Master Node Params (Port Names)
+param_names = {};
+for i = 1:length(master_nodes)
+    node = master_nodes(i);
+    
+    for j = 1:length(node.inputPorts)
+        next_ind = length(param_names)+1;
+        param_names{next_ind} = ['input_port_name_' num2str(j)];
+    end
+
+    for j = 1:length(node.outputPorts)
+        next_ind = length(param_names)+1;
+        param_names{next_ind} = ['output_port_name_' num2str(j)];
+    end
+    
     node_param_names = union(node_param_names, param_names);
 end
 
@@ -217,6 +267,15 @@ fprintf(graphml_filehandle, '\t</key>\n');
 % Block Type -> Block Label
 fprintf(graphml_filehandle, '\t<key id="block_label" for="node" attr.name="block_label" attr.type="string">\n');
 fprintf(graphml_filehandle, '\t\t<default>""</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+% Number of Named Ports
+fprintf(graphml_filehandle, '\t<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
+fprintf(graphml_filehandle, '\t</key>\n');
+
+fprintf(graphml_filehandle, '\t<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">\n');
+fprintf(graphml_filehandle, '\t\t<default>0</default>\n');
 fprintf(graphml_filehandle, '\t</key>\n');
 
 % Arc Src Port (For libraries that do not support ports)

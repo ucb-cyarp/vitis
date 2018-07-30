@@ -40,10 +40,10 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                        %graph has been completely traversed.  Populated in a
                        %later stage
         
-        inputPorts %A map of input port numbers to names ("" if name not given)
+        inputPorts %A vector of input port numbers to names ("" if name not given)
                    %For special Input/Output ports the enable signal line
                    %is the 2nd input port.  The data goes to port 1
-        outputPorts %A map of output port numbers to names ("" if name not given)
+        outputPorts %A vector of output port numbers to names ("" if name not given)
                     %For special Input/Output there is only 1 port for the
                     %output
         
@@ -77,8 +77,8 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             obj.en_in_src_node = [];
             obj.en_in_src_port = [];
             
-            obj.inputPorts = containers.Map();
-            obj.outputPorts = containers.Map();
+            obj.inputPorts = {};
+            obj.outputPorts = {};
         
             obj.nodeId  = 0; 
             obj.flattened = false;
@@ -328,6 +328,35 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             end
             
         end
+
+        function emitPortNames(obj, file, numTabs)
+        %emitPortNames Emit port names
+
+            %Emit number of ports
+            writeNTabs(file, numTabs);
+            fprintf(file, '<data key="%s">%d</data>\n', 'named_input_ports', length(obj.inputPorts));
+            writeNTabs(file, numTabs);
+            fprintf(file, '<data key="%s">%d</data>\n', 'named_output_ports', length(obj.outputPorts));
+
+            for i = 1:length(obj.inputPorts)
+                writeNTabs(file, numTabs);
+                inputPortName = obj.inputPorts{i};
+                if(isempty(inputPortName))
+                    inputPortName = "";
+                end
+                fprintf(file, '<data key="%s">%s</data>\n', ['input_port_name_' num2str(i)], inputPortName);
+            end
+            
+            for i = 1:length(obj.outputPorts)
+                writeNTabs(file, numTabs);
+                outputPortName = obj.outputPorts{i};
+                if(isempty(outputPortName))
+                    outputPortName = "";
+                end
+                fprintf(file, '<data key="%s">%s</data>\n', ['output_port_name_' num2str(i)], outputPortName);
+            end
+            
+        end
         
         function nodeLabelStr = labelStr(obj)
                nodeLabelStr = sprintf('%s\nID: %s', obj.name, obj.getFullIDPath('::', 'n%d', false));
@@ -389,6 +418,9 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="block_label">%s</data>\n', nodeLabelStr);
                
+               %Emit port names
+               obj.emitPortNames(file, numTabs+1);
+               
                % Emit Dialog Properties
                obj.emitDialogParameters(file, numTabs+1);
                
@@ -431,6 +463,9 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                nodeLabelStr = obj.labelStr();
                writeNTabs(file, numTabs+1);
                fprintf(file, '<data key="block_label">%s</data>\n', nodeLabelStr);
+               
+               % Emit port names
+               obj.emitPortNames(file, numTabs+1);
                
                % Emit Dialog Properties
                obj.emitDialogParameters(file, numTabs+1);
