@@ -2,4 +2,247 @@
 // Created by Christopher Yarp on 6/25/18.
 //
 
+#include <vector>
+#include <memory>
+#include <string>
+#include <map>
+
+#include "SubSystem.h"
+#include "Port.h"
 #include "Node.h"
+#include "InputPort.h"
+#include "OutputPort.h"
+
+#include "GraphMLTools/GraphMLHelper.h"
+
+Node::Node() : id(-1), name(""), partitionNum(0)
+{
+    parent = std::shared_ptr<SubSystem>(nullptr);
+
+    //NOTE: CANNOT init ports here since we need a shared pointer to this object
+}
+
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(0), parent(parent) { }
+
+void Node::init() {
+    //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports
+}
+
+void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+    //Create the requested port if it does not exist yet
+    //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
+    unsigned long inputPortLen = inputPorts.size();
+    for(unsigned long i = inputPortLen; i <= portNum; i++)
+    {
+        inputPorts.push_back(std::unique_ptr<InputPort>(new InputPort(this, i)));
+    }
+
+    //Set the dst port of the arc, updating the previous port and this one
+    arc->setDstPortUpdateNewUpdatePrev(inputPorts[portNum]->getSharedPointerInputPort());
+}
+
+void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+    //Create the requested port if it does not exist yet
+    //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
+    unsigned long outputPortLen = outputPorts.size();
+    for (unsigned long i = outputPortLen; i <= portNum; i++) {
+        outputPorts.push_back(std::unique_ptr<OutputPort>(new OutputPort(this, i)));
+    }
+
+    //Set the src port of the arc, updating the previous port and this one
+    arc->setSrcPortUpdateNewUpdatePrev(outputPorts[portNum]->getSharedPointerOutputPort());
+}
+
+std::shared_ptr<Node> Node::getSharedPointer() {
+    return shared_from_this();
+}
+
+void Node::removeInArc(std::shared_ptr<Arc> arc) {
+    unsigned long inputPortLen = inputPorts.size();
+
+    for(unsigned long i = 0; i<inputPortLen; i++)
+    {
+        inputPorts[i]->removeArc(arc);
+    }
+}
+
+void Node::removeOutArc(std::shared_ptr<Arc> arc) {
+    unsigned long outputPortLen = outputPorts.size();
+
+    for(unsigned long i = 0; i<outputPortLen; i++)
+    {
+        outputPorts[i]->removeArc(arc);
+    }
+}
+
+std::shared_ptr<InputPort> Node::getInputPort(int portNum) {
+    if(portNum >= inputPorts.size()) {
+        return std::shared_ptr<InputPort>(nullptr);
+    }
+
+    return inputPorts[portNum]->getSharedPointerInputPort();
+}
+
+std::shared_ptr<OutputPort> Node::getOutputPort(int portNum) {
+    if(portNum >= outputPorts.size()) {
+        return std::shared_ptr<OutputPort>(nullptr);
+    }
+
+    return outputPorts[portNum]->getSharedPointerOutputPort();
+}
+
+std::vector<std::shared_ptr<InputPort>> Node::getInputPorts() {
+    std::vector<std::shared_ptr<InputPort>> inputPortPtrs;
+
+    unsigned long inputPortLen = inputPorts.size();
+    for(unsigned long i = 0; i<inputPortLen; i++)
+    {
+        inputPortPtrs.push_back(inputPorts[i]->getSharedPointerInputPort());
+    }
+
+    return inputPortPtrs;
+}
+
+std::vector<std::shared_ptr<OutputPort>> Node::getOutputPorts() {
+    std::vector<std::shared_ptr<OutputPort>> outputPortPtrs;
+
+    unsigned long outputPortLen = outputPorts.size();
+    for (unsigned long i = 0; i < outputPortLen; i++)
+    {
+        outputPortPtrs.push_back(outputPorts[i]->getSharedPointerOutputPort());
+    }
+
+    return outputPortPtrs;
+}
+
+std::string Node::getFullGraphMLPath() {
+    std::string path = "n" + std::to_string(id);
+
+    for(std::shared_ptr<SubSystem> cursor = parent; cursor != nullptr; cursor = cursor->getParent())
+    {
+        path = "n" + std::to_string(cursor->getId()) + "::" + path;
+    }
+
+    return path;
+}
+
+int Node::getId() const {
+    return id;
+}
+
+void Node::setId(int id) {
+    Node::id = id;
+}
+
+const std::string &Node::getName() const {
+    return name;
+}
+
+void Node::setName(const std::string &name) {
+    Node::name = name;
+}
+
+int Node::getIDFromGraphMLFullPath(std::string fullPath)
+{
+    //Find the location of the last n
+    int nIndex = -1;
+
+    int pathLen = (int) fullPath.size(); //Casting to signed to ensure loop termination
+    for(int i = pathLen-1; i >= 0; i--){
+        if(fullPath[i] == 'n'){
+            nIndex = i;
+            break;
+        }
+    }
+
+    if(nIndex == -1){
+        throw std::runtime_error("Could not find node ID in full GraphML path: " + fullPath);
+    }
+
+    std::string localIDStr = fullPath.substr(nIndex+1, std::string::npos);
+
+    int localId = std::stoi(localIDStr);
+
+    return localId;
+}
+
+//Default behavior is to return an empty set
+std::set<GraphMLParameter> Node::graphMLParameters() {
+    return std::set<GraphMLParameter>();
+}
+
+
+xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode) {
+    //Used CreateDOMDocument.cpp example from Xerces as a guide
+
+    //Will not insert newlines under the assumption that format-pretty-print will be enabled in the serializer
+
+    xercesc::DOMElement* nodeElement = GraphMLHelper::createNode(doc, "node");
+    GraphMLHelper::setAttribute(nodeElement, "id", getFullGraphMLPath());
+
+    if(!name.empty()){
+        GraphMLHelper::addDataNode(doc, nodeElement, "instance_name", name);
+    }
+
+    std::string label = labelStr();
+    if(!label.empty()){
+        GraphMLHelper::addDataNode(doc, nodeElement, "block_label", label);
+    }
+
+    //Add to graph node
+    graphNode->appendChild(nodeElement);
+
+    return nodeElement;
+}
+
+std::string Node::labelStr() {
+    std::string label = "";
+
+    if(!name.empty()){
+        label += name + "\n";
+    }
+
+    label +=  "ID: " + getFullGraphMLPath();
+
+    return label;
+}
+
+void Node::validate() {
+    //Check each port
+    for(auto port = inputPorts.begin(); port != inputPorts.end(); port++){
+        (*port)->validate();
+    }
+
+    for(auto port = outputPorts.begin(); port != outputPorts.end(); port++){
+        (*port)->validate();
+    }
+}
+
+void Node::propagateProperties() {
+    //Default behavior will do nothing
+}
+
+void Node::setParent(std::shared_ptr<SubSystem> parent) {
+    Node::parent = parent;
+}
+
+//Default behavior is to not do any expansion and to return false.
+bool Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                  std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    return false;
+}
+
+std::string Node::getFullyQualifiedName() {
+    std::string fullName = name;
+
+    for(std::shared_ptr<SubSystem> parentPtr = parent; parentPtr != nullptr; parentPtr = parentPtr->parent)
+    {
+        fullName = parentPtr->getName() + "/" + fullName;
+    }
+
+    return fullName;
+}
+
+std::shared_ptr<SubSystem> Node::getParent() {
+    return parent;
+}

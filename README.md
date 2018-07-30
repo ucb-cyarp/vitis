@@ -12,10 +12,12 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
 - [Google Test (gtest)](https://github.com/google/googletest): Testing Framework
 - gcc or clang: C++ Compiler
 
-###Installation:
+### Installation:
 - Clone git repository
 
 - Install Dependencies:
+    - GCC Version 4.9 and Clang Version 3 Required Due to C++11 Regex Support
+        - Tested with GCC 5 and Clang 3.8
 
     - Ubuntu
     
@@ -43,4 +45,9 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
     cd build
     cmake ..
     make
+    ```
+    
+- Test
+    ```
+    make test ARGS="-V"
     ```

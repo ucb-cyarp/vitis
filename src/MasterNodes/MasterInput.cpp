@@ -3,3 +3,7 @@
 //
 
 #include "MasterInput.h"
+
+MasterInput::MasterInput() {
+
+}

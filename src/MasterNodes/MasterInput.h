@@ -5,7 +5,7 @@
 #ifndef VITIS_MASTERINPUT_H
 #define VITIS_MASTERINPUT_H
 
-#include "GraphCore/Node.h"
+#include "MasterNode.h"
 
 /**
  * \addtogroup MasterNodes Master Nodes
@@ -17,7 +17,16 @@
  *
  * \ingroup MasterNodes
  */
-class MasterInput : public Node {
+class MasterInput : public MasterNode {
+
+friend class NodeFactory;
+
+protected:
+    /**
+     * @brief Default constructor.  Calls default constructor of supercass.
+     */
+    MasterInput();
+
 
 };
 

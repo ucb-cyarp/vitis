@@ -19,8 +19,33 @@
  * is held.  If enabled, the downstream logic from this node is allowed to execute as usual and state is updated.
  */
 class EnableInput : public EnableNode {
-public:
-    std::string emitCpp(int outputPort) override ;
+friend class NodeFactory;
+
+protected:
+    /**
+     * @brief Default constructor
+     */
+    EnableInput();
+
+    /**
+     * @brief Construct a node with a given parent
+     * @param parent parent of new node
+     */
+    EnableInput(std::shared_ptr<SubSystem> parent);
+
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
+    std::string labelStr() override ;
+
+    /**
+     * @brief Validate if the connections to this port are correct.
+     *
+     *   - Verify that the input port is a boolean type (and width 1).  Also Verify 1 and only 1 arc is connected
+     *   - Checks that the port is in the EnabledSubsystem EnabledInput list
+     *
+     * If an invalid configuration is detected, the function will throw an exception
+     */
+    void validate() override;
 };
 
 /*@}*/

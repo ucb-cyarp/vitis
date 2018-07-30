@@ -5,20 +5,31 @@
 #ifndef VITIS_NODE_H
 #define VITIS_NODE_H
 
+//Forward Decls (Breaking Circular Dep)
+//class Arc;
+//class Port;
+class NodeFactory;
+
+class SubSystem;
+class GraphMLParameter;
+
 #include <vector>
 #include <set>
 #include <string>
 #include <memory>
-//#include "Port.h"
-//#include "Arc.h"
+#include <map>
+
+#include "Port.h"
+#include "InputPort.h"
+#include "OutputPort.h"
+#include "Arc.h"
+#include "GraphMLParameter.h"
+
+#include <xercesc/dom/DOM.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
+
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
-
-//Forward Decls (Breaking Circular Dep)
-class Arc;
-class Port;
-class SubSystem;
-class GraphMLParameter;
 
 //This Class
 
@@ -32,45 +43,70 @@ class GraphMLParameter;
  *
  * This class represents a generic node in the data flow graph.  It is an abstract class which provides some basic
  * utility functions as well as stub functions which should be overwritten by subclasses.
+ *
+ * ## Ownership Semantics:
+ *   - Nodes are owned buy the design, parent nodes (if applicable), and arcs
+ *   - Arcs are owned by the design.
+ *   - Ports are owned by nodes
+ *   - Ports have weak pointers to arcs
+ *
+ * If the design removes an arc from its list, it is destroyed.  It removes it's weak ptrs from ports it is connected to to avoid stale pointer access from the port.
+ * The arc relinquishes its partial ownership of the nodes it was connected to.
+ * If the design relinquishes its partial ownership of the nodes as well, the only ownership is from parent nodes.
+ * A cascading destruction will occur
  */
-class Node {
-protected:
+class Node : public std::enable_shared_from_this<Node> {
+    friend class NodeFactory;
 
+protected:
+    std::string name; ///< An optional human readable name for the node
     int id; ///<Node ID number used when reading/writing GraphML files
     std::shared_ptr<SubSystem> parent; ///<Parent of this node
-    std::vector<Port> inputPorts; ///<The input ports of this node
-    std::vector<Port> outputPorts; ///<The output ports of this node
+    //Vectors to unique pointers because we actually need to pass pointers to these ports around (esp to arcs).
+    //Since vectors can re-allocate memory as items are added or deleted, the pointer location is not guaranteed to remain
+    //in the same location.  Putting the ports in the heap and having the nodes have a sole ownership pointer to them which is
+    //contained in the vector allows the location of the object to remain the same (making passing this valid) even if more
+    //entries are added to the vector.  When the node is destroyed, the ports are destroyed as well due to the sole ownership.
+    //shared_ptrs to the ports can be generated but these are aliased pointers that account for the shared ownership of the
+    //nodes, they alias to the port.
+    std::vector<std::unique_ptr<InputPort>> inputPorts; ///<The input ports of this node
+    std::vector<std::unique_ptr<OutputPort>> outputPorts; ///<The output ports of this node
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     std::vector<bool> cOutEmitted; ///<A vector of bools indicating if a particular output has been emitted in C++
     std::vector<std::string> cOutVarName; ///<A vector of strings which hold the variable names in C++ if the output was stored in a C++ var
 
-public:
-    //==== Constructors ====
+    //==== Constructors (Protected to force use of factory - required to handle  ====
+
     /**
      * @brief Constructs an empty node
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
      */
     Node();
 
     /**
-     * @brief Constructs an empty node with a given parent.
+     * @brief Constructs an empty node with a given parent.  This node is not added to the children list of the parent.
      *
-     * @note Does not add node to parent's child list.  To do that, use @ref Node::createNode.
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
      *
      * @param parent parent node
      */
     explicit Node(std::shared_ptr<SubSystem> parent);
 
-    //==== Factories ====
     /**
-     * @brief Creates an empty node with a given parent.  Adds the child to the parent's children list
+     * @brief Initializes parts of the given object that rely on a shared_ptr to the object itself
      *
-     * @param parent of the new node
-     * @return a shared pointer to the new node
+     * This is due to how enable_shared_from_this operates.  It requires a shared_ptr to exist before any calls to shared_from_this().
      */
-    static std::shared_ptr<Node> createNode(std::shared_ptr<SubSystem> parent);
+    virtual void init();
 
+public:
     //==== Functions ====
-    /**
+     /**
      * @brief Add an input arc to the given node, updating referenced objects in the process
      *
      * Adds an input arc to this node.  Removes the arc from the orig port if not NULL.
@@ -80,7 +116,7 @@ public:
      * @param portNum Input port number to add the arc to
      * @param arc The arc to add
      */
-    void addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
+     void addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
 
     /**
      * @brief Add an output arc to the given node, updating referenced objects in the process
@@ -95,7 +131,7 @@ public:
     void addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
 
     /**
-     * @brief Removes the given input arc from the node.
+     * @brief Removes the given input arc from the node. Does not change the dstPort entry in the arc.
      *
      * Will search all input ports to find the given arc
      * @param arc Arc to remove
@@ -103,12 +139,50 @@ public:
     void removeInArc(std::shared_ptr<Arc> arc);
 
     /**
-     * @brief Removes the given output arc from the node.
+     * @brief Removes the given output arc from the node.  Does not change the srcPort entry in the arc.
      *
      * Will search all output ports to find the given arc
      * @param arc Arc to remove
      */
     void removeOutArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists a null pointer is returned.
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the input port number
+     * @return aliased shared pointer to input port or nullptr
+     */
+    std::shared_ptr<InputPort> getInputPort(int portNum);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists a null pointer is returned.
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the output port number
+     * @return aliased shared pointer to output port or nullptr
+     */
+    std::shared_ptr<OutputPort> getOutputPort(int portNum);
+
+    /**
+     * @brief Get a vector of pointers to the current input ports of the node
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @return vector of aliased pointers to the current input ports of the node
+     */
+    std::vector<std::shared_ptr<InputPort>> getInputPorts();
+
+    /**
+     * @brief Get a vector of pointers to the current output ports of the node
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @return vector of aliased pointers to the current output ports of the node
+     */
+    std::vector<std::shared_ptr<OutputPort>> getOutputPorts();
 
     /**
      * @brief Get the full hierarchical path of this node in GraphML format
@@ -119,10 +193,36 @@ public:
     std::string getFullGraphMLPath();
 
     /**
-     * @brief Emit GraphML for the given node (and its descendants if it is a Subsystem)
-     * @return GraphML description of the given node (and its descendants) as a std::string
+     * @brief Get the parent of this node
+     * @return the parent of the node or nullptr if no parent exists
      */
-    virtual std::string emitGraphML();
+    std::shared_ptr<SubSystem> getParent();
+
+    /**
+     * @brief Get the fully qualified human readable name of the node
+     *
+     * A typical fully qualified name would be "subsysName/nodeName"
+     * @return Fully qualified human readable name of the node as a std::string
+     */
+    std::string getFullyQualifiedName();
+
+    /**
+     * @brief Get the node ID from a full GraphML ID path
+     * @param fullPath the full GraphML ID path
+     * @return local ID number
+     */
+    static int getIDFromGraphMLFullPath(std::string fullPath);
+
+    /**
+     * @brief Gets a shared pointer to this node
+     *
+     * Used in port objects to get a shared pointer to the parent which they then use to return an aliased shared pointer to themselves.
+     * This is because the port objects are contained in the node.  When the node is destructed, they are too.
+     * The nodes would not be deleted if ports had a shared object to the
+     *
+     * @return shared pointer to this node
+     */
+    std::shared_ptr<Node> getSharedPointer();
 
     /**
      * @brief Identifies which GraphML parameters this node (and its descendants) can emit
@@ -134,6 +234,31 @@ public:
     virtual std::set<GraphMLParameter> graphMLParameters();
 
     /**
+     * @brief Emits the current node as GraphML
+     *
+     * Include Data node entries for parameters
+     *
+     * @param doc the XML document containing graphNode
+     * @param graphNode the node representing the \<graph\> XMLNode that this node object is contained within
+     * @param include_block_node_type if true, the data entry "block_node_type" is included in the output, if false it is not (used when the type should be superceeded - ex expanded node)
+     *
+     * @return pointer to this node's associated DOMNode
+     */
+    virtual xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) = 0;
+
+    /**
+     * @brief Emits the current node as GraphML node without inserting data entries that change depending on the node type
+     *
+     * creates the \<node id="n2"\> entry but nothing below that
+     *
+     * @param doc the XML document containing graphNode
+     * @param graphNode the node representing the \<graph\> XMLNode that this node object is contained within
+     *
+     * @return pointer to this node's associated DOMNode
+     */
+    virtual xercesc::DOMElement* emitGraphMLBasics(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
+
+    /**
      * @brief Expand this node if applicable
      *
      * Typical reasons for expansion include:
@@ -141,7 +266,8 @@ public:
      *     - FIR Filter
      *     - Tapped Delay Line
      *     - FFT
-     * - Vector Operation to Primitive Operations
+     * - Medium Level Blocks to Primitive Operations
+     *     - Gain
      *
      * @param new_nodes A vector which will be filled with the new nodes created during expansion
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
@@ -151,7 +277,7 @@ public:
      */
     virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
-    /**
+    /*
      * @brief Emit C++ code to calculate the value of an output port.
      *
      * If the output is dependant on the result of other operations, those dependant operations will be emitted
@@ -160,9 +286,55 @@ public:
      * @param outputPort the output port for which the C++ code should be generated for
      * @return a string containing the C++ code for calculating the result of the output port
      */
-    virtual std::string emitCpp(int outputPort);
+//    virtual std::string emitCpp(int outputPort) = 0;
+
+    /**
+     * @brief Get a human readable description of the node
+     * @return human readable description of node
+     */
+    virtual std::string labelStr();
+
+    /**
+     * @brief Validate if the node has a valid configuration.
+     * This may involve looking at arcs or nodes connected to this node.
+     *
+     * If an invalid configuration is detected, the function will throw an exception
+     */
+    virtual void validate();
+
+    /**
+     * @brief Propagates properties from Arcs (and potentially connected nodes) into this node.  Should only be called after nodes and arcs are imported
+     */
+    virtual void propagateProperties();
+
+    /**
+     * @brief Check if the node can be expanded (to primitive nodes).
+     *
+     * @note Does not check for vector expansion.
+     *
+     * The @ref expand method can still be called even if this function returns false, however, no change to the design will be made
+     * @return true if the node can be expanded, false otherwise
+     */
+    virtual bool canExpand() = 0;
 
     //==== Getters/Setters ====
+    /**
+     * @brief Sets the parent of the node without updating the child set of the parent to include this node.
+     *
+     * Consider using @ref updateParent which updates the parents (old and new) along with changing the parent of this node.
+     *
+     * @param parent the new parent of this node
+     */
+    void setParent(std::shared_ptr<SubSystem> parent);
+
+    int getId() const;
+
+    void setId(int id);
+
+    const std::string &getName() const;
+
+    void setName(const std::string &name);
+
     //++++ Getters/Setters With Added Functionality ++++
     /**
      * @brief Sets the parent of the node.
@@ -171,7 +343,7 @@ public:
      * Adds to the children list of the new parent (if not NULL).
      * @param parent new parent
      */
-    void updateParent(SubSystem *parent);
+    void updateParent(std::shared_ptr<SubSystem> parent);
 
 };
 

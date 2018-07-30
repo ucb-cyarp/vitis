@@ -3,10 +3,13 @@
 //
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <memory>
-#include "GraphMLTools/SimulinkGraphMLImporter.h"
+#include "GraphMLTools/GraphMLImporter.h"
+#include "GraphMLTools/GraphMLExporter.h"
 #include "GraphCore/Design.h"
+#include "GraphMLTools/GraphMLDialect.h"
 
 int main(int argc, char* argv[]) {
 
@@ -15,6 +18,8 @@ int main(int argc, char* argv[]) {
         std::cout << "simulinkGraphMLImporter: Import Simulink GraphML File and Write a vitis GraphML File" << std::endl;
         std::cout << "Usage: " << std::endl;
         std::cout << "    simulinkGraphMLImporter inputfile.graphml outputfile.graphml" << std::endl;
+
+        return 1;
     }
 
     std::string inputFilename = argv[1];
@@ -23,8 +28,27 @@ int main(int argc, char* argv[]) {
     std::cout << "Importing Simulink GraphML File:  " << inputFilename << std::endl;
     std::cout << "Converting to vitis GraphML File: " << outputFilename << std::endl;
 
-    std::unique_ptr<Design> design = SimulinkGraphMLImporter::importSimulinkGraphML(inputFilename);
+    std::unique_ptr<Design> design;
 
+    //Import
+    try{
+        design = GraphMLImporter::importGraphML(inputFilename, GraphMLDialect::SIMULINK_EXPORT);
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+
+    //Assign node and arc IDs if they were not assigned already (should be a rare occurance)
+    design->assignNodeIDs();
+    design->assignArcIDs();
+
+    //Export
+    try{
+        GraphMLExporter::exportGraphML(outputFilename, *design);
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }

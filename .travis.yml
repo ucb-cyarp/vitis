@@ -1,19 +1,68 @@
 language: cpp
 
+#Using trick from https://genbattle.bitbucket.io/blog/2016/01/17/c++-travis-ci/
+# https://github.com/travis-ci/travis-ci/issues/6300
+# https://github.com/travis-ci/travis-ci/issues/7100
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update          ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xerces-c; fi
+
+before_script:
+    - if [[ "$COMPILER" = "g++-5"        ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="g++-5" CC="gcc-5";              fi
+    - if [[ "$COMPILER" = "clang++-3.8"  ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="clang++-3.8" CC="clang-3.8";    fi
+
+os:
+  - linux
+#  - osx
+
+dist: trusty
+#osx_image: xcode9.4
+
+#compiler:
+#  - clang
+#  - gcc
+
+matrix:
+  include:
+    - compiler: gcc
+      os: linux
+      dist: trusty
+      env: COMPILER=g++-5
+    - compiler: clang
+      os: linux
+      dist: trusty
+      env: COMPILER=clang++-3.8
+#    - compiler: gcc
+#      os: osx
+#      osx_image: xcode9.4
+#      env: COMPILER=g++
+    - compiler: clang
+      os: osx
+      osx_image: xcode9.4
+      env: COMPILER=clang++
+  exclide:
+    - compiler: gcc
+    - compiler: clang
+
 addons:
   apt:
+    sources:
+    - ubuntu-toolchain-r-test
+#    - llvm-toolchain-trusty-3.8
     packages:
     - cmake
     - libxerces-c-dev
-
-compiler:
-  - clang
-  - gcc
+    - clang-3.8
+    - gcc-5
+    - g++-5
 
 script:
+  - echo $CXX; echo $CC
   - mkdir build && cd build
   - cmake ..
   - make
+  - make test ARGS="-V"
 
 notifications:
   slack:
