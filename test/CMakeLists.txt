@@ -39,13 +39,9 @@ set(TEST_WORKING_DIR, ${CMAKE_BINARY_DIR}/test) #Issue with using the current bi
 #TODO: look at this later, for now use above var
 
 #Tests
-add_executable(coreTester src/TestDataType.cpp src/TestNumericValue.cpp)
-target_link_libraries(coreTester gtest_main VitisLib)
-add_test(coreTester coreTester WORKING_DIRECTORY ${TEST_WORKING_DIR})
-
-add_executable(xmlTester src/TestSimulinkImport.cpp src/GraphTestHelper.h src/GraphTestHelper.cpp src/SimpleDesignValidator.h src/SimpleDesignValidator.cpp src/TestSimulinkExportReImport.cpp src/NestedSubSystemValidator.cpp src/NestedSubSystemValidator.h src/TestNestedSubsystems.cpp src/LUTDesignValidator.cpp src/LUTDesignValidator.h src/TestLutSubsystem.cpp src/EnabledSubsystemDesignValidator.cpp src/EnabledSubsystemDesignValidator.h src/TestEnabledDesign.cpp)
-target_link_libraries(xmlTester gtest_main VitisLib ${XercesC_LIBRARIES})
-add_test(xmlTester xmlTester WORKING_DIRECTORY ${TEST_WORKING_DIR})
+add_executable(testRunner src/TestDataType.cpp src/TestNumericValue.cpp src/TestSimulinkImport.cpp src/GraphTestHelper.h src/GraphTestHelper.cpp src/SimpleDesignValidator.h src/SimpleDesignValidator.cpp src/TestSimulinkExportReImport.cpp src/NestedSubSystemValidator.cpp src/NestedSubSystemValidator.h src/TestNestedSubsystems.cpp src/LUTDesignValidator.cpp src/LUTDesignValidator.h src/TestLutSubsystem.cpp src/EnabledSubsystemDesignValidator.cpp src/EnabledSubsystemDesignValidator.h src/TestEnabledDesign.cpp)
+target_link_libraries(testRunner gtest_main VitisLib ${XercesC_LIBRARIES})
+add_test(testRunner testRunner WORKING_DIRECTORY ${TEST_WORKING_DIR})
 
 #Copy Stimulus Files (https://cmake.org/cmake/help/v3.0/command/file.html)
 file(COPY "stimulus" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
