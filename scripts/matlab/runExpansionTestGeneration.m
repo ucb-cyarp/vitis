@@ -1,0 +1,8 @@
+simulink_to_graphml('expansionTests', 'expansionTests/ConstantOnly',              'ConstantOnly.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/ConstantAndDelayExpansion', 'ConstantAndDelayExpansion.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/ConstantAndGain',           'ConstantAndGain.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/ConstantAndSwitch',         'ConstantAndSwitch.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/ScalarVectorMixOperator',   'ScalarVectorMixOperator.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/FIRExpansion',              'FIRExpansion.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/TappedDelayExpansion',      'TappedDelayExpansion.graphml')
+simulink_to_graphml('expansionTests', 'expansionTests/VecConcatAndSelect',        'VecConcatAndSelect.graphml')
