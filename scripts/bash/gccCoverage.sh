@@ -14,7 +14,6 @@ mkdir lcov
 cd lcov
 lcov --capture --directory ../CMakeFiles/ --output-file coverage.info
 lcov --remove coverage.info "/usr*" --output-file coverage_trimmed.info
-lcov --remove coverage_trimmed.info "*/test/*" --output-file coverage_trimmed.info
 genhtml coverage_trimmed.info --output-directory covReport
 cp -r covReport ../../covReport
 
