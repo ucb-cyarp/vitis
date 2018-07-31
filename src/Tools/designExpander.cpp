@@ -25,8 +25,8 @@ int main(int argc, char* argv[]) {
     std::string inputFilename = argv[1];
     std::string outputFilename = argv[2];
 
-    std::cout << "Importing Simulink GraphML File:  " << inputFilename << std::endl;
-    std::cout << "Converting to vitis GraphML File: " << outputFilename << std::endl;
+    std::cout << "Importing vitis GraphML File: " << inputFilename << std::endl;
+    std::cout << "Exporting vitis GraphML File: " << outputFilename << std::endl;
 
     std::unique_ptr<Design> design;
 
