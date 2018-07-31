@@ -11,6 +11,8 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
 - [Apache Xerces-C](https://xerces.apache.org/xerces-c): XML Parser
 - [Google Test (gtest)](https://github.com/google/googletest): Testing Framework
 - gcc or clang: C++ Compiler
+- lcov (if using GCC): Coverage Report Generator
+- llvm-profdata, llvm-cov (if using clang): Coverage Report Generator
 
 ### Installation:
 - Clone git repository
@@ -48,6 +50,15 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
     ```
     
 - Test
+
     ```
     make test ARGS="-V"
     ```
+    
+- Code Coverage
+
+    ```
+    make coverage
+    ```
+    
+    Coverage report will be copied to vitis/covReport.

@@ -153,3 +153,12 @@ target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file
 enable_testing()
 add_subdirectory(test)
+
+#==== Coverage ====
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    # using Clang
+    add_custom_target(coverage ${CMAKE_SOURCE_DIR}/scripts/bash/clangCoverage.sh)
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+    # using GCC
+    add_custom_target(coverage ${CMAKE_SOURCE_DIR}/scripts/bash/gccCoverage.sh)
+endif()
