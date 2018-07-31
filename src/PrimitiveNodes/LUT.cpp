@@ -204,9 +204,9 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
                 }
             }else{
                 if(searchMethodStr == "Linear search"){
-                    searchMethod = SearchMethod::LINEAR_SEARCH_MEMORY;
+                    searchMethod = SearchMethod::LINEAR_SEARCH_NO_MEMORY;
                 }else if(searchMethodStr == "Binary search"){
-                    searchMethod = SearchMethod::BINARY_SEARCH_MEMORY;
+                    searchMethod = SearchMethod::BINARY_SEARCH_NO_MEMORY;
                 }else{
                     throw std::runtime_error("Unknown search type: " + searchMethodStr);
                 }
