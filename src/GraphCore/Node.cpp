@@ -29,6 +29,20 @@ void Node::init() {
 }
 
 void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+    std::shared_ptr<InputPort> inputPort = getInputPortCreateIfNot(portNum);
+
+    //Set the dst port of the arc, updating the previous port and this one
+    arc->setDstPortUpdateNewUpdatePrev(inputPort->getSharedPointerInputPort());
+}
+
+void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+    std::shared_ptr<OutputPort> outputPort = getOutputPortCreateIfNot(portNum);
+
+    //Set the src port of the arc, updating the previous port and this one
+    arc->setSrcPortUpdateNewUpdatePrev(outputPort->getSharedPointerOutputPort());
+}
+
+std::shared_ptr<InputPort> Node::getInputPortCreateIfNot(int portNum) {
     //Create the requested port if it does not exist yet
     //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
     unsigned long inputPortLen = inputPorts.size();
@@ -37,11 +51,10 @@ void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
         inputPorts.push_back(std::unique_ptr<InputPort>(new InputPort(this, i)));
     }
 
-    //Set the dst port of the arc, updating the previous port and this one
-    arc->setDstPortUpdateNewUpdatePrev(inputPorts[portNum]->getSharedPointerInputPort());
+    return inputPorts[portNum]->getSharedPointerInputPort();
 }
 
-void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
+std::shared_ptr<OutputPort> Node::getOutputPortCreateIfNot(int portNum) {
     //Create the requested port if it does not exist yet
     //TODO: it is assumed that if port n exists, that there are ports 0-n with no holes.  Re-evaluate this assumption
     unsigned long outputPortLen = outputPorts.size();
@@ -49,9 +62,9 @@ void Node::addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
         outputPorts.push_back(std::unique_ptr<OutputPort>(new OutputPort(this, i)));
     }
 
-    //Set the src port of the arc, updating the previous port and this one
-    arc->setSrcPortUpdateNewUpdatePrev(outputPorts[portNum]->getSharedPointerOutputPort());
+    return outputPorts[portNum]->getSharedPointerOutputPort();
 }
+
 
 std::shared_ptr<Node> Node::getSharedPointer() {
     return shared_from_this();

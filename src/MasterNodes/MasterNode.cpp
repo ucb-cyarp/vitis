@@ -16,6 +16,20 @@ MasterNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNod
         GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Master");
     }
 
+    //Emit port names
+    unsigned long numInputPorts = inputPorts.size();
+    unsigned long numOutputPorts = outputPorts.size();
+    GraphMLHelper::addDataNode(doc, thisNode, "named_input_ports", std::to_string(numInputPorts));
+    GraphMLHelper::addDataNode(doc, thisNode, "named_output_ports", std::to_string(numOutputPorts));
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        GraphMLHelper::addDataNode(doc, thisNode, "input_port_name_" + std::to_string(i), inputPorts[i]->getName());
+    }
+
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        GraphMLHelper::addDataNode(doc, thisNode, "output_port_name_" + std::to_string(i), outputPorts[i]->getName());
+    }
+
     return thisNode;
 }
 
@@ -29,4 +43,24 @@ std::string MasterNode::labelStr() {
 
 bool MasterNode::canExpand() {
     return false;
+}
+
+std::set<GraphMLParameter> MasterNode::graphMLParameters() {
+    std::set<GraphMLParameter> parameters;
+
+    parameters.insert(GraphMLParameter("named_input_ports", "int", true));
+    parameters.insert(GraphMLParameter("named_output_ports", "int", true));
+
+    unsigned long numInputPorts = inputPorts.size();
+    unsigned long numOutputPorts = outputPorts.size();
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        parameters.insert(GraphMLParameter("input_port_name_" + std::to_string(i) , "string", true));
+    }
+
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        parameters.insert(GraphMLParameter("output_port_name_" + std::to_string(i) , "string", true));
+    }
+
+    return parameters;
 }

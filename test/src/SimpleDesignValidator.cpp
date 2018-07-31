@@ -19,10 +19,16 @@ void SimpleDesignValidator::validate(Design &design) {
     ASSERT_EQ(inputs->getOutputPort(1)->getArcs().size(), 3);
     ASSERT_EQ(inputs->getName(), "Input Master");
 
+    ASSERT_EQ(inputs->getOutputPort(0)->getName(), "In1");
+    ASSERT_EQ(inputs->getOutputPort(1)->getName(), "In2");
+
     std::shared_ptr<MasterOutput> outputs = design.getOutputMaster();
     ASSERT_EQ(outputs->getInputPorts().size(), 2);
     ASSERT_EQ(outputs->getOutputPorts().size(), 0);
     ASSERT_EQ(outputs->getName(), "Output Master");
+
+    ASSERT_EQ(outputs->getInputPort(0)->getName(), "Out1");
+    ASSERT_EQ(outputs->getInputPort(1)->getName(), "Out2");
 
     std::shared_ptr<MasterOutput> terminator = design.getTerminatorMaster();
     ASSERT_EQ(terminator->getInputPorts().size(), 1);

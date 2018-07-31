@@ -167,6 +167,26 @@ public:
     std::shared_ptr<OutputPort> getOutputPort(int portNum);
 
     /**
+     * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the input port number
+     * @return aliased shared pointer to input port
+     */
+    std::shared_ptr<InputPort> getInputPortCreateIfNot(int portNum);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the output port number
+     * @return aliased shared pointer to output port
+     */
+    std::shared_ptr<OutputPort> getOutputPortCreateIfNot(int portNum);
+
+    /**
      * @brief Get a vector of pointers to the current input ports of the node
      *
      * @note Ports may be added to the node later which will not be reflected in the returned array

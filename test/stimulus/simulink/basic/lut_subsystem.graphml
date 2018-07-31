@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -687,6 +693,12 @@
 	<key id="UseOneInputPortForAllInputData" for="node" attr.name="UseOneInputPortForAllInputData" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_1" for="node" attr.name="output_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
 	<graph id="G" edgedefault="directed">
 		<node id="n1">
 			<data key="instance_name">Input Master</data>
@@ -695,6 +707,9 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">1</data>
+			<data key="output_port_name_1">In1</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -703,6 +718,9 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">1</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -711,6 +729,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -719,6 +739,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -727,6 +749,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">1-D Lookup
@@ -740,6 +764,8 @@ Function: Lookup_n-D
 BreakpointsForDimension1: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]
 NumberOfTableDimensions: 1
 Table: [-1.3734, -1.3258, -1.249, -1.1071, -0.7854, 0, 0.7854, 1.1071, 1.249, 1.3258, 1.3734]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="BeginIndexSearchUsingPreviousIndexResult">off</data>
 			<data key="BreakpointsForDimension1">[-5:5]</data>
 			<data key="BreakpointsForDimension10">[1:3]</data>

@@ -5,11 +5,11 @@
 #include "Port.h"
 #include "Node.h"
 
-Port::Port() : portNum(0), parent(nullptr)  {
+Port::Port() : portNum(0), name(""), parent(nullptr)  {
 
 }
 
-Port::Port(Node* parent, int portNum) : portNum(portNum), parent(parent) {
+Port::Port(Node* parent, int portNum) : portNum(portNum), name(""), parent(parent) {
 
 }
 
@@ -89,4 +89,12 @@ std::shared_ptr<Port> Port::getSharedPointer() {
 
 unsigned long Port::numArcs() {
     return arcs.size();
+}
+
+const std::string Port::getName() {
+    return name;
+}
+
+void Port::setName(const std::string &name) {
+    Port::name = name;
 }

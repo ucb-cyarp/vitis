@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -252,6 +258,21 @@
 	<key id="VariantControl" for="node" attr.name="VariantControl" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_2" for="node" attr.name="input_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_3" for="node" attr.name="input_port_name_3" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_1" for="node" attr.name="output_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_2" for="node" attr.name="output_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
 	<graph id="G" edgedefault="directed">
 		<node id="n1">
 			<data key="instance_name">Input Master</data>
@@ -260,6 +281,10 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">2</data>
+			<data key="output_port_name_1">In1</data>
+			<data key="output_port_name_2">In2</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -268,6 +293,11 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">3</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
+			<data key="input_port_name_2">Out2</data>
+			<data key="input_port_name_3">Out3</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -276,6 +306,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -284,6 +316,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -292,6 +326,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Sum</data>
@@ -302,6 +338,8 @@ ID: n6
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CollapseDim">1</data>
 			<data key="CollapseMode">All dimensions</data>
@@ -329,6 +367,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="CodeGenStateStorageTypeQualifier">[]</data>
 			<data key="DelayLength">1</data>
 			<data key="DelayLengthSource">Dialog</data>
@@ -358,6 +398,8 @@ SampleTime: -1</data>
 			<data key="block_label">subsys_2
 ID: n8
 Function: SubSystem</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="ActiveVariant">[]</data>
 			<data key="ActiveVariantBlock">[]</data>
 			<data key="AllowZeroVariantControls">off</data>
@@ -401,6 +443,8 @@ ID: n8::n9
 Function: Product
 Inputs: 2
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="CollapseDim">1</data>
 					<data key="CollapseMode">All dimensions</data>
 					<data key="InputSameDT">off</data>
@@ -427,6 +471,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="CodeGenStateStorageTypeQualifier">[]</data>
 					<data key="DelayLength">1</data>
 					<data key="DelayLengthSource">Dialog</data>
@@ -456,6 +502,8 @@ SampleTime: -1</data>
 					<data key="block_label">sub_sub_sys
 ID: n8::n11
 Function: SubSystem</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="ActiveVariant">[]</data>
 					<data key="ActiveVariantBlock">[]</data>
 					<data key="AllowZeroVariantControls">off</data>
@@ -499,6 +547,8 @@ ID: n8::n11::n12
 Function: Product
 Inputs: 2
 SampleTime: -1</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="CollapseDim">1</data>
 							<data key="CollapseMode">All dimensions</data>
 							<data key="InputSameDT">off</data>
@@ -525,6 +575,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="CodeGenStateStorageTypeQualifier">[]</data>
 							<data key="DelayLength">1</data>
 							<data key="DelayLengthSource">Dialog</data>
@@ -558,6 +610,8 @@ SampleTime: -1</data>
 			<data key="block_label">subsys_1
 ID: n14
 Function: SubSystem</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="ActiveVariant">[]</data>
 			<data key="ActiveVariantBlock">[]</data>
 			<data key="AllowZeroVariantControls">off</data>
@@ -601,6 +655,8 @@ ID: n14::n15
 Function: Product
 Inputs: 2
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="CollapseDim">1</data>
 					<data key="CollapseMode">All dimensions</data>
 					<data key="InputSameDT">off</data>
@@ -627,6 +683,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="CodeGenStateStorageTypeQualifier">[]</data>
 					<data key="DelayLength">1</data>
 					<data key="DelayLengthSource">Dialog</data>

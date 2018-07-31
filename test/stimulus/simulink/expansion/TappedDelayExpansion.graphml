@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -99,6 +105,18 @@
 	<key id="includeCurrent" for="node" attr.name="includeCurrent" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_2" for="node" attr.name="input_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_3" for="node" attr.name="input_port_name_3" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_1" for="node" attr.name="output_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="samptime" for="node" attr.name="samptime" attr.type="string">
 		<default>""</default>
 	</key>
@@ -113,6 +131,9 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">1</data>
+			<data key="output_port_name_1">In1</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -121,6 +142,11 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">3</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
+			<data key="input_port_name_2">Out2</data>
+			<data key="input_port_name_3">Out3</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -129,6 +155,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -137,6 +165,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -145,6 +175,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Tapped Delay VectInit1</data>
@@ -156,6 +188,8 @@ Function: TappedDelay
 NumDelays: 1
 samptime: -1
 vinit: 1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="DelayOrder">Oldest</data>
 			<data key="NumDelays">1</data>
 			<data key="includeCurrent">off</data>
@@ -182,6 +216,8 @@ InitialConditionSource: Dialog
 NumDelays: 1
 samptime: -1
 vinit: 1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.NumDelays">1</data>
@@ -200,6 +236,8 @@ Function: TappedDelay
 NumDelays: 4
 samptime: -1
 vinit: [1, 2, 3, 4]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="DelayOrder">Oldest</data>
 			<data key="NumDelays">4</data>
 			<data key="includeCurrent">off</data>
@@ -225,6 +263,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 1
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">1</data>
@@ -241,6 +281,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 2
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">2</data>
@@ -257,6 +299,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 3
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">3</data>
@@ -273,6 +317,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 4
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">4</data>
@@ -290,6 +336,8 @@ Function: TappedDelay
 NumDelays: 4
 samptime: -1
 vinit: 0</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="DelayOrder">Oldest</data>
 			<data key="NumDelays">4</data>
 			<data key="includeCurrent">off</data>
@@ -315,6 +363,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -331,6 +381,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -347,6 +399,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -363,6 +417,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -378,6 +434,8 @@ SampleTime: -1</data>
 ID: n18
 Type: VectorFan
 Direction: Fan-In</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n19">
@@ -388,6 +446,8 @@ Direction: Fan-In</data>
 ID: n19
 Type: VectorFan
 Direction: Fan-In</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="Direction">Fan-In</data>
 		</node>
 		<edge id="e1" source="n6::n9" target="n2">

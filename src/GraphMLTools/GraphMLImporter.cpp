@@ -543,6 +543,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Output Master"){
             std::shared_ptr<Node> master = design.getOutputMaster();
             nodeMap[fullNodeID]=master;
@@ -550,6 +551,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Visualization Master"){
             std::shared_ptr<Node> master = design.getVisMaster();
             nodeMap[fullNodeID]=master;
@@ -557,6 +559,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Unconnected Master"){
             std::shared_ptr<Node> master = design.getUnconnectedMaster();
             nodeMap[fullNodeID]=master;
@@ -564,6 +567,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Terminator Master"){
             std::shared_ptr<Node> master = design.getTerminatorMaster();
             nodeMap[fullNodeID]=master;
@@ -571,6 +575,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else {
             throw std::runtime_error("Unknown Master Type: " + instanceName);
         }
@@ -1008,4 +1013,55 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
     }
 
     return (int) numEdges; //We import all edges/arcs in the list
+}
+
+void
+GraphMLImporter::importNodePortNames(std::shared_ptr<Node> node, std::map<std::string, std::string> dataKeyValueMap,
+                                     GraphMLDialect dialect) {
+    unsigned long named_input_port_count = 0;
+    unsigned long named_output_port_count = 0;
+
+    auto named_input_port_count_str = dataKeyValueMap.find("named_input_ports");
+    if(named_input_port_count_str != dataKeyValueMap.end()){
+        if(!named_input_port_count_str->second.empty()) {
+            named_input_port_count = std::stoul(named_input_port_count_str->second);
+        }
+    }
+
+    auto named_output_port_count_str = dataKeyValueMap.find("named_output_ports");
+    if(named_output_port_count_str != dataKeyValueMap.end()){
+        if(!named_output_port_count_str->second.empty()) {
+            named_output_port_count = std::stoul(named_output_port_count_str->second);
+        }
+    }
+
+    for(int i = 0; i < named_input_port_count; i++){
+        std::string input_port_name_query_str;
+        if(dialect == GraphMLDialect::VITIS) {
+            input_port_name_query_str = "input_port_name_" + std::to_string(i);
+        } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            input_port_name_query_str = "input_port_name_" + std::to_string(i+1); //Need to correct for simulink numbering starting at 1
+        } else {
+            throw std::runtime_error("Unsupported Dialect when parsing XML");
+        }
+
+        std::string input_port_name = dataKeyValueMap.at(input_port_name_query_str);
+        std::shared_ptr<Port> inputPort = node->getInputPortCreateIfNot(i);
+        inputPort->setName(input_port_name);
+    }
+
+    for(int i = 0; i < named_output_port_count; i++){
+        std::string output_port_name_query_str;
+        if(dialect == GraphMLDialect::VITIS) {
+            output_port_name_query_str = "output_port_name_" + std::to_string(i);
+        } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            output_port_name_query_str = "output_port_name_" + std::to_string(i+1); //Need to correct for simulink numbering starting at 1
+        } else {
+            throw std::runtime_error("Unsupported Dialect when parsing XML");
+        }
+
+        std::string output_port_name = dataKeyValueMap.at(output_port_name_query_str);
+        std::shared_ptr<Port> outputPort = node->getOutputPortCreateIfNot(i);
+        outputPort->setName(output_port_name);
+    }
 }

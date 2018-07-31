@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -375,6 +381,12 @@
 	<key id="includeCurrent" for="node" attr.name="includeCurrent" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_2" for="node" attr.name="input_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="samptime" for="node" attr.name="samptime" attr.type="string">
 		<default>""</default>
 	</key>
@@ -395,6 +407,8 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -403,6 +417,10 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">2</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
+			<data key="input_port_name_2">Out2</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -411,6 +429,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -419,6 +439,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -427,6 +449,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Counter
@@ -437,6 +461,8 @@ Limited1</data>
 Limited1
 ID: n6
 Function: SubSystem</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="tsamp">0.1</data>
 			<data key="uplimit">63</data>
 			<data key="MaskVariables.nbits">8</data>
@@ -452,6 +478,8 @@ Propagation</data>
 Propagation
 ID: n6::n7
 Function: S-Function</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="BiasAdd">0</data>
 					<data key="BiasBase">Bias1</data>
 					<data key="BiasMult">1</data>
@@ -497,6 +525,8 @@ Function: S-Function</data>
 					<data key="block_label">Force to be scalar
 ID: n6::n8
 Function: SignalSpecification</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
 					<data key="Dimensions">1</data>
 					<data key="LockScale">off</data>
@@ -517,6 +547,8 @@ Real World</data>
 Real World
 ID: n6::n9
 Function: SubSystem</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<graph id="n6::n9:" edgedefault="directed">
 						<node id="n6::n9::n10">
 							<data key="instance_name">FixPt
@@ -529,6 +561,8 @@ ID: n6::n9::n10
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 							<data key="CollapseDim">1</data>
 							<data key="CollapseMode">All dimensions</data>
@@ -555,6 +589,8 @@ Data Type
 Duplicate
 ID: n6::n9::n20
 Function: DataTypeDuplicate</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="NumInputPorts">3</data>
 						</node>
 						<node id="n6::n9::n21">
@@ -568,6 +604,8 @@ ID: n6::n9::n21
 Function: Constant
 SampleTime: Inf
 Value: 1</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="FramePeriod">inf</data>
 							<data key="LockScale">off</data>
 							<data key="OutDataTypeStr">Inherit: Inherit via back propagation</data>
@@ -588,6 +626,8 @@ Value: 1</data>
 					<data key="block_label">Wrap To Zero
 ID: n6::n11
 Function: SubSystem</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Threshold">uplimit</data>
 					<data key="MaskVariables.Threshold">63</data>
 					<graph id="n6::n11:" edgedefault="directed">
@@ -604,6 +644,8 @@ Criteria: u2 > Threshold
 ZeroCross: off
 SampleTime: -1
 Threshold: 63</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="AllowDiffInputSizes">off</data>
 							<data key="Criteria">u2 &gt; Threshold</data>
 							<data key="InputSameDT">off</data>
@@ -630,6 +672,8 @@ Data Type
 Duplicate1
 ID: n6::n11::n13
 Function: DataTypeDuplicate</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="NumInputPorts">3</data>
 						</node>
 						<node id="n6::n11::n22">
@@ -641,6 +685,8 @@ ID: n6::n11::n22
 Function: Constant
 SampleTime: Inf
 Value: 0</data>
+							<data key="named_input_ports">0</data>
+							<data key="named_output_ports">0</data>
 							<data key="FramePeriod">inf</data>
 							<data key="LockScale">off</data>
 							<data key="OutDataTypeStr">Inherit: Inherit via back propagation</data>
@@ -661,6 +707,8 @@ Value: 0</data>
 					<data key="block_label">Output
 ID: n6::n14
 Function: UnitDelay</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="CodeGenStateStorageTypeQualifier">[]</data>
 					<data key="InitialCondition">0.0</data>
 					<data key="InputProcessing">Inherited</data>
@@ -682,6 +730,8 @@ Function: TappedDelay
 NumDelays: 4
 samptime: -1
 vinit: 0</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="DelayOrder">Oldest</data>
 			<data key="NumDelays">4</data>
 			<data key="includeCurrent">off</data>
@@ -707,6 +757,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -723,6 +775,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -739,6 +793,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -755,6 +811,8 @@ DelayLengthSource: Dialog
 InitialConditionSource: Dialog
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.InitialCondition">0</data>
@@ -771,6 +829,8 @@ Concatenate</data>
 Concatenate
 ID: n16
 Function: Concatenate</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="ConcatenateDimension">1</data>
 			<data key="Mode">Vector</data>
 			<data key="NumInputs">2</data>
@@ -784,6 +844,8 @@ ID: n17
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CollapseDim">1</data>
 			<data key="CollapseMode">All dimensions</data>
@@ -808,6 +870,8 @@ ID: n17::n30
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -822,6 +886,8 @@ ID: n17::n31
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -836,6 +902,8 @@ ID: n17::n32
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -850,6 +918,8 @@ ID: n17::n33
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -864,6 +934,8 @@ ID: n17::n34
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -878,6 +950,8 @@ ID: n17::n35
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -892,6 +966,8 @@ ID: n17::n36
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -906,6 +982,8 @@ ID: n17::n37
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -925,6 +1003,8 @@ InputPortWidth: 8
 NumberOfDimensions: 1
 SampleTime: -1
 index_mode: 1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="IndexMode">One-based</data>
 			<data key="IndexOptionArray">{Index vector (dialog)}</data>
 			<data key="IndexOptions">Index vector (dialog)</data>
@@ -950,6 +1030,8 @@ ID: n19
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CollapseDim">1</data>
 			<data key="CollapseMode">All dimensions</data>
@@ -974,6 +1056,8 @@ ID: n19::n38
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -988,6 +1072,8 @@ ID: n19::n39
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -1002,6 +1088,8 @@ ID: n19::n40
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -1016,6 +1104,8 @@ ID: n19::n41
 Function: Sum
 Inputs: |++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Inputs">|++</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
@@ -1032,6 +1122,8 @@ ID: n23
 Function: Constant
 SampleTime: Inf
 Value: [1, 2, 3, 4]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">uint8</data>
@@ -1052,6 +1144,8 @@ ID: n23::n42
 Function: Constant
 SampleTime: Inf
 Value: 1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">1</data>
 				</node>
@@ -1064,6 +1158,8 @@ ID: n23::n43
 Function: Constant
 SampleTime: Inf
 Value: 2</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">2</data>
 				</node>
@@ -1076,6 +1172,8 @@ ID: n23::n44
 Function: Constant
 SampleTime: Inf
 Value: 3</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">3</data>
 				</node>
@@ -1088,6 +1186,8 @@ ID: n23::n45
 Function: Constant
 SampleTime: Inf
 Value: 4</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">4</data>
 				</node>
@@ -1102,6 +1202,8 @@ ID: n24
 Function: Constant
 SampleTime: Inf
 Value: [1, 2, 3, 4, 5, 6, 7, 8]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">uint8</data>
@@ -1122,6 +1224,8 @@ ID: n24::n46
 Function: Constant
 SampleTime: Inf
 Value: 1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">1</data>
 				</node>
@@ -1134,6 +1238,8 @@ ID: n24::n47
 Function: Constant
 SampleTime: Inf
 Value: 2</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">2</data>
 				</node>
@@ -1146,6 +1252,8 @@ ID: n24::n48
 Function: Constant
 SampleTime: Inf
 Value: 3</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">3</data>
 				</node>
@@ -1158,6 +1266,8 @@ ID: n24::n49
 Function: Constant
 SampleTime: Inf
 Value: 4</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">4</data>
 				</node>
@@ -1170,6 +1280,8 @@ ID: n24::n50
 Function: Constant
 SampleTime: Inf
 Value: 5</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">5</data>
 				</node>
@@ -1182,6 +1294,8 @@ ID: n24::n51
 Function: Constant
 SampleTime: Inf
 Value: 6</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">6</data>
 				</node>
@@ -1194,6 +1308,8 @@ ID: n24::n52
 Function: Constant
 SampleTime: Inf
 Value: 7</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">7</data>
 				</node>
@@ -1206,6 +1322,8 @@ ID: n24::n53
 Function: Constant
 SampleTime: Inf
 Value: 8</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">8</data>
 				</node>
@@ -1220,6 +1338,8 @@ ID: n25
 Function: Constant
 SampleTime: Inf
 Value: [1, 2, 3, 4]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">uint8</data>
@@ -1240,6 +1360,8 @@ ID: n25::n54
 Function: Constant
 SampleTime: Inf
 Value: 1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">1</data>
 				</node>
@@ -1252,6 +1374,8 @@ ID: n25::n55
 Function: Constant
 SampleTime: Inf
 Value: 2</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">2</data>
 				</node>
@@ -1264,6 +1388,8 @@ ID: n25::n56
 Function: Constant
 SampleTime: Inf
 Value: 3</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">3</data>
 				</node>
@@ -1276,6 +1402,8 @@ ID: n25::n57
 Function: Constant
 SampleTime: Inf
 Value: 4</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">4</data>
 				</node>
@@ -1289,6 +1417,8 @@ Value: 4</data>
 ID: n58
 Type: VectorFan
 Direction: Fan-In</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="Direction">Fan-In</data>
 		</node>
 		<node id="n59">
@@ -1299,6 +1429,8 @@ Direction: Fan-In</data>
 ID: n59
 Type: VectorFan
 Direction: Fan-In</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="Direction">Fan-In</data>
 		</node>
 		<edge id="e1" source="n6::n11::n12" target="n6::n11::n13">
