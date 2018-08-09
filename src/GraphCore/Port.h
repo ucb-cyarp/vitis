@@ -8,6 +8,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include "DataType.h"
 //#include "Node.h"
 //#include "Arc.h"
 
@@ -157,6 +158,17 @@ public:
      * If an invalid configuration is detected, the function will throw an exception
      */
     virtual void validate() = 0;
+
+
+    /**
+     * @brief Returns the true DataType (not closest CPU DataType) of the port
+     *
+     * @warning Validation should occur before this function is called to confirm all arcs have the same type
+     * and that the port is connected
+     *
+     * @return
+     */
+    DataType getDataType();
 
     //==== Getters/Setters ====
 

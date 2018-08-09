@@ -27,6 +27,18 @@ protected:
      */
     MasterInput();
 
+public:
+    /**
+     * @brief Get the C name for the specified input
+     *
+     * The C name takes the form portName_portNum
+     *
+     * The port from which the name is taken is the corresponding output port to the Input Master
+     *
+     * @param portNum the port to get the C name for
+     * @return a string with the C name for the specified output port
+     */
+    std::string getCInputName(int portNum);
 
 };
 

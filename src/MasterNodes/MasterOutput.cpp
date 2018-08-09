@@ -7,3 +7,7 @@
 MasterOutput::MasterOutput() {
 
 }
+
+std::string MasterOutput::getCOutputName(int portNum) {
+    return getInputPort(portNum)->getName() + "_" + std::to_string(portNum);
+}

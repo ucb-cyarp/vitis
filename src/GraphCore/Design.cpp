@@ -5,6 +5,9 @@
 #include "Design.h"
 
 #include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <General/GeneralHelper.h>
 
 #include "NodeFactory.h"
 #include "MasterNodes/MasterInput.h"
@@ -13,6 +16,7 @@
 
 #include "GraphCore/Node.h"
 #include "GraphCore/Arc.h"
+#include "GraphCore/Variable.h"
 
 //==== Constructors
 Design::Design() {
@@ -373,4 +377,197 @@ std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePat
     }
 
     return cursor;
+}
+
+std::string Design::getCFunctionArgPrototype() {
+    std::string prototype = "";
+
+    unsigned long numPorts = inputMaster->getOutputPorts().size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numPorts>0){
+        std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(0); //output of input node
+
+        DataType portDataType = input->getDataType();
+
+        //Convert to CPU DataType
+        DataType cpuType = portDataType.getCPUStorageType();
+
+        Variable var = Variable(outputMaster->getCOutputName(0), cpuType);
+
+        prototype += var.getCVarDecl(false);
+
+        //Check if complex
+        if(cpuType.isComplex()){
+            prototype += ", " + var.getCVarDecl(true);
+        }
+    }
+
+    for(unsigned long i = 1; i<numPorts; i++){
+        std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
+
+        DataType portDataType = input->getDataType();
+
+        //Convert to CPU DataType
+        DataType cpuType = portDataType.getCPUStorageType();
+
+        Variable var = Variable(outputMaster->getCOutputName(i), cpuType);
+
+        prototype += ", " + var.getCVarDecl(false);
+
+        //Check if complex
+        if(cpuType.isComplex()){
+            prototype += ", " + var.getCVarDecl(true);
+        }
+    }
+
+    //Add output
+    if(numPorts>0){
+        prototype += ", ";
+    }
+    prototype += "OutputType *output";
+
+    //Add output count
+    prototype += ", unsigned long *outputCount";
+
+    return prototype;
+}
+
+std::string Design::getCOutputStructDefn() {
+    //Emit struct header
+    std::string str = "typedef struct OutputType{";
+
+    unsigned long numPorts = outputMaster->getInputPorts().size();
+
+    for(unsigned long i = 0; i<numPorts; i++){
+        std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
+
+        DataType portDataType = output->getDataType();
+
+        //Convert to CPU DataType
+        DataType cpuType = portDataType.getCPUStorageType();
+
+        Variable var = Variable(outputMaster->getCOutputName(i), cpuType);
+
+        str += "\n\t" + var.getCVarDecl(false) + ";";
+
+        //Check if complex
+        if(cpuType.isComplex()){
+            str += "\n\t" + var.getCVarDecl(true) + ";";
+        }
+    }
+
+    str += "\n};";
+
+    return str;
+}
+
+void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName) {
+    //Get the OutputType struct defn
+    std::string outputTypeDefn = getCOutputStructDefn();
+
+    std::string fctnProtoArgs = getCFunctionArgPrototype();
+
+    std::string fctnProto = "void " + designName + "(" + fctnProtoArgs + ")";
+
+    //Emit .h file
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#def " << fileNameUpper << "_H" << std::endl;
+
+    headerFile << outputTypeDefn << std::endl;
+    headerFile << fctnProto << ";" << std::endl;
+
+    headerFile << "#endif" << std::endl;
+
+    headerFile.close();
+
+    //Emit .c file
+    std::ofstream cFile;
+    cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << fctnProto << "{" << std::endl;
+
+    //Find nodes with state & Emit state variable declarations
+    std::vector<std::shared_ptr<Node>> nodesWithState;
+    unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
+
+    for(unsigned long i = 0; i<numNodes; i++){
+        if(nodes[i]->hasState()){
+            nodesWithState.push_back(nodes[i]);
+
+            std::vector<Variable> stateVars = nodes[i]->getCStateVars();
+            //Emit State Vars
+            unsigned long numStateVars = stateVars.size();
+            for(unsigned long j = 0; j<numStateVars; j++){
+                cFile << stateVars[j].getCVarDecl(false) << ";" << std::endl;
+
+                if(stateVars[j].getDataType().isComplex()){
+                    cFile << stateVars[j].getCVarDecl(true) << ";" << std::endl;
+                }
+            }
+        }
+    }
+
+    //Assign each of the outputs (and emit any expressions that preceed it
+    unsigned long numOutputs = outputMaster->getInputPorts().size();
+    for(unsigned long i = 0; i<numOutputs; i++){
+        std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
+
+        //Get the arc connected to the output
+        std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
+
+        DataType outputDataType = outputArc->getDataType();
+
+        std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
+        int srcNodeOutputPortNum = srcOutputPort->getPortNum();
+
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        std::vector<std::string> cStatements_re;
+        std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false);
+        //emit the expressions
+        unsigned long numStatements_re = cStatements_re.size();
+        for(unsigned long j = 0; j<numStatements_re; j++){
+            cFile << cStatements_re[j] << std::endl;
+        }
+
+        //emit the assignment
+        Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
+        cFile << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+
+        //Emit Imag if Datatype is complex
+        if(outputDataType.isComplex()){
+            std::vector<std::string> cStatements_im;
+            std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true);
+            //emit the expressions
+            unsigned long numStatements_im = cStatements_im.size();
+            for(unsigned long j = 0; j<numStatements_im; j++){
+                cFile << cStatements_im[j] << std::endl;
+            }
+
+            //emit the assignment
+            cFile << outputVar.getCVarName(true) << " = " << expr_re << ";" << std::endl;
+        }
+    }
+
+    //Emit state variable updates
+    unsigned long numNodesWithState = nodesWithState.size();
+    for(unsigned long i = 0; i<numNodesWithState; i++){
+        std::vector<std::string> stateUpdateExprs;
+        nodesWithState[i]->emitCStateUpdate(stateUpdateExprs);
+
+        unsigned long numStateUpdateExprs = stateUpdateExprs.size();
+        for(unsigned long j = 0; j<numStateUpdateExprs; j++){
+            cFile << stateUpdateExprs[j] << std::endl;
+        }
+    }
+
+    cFile << "}" << std::endl;
+
+    cFile.close();
 }

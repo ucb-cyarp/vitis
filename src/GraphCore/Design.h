@@ -10,6 +10,8 @@
 #include <set>
 
 #include "GraphMLParameter.h"
+#include "General/GeneralHelper.h"
+#include "Variable.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -167,6 +169,57 @@ public:
      */
     std::shared_ptr<Node> getNodeByNamePath(std::vector<std::string> namePath);
 
+    /**
+     * @brief Get the argument portion of the C function prototype for this design.
+     *
+     * For example, if there are 3 inputs to the system:
+     *   - double realIn
+     *   - double imagIn
+     *   - bool pass
+     *
+     * The input names take the form: portName_portNum
+     *
+     * The function prototype would be designName(double In_0_re, double In_0_re, bool pass_1, OutputType *output, unsigned long *outputCount)
+     *
+     * This function returns "double In_0_re, double In_0_re, bool pass_1, OutputType *output, unsigned long *outputCount"
+     *
+     * Complex types are split into 2 arguments, each is prepended with _re or _im for real and imagionary component respectivly.
+     *
+     * The DataType is converted to the smallest standard CPU type that can contain the type
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return argument portion of the C function prototype for this design
+     */
+    std::string getCFunctionArgPrototype();
+
+    /**
+     * @brief Get the structure definition for the output type
+     *
+     * The struture definition takes the form of
+     *
+     * typedef struct OutputType{
+     *     type1 var1;
+     *     type2 var2;
+     *     ...
+     * }
+     *
+     * @return
+     */
+    std::string getCOutputStructDefn();
+
+    /**
+     * @brief Emits the design as a single threaded C function
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @note To avoid dead code being emitted, prune the design before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName);
 };
 
 /*@}*/

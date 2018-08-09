@@ -108,6 +108,13 @@ public:
      * @return bit width of the smallest standard CPU datatype that can accommodate the number
      */
     static unsigned long roundUpToCPUBits(unsigned long bits);
+
+    /**
+     * @brief Converts an ASCII string to all upper case
+     * @param str string to convert to upper case
+     * @return all upper case case copy of the given string
+     */
+    static std::string toUpper(std::string str);
 };
 
 /*@}*/

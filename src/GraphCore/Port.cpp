@@ -98,3 +98,14 @@ const std::string Port::getName() {
 void Port::setName(const std::string &name) {
     Port::name = name;
 }
+
+DataType Port::getDataType() {
+    //Get the orig type of the output port from the connected arcs
+    if(arcs.size() < 1){
+        throw std::runtime_error("Tried to get DataType for port which is unconnected");
+    }
+
+    DataType type = arcs.begin()->lock()->getDataType();
+
+    return type;
+}

@@ -354,7 +354,7 @@ bool Node::hasInternalFanout(int inputPort, bool imag){
     return false;
 }
 
-std::vector<Variable> Node::getStateVars() {
+std::vector<Variable> Node::getCStateVars() {
     //Default behavior is to return an empty vector (no state elements)
     return std::vector<Variable>();
 }

@@ -5,6 +5,7 @@
 #include "GeneralHelper.h"
 
 #include <cmath>
+#include <locale>
 
 std::string
 GeneralHelper::vectorToString(std::vector<bool> vec, std::string trueStr, std::string falseStr, std::string separator,
@@ -75,4 +76,16 @@ unsigned long GeneralHelper::roundUpToCPUBits(unsigned long bits) {
     }else{
         throw std::runtime_error("Cannot find a standard CPU integer type for a number of " + std::to_string(bits) + " bits");
     }
+}
+
+std::string GeneralHelper::toUpper(std::string str) {
+    unsigned long strLen = str.length();
+
+    std::string upperCaseStr = "";
+
+    for(unsigned long i = 0; i<strLen; i++){
+        upperCaseStr.push_back(std::toupper(str[i], std::locale::classic()));
+    }
+
+    return upperCaseStr;
 }

@@ -83,12 +83,7 @@ std::string OutputPort::getCOutputVarNameBase() {
 Variable OutputPort::getCOutputVar() {
     std::string varName = getCOutputVarNameBase();
 
-    //Get the orig type of the output port from the connected arcs
-    if(arcs.size() < 1){
-        throw std::runtime_error("Tried to create variable declaration for port which is unconnected");
-    }
-
-    DataType origType = arcs.begin()->lock()->getDataType();
+    DataType origType = getDataType();
     DataType newType = origType.getCPUStorageType();
 
     Variable var = Variable(varName, newType);

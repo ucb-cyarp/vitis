@@ -7,3 +7,8 @@
 MasterInput::MasterInput() {
 
 }
+
+
+std::string MasterInput::getCInputName(int portNum) {
+    return getOutputPort(portNum)->getName() + "_" + std::to_string(portNum);
+}

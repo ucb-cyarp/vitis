@@ -379,7 +379,7 @@ public:
      *
      * @return a list of state variables used by this node
      */
-    virtual std::vector<Variable> getStateVars();
+    virtual std::vector<Variable> getCStateVars();
 
     /**
      * @brief Emits the C code to update the state varibles of this node.
