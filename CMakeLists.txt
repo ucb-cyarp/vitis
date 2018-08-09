@@ -34,6 +34,8 @@ add_compile_options("-DDEBUG")
 set(COMMON_SRCS
         src/General/GeneralHelper.cpp
         src/General/GeneralHelper.h
+        src/General/FixedPointHelpers.cpp
+        src/General/FixedPointHelpers.h
         src/GraphCore/Node.cpp
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
