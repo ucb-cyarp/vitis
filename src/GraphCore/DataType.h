@@ -25,6 +25,15 @@ private:
     int width; ///< The width of the datatype (>1 if a vector)
 
 public:
+    /**
+     * @brief Enum representing the dialect used when returning a string represetation of the DataType
+     */
+    enum class StringStyle{
+        SIMULINK, ///<The dialect for Simulink (uses "single")
+        C ///<The dialect for C (uses "float", appends _t to integer types)
+    };
+
+
     //==== Constructors ====
     /**
      * @brief Construct a default DataType object
@@ -62,10 +71,22 @@ public:
     //==== Functions ====
 
     /**
-     * @brief Get the string representation of the datatype in Simulink style.  Complexity is not included in the string representation
-     * @return simulink style type string
+     * @brief Get the string representation of the DataType.  Complexity is not included in the string representation
+     * @return a type string
      */
-    std::string toString();
+    std::string toString(StringStyle stringStyle = StringStyle::SIMULINK);
+
+    /**
+     * @brief Get the smallest standard CPU type which can accomodate the given datatype.
+     *
+     * For integer and floating point types, the type returned is identical to the given type.
+     *
+     * For fixed point types, the type returned is the smallest standard integer type which is able to accomodate the
+     * number of bits in the fixed point number.  The signed-ness of the varaible is preserved.
+     *
+     * @return A DataType object which specifies the smallest standard CPU type that can accomodate the
+     */
+    DataType getCPUStorageType();
 
     /**
      * @brief Deep equivalence check of DataType objects

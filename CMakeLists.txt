@@ -69,6 +69,8 @@ set(COMMON_SRCS
         src/GraphCore/ExpandedNode.cpp
         src/GraphCore/ExpandedNode.h
         src/GraphCore/NodeFactory.h
+        src/GraphCore/Variable.cpp
+        src/GraphCore/Variable.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp

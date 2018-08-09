@@ -3,7 +3,9 @@
 //
 
 #include "DataType.h"
+#include "General/GeneralHelper.h"
 #include <regex>
+#include <iostream>
 
 bool DataType::isFloatingPt() const {
     return floatingPt;
@@ -77,7 +79,7 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
     //Note: complex is handled seperatly from the string
 
     //Floating Point
-    if(str == "single"){
+    if(str == "single" || str == "float"){
         totalBits = 32;
         fractionalBits = 0;
         signedType = true;
@@ -89,12 +91,7 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
         floatingPt = true;
     }
     //Logical
-    else if(str == "boolean"){
-        totalBits = 1;
-        fractionalBits = 0;
-        signedType = false;
-        floatingPt = false;
-    }else if(str == "logical"){
+    else if(str == "boolean" || str == "logical" || str == "bool"){
         totalBits = 1;
         fractionalBits = 0;
         signedType = false;
@@ -220,12 +217,18 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
     }
 }
 
-std::string DataType::toString() {
+std::string DataType::toString(StringStyle stringStyle) {
 
     if(floatingPt){
         //Floing point types
         if(totalBits == 32){
-            return "single";
+            if(stringStyle == StringStyle::SIMULINK) {
+                return "single";
+            }else if(stringStyle == StringStyle::C){
+                return "float";
+            }else{
+                throw std::runtime_error("Unknown DataType String Style");
+            }
         }else if(totalBits == 64){
             return "double";
         }
@@ -237,33 +240,85 @@ std::string DataType::toString() {
         if(signedType){
             //Signed
             if(totalBits == 1){
-                //Special case of fixed which dosn't make sense but is possible
+                //Special case of fixed which doesn't make sense but is possible
                 return "sfix1_En0";
             } else{
-                return "int" + std::to_string(totalBits);
+                std::string str = "int" + std::to_string(totalBits);;
+                if(stringStyle == StringStyle::SIMULINK) {
+                    return str;
+                }else if(stringStyle == StringStyle::C){
+                    return str + "_t";
+                }else{
+                    throw std::runtime_error("Unknown DataType String Style");
+                }
             }
         } else{
             //Unsigned
             if(totalBits == 1){
-                return "boolean";
+                if(stringStyle == StringStyle::SIMULINK) {
+                    return "boolean";
+                }else if(stringStyle == StringStyle::C){
+                    return "bool";
+                }else{
+                    throw std::runtime_error("Unknown DataType String Style");
+                }
             } else{
-                return "uint" + std::to_string(totalBits);
+                std::string str = "uint" + std::to_string(totalBits);;
+                if(stringStyle == StringStyle::SIMULINK) {
+                    return str;
+                }else if(stringStyle == StringStyle::C){
+                    return str + "_t";
+                }else{
+                    throw std::runtime_error("Unknown DataType String Style");
+                }
             }
         }
     } else{
-        //Fixed Point
-        std::string signedStr;
+        if(stringStyle == StringStyle::SIMULINK) {
+            //Fixed Point
+            std::string signedStr;
 
-        if(signedType){
-            signedStr = "s";
+            if (signedType) {
+                signedStr = "s";
+            } else {
+                signedStr = "u";
+            }
+
+            return signedStr + "fix" + std::to_string(totalBits) + "_En" + std::to_string(fractionalBits);
+        }else if(stringStyle == StringStyle::C){
+            throw std::runtime_error("No C Style Declaration Exists for Fixed Point Types");
+            //Call DataType::getCPUStorageType() to get a C datatype then call this function
         } else{
-            signedStr = "u";
+            throw std::runtime_error("Unknown DataType String Style");
         }
 
-        return signedStr + "fix" + std::to_string(totalBits) + "_En" + std::to_string(fractionalBits);
     }
 }
 
 bool DataType::isBool() {
     return !floatingPt && !signedType && !isComplex() && totalBits == 1 && fractionalBits == 0;
+}
+
+DataType DataType::getCPUStorageType() {
+    if(floatingPt || (totalBits > 1 && fractionalBits == 0) || (totalBits == 1 && fractionalBits == 0 && !signedType)){
+        DataType newType = *this;
+        return newType; //Return a copy of this
+    }else if(totalBits == 1 && fractionalBits == 0 && signedType){
+        //This is the special case of a single bit signed number.  This should not occur but is theoretically possible under simulink
+        std::cerr << "Warning: Signed Single Bit Number Converted to bool" << std::endl;
+        DataType newType = *this;
+        newType.setSignedType(false);
+        return newType;
+    }else{
+        //Get the smallest CPU type
+
+        //Get a copy of this DataType
+        DataType newType = *this;
+        newType.setFractionalBits(0); //The C storage types are integers for fixed point numbers
+        int origTotalBits = newType.getTotalBits();
+        int newTotalBits = GeneralHelper::roundUpToCPUBits(origTotalBits);
+        newType.setTotalBits(newTotalBits);
+
+        return newType;
+    }
 }

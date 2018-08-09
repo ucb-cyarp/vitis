@@ -24,6 +24,7 @@ class GraphMLParameter;
 #include "OutputPort.h"
 #include "Arc.h"
 #include "GraphMLParameter.h"
+#include "Variable.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -71,9 +72,10 @@ protected:
     //nodes, they alias to the port.
     std::vector<std::unique_ptr<InputPort>> inputPorts; ///<The input ports of this node
     std::vector<std::unique_ptr<OutputPort>> outputPorts; ///<The output ports of this node
+
+    int tmpCount; ///<Used to track how many temporary variables have been created for this node
+
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
-    std::vector<bool> cOutEmitted; ///<A vector of bools indicating if a particular output has been emitted in C++
-    std::vector<std::string> cOutVarName; ///<A vector of strings which hold the variable names in C++ if the output was stored in a C++ var
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -297,16 +299,96 @@ public:
      */
     virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
-    /*
-     * @brief Emit C++ code to calculate the value of an output port.
+    /**
+     * @brief Identifies if the given input port experiences internal fanout in the node.
+     *
+     * Internal fanout occurs if an input is used more than once (either within the calculation of a single output or
+     * or within the calculation of multiple outputs).
+     *
+     * @param inputPort the input port being checked for internal fanout
+     * @param imag if false, checks the real component of the input. if true, checks the imag component of the input
+     * @return true if the port experiences internal fanout, false otherwise
+     */
+    virtual bool hasInternalFanout(int inputPort, bool imag = false);
+
+    /**
+     * @brief Emit C code to calculate the value of an output port.
      *
      * If the output is dependant on the result of other operations, those dependant operations will be emitted
-     * and included in the returned string before the code for the given operation.
+     * and enqueued on the cStatementQueue before the code for the given operation is returned.
      *
-     * @param outputPort the output port for which the C++ code should be generated for
-     * @return a string containing the C++ code for calculating the result of the output port
+     * This function can also check if the output port is fanned out (by checking the number of out
+     * ports or checking for internal fanout).  This check occurs by default but can be disabled.
+     *
+     * Fanout can also be forced which results in temporary variable creation
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param outputPortNum the output port for which the C++ code should be generated for
+     * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
+     * @param checkFanout if true, checks if the output is used in a fanout.  If false, no check is performed
+     * @param forceFanout if true, a temporary variable is always create, if false the value of checkFanout dictates whether or not a temporary variable is created
+     * @return a string containing the C code for calculating the result of the output port
      */
-//    virtual std::string emitCpp(int outputPort) = 0;
+    virtual std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false, bool checkFanout = true, bool forceFanout = false);
+
+protected:
+    //TODO: Make this virtual.  Giving a default implementation now which throws an error message if not overwritten
+    /**
+     * @brief Emits a C expression to calculate the value of an output port
+     *
+     * @note @ref emitC should be called from outside the class instead of this function.  @ref emitC automatically handles fanout while this function does not
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param outputPortNum the output port for which the C++ code should be generated for
+     * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
+     * @return a string containing the C expression for calculating the result of the output port
+     */
+    virtual std::string emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
+
+    /**
+     * @brief Get a new temporary variable with the specified DataType
+     *
+     * @note @ref DataType::getCPUStorageType is called on the dataType to get a standard CPU type
+     *
+     * The C variable declaration of the new temporary variable is enqueued on the cStatementQueue
+     *
+     * The variable name has the form nodeName_n<id>_tmp<num>
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The temporary variable declaration is pushed onto this queue
+     * @param dataType the datatype of the new temporary variable
+     * @return a new Variable object
+     */
+    Variable getNewTempVar(std::vector<std::string> &cStatementQueue, DataType dataType);
+
+public:
+    /**
+     * @brief Identifies if the node contains state elements
+     *
+     * @return true if the node contains state elements, false if it does not contain state elements
+     */
+    virtual bool hasState();
+
+    /**
+     * @brief Get a list of state variables used by this node which must be declared by the emitter as thread local
+     *
+     * If the node has multiple output ports, this function checks which ports are connected to the Unconnected Master
+     * node and does not return state variables that are solely used by those outputs.
+     *
+     * @note Graph pruning should take place before this function is called to avoid emitting thread local variables for
+     * pruned nodes.
+     *
+     * @return a list of state variables used by this node
+     */
+    virtual std::vector<Variable> getStateVars();
+
+    /**
+     * @brief Emits the C code to update the state varibles of this node.
+     *
+     * This code should be called at the end of the emit for the given function.
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
+     */
+    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue);
 
     /**
      * @brief Get a human readable description of the node

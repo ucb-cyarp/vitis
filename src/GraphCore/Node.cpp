@@ -15,14 +15,14 @@
 
 #include "GraphMLTools/GraphMLHelper.h"
 
-Node::Node() : id(-1), name(""), partitionNum(0)
+Node::Node() : id(-1), name(""), partitionNum(0), tmpCount(0)
 {
     parent = std::shared_ptr<SubSystem>(nullptr);
 
     //NOTE: CANNOT init ports here since we need a shared pointer to this object
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(0), parent(parent) { }
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(0), tmpCount(0), parent(parent) { }
 
 void Node::init() {
     //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports
@@ -258,4 +258,107 @@ std::string Node::getFullyQualifiedName() {
 
 std::shared_ptr<SubSystem> Node::getParent() {
     return parent;
+}
+
+std::string
+Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag, bool checkFanout, bool forceFanout) {
+    std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
+
+    //Check if it has already been emitted
+    bool emittedBefore = imag ? outputPort->isCEmittedIm() : outputPort->isCEmittedRe();
+
+    //If it has been emitted before and this function was called, then fanout has occurd, go directly to returning the tmp var name
+    if(emittedBefore){
+        std::string varName = imag ? outputPort->getCEmitImStr() : outputPort->getCEmitReStr();
+
+        if(varName.empty()){
+            //This should not happen if fanout is properly reported
+            throw std::runtime_error("Tried to emit a port which has previously been emitted but did not create an output variable");
+        }
+
+        //Return the stored temp var name
+        return varName;
+    }else{
+        //This output has not been emitted before, check if should fanout
+        bool fanout = false;
+        if(forceFanout){
+            fanout = true;
+        }else if(!checkFanout){
+            //If not forcing fanout and not checking, default to no fanout
+            fanout = false;
+        }else{
+            //Check for fanout.  Either through more than 1 output arc or the single output arc having internal fanout
+            int numOutArcs = outputPort->getArcs().size();
+            if(numOutArcs == 0){
+                throw std::runtime_error("Tried to emit C for output port that is unconnected");
+            }else if(numOutArcs > 1){
+                //Multiple output arcs
+                fanout = true;
+            }else{
+                //Single arc, check for internal fanout
+                std::shared_ptr<InputPort> dstInput = (*outputPort->getArcs().begin())->getDstPort();
+                std::shared_ptr<Node> dstNode = dstInput->getParent();
+                fanout = dstNode->hasInternalFanout(dstInput->getPortNum(), imag);
+            }
+
+        }
+
+        if(fanout){
+            //If fanout, declare output var and then assign it.  Set var name in port and return it as a string
+            Variable outputVar = outputPort->getCOutputVar();
+
+            //Get Expr Before Declaring/assigning so that items higher on the statement stack (prerequites) are enqueued first
+            //Makes the temp var declaration more local to where it is assigned
+            std::string cExpr = emitCExpr(cStatementQueue, outputPortNum, imag);
+
+            //Get Output Var Decl
+            std::string cVarDecl = outputVar.getCVarDecl(imag);
+
+            //Enqueue decl and assignment
+            std::string cVarDeclAssign = cVarDecl + " = " + cExpr + ";";
+            cStatementQueue.push_back(cVarDeclAssign);
+
+            //Set the var name in the port
+            std::string outputVarName = outputVar.getCVarName(imag);
+            if(imag){
+                outputPort->setCEmitImStr(outputVarName);
+            }else{
+                outputPort->setCEmitReStr(outputVarName);
+            }
+
+            //Return output var name
+            return outputVarName;
+        }else{
+            //If not fanout, return expression
+            return emitCExpr(cStatementQueue, outputPortNum, imag);
+        }
+    }
+}
+
+std::string Node::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort, bool imag) {
+    //TODO: Make abstract
+
+    //For now, the default behavior is to return an error message stating that the emitCExpr has not yet been implemented for this node.
+    throw std::runtime_error("emitCExpr not yet implemented for node: \n" + labelStr());
+
+    return std::string();
+}
+
+bool Node::hasState() {
+    //Default is to return false
+    return false;
+}
+
+bool Node::hasInternalFanout(int inputPort, bool imag){
+    //Default is to return false
+    return false;
+}
+
+std::vector<Variable> Node::getStateVars() {
+    //Default behavior is to return an empty vector (no state elements)
+    return std::vector<Variable>();
+}
+
+void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
+    //Default behavior is no action
 }
