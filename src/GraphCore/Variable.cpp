@@ -2,7 +2,9 @@
 // Created by Christopher Yarp on 8/8/18.
 //
 
+#include <stdexcept>
 #include "Variable.h"
+#include <stdexcept>
 
 Variable::Variable() : name("") {
 
