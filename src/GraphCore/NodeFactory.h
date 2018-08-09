@@ -6,6 +6,9 @@
 #define VITIS_NODEFACTORY_H
 
 #include <memory>
+#include <MasterNodes/MasterOutput.h>
+#include <MasterNodes/MasterInput.h>
+
 
 #include "Node.h"
 #include "SubSystem.h"

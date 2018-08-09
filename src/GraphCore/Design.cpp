@@ -538,7 +538,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
         //emit the assignment
         Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-        cFile << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+        cFile << "output->" << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
 
         //Emit Imag if Datatype is complex
         if(outputDataType.isComplex()){
@@ -551,7 +551,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             }
 
             //emit the assignment
-            cFile << outputVar.getCVarName(true) << " = " << expr_re << ";" << std::endl;
+            cFile << "output->" << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
         }
     }
 
