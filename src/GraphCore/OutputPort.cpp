@@ -77,16 +77,15 @@ std::shared_ptr<OutputPort> OutputPort::getSharedPointerOutputPort() {
 }
 
 std::string OutputPort::getCOutputVarNameBase() {
-    return parent->getName() + "_n" + std::to_string(parent->getId()) + "_" + std::to_string(portNum);;
+    return parent->getName() + "_n" + std::to_string(parent->getId()) + "_outPort" + std::to_string(portNum);;
 }
 
 Variable OutputPort::getCOutputVar() {
     std::string varName = getCOutputVarNameBase();
 
     DataType origType = getDataType();
-    DataType newType = origType.getCPUStorageType();
 
-    Variable var = Variable(varName, newType);
+    Variable var = Variable(varName, origType);
 
     return var;
 }

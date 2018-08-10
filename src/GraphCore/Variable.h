@@ -6,6 +6,7 @@
 #define VITIS_VARIABLE_H
 
 #include "DataType.h"
+#include "NumericValue.h"
 #include <string>
 
 /**
@@ -25,11 +26,14 @@ class Variable {
 protected:
     std::string name; ///<The name of the variable
     DataType dataType; ///<The DataType of the variable
+    std::vector<NumericValue> initValue; ///<The Initial value of the variable
 
 public:
     Variable();
 
     Variable(std::string name, DataType dataType);
+
+    Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue);
 
     /**
      * @brief Get the C variable name for the real or imag component of the variable
@@ -46,21 +50,23 @@ public:
      *
      * Takes the form of datatype varname_<re/im>
      *
-     * @note This function does not call DataType::getCPUStorageType.  As a result, if the dataType is fixed point, this function will throw an exception
+     * @note This function does call DataType::getCPUStorageType to get the delaration type
      *
      * @note If @ref imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
      *
      * @param imag if true, generates the imaginary component's declaration.  if false, generate the real component's declaration
      * @param includeWidth if true, includes width for vector types in declaration (ex. int[5]), otherwise does not (ex. int[])
+     * @param includeInit if true, includes an assignment to the initial value.  If not, no assignment is made in the declaration statement
      * @return a C variable declaration statement
      */
-    std::string getCVarDecl(bool imag = false, bool includeWidth = false);
+    std::string getCVarDecl(bool imag = false, bool includeWidth = false, bool includeInit = false);
 
     std::string getName() const;
     void setName(const std::string &name);
     DataType getDataType() const;
     void setDataType(const DataType &dataType);
-
+    std::vector<NumericValue> getInitValue() const;
+    void setInitValue(const std::vector<NumericValue> &initValue);
 };
 
 /*@}*/

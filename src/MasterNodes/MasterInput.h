@@ -31,7 +31,7 @@ public:
     /**
      * @brief Get the C name for the specified input
      *
-     * The C name takes the form portName_portNum
+     * The C name takes the form portName_inPort<portNum>
      *
      * The port from which the name is taken is the corresponding output port to the Input Master
      *

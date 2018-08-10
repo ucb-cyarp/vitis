@@ -280,6 +280,14 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
         return varName;
     }else{
         //This output has not been emitted before, check if should fanout
+
+        //It will be emitted by the end of the call to this fctn
+        if(imag){
+            outputPort->setCEmittedIm(true);
+        }else{
+            outputPort->setCEmittedRe(true);
+        }
+
         bool fanout = false;
         if(forceFanout){
             fanout = true;

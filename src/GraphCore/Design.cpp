@@ -390,16 +390,13 @@ std::string Design::getCFunctionArgPrototype() {
 
         DataType portDataType = input->getDataType();
 
-        //Convert to CPU DataType
-        DataType cpuType = portDataType.getCPUStorageType();
-
-        Variable var = Variable(outputMaster->getCOutputName(0), cpuType);
+        Variable var = Variable(inputMaster->getCInputName(0), portDataType);
 
         prototype += var.getCVarDecl(false);
 
         //Check if complex
-        if(cpuType.isComplex()){
-            prototype += ", " + var.getCVarDecl(true);
+        if(portDataType.isComplex()){
+            prototype += ", " + var.getCVarDecl(true, true);
         }
     }
 
@@ -408,15 +405,12 @@ std::string Design::getCFunctionArgPrototype() {
 
         DataType portDataType = input->getDataType();
 
-        //Convert to CPU DataType
-        DataType cpuType = portDataType.getCPUStorageType();
-
-        Variable var = Variable(outputMaster->getCOutputName(i), cpuType);
+        Variable var = Variable(inputMaster->getCInputName(i), portDataType);
 
         prototype += ", " + var.getCVarDecl(false);
 
         //Check if complex
-        if(cpuType.isComplex()){
+        if(portDataType.isComplex()){
             prototype += ", " + var.getCVarDecl(true);
         }
     }
@@ -435,7 +429,7 @@ std::string Design::getCFunctionArgPrototype() {
 
 std::string Design::getCOutputStructDefn() {
     //Emit struct header
-    std::string str = "typedef struct OutputType{";
+    std::string str = "typedef struct {";
 
     unsigned long numPorts = outputMaster->getInputPorts().size();
 
@@ -444,20 +438,17 @@ std::string Design::getCOutputStructDefn() {
 
         DataType portDataType = output->getDataType();
 
-        //Convert to CPU DataType
-        DataType cpuType = portDataType.getCPUStorageType();
-
-        Variable var = Variable(outputMaster->getCOutputName(i), cpuType);
+        Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
 
         str += "\n\t" + var.getCVarDecl(false) + ";";
 
         //Check if complex
-        if(cpuType.isComplex()){
+        if(portDataType.isComplex()){
             str += "\n\t" + var.getCVarDecl(true) + ";";
         }
     }
 
-    str += "\n};";
+    str += "\n} OutputType;";
 
     return str;
 }
@@ -476,11 +467,13 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
-    headerFile << "#def " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << std::endl;
 
     headerFile << outputTypeDefn << std::endl;
+    headerFile << std::endl;
     headerFile << fctnProto << ";" << std::endl;
 
     headerFile << "#endif" << std::endl;
@@ -492,9 +485,12 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << std::endl;
+
     cFile << fctnProto << "{" << std::endl;
 
     //Find nodes with state & Emit state variable declarations
+    cFile << "//==== Declare State Vars ====" << std::endl;
     std::vector<std::shared_ptr<Node>> nodesWithState;
     unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
 
@@ -506,16 +502,17 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             //Emit State Vars
             unsigned long numStateVars = stateVars.size();
             for(unsigned long j = 0; j<numStateVars; j++){
-                cFile << stateVars[j].getCVarDecl(false, true) << ";" << std::endl;
+                cFile << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
 
                 if(stateVars[j].getDataType().isComplex()){
-                    cFile << stateVars[j].getCVarDecl(true, true) << ";" << std::endl;
+                    cFile << stateVars[j].getCVarDecl(true, true, true) << ";" << std::endl;
                 }
             }
         }
     }
 
     //Assign each of the outputs (and emit any expressions that preceed it
+    cFile << std::endl << "//==== Compute Outputs ====" << std::endl;
     unsigned long numOutputs = outputMaster->getInputPorts().size();
     for(unsigned long i = 0; i<numOutputs; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
@@ -540,7 +537,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
         //emit the assignment
         Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-        cFile << "output->" << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
 
         //Emit Imag if Datatype is complex
         if(outputDataType.isComplex()){
@@ -553,11 +550,12 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             }
 
             //emit the assignment
-            cFile << "output->" << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
         }
     }
 
     //Emit state variable updates
+    cFile << std::endl << "//==== Update State Vars ====" << std::endl;
     unsigned long numNodesWithState = nodesWithState.size();
     for(unsigned long i = 0; i<numNodesWithState; i++){
         std::vector<std::string> stateUpdateExprs;
@@ -568,6 +566,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             cFile << stateUpdateExprs[j] << std::endl;
         }
     }
+
+    cFile << std::endl << "//==== Return Number Outputs Generated ====" << std::endl;
+    cFile << "*outputCount = 1;" << std::endl;
 
     cFile << "}" << std::endl;
 

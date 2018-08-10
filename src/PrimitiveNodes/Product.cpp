@@ -194,10 +194,12 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
 
         if(!inputOp[0]){
             expr = "(( (" + largestFloat.toString(DataType::StringStyle::C, false) + " ) 1.0)/(" + expr + "))";
+        }else{
+            expr = "(" + expr + ")";
         }
 
         for(unsigned long i = 1; i<numInputPorts; i++) {
-            if (!inputOp[i]) {
+            if (inputOp[i]) {
                 expr += "*";
             } else {
                 expr += "/";

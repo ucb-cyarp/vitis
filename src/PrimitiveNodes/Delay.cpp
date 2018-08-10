@@ -160,7 +160,7 @@ std::vector<Variable> Delay::getCStateVars() {
 
 
         std::string varName = name+"_n"+std::to_string(id)+"_state";
-        Variable var = Variable(varName, stateType);
+        Variable var = Variable(varName, stateType, initCondition);
         cStateVar = var;
         //Complex variable will be made if needed by the design code based on the data type
         vars.push_back(var);
@@ -188,7 +188,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
     }else {
         //Assign the expr to a special variable defined here (before the state update)
         std::string stateInputName = name + "_n" + std::to_string(id) + "_state_input";
-        Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType().getCPUStorageType());
+        Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
         cStateInputVar = stateInputVar;
 
         //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_

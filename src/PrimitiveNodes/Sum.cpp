@@ -188,10 +188,12 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
 
         if(!inputSign[0]){
             expr = "(-(" + expr + "))";
+        }else{
+            expr = "(" + expr + ")";
         }
 
         for(unsigned long i = 1; i<numInputPorts; i++) {
-            if (!inputSign[i]) {
+            if (inputSign[i]) {
                 expr += "+";
             } else {
                 expr += "-";

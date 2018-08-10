@@ -66,7 +66,7 @@ public:
     /**
      * @brief Gets the base name of the C variable for this output
      *
-     * The base name takes the form nodeName_n<id>_outputPortNum
+     * The base name takes the form nodeName_n<id>_outPort<outputPortNum>
      *
      * @return the base name as a string
      */
