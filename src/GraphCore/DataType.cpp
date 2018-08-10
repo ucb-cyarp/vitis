@@ -217,7 +217,7 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
     }
 }
 
-std::string DataType::toString(StringStyle stringStyle) {
+std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
 
     if(floatingPt){
         //Floing point types
@@ -225,12 +225,34 @@ std::string DataType::toString(StringStyle stringStyle) {
             if(stringStyle == StringStyle::SIMULINK) {
                 return "single";
             }else if(stringStyle == StringStyle::C){
-                return "float";
+                std::string str = "float";
+                if(width > 1){
+                    str += "[";
+                    if(includeWidth){
+                        str += std::to_string(width);
+                    }
+                    str += "]";
+                }
+                return str;
             }else{
                 throw std::runtime_error("Unknown DataType String Style");
             }
         }else if(totalBits == 64){
-            return "double";
+            if(stringStyle == StringStyle::SIMULINK){
+                return "double";
+            }else if(stringStyle == StringStyle::C){
+                std::string str = "double";
+                if(width > 1){
+                    str += "[";
+                    if(includeWidth){
+                        str += std::to_string(width);
+                    }
+                    str += "]";
+                }
+                return str;
+            }else{
+                throw std::runtime_error("Unknown DataType String Style");
+            }
         }
         else{
             throw std::runtime_error("Floating point type which is not a \"single\" or \"double\"");
@@ -243,11 +265,19 @@ std::string DataType::toString(StringStyle stringStyle) {
                 //Special case of fixed which doesn't make sense but is possible
                 return "sfix1_En0";
             } else{
-                std::string str = "int" + std::to_string(totalBits);;
+                std::string str = "int" + std::to_string(totalBits);
                 if(stringStyle == StringStyle::SIMULINK) {
                     return str;
                 }else if(stringStyle == StringStyle::C){
-                    return str + "_t";
+                    str += "_t";
+                    if(width > 1){
+                        str += "[";
+                        if(includeWidth){
+                            str += std::to_string(width);
+                        }
+                        str += "]";
+                    }
+                    return str;
                 }else{
                     throw std::runtime_error("Unknown DataType String Style");
                 }
@@ -258,7 +288,15 @@ std::string DataType::toString(StringStyle stringStyle) {
                 if(stringStyle == StringStyle::SIMULINK) {
                     return "boolean";
                 }else if(stringStyle == StringStyle::C){
-                    return "bool";
+                    std::string str =  "bool";
+                    if(width > 1){
+                        str += "[";
+                        if(includeWidth){
+                            str += std::to_string(width);
+                        }
+                        str += "]";
+                    }
+                    return str;
                 }else{
                     throw std::runtime_error("Unknown DataType String Style");
                 }
@@ -267,7 +305,15 @@ std::string DataType::toString(StringStyle stringStyle) {
                 if(stringStyle == StringStyle::SIMULINK) {
                     return str;
                 }else if(stringStyle == StringStyle::C){
-                    return str + "_t";
+                    str += "_t";
+                    if(width > 1){
+                        str += "[";
+                        if(includeWidth){
+                            str += std::to_string(width);
+                        }
+                        str += "]";
+                    }
+                    return str;
                 }else{
                     throw std::runtime_error("Unknown DataType String Style");
                 }
