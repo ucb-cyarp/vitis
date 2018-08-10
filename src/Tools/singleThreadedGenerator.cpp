@@ -27,8 +27,6 @@ int main(int argc, char* argv[]) {
     std::string designName = argv[3];
 
     std::cout << "Importing vitis GraphML File: " << inputFilename << std::endl;
-    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
-    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
 
     std::unique_ptr<Design> design;
 
@@ -48,6 +46,9 @@ int main(int argc, char* argv[]) {
     design->assignArcIDs();
 
     //Emit C
+    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
+    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
+
     design->emitSingleThreadedC(outputDir, designName, designName);
 
     return 0;

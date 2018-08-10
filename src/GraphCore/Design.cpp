@@ -517,6 +517,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     unsigned long numOutputs = outputMaster->getInputPorts().size();
     for(unsigned long i = 0; i<numOutputs; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
+        cFile << std::endl << "//---- Compute Output " << i << ": " << output->getName() <<" ----" << std::endl;
 
         //Get the arc connected to the output
         std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());

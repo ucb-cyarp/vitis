@@ -145,11 +145,6 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
     }
 
-    //TODO: Implement > 2 Input Port Support
-    if(inputPorts.size() > 2){
-        throw std::runtime_error("C Emit Error - Sum Support for >2 Input Ports has Not Yet Been Implemented");
-    }
-
     //Get the expressions for each input
     std::vector<std::string> inputExprs;
 
@@ -206,6 +201,11 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         return CExpr(expr, false);
     }
     else{
+        //TODO: Implement > 2 Input Port Support
+        if(inputPorts.size() > 2){
+            throw std::runtime_error("C Emit Error - Sum Support for >2 Input Ports has Not Yet Been Implemented");
+        }
+
         //TODO: Finish
         throw std::runtime_error("C Emit Error - Still Implemeting Convert");
     }

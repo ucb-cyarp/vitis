@@ -146,11 +146,6 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
         throw std::runtime_error("C Emit Error - Product Support for Vector Types has Not Yet Been Implemented");
     }
 
-    //TODO: Implement > 2 Input Port Support
-    if(inputPorts.size() > 2){
-        throw std::runtime_error("C Emit Error - Product Support for >2 Input Ports has Not Yet Been Implemented");
-    }
-
     //TODO: Implement Complex Support
     if(getInputPort(0)->getDataType().isComplex() || getInputPort(1)->getDataType().isComplex()){
         throw std::runtime_error("C Emit Error - Product Support for Complex has Not Yet Been Implemented");
@@ -212,6 +207,11 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
         return CExpr(expr, false);
     }
     else{
+        //TODO: Implement > 2 Input Port Support
+        if(inputPorts.size() > 2){
+            throw std::runtime_error("C Emit Error - Product Support for >2 Input Ports has Not Yet Been Implemented");
+        }
+
         //TODO: Finish
         throw std::runtime_error("C Emit Error - Still Implemeting Convert");
     }
