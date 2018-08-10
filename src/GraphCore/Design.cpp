@@ -529,6 +529,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
+        cFile << "//-- Compute Real Component --" << std::endl;
         std::vector<std::string> cStatements_re;
         std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false);
         //emit the expressions
@@ -543,6 +544,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
         //Emit Imag if Datatype is complex
         if(outputDataType.isComplex()){
+            cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
             std::vector<std::string> cStatements_im;
             std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true);
             //emit the expressions
