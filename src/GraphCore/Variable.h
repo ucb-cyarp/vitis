@@ -51,9 +51,10 @@ public:
      * @note If @ref imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
      *
      * @param imag if true, generates the imaginary component's declaration.  if false, generate the real component's declaration
+     * @param includeWidth if true, includes width for vector types in declaration (ex. int[5]), otherwise does not (ex. int[])
      * @return a C variable declaration statement
      */
-    std::string getCVarDecl(bool imag = false);
+    std::string getCVarDecl(bool imag = false, bool includeWidth = false);
 
     std::string getName() const;
     void setName(const std::string &name);

@@ -477,6 +477,8 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#def " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
 
     headerFile << outputTypeDefn << std::endl;
     headerFile << fctnProto << ";" << std::endl;
@@ -504,10 +506,10 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             //Emit State Vars
             unsigned long numStateVars = stateVars.size();
             for(unsigned long j = 0; j<numStateVars; j++){
-                cFile << stateVars[j].getCVarDecl(false) << ";" << std::endl;
+                cFile << stateVars[j].getCVarDecl(false, true) << ";" << std::endl;
 
                 if(stateVars[j].getDataType().isComplex()){
-                    cFile << stateVars[j].getCVarDecl(true) << ";" << std::endl;
+                    cFile << stateVars[j].getCVarDecl(true, true) << ";" << std::endl;
                 }
             }
         }

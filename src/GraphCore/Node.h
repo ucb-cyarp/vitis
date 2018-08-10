@@ -346,20 +346,20 @@ protected:
      */
     virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
 
-    /**
-     * @brief Get a new temporary variable with the specified DataType
-     *
-     * @note @ref DataType::getCPUStorageType is called on the dataType to get a standard CPU type
-     *
-     * The C variable declaration of the new temporary variable is enqueued on the cStatementQueue
-     *
-     * The variable name has the form nodeName_n<id>_tmp<num>
-     *
-     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The temporary variable declaration is pushed onto this queue
-     * @param dataType the datatype of the new temporary variable
-     * @return a new Variable object
-     */
-    Variable getNewTempVar(std::vector<std::string> &cStatementQueue, DataType dataType);
+//    /**
+//     * @brief Get a new temporary variable with the specified DataType
+//     *
+//     * @note @ref DataType::getCPUStorageType is called on the dataType to get a standard CPU type
+//     *
+//     * The C variable declaration of the new temporary variable is enqueued on the cStatementQueue
+//     *
+//     * The variable name has the form nodeName_n<id>_tmp<num>
+//     *
+//     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The temporary variable declaration is pushed onto this queue
+//     * @param dataType the datatype of the new temporary variable
+//     * @return a new Variable object
+//     */
+//    Variable getNewTempVar(std::vector<std::string> &cStatementQueue, DataType dataType);
 
 public:
     /**

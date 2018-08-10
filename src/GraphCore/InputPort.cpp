@@ -33,3 +33,7 @@ std::shared_ptr<InputPort> InputPort::getSharedPointerInputPort() {
         throw std::runtime_error("Pointer requested from port that has no parent");
     }
 }
+
+std::shared_ptr<OutputPort> InputPort::getSrcOutputPort() {
+    return arcs.begin()->lock()->getSrcPort();
+}

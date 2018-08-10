@@ -22,9 +22,9 @@ std::string Variable::getCVarName(bool imag) {
     return name + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
-std::string Variable::getCVarDecl(bool imag) {
+std::string Variable::getCVarDecl(bool imag, bool includeWidth) {
 
-    return dataType.toString(DataType::StringStyle::C) + " " + getCVarName(imag);
+    return dataType.toString(DataType::StringStyle::C, includeWidth) + " " + getCVarName(imag);
 }
 
 std::string Variable::getName() const {
