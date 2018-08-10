@@ -135,3 +135,104 @@ void Delay::validate() {
         throw std::runtime_error("Validation Failed - Delay - DataType of Input Port Does not Match Output Port");
     }
 }
+
+bool Delay::hasState() {
+    if(delayValue > 0) {
+        return true;
+    }else{
+        return false;
+    }
+}
+
+std::vector<Variable> Delay::getCStateVars() {
+    std::vector<Variable> vars;
+
+    //If delayValue < 0 return empty vector
+    if(delayValue == 0){
+        return vars;
+    }else{
+        //There is a single state variable for the delay.  However, it is an array if the delay is > 1.
+
+        DataType stateType = getInputPort(0)->getDataType();
+        stateType.setWidth(delayValue);
+
+        //TODO: Extend to support vectors (must declare 2D array for state)
+
+
+        std::string varName = name+"_n"+std::to_string(id)+"_state";
+        Variable var = Variable(varName, stateType);
+        cStateVar = var;
+        //Complex variable will be made if needed by the design code based on the data type
+        vars.push_back(var);
+
+        return vars;
+    }
+}
+
+CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getInputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+    int srcOutPortNum = srcPort->getPortNum();
+    std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+    //Emit the upstream
+    std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutPortNum, imag);
+
+    if(delayValue == 0){
+        //If delay = 0, simply pass through
+        return CExpr(inputExpr, false);
+    }else {
+        //Assign the expr to a special variable defined here (before the state update)
+        std::string stateInputName = name + "_n" + std::to_string(id) + "_state_input";
+        Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType().getCPUStorageType());
+        cStateInputVar = stateInputVar;
+
+        //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
+
+        std::string stateInputDeclAssign = stateInputVar.getCVarDecl(imag, false) + " = " + inputExpr + ";";
+
+        cStatementQueue.push_back(stateInputDeclAssign);
+
+        //Return the state var name as the expression
+        if (delayValue == 1) {
+            //Return the simple name (no index needed as it is not an array_
+            return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
+        }else{
+            return CExpr(cStateVar.getCVarName(imag) + "[" + std::to_string(delayValue-1) + "]", true);
+        }
+    }
+}
+
+void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
+    //TODO: Implement Vector Support (Need 2D state)
+    if(delayValue == 0){
+        return; //No state to update
+    }else if(delayValue == 1){
+        //The state variable is not an array
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + " = " + cStateInputVar.getCVarName(false) + ";");
+
+        if(cStateVar.getDataType().isComplex()){
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + " = " + cStateInputVar.getCVarName(true) + ";");
+        }
+    }else{
+        //This is a (pair) of arrays
+        //Emit a for loop to perform the shift for each
+        std::string loopVarName = name+"_n"+std::to_string(id)+"_loopCounter";
+
+        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "++){");
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "-1];}");
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[0] = " + cStateInputVar.getCVarName(false) + ";");
+
+        if(cStateVar.getDataType().isComplex()){
+            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "++){");
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "-1];}");
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[0] = " + cStateInputVar.getCVarName(true) + ";");
+        }
+    }
+
+    Node::emitCStateUpdate(cStatementQueue);
+}

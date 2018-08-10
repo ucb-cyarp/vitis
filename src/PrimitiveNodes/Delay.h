@@ -29,6 +29,8 @@ class Delay : public PrimitiveNode{
 private:
     int delayValue; ///<The amount of delay in this node
     std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Length must match the delay value.
+    Variable cStateVar; ///<The C variable storing the state of the dela
+    Variable cStateInputVar; ///<the C temporary variable holding the input to state before the update
     //TODO: Re-evaluate if numeric value should be stored as double/complex double (like Matlab does).  An advantage to providing a class that can contain both is that there is less risk of an int being store improperly and full 64 bit integers can be represented.
     //TODO: Advantage of storing std::complex is that each element is smaller (does not need to allocate both a double and int version)
 
@@ -76,11 +78,21 @@ public:
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
 
-    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type) override ;
 
     std::string labelStr() override ;
 
     void validate() override;
+
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+
+    bool hasState() override;
+
+    std::vector<Variable> getCStateVars() override;
+
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
+
+
 };
 
 /*@}*/
