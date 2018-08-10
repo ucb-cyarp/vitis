@@ -304,44 +304,59 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
         }
 
         if(fanout){
-            //If fanout, declare output var and then assign it.  Set var name in port and return it as a string
-            Variable outputVar = outputPort->getCOutputVar();
-
             //Get Expr Before Declaring/assigning so that items higher on the statement stack (prerequites) are enqueued first
             //Makes the temp var declaration more local to where it is assigned
-            std::string cExpr = emitCExpr(cStatementQueue, outputPortNum, imag);
+            CExpr cExpr = emitCExpr(cStatementQueue, outputPortNum, imag);
 
-            //Get Output Var Decl
-            std::string cVarDecl = outputVar.getCVarDecl(imag);
+            if(!cExpr.isOutputVariable()) {
+                //An expression was returned, not a variable name ... create one
 
-            //Enqueue decl and assignment
-            std::string cVarDeclAssign = cVarDecl + " = " + cExpr + ";";
-            cStatementQueue.push_back(cVarDeclAssign);
+                //Declare output var and then assign it.  Set var name in port and return it as a string
+                Variable outputVar = outputPort->getCOutputVar();
 
-            //Set the var name in the port
-            std::string outputVarName = outputVar.getCVarName(imag);
-            if(imag){
-                outputPort->setCEmitImStr(outputVarName);
+                //Get Output Var Decl
+                std::string cVarDecl = outputVar.getCVarDecl(imag);
+
+                //Enqueue decl and assignment
+                std::string cVarDeclAssign = cVarDecl + " = " + cExpr.getExpr() + ";";
+                cStatementQueue.push_back(cVarDeclAssign);
+
+                //Set the var name in the port
+                std::string outputVarName = outputVar.getCVarName(imag);
+                if (imag) {
+                    outputPort->setCEmitImStr(outputVarName);
+                } else {
+                    outputPort->setCEmitReStr(outputVarName);
+                }
+
+                //Return output var name
+                return outputVarName;
             }else{
-                outputPort->setCEmitReStr(outputVarName);
-            }
+                //A variable name was returned ... set the var name in the port and return the variable name in the expr
+                //Avoid making a duplicate output variable
+                std::string outputVarName = cExpr.getExpr();
+                if (imag) {
+                    outputPort->setCEmitImStr(outputVarName);
+                } else {
+                    outputPort->setCEmitReStr(outputVarName);
+                }
 
-            //Return output var name
-            return outputVarName;
+                return outputVarName;
+            }
         }else{
             //If not fanout, return expression
-            return emitCExpr(cStatementQueue, outputPortNum, imag);
+            return emitCExpr(cStatementQueue, outputPortNum, imag).getExpr();
         }
     }
 }
 
-std::string Node::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort, bool imag) {
+CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort, bool imag) {
     //TODO: Make abstract
 
     //For now, the default behavior is to return an error message stating that the emitCExpr has not yet been implemented for this node.
     throw std::runtime_error("emitCExpr not yet implemented for node: \n" + labelStr());
 
-    return std::string();
+    return CExpr();
 }
 
 bool Node::hasState() {
@@ -350,8 +365,11 @@ bool Node::hasState() {
 }
 
 bool Node::hasInternalFanout(int inputPort, bool imag){
-    //Default is to return false
-    return false;
+    //Default is to check if that port has a width >1.  If so, internal fanout is assumed.
+
+    int inputWidth = getInputPort(inputPort)->getDataType().getWidth();
+
+    return inputWidth>1;
 }
 
 std::vector<Variable> Node::getCStateVars() {

@@ -99,4 +99,58 @@ void Constant::validate() {
     if(value.size() < 1){
         throw std::runtime_error("Validation Failed - Constant - Should Have at Least 1 Value");
     }
+
+    //Check that width of value is the width of the output
+    if(value.size() != getOutputPort(0)->getDataType().getWidth()){
+        throw std::runtime_error("Validation Failed - Constant - Width of Value Does Not Match Width of Output");
+    }
+}
+
+CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //Get the datatype of the output port
+    std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
+    DataType outputType = outputPort->getDataType();
+
+    DataType outputTypeSingle = outputType;
+    outputTypeSingle.setWidth(1);
+    DataType outputCPUType = outputTypeSingle.getCPUStorageType(); //Want the CPU type to not have the array suffix since the cast will be for each element
+
+    //Should have already validated and checked width of datatype and value match
+
+    std::string expr = "";
+
+    //Check if the type has width > 1, if so, need to emit an array
+    unsigned long width = value.size();
+
+    if(width == 1){
+        expr += "(";
+
+        //Emit datatype (the CPU type used for storage)
+        expr += "(" + outputCPUType.toString(DataType::StringStyle::C) + ") ";
+        //Emit value
+        expr += value[0].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
+        expr += ")";
+    }else{
+        //Emit an array
+
+        std::string storageTypeStr = outputCPUType.toString(DataType::StringStyle::C);
+
+        expr += "{";
+
+        //Emit datatype (the CPU type used for storage)
+        expr += "(" + storageTypeStr + ") ";
+        //Emit Value
+        expr += value[0].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
+
+        for(unsigned long i = 0; i<width; i++){
+            //Emit datatype (the CPU type used for storage)
+            expr += ", (" + storageTypeStr + ") ";
+            //Emit Value
+            expr += value[i].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
+        }
+
+        expr += "}";
+    }
+
+    return CExpr(expr, false);
 }

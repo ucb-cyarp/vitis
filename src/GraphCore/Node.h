@@ -25,6 +25,7 @@ class GraphMLParameter;
 #include "Arc.h"
 #include "GraphMLParameter.h"
 #include "Variable.h"
+#include "CExpr.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -343,7 +344,7 @@ protected:
      * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
      * @return a string containing the C expression for calculating the result of the output port
      */
-    virtual std::string emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
+    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
 
     /**
      * @brief Get a new temporary variable with the specified DataType

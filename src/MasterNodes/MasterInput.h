@@ -40,6 +40,17 @@ public:
      */
     std::string getCInputName(int portNum);
 
+//    /**
+//     * @brief For the MasterInput, fanout logic is not handled because the function simply returns the name of the function arg
+//     *
+//     */
+//    std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false, bool checkFanout = true, bool forceFanout = false) override;
+
+    /**
+     * @brief Emits the name of the input argument for the given input port
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+
 };
 
 /*@}*/

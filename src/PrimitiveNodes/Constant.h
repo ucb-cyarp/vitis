@@ -77,6 +77,8 @@ public:
 
     void validate() override;
 
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+
 };
 
 /*@}*/

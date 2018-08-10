@@ -20,8 +20,8 @@
  */
 class NumericValue {
 private:
-    long int realInt;
-    long int imagInt;
+    int64_t realInt;
+    int64_t imagInt;
     std::complex<double> complexDouble;
 
     bool complex; ///<True if complex, false if real
@@ -57,7 +57,7 @@ public:
      * @param complex
      * @param fractional
      */
-    NumericValue(long int realInt, long int imagInt, std::complex<double> complexDouble, bool complex, bool fractional);
+    NumericValue(int64_t realInt, int64_t imagInt, std::complex<double> complexDouble, bool complex, bool fractional);
 
     /**
      * @brief Check if the numeric value is signed
@@ -80,6 +80,20 @@ public:
      * @return string representation of the numeric value
      */
     std::string toString() const;
+
+    /**
+     * @brief Returns the real or imagionary component of the numeric value as a string.  Will output numbers in accordance with their stored datatypes
+     * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @return string representation of the real or imagionary component of the numeric value
+     */
+    std::string toStringComponent(bool imag);
+
+    /**
+     * @brief Returns the real or imagionary component of the numeric value as a string.  The component is converted to the target data type
+     * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @return string representation of the real or imagionary component of the numeric value
+     */
+    std::string toStringComponent(bool imag, DataType typeToConvertTo);
 
     /**
      * @brief Constructs a string from an array of numeric values.
@@ -110,13 +124,13 @@ public:
     static std::vector<NumericValue> parseXMLString(std::string str);
 
     //====Getters/Setters====
-    long getRealInt() const;
+    int64_t getRealInt() const;
 
-    void setRealInt(long realInt);
+    void setRealInt(int64_t realInt);
 
-    long getImagInt() const;
+    int64_t getImagInt() const;
 
-    void setImagInt(long imagInt);
+    void setImagInt(int64_t imagInt);
 
     std::complex<double> getComplexDouble() const;
 
