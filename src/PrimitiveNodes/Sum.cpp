@@ -138,3 +138,75 @@ void Sum::validate() {
         }
     }
 }
+
+CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getInputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //TODO: Implement > 2 Input Port Support
+    if(inputPorts.size() > 2){
+        throw std::runtime_error("C Emit Error - Sum Support for >2 Input Ports has Not Yet Been Implemented");
+    }
+
+    //Get the expressions for each input
+    std::vector<std::string> inputExprs;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+    }
+
+    //Check if any of the inputs are floating point & if so, find the largest
+    bool foundFloat = false;
+    DataType largestFloat;
+
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType portDataType = getInputPort(i)->getDataType();
+        if(portDataType.isFloatingPt()){
+            if(foundFloat == false){
+                foundFloat = true;
+                largestFloat = portDataType;
+            }else{
+                if(largestFloat.getTotalBits() < portDataType.getTotalBits()){
+                    largestFloat = portDataType;
+                }
+            }
+
+        }
+    }
+
+    if(foundFloat){
+        //floating point numbers
+        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), largestFloat);
+
+        if(!inputSign[0]){
+            expr = "(-(" + expr + "))";
+        }
+
+        for(unsigned long i = 1; i<numInputPorts; i++) {
+            if (!inputSign[i]) {
+                expr += "+";
+            } else {
+                expr += "-";
+            }
+            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), largestFloat) + ")";
+        }
+
+        expr = DataType::cConvertType(expr, largestFloat, getOutputPort(0)->getDataType());//Convert to output if nessisary
+
+        return CExpr(expr, false);
+    }
+    else{
+        //TODO: Finish
+        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
+    }
+
+    return CExpr("", false);
+}

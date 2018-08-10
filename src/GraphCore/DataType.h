@@ -91,6 +91,15 @@ public:
     DataType getCPUStorageType();
 
     /**
+     * @brief Returns the C code required to convert an expression of one datatype to another datatype
+     * @param expr expression to convert
+     * @param oldType the origional type of the expression
+     * @param newType the new type of the expression
+     * @return C code required to convert the expression
+     */
+    static std::string cConvertType(std::string expr, DataType oldType, DataType newType);
+
+    /**
      * @brief Deep equivalence check of DataType objects
      * @param rhs right hand side of the comparison
      * @return true if the types are equivalent

@@ -368,3 +368,46 @@ DataType DataType::getCPUStorageType() {
         return newType;
     }
 }
+
+std::string DataType::cConvertType(std::string expr, DataType oldType, DataType newType) {
+    //Check for equivalent types (no conversion needed)
+    if(oldType == newType){
+        return expr;
+    }else if(newType.floatingPt && (oldType.floatingPt || oldType.fractionalBits == 0)){
+        //Simple float to float or int to float conversion
+        return "((" + newType.toString(StringStyle::C, false) + ") (" + expr + "))";
+    }else if(newType.floatingPt){
+        //Converting from Fixed Point to Float
+        //First, cast to float then multiply by 2^(-numFractionalBits)
+        std::string newTypeStr = newType.toString(StringStyle::C, false);
+        std::string converted = "((" + newTypeStr + ") (" + expr + "))";
+
+        if(oldType.fractionalBits>0){
+            converted = "(" + converted + "* ((" + newTypeStr +  ") pow(2, -" + std::to_string(oldType.fractionalBits) + ")))";
+        }
+
+        return converted;
+
+    }else if(oldType.floatingPt){
+        //Converting from Floating Point to Fixed Point Or Integer
+        std::string converted = "";
+
+        //First, multiply by pow(2, numFractionalBits) then cast
+        if(newType.fractionalBits > 0){
+            converted =  "("+expr + ") *pow(2, " + std::to_string(newType.fractionalBits) + ")";
+        }else{
+            converted = expr;
+        }
+
+        //TODO: Finish
+        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
+        //Convert to CPU type
+
+        //Mask if orig type is not a CPU type
+
+    }else{
+        //TODO: Finish
+        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
+        //Converting to/from Integer or Fixed Point
+    }
+}
