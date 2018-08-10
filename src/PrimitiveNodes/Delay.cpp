@@ -126,4 +126,12 @@ void Delay::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Delay - Should Have Exactly 1 Output Port");
     }
+
+    //Check that input port and the output port have the same type
+    DataType outType = getOutputPort(0)->getDataType();
+    DataType inType = getInputPort(0)->getDataType();
+
+    if(inType != outType){
+        throw std::runtime_error("Validation Failed - Delay - DataType of Input Port Does not Match Output Port");
+    }
 }

@@ -207,5 +207,17 @@ void ThresholdSwitch::validate() {
     if(threshold.size() < 1){
         throw std::runtime_error("Validation Failed - ThresholdSwitch - Should Have At Least 1 Threshold Value");
     }
+
+    //Check that all input ports and the output port have the same type
+    DataType outType = getOutputPort(0)->getDataType();
+    unsigned long numInputPorts = inputPorts.size();
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+
+        if(inType != outType){
+            throw std::runtime_error("Validation Failed - ThresholdSwitch - DataType of Input Port Does not Match Output Port");
+        }
+    }
 }
 

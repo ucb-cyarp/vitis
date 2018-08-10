@@ -118,4 +118,24 @@ void Product::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Product - Should Have Exactly 1 Output Port");
     }
+
+    //Check that if any input is complex, the result is complex
+    unsigned long numInputPorts = inputPorts.size();
+    bool foundComplex = false;
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+        if(inType.isComplex()){
+            foundComplex = true;
+            break;
+        }
+
+    }
+
+    if(foundComplex) {
+        DataType outType = getOutputPort(0)->getDataType();
+        if(!outType.isComplex()){
+            throw std::runtime_error("Validation Failed - Product - An Input Port is Complex but Output is Real");
+        }
+    }
 }

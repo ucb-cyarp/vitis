@@ -104,6 +104,16 @@ void Gain::validate() {
     if(gain.size() < 1){
         throw std::runtime_error("Validation Failed - Gain - Should Have At Least 1 Gain Value");
     }
+
+    //Check that if any input is complex, the result is complex
+    std::shared_ptr<InputPort> inputPort = getInputPort(0);
+
+    if(inputPort->getDataType().isComplex()) {
+        DataType outType = getOutputPort(0)->getDataType();
+        if(!outType.isComplex()){
+            throw std::runtime_error("Validation Failed - Gain - Input Port is Complex but Output is Real");
+        }
+    }
 }
 
 bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,

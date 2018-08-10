@@ -89,6 +89,19 @@ void Mux::validate() {
     if((*selectorPort->getArcs().begin())->getDataType().isFloatingPt()){
         std::cerr << "Warning: MUX Select Port is Driven by Floating Point" << std::endl;
     }
+
+    //Check that all input ports and the output port have the same type
+    DataType outType = getOutputPort(0)->getDataType();
+    unsigned long numInputPorts = inputPorts.size();
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+
+        if(inType != outType){
+            throw std::runtime_error("Validation Failed - Mux - DataType of Input Port Does not Match Output Port");
+        }
+    }
+
 }
 
 void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
