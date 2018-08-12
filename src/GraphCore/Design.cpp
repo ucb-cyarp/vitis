@@ -471,6 +471,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#inclide <thread.h>" << std::endl;
     headerFile << std::endl;
 
     headerFile << outputTypeDefn << std::endl;
@@ -503,7 +504,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             //Emit State Vars
             unsigned long numStateVars = stateVars.size();
             for(unsigned long j = 0; j<numStateVars; j++){
-                cFile << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+                cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
 
                 if(stateVars[j].getDataType().isComplex()){
                     cFile << stateVars[j].getCVarDecl(true, true, true) << ";" << std::endl;
