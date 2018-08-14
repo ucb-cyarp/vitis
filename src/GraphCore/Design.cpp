@@ -379,10 +379,10 @@ std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePat
     return cursor;
 }
 
-std::string Design::getCFunctionArgPrototype() {
-    std::string prototype = "";
-
+std::vector<Variable> Design::getCInputVariables() {
     unsigned long numPorts = inputMaster->getOutputPorts().size();
+
+    std::vector<Variable> inputVars;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     if(numPorts>0){
@@ -391,13 +391,7 @@ std::string Design::getCFunctionArgPrototype() {
         DataType portDataType = input->getDataType();
 
         Variable var = Variable(inputMaster->getCInputName(0), portDataType);
-
-        prototype += var.getCVarDecl(false);
-
-        //Check if complex
-        if(portDataType.isComplex()){
-            prototype += ", " + var.getCVarDecl(true, true);
-        }
+        inputVars.push_back(var);
     }
 
     for(unsigned long i = 1; i<numPorts; i++){
@@ -406,23 +400,83 @@ std::string Design::getCFunctionArgPrototype() {
         DataType portDataType = input->getDataType();
 
         Variable var = Variable(inputMaster->getCInputName(i), portDataType);
+        inputVars.push_back(var);
+    }
+
+    return inputVars;
+}
+
+std::string Design::getCFunctionArgPrototype() {
+    std::string prototype = "";
+
+    std::vector<Variable> inputVars = getCInputVariables();
+    unsigned long numInputVars = inputVars.size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numInputVars>0){
+        Variable var = inputVars[0];
+
+        prototype += var.getCVarDecl(false);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ", " + var.getCVarDecl(true, true);
+        }
+    }
+
+    for(unsigned long i = 1; i<numInputVars; i++){
+        Variable var = inputVars[i];
 
         prototype += ", " + var.getCVarDecl(false);
 
         //Check if complex
-        if(portDataType.isComplex()){
+        if(var.getDataType().isComplex()){
             prototype += ", " + var.getCVarDecl(true);
         }
     }
 
     //Add output
-    if(numPorts>0){
+    if(numInputVars>0){
         prototype += ", ";
     }
     prototype += "OutputType *output";
 
     //Add output count
     prototype += ", unsigned long *outputCount";
+
+    return prototype;
+}
+
+std::string Design::getCInputPortStructDefn(){
+    std::string prototype = "typedef struct {";
+
+    std::vector<Variable> inputVars = getCInputVariables();
+    unsigned long numInputVars = inputVars.size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numInputVars>0){
+        Variable var = inputVars[0];
+
+        prototype += var.getCVarDecl(false);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ";\n" + var.getCVarDecl(true, true);
+        }
+    }
+
+    for(unsigned long i = 1; i<numInputVars; i++){
+        Variable var = inputVars[i];
+
+        prototype += ";\n" + var.getCVarDecl(false);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ";\n" + var.getCVarDecl(true);
+        }
+    }
+
+    prototype += "\n} InputType;";
 
     return prototype;
 }
@@ -471,7 +525,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
-    headerFile << "#include <thread.h>" << std::endl;
+    //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
     headerFile << outputTypeDefn << std::endl;
@@ -504,7 +558,8 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
             //Emit State Vars
             unsigned long numStateVars = stateVars.size();
             for(unsigned long j = 0; j<numStateVars; j++){
-                cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+                //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+                cFile << "static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
 
                 if(stateVars[j].getDataType().isComplex()){
                     cFile << stateVars[j].getCVarDecl(true, true, true) << ";" << std::endl;
@@ -578,4 +633,198 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << "}" << std::endl;
 
     cFile.close();
+
+    //Emit Driver File
+    std::ofstream benchDriver;
+    benchDriver.open(path+"/"+fileName+"_benchmark_driver"+".cpp", std::ofstream::out | std::ofstream::trunc);
+
+    benchDriver << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    benchDriver << "#include <map>" << std::endl;
+    benchDriver << "#include <string>" << std::endl;
+    benchDriver << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    benchDriver << "#include \"benchmark_throughput_test.h\"" << std::endl;
+    benchDriver << "#include \"kernel_runner.h\"" << std::endl;
+
+    //If performing a load, exe, store benchmark, define an input structure
+    //benchDriver << getCInputPortStructDefn() << std::endl;
+
+    //Driver will define a zero arg kernel that sets reasonable inputs and repeatedly runs the function.
+    //The function will be compiled in a seperate object file and should not be in-lined (potentially resulting in eronious
+    //optimizations for the purpose of benchmarking since we are feeding dummy data in).  This should be the case so long as
+    //the compiler flag -flto is not used durring compile and linkign (https://stackoverflow.com/questions/35922966/lto-with-llvm-and-cmake)
+    //(https://llvm.org/docs/LinkTimeOptimization.html), (https://clang.llvm.org/docs/CommandGuide/clang.html),
+    //(https://gcc.gnu.org/wiki/LinkTimeOptimization), (https://gcc.gnu.org/onlinedocs/gccint/LTO-Overview.html).
+
+    //Emit name, file, and units string
+    benchDriver << "std::string getBenchSuiteName(){\n\treturn \"Generated System: " + designName + "\";\n}" << std::endl;
+    benchDriver << "std::string getReportFileName(){\n\treturn \"" + fileName + "_benchmarking_report\";\n}" << std::endl;
+    benchDriver << "std::string getReportUnitsName(){\n\treturn \"STIM_LEN: \" + std::to_string(STIM_LEN) + \" (Samples/Vector/Trial), TRIALS: \" + std::to_string(TRIALS);\n}" << std::endl;
+
+    //Emit Benchmark Report Selection
+    benchDriver << "void getBenchmarksToReport(std::vector<std::string> &kernels, std::vector<std::string> &vec_ext){\n"
+                   "\tkernels.push_back(\"" + designName + "\");\tvec_ext.push_back(\"Single Threaded\");\n}" << std::endl;
+
+    //Emit Benchmark Type Report Selection
+    std::vector<Variable> inputVars = getCInputVariables();
+    unsigned long numInputVars = inputVars.size();
+    std::string typeStr = "";
+    if(numInputVars > 0){
+        typeStr = inputVars[0].getDataType().toString(DataType::StringStyle::C);
+        typeStr += inputVars[0].getDataType().isComplex() ? " (c)" : " (r)";
+    }
+
+    for(unsigned long i = 1; i<numInputVars; i++){
+        typeStr += ", " + inputVars[i].getDataType().toString(DataType::StringStyle::C);
+        typeStr += inputVars[i].getDataType().isComplex() ? " (c)" : " (r)";
+    }
+
+    benchDriver << "std::vector<std::string> getVarientsToReport(){\n"
+                   "\tstd::vector<std::string> types;\n"
+                   "\ttypes.push_back(\"" + typeStr + "\");\n"
+                   "\treturn types;\n}" << std::endl;
+
+    //Generate loop
+    std::vector<NumericValue> defaultArgs;
+    for(unsigned long i = 0; i<numInputVars; i++){
+        DataType type = inputVars[i].getDataType();
+        NumericValue val;
+        val.setRealInt(1);
+        val.setImagInt(1);
+        val.setComplex(type.isComplex());
+        val.setFractional(false);
+
+        defaultArgs.push_back(val);
+    }
+
+    std::string fctnCall = designName + "(";
+    if(numInputVars>0){
+        fctnCall += defaultArgs[0].toStringComponent(false, inputVars[0].getDataType());
+        if(inputVars[0].getDataType().isComplex()){
+            fctnCall += ", " + defaultArgs[0].toStringComponent(true, inputVars[0].getDataType());
+        }
+    }
+    for(unsigned long i = 1; i<numInputVars; i++){
+        fctnCall += ", " + defaultArgs[i].toStringComponent(false, inputVars[i].getDataType());
+        if(inputVars[i].getDataType().isComplex()){
+            fctnCall += ", " + defaultArgs[i].toStringComponent(true, inputVars[i].getDataType());
+        }
+    }
+    if(numInputVars>0){
+        fctnCall += ", ";
+    }
+    fctnCall += "&output, &outputCount)";
+
+    benchDriver << "void bench_"+fileName+"()\n"
+                   "{\n"
+                   "\tOutputType output;\n"
+                   "\tunsigned long outputCount;\n"
+                   "\tfor(int i = 0; i<STIM_LEN; i++)\n"
+                   "\t{\n"
+                   "\t\t" + fctnCall + ";\n"
+                   "\t}\n"
+                   "}" << std::endl;
+
+    //Generate call to loop
+    benchDriver << "std::map<std::string, std::map<std::string, Results*>*> runBenchSuite(PCM* pcm, int* cpu_num_int){\n"
+                   "\tstd::map<std::string, std::map<std::string, Results*>*> kernel_results;\n"
+                   "\n"
+                   "\tstd::map<std::string, Results*>* type_result = new std::map<std::string, Results*>;\n"
+                   "\tResults* result = zero_arg_kernel(pcm, &bench_" + fileName + ", *cpu_num_int, \"===== Generated System: " + designName + " =====\");\n"
+                   "\t(*type_result)[\"" + typeStr + "\"] = result;\n"
+                   "\tkernel_results[\"" + designName + "\"] = type_result;\n"
+                   "\tprintf(\"\\n\");\n"
+                   "\treturn kernel_results;\n}" << std::endl;
+
+    benchDriver.close();
+
+    std::ofstream makefile;
+    makefile.open(path+"/Makefile", std::ofstream::out | std::ofstream::trunc);
+    std::ofstream makefileNoPCM;
+    makefileNoPCM.open(path+"/Makefile_noPCM", std::ofstream::out | std::ofstream::trunc);
+
+    std::string makefileTop = "BUILD_DIR=build\n"
+                              "DEPENDS_DIR=./depends\n"
+                              "COMMON_DIR=./common\n"
+                              "SRC_DIR=./intrin\n"
+                              "LIB_DIR=.\n"
+                              "\n"
+                              "UNAME:=$(shell uname)\n"
+                              "\n"
+                              "#Compiler Parameters\n"
+                              "CXX=g++\n"
+                              "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
+                              "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
+                              "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
+                              "KERNEL_CFLAGS = -O3 -c -g -std=c++11 -march=native -masm=att\n"
+                              "#For kernels that should not be optimized, the following is used\n"
+                              "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
+                              "INC=-I $(DEPENDS_DIR)/pcm -I $(COMMON_DIR) -I $(SRC_DIR)\n"
+                              "LIB_DIRS=-L $(DEPENDS_DIR)/pcm -L $(COMMON_DIR)\n"
+                              "ifeq ($(UNAME), Darwin)\n"
+                              "LIB=-pthread -lpcmHelper -lPCM -lPcmMsr\n"
+                              "LIB_DIRS+= -L $(DEPENDS_DIR)/pcm/MacMSRDriver/build/Release\n"
+                              "else\n"
+                              "LIB=-pthread -lrt -lpcmHelper -lPCM\n"
+                              "endif\n";
+    std::string noPCMDefine = "DEFINES = \n";
+    std::string PCMDefine = "DEFINES = -DUSE_PCM=0\n";
+
+    std::string makefileBottom = "#Need an additional include directory if on MacOS.\n"
+                                 "#Using the technique in pcm makefile to detect MacOS\n"
+                                 "ifeq ($(UNAME), Darwin)\n"
+                                 "INC+= -I $(DEPENDS_DIR)/pcm/MacMSRDriver\n"
+                                 "endif\n"
+                                 "\n"
+                                 "MAIN_FILE = benchmark_throughput_test.cpp\n"
+                                 "LIB_SRCS = " + fileName + "_benchmark_driver.cpp " + fileName + ".c\n"
+                                 "KERNEL_SRCS = \n"
+                                 "KERNEL_NO_OPT_SRCS = \n"
+                                 "\n"
+                                 "SRCS=$(MAIN_FILE)\n"
+                                 "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
+                                 "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
+                                 "KERNEL_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))\n"
+                                 "KERNEL_NO_OPT_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_NO_OPT_SRCS))\n"
+                                 "\n"
+                                 "#Production\n"
+                                 "all: benchmark_" + fileName +"\n"
+                                 "\n"
+                                 "benchmark_" + fileName + ": $(OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(COMMON_DIR)/libpcmHelper.a $(DEPENDS_DIR)/pcm/libPCM.a \n"
+                                 "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileName + " $(OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
+                                 "\n"
+                                 "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS_DIR)/pcm/Makefile\n"
+                                 "\t$(CXX) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                 "\n"
+                                 "$(KERNEL_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS_DIR)/pcm/Makefile\n"
+                                 "\t$(CXX) $(KERNEL_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                 "\n"
+                                 "$(LIB_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS_DIR)/pcm/Makefile\n"
+                                 "\t$(CXX) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                 "\n"
+                                 "$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS_DIR)/pcm/Makefile\n"
+                                 "\t$(CXX) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                 "\n"
+                                 "$(BUILD_DIR)/:\n"
+                                 "\tmkdir -p $@\n"
+                                 "\n"
+                                 "$(DEPENDS_DIR)/pcm/Makefile:\n"
+                                 "\tgit submodule update --init --recursive $(DEPENDS_DIR)/pcm\n"
+                                 "\n"
+                                 "$(DEPENDS_DIR)/pcm/libPCM.a: $(DEPENDS_DIR)/pcm/Makefile\n"
+                                 "\tcd $(DEPENDS_DIR)/pcm; make libPCM.a\n"
+                                 "\n"
+                                 "$(COMMON_DIR)/libpcmHelper.a: $(DEPENDS_DIR)/pcm/Makefile $(DEPENDS_DIR)/pcm/libPCM.a\n"
+                                 "\tcd $(COMMON_DIR); make\n"
+                                 "\t\n"
+                                 "clean:\n"
+                                 "\trm -f benchmark_" + fileName + "\n"
+                                 "\trm -rf build/*\n"
+                                 "\n"
+                                 ".PHONY: clean\n";
+
+    makefile << makefileTop << noPCMDefine << makefileBottom;
+    makefileNoPCM << makefileTop << PCMDefine << makefileBottom;
+
+    makefile.close();
+    makefileNoPCM.close();
 }

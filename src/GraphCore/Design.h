@@ -170,6 +170,17 @@ public:
     std::shared_ptr<Node> getNodeByNamePath(std::vector<std::string> namePath);
 
     /**
+     * @brief Get the input variables for this design
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return a vector of input variables ordered by the input port number
+     */
+    std::vector<Variable> getCInputVariables();
+
+    /**
      * @brief Get the argument portion of the C function prototype for this design.
      *
      * For example, if there are 3 inputs to the system:
@@ -192,6 +203,23 @@ public:
      * @return argument portion of the C function prototype for this design
      */
     std::string getCFunctionArgPrototype();
+
+    /**
+     * @brief Get the structure definition for the Input ports
+     *
+     * The struture definition takes the form of
+     *
+     * typedef struct Input{
+     *     type1 var1;
+     *     type2 var2;
+     *     ...
+     * }
+     *
+     * This is used by the driver generator if arrays need to be defined and the .
+     *
+     * @return
+     */
+    std::string getCInputPortStructDefn();
 
     /**
      * @brief Get the structure definition for the output type
