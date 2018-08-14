@@ -543,7 +543,8 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
     cFile << std::endl;
 
-    cFile << fctnProto << "{" << std::endl;
+    //cFile << fctnProto << "{" << std::endl;
+    cFile << "inline " << fctnProto << "{" << std::endl;
 
     //Find nodes with state & Emit state variable declarations
     cFile << "//==== Declare State Vars ====" << std::endl;
@@ -672,7 +673,8 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     }
     fctnCall += "&output, &outputCount)";
 
-    benchKernel << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    //benchKernel << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    benchKernel << "#include \"" << fileName << ".c" << "\"" << std::endl;
     benchKernel << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchKernel << "void bench_"+fileName+"()\n"
                                           "{\n"
@@ -681,8 +683,16 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                                           "\tfor(int i = 0; i<STIM_LEN; i++)\n"
                                           "\t{\n"
                                           "\t\t" + fctnCall + ";\n"
-                                                              "\t}\n"
-                                                              "}" << std::endl;
+                                          "\t\t//Using similar technique to https://stackoverflow.com/questions/7083482/how-to-prevent-gcc-from-optimizing-out-a-busy-wait-loop to prevent optimization of busy loop after in-lining function\n"
+                                          "\t\t//Using a volatile empty assembly command with no inputs, outputs, or clobbers.  Should also avoid insertion of NOP\n"
+                                          "\t\t\tasm volatile(\n"
+                                          "\t\t\t\t\"\"\n"
+                                          "\t\t\t\t:\n"
+                                          "\t\t\t\t:\n"
+                                          "\t\t\t\t:\n"
+                                          "\t\t\t);\n"
+                                          "\t}\n"
+                                          "}" << std::endl;
     benchKernel.close();
 
     std::ofstream benchKernelHeader;
@@ -756,9 +766,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     //#### Emit Makefiles ####
     std::ofstream makefile;
-    makefile.open(path+"/Makefile", std::ofstream::out | std::ofstream::trunc);
+    makefile.open(path+"/Makefile_"+fileName, std::ofstream::out | std::ofstream::trunc);
     std::ofstream makefileNoPCM;
-    makefileNoPCM.open(path+"/Makefile_noPCM", std::ofstream::out | std::ofstream::trunc);
+    makefileNoPCM.open(path+"/Makefile_noPCM_"+fileName, std::ofstream::out | std::ofstream::trunc);
 
     std::string makefileTop = "BUILD_DIR=build\n"
                               "DEPENDS_DIR=./depends\n"
@@ -797,7 +807,8 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                                  "\n"
                                  "MAIN_FILE = benchmark_throughput_test.cpp\n"
                                  "LIB_SRCS = " + fileName + "_benchmark_driver.cpp\n"
-                                 "SYSTEM_SRC = " + fileName + ".c\n"
+                                 //"SYSTEM_SRC = " + fileName + ".c\n"
+                                 "SYSTEM_SRC = \n"
                                  "KERNEL_SRCS = " + fileName + "_benchmark_kernel.cpp\n"
                                  "KERNEL_NO_OPT_SRCS = \n"
                                  "\n"

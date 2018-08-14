@@ -51,8 +51,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName << "_benchmark_kernel.h" << std::endl;
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName << "_benchmark_kernel.cpp" << std::endl;
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName +"_benchmark_driver.cpp" << std::endl;
-    std::cout << "Emitting Makefile: " << outputDir << "/Makefile" << std::endl;
-    std::cout << "Emitting Makefile: " << outputDir << "/Makefile_noPCM" << std::endl;
+    std::cout << "Emitting Makefile: " << outputDir << "/Makefile_" << designName << std::endl;
+    std::cout << "Emitting Makefile: " << outputDir << "/Makefile_noPCM_" << designName << std::endl;
 
     design->emitSingleThreadedC(outputDir, designName, designName);
 
