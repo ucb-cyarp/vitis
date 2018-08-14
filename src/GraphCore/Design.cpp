@@ -471,7 +471,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
-    headerFile << "#inclide <thread.h>" << std::endl;
+    headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
     headerFile << outputTypeDefn << std::endl;
