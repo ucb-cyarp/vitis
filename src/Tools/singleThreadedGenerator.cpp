@@ -48,6 +48,9 @@ int main(int argc, char* argv[]) {
     //Emit C
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
+    std::cout << "Emitting CPP File: " << outputDir << "/" << designName +"_benchmark_driver.cpp" << std::endl;
+    std::cout << "Emitting Makefile: " << outputDir << "/Makefile" << std::endl;
+    std::cout << "Emitting Makefile: " << outputDir << "/Makefile_noPCM" << std::endl;
 
     design->emitSingleThreadedC(outputDir, designName, designName);
 

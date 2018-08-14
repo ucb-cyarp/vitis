@@ -636,7 +636,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     //Emit Driver File
     std::ofstream benchDriver;
-    benchDriver.open(path+"/"+fileName+"_benchmark_driver"+".cpp", std::ofstream::out | std::ofstream::trunc);
+    benchDriver.open(path+"/"+fileName+"_benchmark_driver.cpp", std::ofstream::out | std::ofstream::trunc);
 
     benchDriver << "#include \"" << fileName << ".h" << "\"" << std::endl;
     benchDriver << "#include <map>" << std::endl;
