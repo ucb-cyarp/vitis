@@ -886,7 +886,7 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     }
     fctnCall += "out+i, &outputCount)";
 
-    benchKernelMem << "#include \"" << fileName << ".c" << "\" \\\\Entire function is included to allow inlining" << std::endl;
+    benchKernelMem << "#include \"" << fileName << ".c" << "\" //Entire function is included to allow inlining" << std::endl;
     benchKernelMem << "#include \"" << fileName << "_benchmark_kernel_mem.h" << "\"" << std::endl;
     benchKernelMem << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchKernelMem << "void bench_"+fileName+"_mem(InputType* in, OutputType* out)\n"
