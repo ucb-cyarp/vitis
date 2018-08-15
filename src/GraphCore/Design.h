@@ -248,6 +248,39 @@ public:
      * @param designName The name of the design (used as the function name)
      */
     void emitSingleThreadedC(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Emits the benchmarking drivers for the design
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName base name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Emits the benchmarking drivers (constant arguments) for the design
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName base name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Emits the benchmarking drivers (memory arguments) for the design
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName base name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName);
 };
 
 /*@}*/
