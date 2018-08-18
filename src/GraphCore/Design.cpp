@@ -416,22 +416,22 @@ std::string Design::getCFunctionArgPrototype() {
     if(numInputVars>0){
         Variable var = inputVars[0];
 
-        prototype += var.getCVarDecl(false);
+        prototype += "const " + var.getCVarDecl(false);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", " + var.getCVarDecl(true, true);
+            prototype += ", const " + var.getCVarDecl(true, true);
         }
     }
 
     for(unsigned long i = 1; i<numInputVars; i++){
         Variable var = inputVars[i];
 
-        prototype += ", " + var.getCVarDecl(false);
+        prototype += ", const " + var.getCVarDecl(false);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", " + var.getCVarDecl(true);
+            prototype += ", const " + var.getCVarDecl(true);
         }
     }
 
@@ -516,9 +516,43 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
+    //Output the Function Definition
     headerFile << outputTypeDefn << std::endl;
     headerFile << std::endl;
     headerFile << fctnProto << ";" << std::endl;
+
+    //Output the reset function definition
+    headerFile << "void " << designName << "_reset();" << std::endl;
+    headerFile << std::endl;
+
+    headerFile << "//==== State Variable Definitions ====" << std::endl;
+    //We also need to declare the state variables here as extern;
+
+    //Find nodes with state
+    std::vector<std::shared_ptr<Node>> nodesWithState;
+    unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
+
+    for(unsigned long i = 0; i<numNodes; i++) {
+        if (nodes[i]->hasState()) {
+            nodesWithState.push_back(nodes[i]);
+        }
+    }
+
+    //Emit Definition
+    unsigned long nodesWithStateCount = nodesWithState.size();
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+        //Emit State Vars
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++){
+            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            headerFile << "extern " << stateVars[j].getCVarDecl(false, true, false) << ";" << std::endl;
+
+            if(stateVars[j].getDataType().isComplex()){
+                headerFile << stateVars[j].getCVarDecl(true, true, false) << ";" << std::endl;
+            }
+        }
+    }
 
     headerFile << "#endif" << std::endl;
 
@@ -531,30 +565,27 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
     cFile << std::endl;
 
-    cFile << fctnProto << "{" << std::endl;
-
     //Find nodes with state & Emit state variable declarations
-    cFile << "//==== Declare State Vars ====" << std::endl;
-    std::vector<std::shared_ptr<Node>> nodesWithState;
-    unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
+    cFile << "//==== Init State Vars ====" << std::endl;
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+        //Emit State Vars
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++){
+            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            cFile << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
 
-    for(unsigned long i = 0; i<numNodes; i++){
-        if(nodes[i]->hasState()){
-            nodesWithState.push_back(nodes[i]);
-
-            std::vector<Variable> stateVars = nodes[i]->getCStateVars();
-            //Emit State Vars
-            unsigned long numStateVars = stateVars.size();
-            for(unsigned long j = 0; j<numStateVars; j++){
-                //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-                cFile << "static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-
-                if(stateVars[j].getDataType().isComplex()){
-                    cFile << stateVars[j].getCVarDecl(true, true, true) << ";" << std::endl;
-                }
+            if(stateVars[j].getDataType().isComplex()){
+                cFile << stateVars[j].getCVarDecl(true, true, true) << ";" << std::endl;
             }
         }
     }
+
+    cFile << std::endl;
+
+    cFile << "//==== Functions ====" << std::endl;
+
+    cFile << fctnProto << "{" << std::endl;
 
     //Assign each of the outputs (and emit any expressions that preceed it
     cFile << std::endl << "//==== Compute Outputs ====" << std::endl;
@@ -617,6 +648,41 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     cFile << std::endl << "//==== Return Number Outputs Generated ====" << std::endl;
     cFile << "*outputCount = 1;" << std::endl;
+
+    cFile << "}" << std::endl;
+
+    cFile << std::endl;
+
+    cFile << "void " << designName << "_reset(){" << std::endl;
+    cFile << "//==== Reset State Vars ====" << std::endl;
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+        //Emit State Vars
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++){
+            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            DataType initDataType = stateVars[j].getDataType();
+            std::vector<NumericValue> initVals = stateVars[j].getInitValue();
+            unsigned long initValsLen = initVals.size();
+            if(initValsLen == 1){
+                cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
+            }else{
+                for(unsigned long k = 0; k < initValsLen; k++){
+                    cFile << stateVars[j].getCVarName(false) << "[" << k << "] = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
+                }
+            }
+
+            if(stateVars[j].getDataType().isComplex()){
+                if(initValsLen == 1){
+                    cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
+                }else{
+                    for(unsigned long k = 0; k < initValsLen; k++){
+                        cFile << stateVars[j].getCVarName(true) << "[" << k << "] = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
+                    }
+                }
+            }
+        }
+    }
 
     cFile << "}" << std::endl;
 
