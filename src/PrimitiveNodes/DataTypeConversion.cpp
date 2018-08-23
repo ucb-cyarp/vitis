@@ -147,13 +147,13 @@ std::string DataTypeConversion::labelStr() {
 
 void DataTypeConversion::propagateProperties() {
     if(getOutputPorts().size() < 1){
-        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Ports");
+        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Ports (" + name + ")");
     }
 
     std::shared_ptr<OutputPort> output = getOutputPort(0);
 
-    if(output->getArcs().size()){
-        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Arcs");
+    if(output->getArcs().size() < 1){
+        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Arcs (" + name + ")");
     }
 
     //Have a valid arc
@@ -193,5 +193,47 @@ void DataTypeConversion::validate() {
 
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - DataTypeConversion - Should Have Exactly 1 Output Port");
+    }
+}
+
+CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getInputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //TODO: Implement Fixed Point Support
+    if((!getInputPort(0)->getDataType().isCPUType()) || (!getOutputPort(0)->getDataType().isCPUType())) {
+        throw std::runtime_error(
+                "C Emit Error - DataType Conversion to/from Fixed Point Types has Not Yet Been Implemented");
+    }
+
+    //Get the Expression for the input (should only be 1)
+    std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
+    int srcOutputPortNum = srcOutputPort->getPortNum();
+    std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+    std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+
+    //Type Conversion logic
+    DataType tgtType;
+
+    if(inheritType == DataTypeConversion::InheritType::SPECIFIED){
+        tgtType = tgtDataType;
+    }else if(inheritType == DataTypeConversion::InheritType::INHERIT_FROM_OUTPUT){
+        tgtType = getOutputPort(0)->getDataType();
+    }
+
+    DataType srcType = getInputPort(0)->getDataType();
+
+
+    if(tgtType == srcType){
+        //Just return the input expression, no conversion required.
+        return CExpr(inputExpr, false);
+    }else{
+        //Perform the cast
+        //TODO: Implement Fixed Point Support
+
+        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + ")" ;
+        return CExpr(outputExpr, false);
     }
 }

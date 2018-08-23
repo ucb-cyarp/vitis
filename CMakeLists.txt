@@ -122,6 +122,10 @@ set(COMMON_SRCS
         src/MediumLevelNodes/ThresholdSwitch.h
         src/MediumLevelNodes/SimulinkMultiPortSwitch.cpp
         src/MediumLevelNodes/SimulinkMultiPortSwitch.h
+        src/HighLevelNodes/HighLevelNode.cpp
+        src/HighLevelNodes/HighLevelNode.h
+        src/HighLevelNodes/DiscreteFIR.cpp
+        src/HighLevelNodes/DiscreteFIR.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp

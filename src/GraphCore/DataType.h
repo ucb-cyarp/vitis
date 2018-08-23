@@ -91,6 +91,22 @@ public:
     DataType getCPUStorageType();
 
     /**
+     * @brief Checks if the type is a standard C/C++ CPU type.
+     *
+     * Standard Types include
+     *   * bool
+     *   * (u)int8_t
+     *   * (u)int16_t
+     *   * (u)int32_t
+     *   * (u)int64_t
+     *   * float
+     *   * double
+     *
+     * @return true if a standard CPU type, false otherwise
+     */
+    bool isCPUType();
+
+    /**
      * @brief Returns the C code required to convert an expression of one datatype to another datatype
      * @param expr expression to convert
      * @param oldType the origional type of the expression

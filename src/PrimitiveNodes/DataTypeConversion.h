@@ -96,6 +96,13 @@ public:
      */
     void validate() override;
 
+    /**
+     * @brief Emits type conversion logic.
+     *
+     * If no type conversion is required (input and target types are the same), no type conversion logic is returned.
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+
 };
 
 /*@}*/

@@ -36,7 +36,7 @@ protected:
     explicit MediumLevelNode(std::shared_ptr<SubSystem> parent);
 
 public:
-    //Primitive nodes can be expanded
+    //Medium level nodes can be expanded
     bool canExpand() override;
 };
 

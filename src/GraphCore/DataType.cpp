@@ -411,3 +411,24 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
         //Converting to/from Integer or Fixed Point
     }
 }
+
+bool DataType::isCPUType(){
+    //Check if floating pt
+    if(floatingPt){
+        return totalBits == 32 || totalBits == 64;
+    }
+
+    //Check if any fractional bits
+    if(fractionalBits > 0){
+        return false;
+    }
+
+    //Check for signed bool
+    if(signedType && totalBits == 1){
+        return false; //sfix1_0 is not a standard CPU type
+    }
+
+    //Check for int type
+    return totalBits == 1 || totalBits == 8 || totalBits == 16 || totalBits == 32 || totalBits == 64;
+
+}

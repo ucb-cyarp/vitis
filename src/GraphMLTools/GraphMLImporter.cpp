@@ -27,6 +27,7 @@
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
 #include "MediumLevelNodes/SimulinkMultiPortSwitch.h"
+#include "HighLevelNodes/DiscreteFIR.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
 #include "BusNodes/VectorFanOut.h"
@@ -598,6 +599,14 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             expandedNode->setName(name);
         }
 
+        //Add node to design
+        design.addNode(expandedNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(expandedNode);
+        }
+        //Add to map
+        nodeMap[fullNodeID]=expandedNode;
+
         //Iterate through the children
         //Traverse the children in the subgraph
         if(subgraph != nullptr)
@@ -890,6 +899,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = ThresholdSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "SimulinkMultiPortSwitch" || blockFunction == "MultiPortSwitch"){ //Vitis name is SimulinkMultiPortSwitch, Simulink name is MultiPortSwitch
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DiscreteFIR" || blockFunction == "DiscreteFir"){ //Vitis name is DiscreteFIR, Simulink name is DiscreteFir
+        newNode = DiscreteFIR::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
