@@ -344,7 +344,7 @@ OutDataTypeStr: double
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1506,11 +1506,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_1_Product
 ID: n12::n75
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1535,11 +1535,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_2_Product
 ID: n12::n77
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1564,11 +1564,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_3_Product
 ID: n12::n79
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1593,11 +1593,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_4_Product
 ID: n12::n81
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1732,11 +1732,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_1_Product
 ID: n13::n88
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1761,11 +1761,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_2_Product
 ID: n13::n90
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1790,11 +1790,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_3_Product
 ID: n13::n92
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1819,11 +1819,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_4_Product
 ID: n13::n94
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2050,11 +2050,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit1_Expanded_1_Product
 ID: n14::n106
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2191,11 +2191,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_1_Product
 ID: n15::n112
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2220,11 +2220,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_2_Product
 ID: n15::n114
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2249,11 +2249,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_3_Product
 ID: n15::n116
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2278,11 +2278,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_4_Product
 ID: n15::n118
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
-					<data key="Inputs">*</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>

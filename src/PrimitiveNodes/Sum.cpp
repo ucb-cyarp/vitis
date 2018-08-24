@@ -137,6 +137,10 @@ void Sum::validate() {
             throw std::runtime_error("Validation Failed - Sum - An Input Port is Complex but Output is Real");
         }
     }
+
+    if(inputSign.size() != inputPorts.size()){
+        throw std::runtime_error("Validation Failed - Sum - The number of signs (" + std::to_string(inputSign.size()) + ") does not match the number of inputs (" + std::to_string(inputPorts.size()) + ")");
+    }
 }
 
 CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {

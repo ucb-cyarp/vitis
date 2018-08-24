@@ -69,7 +69,7 @@ DataTypeConversion::createFromGraphML(int id, std::string name, std::map<std::st
 
         //Get the datatype str if the inheritType is SPECIFIED
         if(inheritTypeParsed == InheritType::SPECIFIED){
-            std::string datatypeStr = dataKeyValueMap.at("TgtDataType");
+            datatypeStr = dataKeyValueMap.at("TgtDataType");
         }
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //Simulink Names -- OutDataTypeStr

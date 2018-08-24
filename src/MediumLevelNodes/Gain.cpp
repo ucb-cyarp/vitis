@@ -140,6 +140,7 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     //++++ Create Multiply Block and Rewire ++++
     std::shared_ptr<Product> multiplyNode = NodeFactory::createNode<Product>(thisParent);
     multiplyNode->setName("Multiply");
+    multiplyNode->setInputOp({true, true}); //This is a multiply for 2 inputs
     new_nodes.push_back(multiplyNode);
 
     std::shared_ptr<Arc> inputArc = *(inputPorts[0]->getArcs().begin());

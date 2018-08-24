@@ -138,6 +138,10 @@ void Product::validate() {
             throw std::runtime_error("Validation Failed - Product - An Input Port is Complex but Output is Real");
         }
     }
+
+    if(inputOp.size() != inputPorts.size()){
+        throw std::runtime_error("Validation Failed - Product - The number of operators (" + std::to_string(inputOp.size()) + ") does not match the number of inputs (" + std::to_string(inputPorts.size()) + ")");
+    }
 }
 
 CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {

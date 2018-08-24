@@ -247,7 +247,7 @@ if coefWidth == 1
         product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Product', 1);
         product_node.simulinkBlockType = 'Product';
         product_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
-        product_node.dialogProperties('Inputs') = '*';
+        product_node.dialogProperties('Inputs') = '**';
         if product_use_specific_datatype
             product_node.dialogProperties('OutDataTypeStr') = product_data_type;
         else
@@ -349,7 +349,7 @@ if coefWidth == 1
         out_dtc_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'OutTypeConversion', 1);
         out_dtc_node.simulinkBlockType = 'DataTypeConversion';
         out_dtc_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
-        out_dtc_node.dialogProperties('Inputs') = '*';
+        out_dtc_node.dialogProperties('Inputs') = '**';
         out_dtc_node.dialogProperties('OutDataTypeStr') = out_data_type;
         expanded_nodes = [expanded_nodes, out_dtc_node];
         
@@ -417,7 +417,7 @@ else
                 product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Product', i);
                 product_node.simulinkBlockType = 'Product';
                 %Currently, only handling numerics
-                product_node.dialogProperties('Inputs') = '*';
+                product_node.dialogProperties('Inputs') = '**';
                 product_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 if product_use_specific_datatype
                     product_node.dialogProperties('OutDataTypeStr') = product_data_type;
@@ -732,7 +732,7 @@ else
                 product_node = GraphNode.createExpandNodeNoSimulinkParams(firNode, 'Standard', 'Product', i);
                 product_node.simulinkBlockType = 'Product';
                 %Currently, only handling numerics
-                product_node.dialogProperties('Inputs') = '*';
+                product_node.dialogProperties('Inputs') = '**';
                 product_node.dialogPropertiesNumeric('SampleTime') = -1; % Copy from orig
                 if product_use_specific_datatype
                     product_node.dialogProperties('OutDataTypeStr') = product_data_type;

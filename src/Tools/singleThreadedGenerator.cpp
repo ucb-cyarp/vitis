@@ -39,7 +39,12 @@ int main(int argc, char* argv[]) {
     }
 
     //Expand the design to primitives
-    design->expandToPrimitive();
+    try{
+        design->expandToPrimitive();
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
     //Assign node and arc IDs (needed for expanded nodes)
     design->assignNodeIDs();
@@ -48,6 +53,14 @@ int main(int argc, char* argv[]) {
     //Emit C
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
+
+    try{
+        design->emitSingleThreadedC(outputDir, designName, designName);
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName << "_benchmark_kernel.h" << std::endl;
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName << "_benchmark_kernel.cpp" << std::endl;
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName +"_benchmark_driver.cpp" << std::endl;
@@ -60,8 +73,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Emitting Makefile: " << outputDir << "/Makefile_" << designName << "_mem" << std::endl;
     std::cout << "Emitting Makefile: " << outputDir << "/Makefile_noPCM_" << designName << "_const_mem" << std::endl;
 
-    design->emitSingleThreadedC(outputDir, designName, designName);
-    design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
+    try{
+        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }
