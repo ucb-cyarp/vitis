@@ -6,6 +6,7 @@
 #include "Variable.h"
 #include <stdexcept>
 #include <iostream>
+#include <algorithm>
 
 Variable::Variable() : name("") {
 
@@ -24,7 +25,13 @@ std::string Variable::getCVarName(bool imag) {
         throw std::runtime_error("Trying to generate imaginary component declaration for DataType that is not complex");
     }
 
-    return name + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
+    std::string nameReplaceSpace = name;
+
+    //Replace spaces with underscores
+    //shortcut for doing this from https://stackoverflow.com/questions/2896600/how-to-replace-all-occurrences-of-a-character-in-string
+    std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), ' ', '_');
+
+    return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
 std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit) {
