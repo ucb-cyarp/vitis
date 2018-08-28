@@ -102,7 +102,15 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
     newNode->setCoefs(coefs);
 
     //Get init vals
-    std::string initValStr = dataKeyValueMap.at("InitialStates");
+    std::string initValStr;
+    if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+        initValStr = dataKeyValueMap.at("Numeric.InitialStates");
+    }else if(dialect == GraphMLDialect::VITIS){
+        initValStr = dataKeyValueMap.at("InitialStates");
+    }else{
+        throw std::runtime_error("Unknown GraphML Dialect");
+    }
+
     std::vector<NumericValue> initVals = NumericValue::parseXMLString(initValStr);
 
     newNode->setInitVals(initVals);
