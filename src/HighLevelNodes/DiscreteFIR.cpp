@@ -78,6 +78,8 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
         }
     }else if(dialect == GraphMLDialect::VITIS){
         coefSource = parseCoefSourceStr(coefSourceStr);
+    }else{
+        throw std::runtime_error("Unknown GraphML Dialect");
     }
 
     newNode->setCoefSource(coefSource);
@@ -85,7 +87,15 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
     //Get Coefs
     std::vector<NumericValue> coefs;
     if(coefSource == CoefSource::FIXED){
-        std::string coefStr = dataKeyValueMap.at("Coefficients");
+        std::string coefStr;
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+            coefStr = dataKeyValueMap.at("Numeric.Coefficients");
+        }else if(dialect == GraphMLDialect::VITIS){
+            coefStr = dataKeyValueMap.at("Coefficients");
+        }else{
+            throw std::runtime_error("Unknown GraphML Dialect");
+        }
+
         coefs = NumericValue::parseXMLString(coefStr);
     }
 

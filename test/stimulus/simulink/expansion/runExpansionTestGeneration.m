@@ -7,3 +7,6 @@ simulink_to_graphml('expansionTests', 'expansionTests/FIRExpansion',            
 simulink_to_graphml('expansionTests', 'expansionTests/TappedDelayExpansion',      'TappedDelayExpansion.graphml')
 simulink_to_graphml('expansionTests', 'expansionTests/VecConcatAndSelect',        'VecConcatAndSelect.graphml')
 simulink_to_graphml('firBench',       'firBench/FIR Real Bench',                  'FIRRealBench.graphml')
+simulink_to_graphml('firBench',       'firBench/FIR Real Bench DirectForm',       'FIRRealBenchDirectForm.graphml')
+simulink_to_graphml('firBench',       'firBench/FIR Real Bench All Distinct',     'FIRRealBenchAllDistinct.graphml')
+simulink_to_graphml('firBench',       'firBench/FIR Real Bench Large',            'FIRRealBenchLarge.graphml')
