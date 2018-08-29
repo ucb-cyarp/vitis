@@ -38,6 +38,7 @@ public:
      * @brief Methods for dealing with inputs outside of breakpoint range
      */
     enum class ExtrapMethod{
+        NO_CHECK, ///< no extrapolation, does not check for out of bound array indexes.  May result in memory access exceptions or undefined behavior if an out of bound index is supplied
         CLIP, ///< no extrapolation, returns end of range
         LINEAR, ///< linear extrapolation between outer pair of breakpoints
         CUBIC_SPLINE ///< cubic spline extrapolation between outer pair of breakpoints
@@ -69,6 +70,8 @@ private:
     InterpMethod interpMethod; ///<The method for dealing with inputs between breakpoints
     ExtrapMethod extrapMethod; ///<The method for dealing with inputs outside of breakpoint range
     SearchMethod searchMethod; ///<The method to search through the LUT
+
+    bool emittedIndexCalculation; ///<Used by the emitter to determine if the index calculation has already been emitted.  Used when the output is complex to avoid re-computing index.
 
     //TODO:implement N-D LUTs, currently only support 1D.  Need to modify Matlab script to output array as 1D row major
 
@@ -127,6 +130,25 @@ public:
     std::string labelStr() override ;
 
     void validate() override;
+
+    /**
+     * @brief Declares the LUT array as a global constant array
+     *
+     * Table name has the form <nodeName>_n<NodeID>_table_<re/im>;
+     *
+     * @return The C style declaration of the LUT table as a constant, global, array
+     */
+    std::string getGlobalDecl() override;
+
+    /**
+     * @brief Emits the LUT lookup code.
+     *
+     * This code references the constant arrays declared as globals
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+
+    bool hasInternalFanout(int inputPort, bool imag) override;
+
 };
 
 /*@}*/

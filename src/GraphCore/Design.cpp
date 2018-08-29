@@ -525,18 +525,22 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << "void " << designName << "_reset();" << std::endl;
     headerFile << std::endl;
 
-    headerFile << "//==== State Variable Definitions ====" << std::endl;
-    //We also need to declare the state variables here as extern;
-
-    //Find nodes with state
+    //Find nodes with state & global decls
     std::vector<std::shared_ptr<Node>> nodesWithState;
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
     unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
 
     for(unsigned long i = 0; i<numNodes; i++) {
         if (nodes[i]->hasState()) {
             nodesWithState.push_back(nodes[i]);
         }
+        if (nodes[i]->hasGlobalDecl()) {
+            nodesWithGlobalDecl.push_back(nodes[i]);
+        }
     }
+
+    headerFile << "//==== State Variable Definitions ====" << std::endl;
+    //We also need to declare the state variables here as extern;
 
     //Emit Definition
     unsigned long nodesWithStateCount = nodesWithState.size();
@@ -552,6 +556,14 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                 headerFile << stateVars[j].getCVarDecl(true, true, false) << ";" << std::endl;
             }
         }
+    }
+
+    headerFile << std::endl;
+
+    headerFile << "//==== Global Declarations ====" << std::endl;
+    unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
+    for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
+        headerFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
     }
 
     headerFile << "#endif" << std::endl;

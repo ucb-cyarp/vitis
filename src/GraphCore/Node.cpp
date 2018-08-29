@@ -372,6 +372,11 @@ bool Node::hasState() {
     return false;
 }
 
+bool Node::hasGlobalDecl(){
+    //Default is to return false
+    return false;
+}
+
 bool Node::hasInternalFanout(int inputPort, bool imag){
     //Default is to check if that port has a width >1.  If so, internal fanout is assumed.
 
@@ -387,4 +392,9 @@ std::vector<Variable> Node::getCStateVars() {
 
 void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
     //Default behavior is no action
+}
+
+std::string Node::getGlobalDecl(){
+    //Default is to return ""
+    return "";
 }

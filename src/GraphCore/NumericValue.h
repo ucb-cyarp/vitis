@@ -91,6 +91,7 @@ public:
     /**
      * @brief Returns the real or imagionary component of the numeric value as a string.  The component is converted to the target data type
      * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @param typeToConvertTo The datatype to convert the numeric value to
      * @return string representation of the real or imagionary component of the numeric value
      */
     std::string toStringComponent(bool imag, DataType typeToConvertTo);
@@ -101,9 +102,29 @@ public:
      * Has the form "[vector[0], vector[1], ...]"
      *
      * @param vector vector to construct string from
+     * @param startStr the string used to start the returned string
+     * @param endStr the string used to end the returned string
+     * @param delimStr the string used as the deliminator between items in the returned string
      * @return string representation of vector
      */
-    static std::string toString(std::vector<NumericValue> vector);
+    static std::string toString(std::vector<NumericValue> vector, std::string startStr = "[", std::string endStr = "]", std::string delimStr = ", ");
+
+    /**
+     * @brief Constructs a string from an array of numeric values.
+     *
+     * It uses the @ref toStringComponent method to print the numeric value
+     *
+     * Has the form "[vector[0], vector[1], ...]"
+     *
+     * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @param typeToConvertTo The datatype to convert the numeric value to
+     * @param vector vector to construct string from
+     * @param startStr the string used to start the returned string
+     * @param endStr the string used to end the returned string
+     * @param delimStr the string used as the deliminator between items in the returned string
+     * @return string representation of vector
+     */
+    static std::string toStringComponent(bool imag, DataType typeToConvertTo, std::vector<NumericValue> vector, std::string startStr = "[", std::string endStr = "]", std::string delimStr = ", ");
 
     /*
      * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype

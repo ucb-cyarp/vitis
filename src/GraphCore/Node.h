@@ -370,6 +370,17 @@ public:
     virtual bool hasState();
 
     /**
+     * @brief Identifies if the node requires a global declaration.
+     *
+     * Examples of requiring global declarations include declaring constant values or constant arrays
+     *
+     * This function is called by the emitter to determine if global declarations are required
+     *
+     * @return true if the node requires an global declaration, false if it does not
+     */
+    virtual bool hasGlobalDecl();
+
+    /**
      * @brief Get a list of state variables used by this node which must be declared by the emitter as thread local
      *
      * If the node has multiple output ports, this function checks which ports are connected to the Unconnected Master
@@ -381,6 +392,15 @@ public:
      * @return a list of state variables used by this node
      */
     virtual std::vector<Variable> getCStateVars();
+
+    /**
+     * @brief Get the global declaration(s) required by the node
+     *
+     * Use @ref hasGlobalDecl to determine if a node requires global declaration(s)
+     *
+     * @return The global declaration(s) required by the node as a string
+     */
+    virtual std::string getGlobalDecl();
 
     /**
      * @brief Emits the C code to update the state varibles of this node.

@@ -437,8 +437,8 @@ std::ostream &operator<<(std::ostream &os, const NumericValue &value) {
     return os;
 }
 
-std::string NumericValue::toString(std::vector<NumericValue> vector) {
-    std::string val = "[";
+std::string NumericValue::toString(std::vector<NumericValue> vector, std::string startStr, std::string endStr, std::string delimStr) {
+    std::string val = startStr;
 
     //insert 1st element if it exists
     if(!vector.empty()){
@@ -448,13 +448,33 @@ std::string NumericValue::toString(std::vector<NumericValue> vector) {
     unsigned long vectorLen = vector.size();
 
     for(unsigned long i = 1; i < vectorLen; i++){
-       val += ", " + vector[i].toString();
+       val += delimStr + vector[i].toString();
     }
 
-    val += "]";
+    val += endStr;
 
     return val;
 }
+
+std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo, std::vector<NumericValue> vector, std::string startStr, std::string endStr, std::string delimStr){
+    std::string val = startStr;
+
+    //insert 1st element if it exists
+    if(!vector.empty()){
+        val += vector[0].toString();
+    }
+
+    unsigned long vectorLen = vector.size();
+
+    for(unsigned long i = 1; i < vectorLen; i++){
+        val += delimStr + vector[i].toStringComponent(imag, typeToConvertTo);
+    }
+
+    val += endStr;
+
+    return val;
+}
+
 
 bool NumericValue::isSigned() {
     if(fractional){
