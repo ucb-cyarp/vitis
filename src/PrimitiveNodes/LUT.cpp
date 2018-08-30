@@ -410,6 +410,10 @@ LUT::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool
     return thisNode;
 }
 
+bool LUT::hasGlobalDecl(){
+    return true;
+}
+
 std::string LUT::getGlobalDecl(){
     //==== Emit the table as a constant global array ====
 
@@ -421,15 +425,15 @@ std::string LUT::getGlobalDecl(){
     //Get the variable name
     std::string varName = name+"_n"+std::to_string(id)+"_table";
 
-    std::string tableDecl = "const " + tableType.toString(DataType::StringStyle::C, false) + " " +
-                            varName + "_re[" + std::to_string(tableData.size()) + "] = " +
-                            NumericValue::toStringComponent(true, tableType, tableData, "{\n", "\n}", ",\n") + ";";
+    Variable tableVar = Variable(varName, tableType);
+
+    std::string tableDecl = "const " + tableVar.getCVarDecl(false, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
+                            NumericValue::toStringComponent(false, tableType, tableData, "{\n", "\n}", ",\n") + ";";
 
     //Emit an imagionary vector if the table is complex
     if(tableType.isComplex()){
-         tableDecl += "const " + tableType.toString(DataType::StringStyle::C, false) + " " +
-                      varName + "_im[" + std::to_string(tableData.size()) + "] = " +
-                      NumericValue::toStringComponent(false, tableType, tableData, "{\n", "\n}", ",\n") + ";";
+         tableDecl += "const " + tableVar.getCVarDecl(true, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
+                      NumericValue::toStringComponent(true, tableType, tableData, "{\n", "\n}", ",\n") + ";";
     }
 
     return tableDecl;
@@ -438,6 +442,7 @@ std::string LUT::getGlobalDecl(){
 CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
     //Emit the index calculation
     std::string indexName = name+"_n"+std::to_string(id)+"_index";
+    Variable indexVariable = Variable(indexName, DataType()); //The correct type will be set durring index calculation.  Type is not required for de-reference
 
     if(!emittedIndexCalculation) {
 
@@ -502,7 +507,6 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         unsigned long numBreakPoints = breakpoints[0].size();
 
         unsigned long bitsRequiredForIndex = GeneralHelper::numIntegerBits(numBreakPoints-1, false);
-        bitsRequiredForIndex = GeneralHelper::roundUpToCPUBits(bitsRequiredForIndex);
 
         DataType indexType;
         indexType.setComplex(false);
@@ -510,12 +514,14 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         indexType.setFractionalBits(0);
         indexType.setSignedType(false);
 
+        indexVariable.setDataType(indexType);
+
         double firstBreakpoint = (breakpoints[0])[0].isFractional() ? (breakpoints[0])[0].getComplexDouble().real() : (breakpoints[0])[0].getRealInt();
         double lastBreakpoint = (breakpoints[0])[numBreakPoints-1].isFractional() ? (breakpoints[0])[numBreakPoints-1].getComplexDouble().real() : (breakpoints[0])[numBreakPoints-1].getRealInt();
         double range = lastBreakpoint - firstBreakpoint;
         double breakpointStep = range/(numBreakPoints-1.0); //The range is divided by the number of intervals/steps
 
-        std::string indexDecl = indexType.toString(DataType::StringStyle::C, false) + " " + indexName + ";";
+        std::string indexDecl = indexVariable.getCVarDecl(false, false, false) + ";"; //Will output a standard CPU type automatically
 
         cStatementQueue.push_back(indexDecl);
 
@@ -523,7 +529,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
 
         if(inputType.isFloatingPt()){
             //Note that the first breakpoint and breakpointStep are doubles and should force promotion (they should be outputted with .00 if an integer)
-            indexExpr = "((" + inputExpr + ") - " + std::to_string(firstBreakpoint) + ")/(" + std::to_string(breakpointStep) + ")";
+            indexExpr = "((" + inputExpr + ") - (" + std::to_string(firstBreakpoint) + "))/(" + std::to_string(breakpointStep) + ")";
 
             //Round if nessisary
             if(interpMethod == InterpMethod::NEAREST){
@@ -533,13 +539,13 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
             }
 
             //Truncate
-            indexExpr = "((" + indexType.toString(DataType::StringStyle::C, false) + ")(" + indexExpr + "))";
+            indexExpr = "((" + indexType.getCPUStorageType().toString(DataType::StringStyle::C, false) + ")(" + indexExpr + "))";
 
         }else if((!inputType.isFloatingPt()) && (inputType.getFractionalBits()==0)){
             //This is an integer type
             //For now, we only support integer first breakpoints for integers
 
-            indexExpr = "(" + inputExpr + ") - " + std::to_string((breakpoints[0])[0].getRealInt());
+            indexExpr = "(" + inputExpr + ") - (" + std::to_string((breakpoints[0])[0].getRealInt()) + ")";
 
             if(breakpointStep<1){
                 double breakpointStepRecip = (numBreakPoints-1.0)/range;
@@ -574,7 +580,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
             }else{
                 boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getRealInt());
             }
-            boundCheckStr += "){\n" + indexName + " = ";
+            boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
                 boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getComplexDouble().real());
             }else{
@@ -587,33 +593,36 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
             }else{
                 boundCheckStr += std::to_string((breakpoints[0])[0].getRealInt());
             }
-            boundCheckStr += "){\n" + indexName + " = ";
+            boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
                 boundCheckStr += std::to_string((breakpoints[0])[0].getComplexDouble().real());
             }else{
                 boundCheckStr += std::to_string((breakpoints[0])[0].getRealInt());
             }
-            boundCheckStr += ";\n}else{\n" + indexName + " = " + indexExpr + ";\n}";
+            boundCheckStr += ";\n}else{\n" + indexVariable.getCVarName(false) + " = " + indexExpr + ";\n}";
 
             cStatementQueue.push_back(boundCheckStr);
 
         }else if(extrapMethod != ExtrapMethod::NO_CHECK){
             throw std::runtime_error("Emit Failed - LUT - Currently only supports the clip and \"no check\" extrapolation methods");
         }else{
-            cStatementQueue.push_back(indexName + " = " + indexExpr + ";");
+            cStatementQueue.push_back(indexVariable.getCVarName(false) + " = " + indexExpr + ";");
         }
 
         emittedIndexCalculation = true;
     }
 
+    //Need to re-create
+
     //Emit the array dereference
     std::string tablePrefix = name+"_n"+std::to_string(id)+"_table";
+    Variable tableVar = Variable(tablePrefix, DataType());
 
     if(imag){
-        return CExpr(tablePrefix + "_im[" + indexName + "]", false);
+        return CExpr(tableVar.getCVarName(true) + "[" + indexVariable.getCVarName(false) + "]", false);
     }
     else{
-        return CExpr(tablePrefix + "_re[" + indexName + "]", false);
+        return CExpr(tableVar.getCVarName(false) + "[" + indexVariable.getCVarName(false) + "]", false);
     }
 }
 

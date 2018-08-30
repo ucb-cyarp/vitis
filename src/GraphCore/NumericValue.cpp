@@ -461,7 +461,7 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo,
 
     //insert 1st element if it exists
     if(!vector.empty()){
-        val += vector[0].toString();
+        val += vector[0].toStringComponent(imag, typeToConvertTo);
     }
 
     unsigned long vectorLen = vector.size();

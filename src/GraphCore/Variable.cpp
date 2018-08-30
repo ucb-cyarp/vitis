@@ -27,16 +27,28 @@ std::string Variable::getCVarName(bool imag) {
 
     std::string nameReplaceSpace = name;
 
+    if(name == ""){
+        nameReplaceSpace = "v";
+    }else if(isdigit(name[0])){
+        //Cannot start variable name with a digit
+        nameReplaceSpace = "_" + nameReplaceSpace;
+    }
+
     //Replace spaces with underscores
     //shortcut for doing this from https://stackoverflow.com/questions/2896600/how-to-replace-all-occurrences-of-a-character-in-string
     std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), ' ', '_');
+    std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), '\n', '_');
+    std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), '-', '_');
+
+
 
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
 std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit) {
 
-    std::string decl = dataType.getCPUStorageType().toString(DataType::StringStyle::C, includeWidth) + " " + getCVarName(imag);
+    DataType cpuStorageType = dataType.getCPUStorageType();
+    std::string decl = cpuStorageType.toString(DataType::StringStyle::C, includeWidth) + " " + getCVarName(imag);
 
     if(includeInit){
         if(initValue.size() == 0) {

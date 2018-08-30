@@ -346,7 +346,7 @@ bool DataType::isBool() {
 }
 
 DataType DataType::getCPUStorageType() {
-    if(floatingPt || (totalBits > 1 && fractionalBits == 0) || (totalBits == 1 && fractionalBits == 0 && !signedType)){
+    if(floatingPt || (totalBits == 1 && fractionalBits == 0 && !signedType)){
         DataType newType = *this;
         return newType; //Return a copy of this
     }else if(totalBits == 1 && fractionalBits == 0 && signedType){

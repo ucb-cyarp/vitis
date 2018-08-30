@@ -140,6 +140,8 @@ public:
      */
     std::string getGlobalDecl() override;
 
+    bool hasGlobalDecl() override;
+
     /**
      * @brief Emits the LUT lookup code.
      *
