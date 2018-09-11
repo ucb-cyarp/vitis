@@ -434,5 +434,11 @@ fprintf(graphml_filehandle, '</graphml>');
 
 fclose(graphml_filehandle);
 
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Finished GraphML Export ****');
+    disp(['[SimulinkToGraphML] Exported ' num2str(length(nodes)+5) ' Nodes']); %+5 for master nodes
+    disp(['[SimulinkToGraphML] Exported ' num2str(length(arcs)) ' Arcs']);
+end
+
 end
 
