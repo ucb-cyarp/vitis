@@ -51,7 +51,7 @@ ThresholdSwitch::createFromGraphML(int id, std::string name, std::map<std::strin
     } else if(dialect == GraphMLDialect::SIMULINK_EXPORT){
         //Simulink Names -- Threshold, Criteria
 
-        std::string compareOpStr = dataKeyValueMap.at("CompareOp");
+        std::string compareOpStr = dataKeyValueMap.at("Criteria");
         //Comparison notation is different for the switch
         if(compareOpStr == "u2 > Threshold"){
             compareOpVal = Compare::CompareOp::GT;
