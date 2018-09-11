@@ -61,7 +61,8 @@ bool DataType::operator==(const DataType &rhs) const {
            signedType == rhs.signedType &&
            complex == rhs.complex &&
            totalBits == rhs.totalBits &&
-           fractionalBits == rhs.fractionalBits;
+           fractionalBits == rhs.fractionalBits &&
+           width == rhs.width;
 }
 
 bool DataType::operator!=(const DataType &rhs) const {
