@@ -400,6 +400,13 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
            %emitSelfAndChildrenGraphml Writes GraphML entries for this
            %node and its children.  numTabs specifies the initial indent
            %(in hardtabs)
+           
+           global verbose;
+           
+           if verbose >= 2
+               disp(['[SimulinkToGraphML] Emitting Node: ' obj.getFullSimulinkPath()]);
+           end
+           
            if obj.isSubsystem()
                %Emit the entry for this node
                nodeIdPath = obj.getFullIDPath('::', 'n%d', false);
@@ -506,6 +513,8 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
             %does not already exist in the map.  Return either the new node
             %or the existing node in the map.
             
+            global verbose;
+            
             %Hierarchy parent node should be the handle to another
             %GraphNode
             
@@ -526,6 +535,10 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 PopulateNodeParametersFromSimulink(node, simulink_block_handle);
                 
                 node_created = true;
+                
+                if verbose >= 2
+                    disp(['[SimulinkToGraphML] Imported Node: ' node.getFullSimulinkPath()]);
+                end
             end
             
             %return the node
