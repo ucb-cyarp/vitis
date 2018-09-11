@@ -269,6 +269,14 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+
+%---- Logical Operator ----
+elseif strcmp(node.simulinkBlockType, 'Logic')
+    node.dialogPropertiesNumeric('Inputs') = GetParamEval(simulink_block_handle, 'Inputs');
+
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+
+    node.simulinkBlockType = 'Logic';
 end
 
 %TODO: More Blocks
