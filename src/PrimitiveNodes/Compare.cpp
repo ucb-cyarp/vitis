@@ -48,6 +48,11 @@ std::string Compare::compareOpToString(Compare::CompareOp op) {
     }
 }
 
+std::string Compare::compareOpToCString(Compare::CompareOp op) {
+    //The compareOpToString is already in the C style
+    return compareOpToString(op);
+}
+
 Compare::CompareOp Compare::getCompareOp() const {
     return compareOp;
 }
@@ -126,4 +131,62 @@ void Compare::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Compare - Should Have Exactly 1 Output Port");
     }
+
+    //Validate output port is bool
+
+    if(!(getOutputPort(0)->getDataType().isBool())){
+        throw std::runtime_error("Validation Failed - Compare - Output is not a bool");
+    }
+
+    if(getInputPort(0)->getDataType().isComplex()){
+        throw std::runtime_error("Validation Failed - Compare - Currently Do Not Support Comparision of Complex Inputs");
+    }
+
+    if(getInputPort(1)->getDataType().isComplex()){
+        throw std::runtime_error("Validation Failed - Compare - Currently Do Not Support Comparision of Complex Inputs");
+    }
+}
+
+CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getInputPort(0)->getDataType().getWidth()>1 || getInputPort(1)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Compare Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //Get the expressions for each input
+    std::vector<std::string> inputExprs;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+    }
+
+    //Will rely on automatic type promoition in C when performing comparisions unless fixed point type
+    //TODO: Implement Fixed point support
+    bool foundFixedPt = false;
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType portDataType = getInputPort(i)->getDataType();
+        if(portDataType.getFractionalBits() != 0){
+            foundFixedPt = true;
+        }
+    }
+
+    if(!foundFixedPt){
+        //Relying on C automatic type promotion for non fixed point types
+
+        std::string expr = "(" + inputExprs[0] + ") " + compareOpToCString(compareOp) + " (" + inputExprs[1] + ")";
+
+        return CExpr(expr, false);
+    }
+    else{
+        //TODO: Finish
+        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Compare");
+    }
+
+    return CExpr("", false);
 }

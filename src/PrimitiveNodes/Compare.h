@@ -55,6 +55,13 @@ public:
      */
     static std::string compareOpToString(CompareOp op);
 
+    /**
+     * @brief Get a C style string representation of the CompareOp
+     * @param op CompareOp to get a string representation of
+     * @return C style string representation of the CompareOp
+     */
+    static std::string compareOpToCString(CompareOp op);
+
 private:
     CompareOp compareOp;
 
@@ -104,6 +111,11 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    /**
+     * @brief Emits a C expression for the comparison
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
 
 };
 
