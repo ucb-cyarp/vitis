@@ -112,6 +112,12 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Compare.h
         src/PrimitiveNodes/LUT.cpp
         src/PrimitiveNodes/LUT.h
+        src/PrimitiveNodes/ComplexToRealImag.cpp
+        src/PrimitiveNodes/ComplexToRealImag.h
+        src/PrimitiveNodes/RealImagToComplex.cpp
+        src/PrimitiveNodes/RealImagToComplex.h
+        src/PrimitiveNodes/DataTypeDuplicate.cpp
+        src/PrimitiveNodes/DataTypeDuplicate.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp

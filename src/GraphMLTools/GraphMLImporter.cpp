@@ -23,6 +23,9 @@
 #include "PrimitiveNodes/DataTypeConversion.h"
 #include "PrimitiveNodes/Compare.h"
 #include "PrimitiveNodes/LUT.h"
+#include "PrimitiveNodes/ComplexToRealImag.h"
+#include "PrimitiveNodes/RealImagToComplex.h"
+#include "PrimitiveNodes/DataTypeDuplicate.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -901,6 +904,12 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DiscreteFIR" || blockFunction == "DiscreteFir"){ //Vitis name is DiscreteFIR, Simulink name is DiscreteFir
         newNode = DiscreteFIR::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "ComplexToRealImag"){
+        newNode = ComplexToRealImag::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "RealImagToComplex"){
+        newNode = RealImagToComplex::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DataTypeDuplicate"){
+        newNode = DataTypeDuplicate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
