@@ -433,9 +433,9 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
                 converted = "(" + converted + ")&" + std::to_string(mask);
             }
             //else, trunkation occured in conversion to CPU type
-
-            return converted;
         }
+
+        return converted;
     }
     else{
         //TODO: Finish
