@@ -118,6 +118,8 @@ set(COMMON_SRCS
         src/PrimitiveNodes/RealImagToComplex.h
         src/PrimitiveNodes/DataTypeDuplicate.cpp
         src/PrimitiveNodes/DataTypeDuplicate.h
+        src/PrimitiveNodes/LogicalOperator.cpp
+        src/PrimitiveNodes/LogicalOperator.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
