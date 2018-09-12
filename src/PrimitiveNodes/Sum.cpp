@@ -145,7 +145,7 @@ void Sum::validate() {
 
 CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
+    if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
     }
 
@@ -162,8 +162,12 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
     }
 
     //Check if any of the inputs are floating point & if so, find the largest
+    //Also check for any fixed point types.  Find the max integer type
     bool foundFloat = false;
     DataType largestFloat;
+    bool foundFixedPt = false;
+    bool foundInt = false;
+    DataType largestInt;
 
 
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -177,13 +181,34 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
                     largestFloat = portDataType;
                 }
             }
-
+        }else if(portDataType.getFractionalBits() != 0){
+            foundFixedPt = true;
+        }else{
+            if(foundInt == false){
+                largestInt = portDataType;
+                foundInt = true;
+            }else{
+                if(largestInt.getTotalBits() < portDataType.getTotalBits()){
+                    largestInt = portDataType;
+                }
+            }
         }
     }
 
-    if(foundFloat){
+    //TODO: Implement Fixed Point
+
+    if(!foundFixedPt){
+        DataType accumType;
+        if(foundFloat){
+            accumType = largestFloat; //Floating point types do not grow
+        }else{
+            //Integer
+            accumType = largestInt;
+            accumType.setTotalBits(accumType.getTotalBits()+numInputPorts-1); //Grow 1 bit per input.  Since this is a promotion, masking will not occur
+        }
+
         //floating point numbers
-        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), largestFloat);
+        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), accumType);
 
         if(!inputSign[0]){
             expr = "(-(" + expr + "))";
@@ -197,21 +222,16 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
             } else {
                 expr += "-";
             }
-            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), largestFloat) + ")";
+            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), accumType) + ")";
         }
 
-        expr = DataType::cConvertType(expr, largestFloat, getOutputPort(0)->getDataType());//Convert to output if nessisary
+        expr = DataType::cConvertType(expr, accumType, getOutputPort(0)->getDataType());//Convert to output if nessisary
 
         return CExpr(expr, false);
     }
     else{
-        //TODO: Implement > 2 Input Port Support
-        if(inputPorts.size() > 2){
-            throw std::runtime_error("C Emit Error - Sum Support for >2 Input Ports has Not Yet Been Implemented");
-        }
-
-        //TODO: Finish
-        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
+        //TODO: Fixed Point Support
+        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Sum");
     }
 
     return CExpr("", false);

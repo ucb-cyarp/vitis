@@ -110,11 +110,26 @@ public:
     static unsigned long roundUpToCPUBits(unsigned long bits);
 
     /**
+     * @brief Find if the number of bits corresponds to a standard CPU type
+     *
+     * @param bits The number of bits which need to be represented.
+     * @return true if the number of bits corresponds to a standard CPU type, false otherwise
+     */
+    static bool isStandardNumberOfCPUBits(unsigned long bits);
+
+    /**
      * @brief Converts an ASCII string to all upper case
      * @param str string to convert to upper case
      * @return all upper case case copy of the given string
      */
     static std::string toUpper(std::string str);
+
+    /**
+     * @brief Get 2^exp as an integer
+     * @param exp The exponent
+     * @return 2^exp as an integer
+     */
+    static unsigned long twoPow(unsigned long exp);
 };
 
 /*@}*/

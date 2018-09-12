@@ -78,6 +78,11 @@ unsigned long GeneralHelper::roundUpToCPUBits(unsigned long bits) {
     }
 }
 
+bool GeneralHelper::isStandardNumberOfCPUBits(unsigned long bits){
+    return bits == 1 || bits == 8 || bits == 16 || bits == 32 || bits == 64;
+
+}
+
 std::string GeneralHelper::toUpper(std::string str) {
     unsigned long strLen = str.length();
 
@@ -88,4 +93,9 @@ std::string GeneralHelper::toUpper(std::string str) {
     }
 
     return upperCaseStr;
+}
+
+unsigned long GeneralHelper::twoPow(unsigned long exp){
+    unsigned long tmp = 1;
+    return tmp << exp;
 }

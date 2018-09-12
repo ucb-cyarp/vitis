@@ -146,12 +146,12 @@ void Product::validate() {
 
 CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
+    if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Product Support for Vector Types has Not Yet Been Implemented");
     }
 
     //TODO: Implement Complex Support
-    if(getInputPort(0)->getDataType().isComplex() || getInputPort(1)->getDataType().isComplex()){
+    if(getOutputPort(0)->getDataType().isComplex() || getInputPort(1)->getDataType().isComplex()){
         throw std::runtime_error("C Emit Error - Product Support for Complex has Not Yet Been Implemented");
     }
 
@@ -168,8 +168,11 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
     }
 
     //Check if any of the inputs are floating point & if so, find the largest
+    //Also check for any fixed point types.  Find the integer final width
     bool foundFloat = false;
     DataType largestFloat;
+    bool foundFixedPt = false;
+    unsigned long intFinalWidth = 0;
 
 
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -183,16 +186,29 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
                     largestFloat = portDataType;
                 }
             }
-
+        }else if(portDataType.getFractionalBits() != 0){
+            foundFixedPt = true;
+        }else{
+            //Integer
+            intFinalWidth += portDataType.getTotalBits(); //For multiply, bit growth is the sum of
         }
     }
 
-    if(foundFloat){
+    if(!foundFixedPt){
+        DataType intermediateType;
+        if(foundFloat){
+            intermediateType = largestFloat; //Floating point types do not grow
+        }else{
+            //Integer
+            intermediateType = getInputPort(0)->getDataType(); //Get the base datatype of the 1st input to modify (we did not find a float or fixed pt so this is an int)
+            intermediateType.setTotalBits(intFinalWidth); //Since this is a promotion, masking will not occur in the datatype convert
+        };
+
         //floating point numbers
-        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), largestFloat);
+        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), intermediateType);
 
         if(!inputOp[0]){
-            expr = "(( (" + largestFloat.toString(DataType::StringStyle::C, false) + " ) 1.0)/(" + expr + "))";
+            expr = "(( (" + intermediateType.toString(DataType::StringStyle::C, false) + " ) 1.0)/(" + expr + "))";
         }else{
             expr = "(" + expr + ")";
         }
@@ -203,21 +219,16 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
             } else {
                 expr += "/";
             }
-            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), largestFloat) + ")";
+            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), intermediateType) + ")";
         }
 
-        expr = DataType::cConvertType(expr, largestFloat, getOutputPort(0)->getDataType());//Convert to output if nessisary
+        expr = DataType::cConvertType(expr, intermediateType, getOutputPort(0)->getDataType());//Convert to output if nessisary
 
         return CExpr(expr, false);
     }
     else{
-        //TODO: Implement > 2 Input Port Support
-        if(inputPorts.size() > 2){
-            throw std::runtime_error("C Emit Error - Product Support for >2 Input Ports has Not Yet Been Implemented");
-        }
-
         //TODO: Finish
-        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
+        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Product");
     }
 
     return CExpr("", false);

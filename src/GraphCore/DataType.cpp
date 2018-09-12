@@ -400,15 +400,46 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
             converted = expr;
         }
 
-        //TODO: Finish
-        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
-        //Convert to CPU type
+        DataType newCPUType = newType.getCPUStorageType();
+        converted = "((" + newCPUType.toString(StringStyle::C, false) + ") (" + converted + "))";
 
-        //Mask if orig type is not a CPU type
+        if(newType != newCPUType){
+            //The new type is not a CPU type, we need to mask
+            unsigned long mask = GeneralHelper::twoPow(newType.getTotalBits())-1;
+            converted = "(" + converted + ")&" + std::to_string(mask);
+        }
 
-    }else{
+        return converted;
+
+    }else if(oldType.getFractionalBits() == 0 & newType.getFractionalBits() == 0){
+        //Integer to integer conversion
+        std::string converted = "";
+
+        if(oldType.getTotalBits() <= newType.getTotalBits()){
+            //If this is a promotion, no masking is nessisary regardless of whether or not the newType is a CPU type or not
+            DataType newCPUType = newType.getCPUStorageType();
+
+            converted = "((" + newCPUType.toString(StringStyle::C, false) + ") (" + expr + "))";
+        }
+        else{
+            //This is a trunkation and may require masking
+            DataType newCPUType = newType.getCPUStorageType();
+
+            converted = "((" + newCPUType.toString(StringStyle::C, false) + ") (" + expr + "))";
+
+            if(newType != newCPUType){
+                //The newType was not a CPU type, trunkation required
+                unsigned long mask = GeneralHelper::twoPow(newType.getTotalBits())-1;
+                converted = "(" + converted + ")&" + std::to_string(mask);
+            }
+            //else, trunkation occured in conversion to CPU type
+
+            return converted;
+        }
+    }
+    else{
         //TODO: Finish
-        throw std::runtime_error("C Emit Error - Still Implemeting Convert");
+        throw std::runtime_error("C Emit Error - Fixed Point DataType Convert not Yet Implemented");
         //Converting to/from Integer or Fixed Point
     }
 }
