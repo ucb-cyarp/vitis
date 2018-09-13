@@ -434,10 +434,23 @@ fprintf(graphml_filehandle, '</graphml>');
 
 fclose(graphml_filehandle);
 
+%Report Export
+
 if verbose >= 1
     disp('[SimulinkToGraphML] **** Finished GraphML Export ****');
     disp(['[SimulinkToGraphML] Exported ' num2str(length(nodes)+5) ' Nodes']); %+5 for master nodes
     disp(['[SimulinkToGraphML] Exported ' num2str(length(arcs)) ' Arcs']);
+    
+    disp('[SimulinkToGraphML] Statistics:');
+    %Report Some Stats
+    countMap = GetNodeStatistics(nodes);
+    nodeTypes = sort(keys(countMap));
+    for i = 1:length(nodeTypes)
+       key = nodeTypes{i};
+       count = countMap(key);
+       
+       disp(sprintf('%s | Count: %6d', key, count));
+    end
 end
 
 end
