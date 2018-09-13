@@ -79,6 +79,13 @@ public:
 
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
 
+    /**
+     * @brief Constants do not need to check for fanout.  There is is no savings to storing the constant in a temporary variable if it is used
+     * more than once.  Putting the number directly in the code allows instructions with immediate operands to be used.
+     */
+    std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag, bool checkFanout, bool forceFanout) override;
+
+
 };
 
 /*@}*/

@@ -268,7 +268,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
     bool emittedBefore = imag ? outputPort->isCEmittedIm() : outputPort->isCEmittedRe();
 
     //If it has been emitted before and this function was called, then fanout has occurd, go directly to returning the tmp var name
-    if(emittedBefore){
+    if(emittedBefore && checkFanout){
         std::string varName = imag ? outputPort->getCEmitImStr() : outputPort->getCEmitReStr();
 
         if(varName.empty()){
