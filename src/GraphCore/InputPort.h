@@ -62,6 +62,13 @@ public:
      * @return A shared pointer to the output port
      */
     std::shared_ptr<OutputPort> getSrcOutputPort();
+
+    /**
+     * @brief Checks if this input port experiences internal fanout
+     * @param imag if true, check if the imagionary component has internal fanout, if false, check if the real component has internal fanout
+     * @return true if the input is internally fanned out, false otherwise
+     */
+    virtual bool hasInternalFanout(bool imag = false);
 };
 
 /*@}*/

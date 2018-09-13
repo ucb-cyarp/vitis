@@ -17,7 +17,7 @@
 /**
  * @brief Represents a Simulink Multi-port Switch
  *
- * This node is expanded to the standard Mux node.  To correct for Simulink's index starting from 1 if one ordering is specified
+ * This node is expanded to the standard Mux node.  Logic is included to correct for Simulink's index starting from 1 if "one ordering" is specified
  */
 class SimulinkMultiPortSwitch : public MediumLevelNode {
     friend NodeFactory;

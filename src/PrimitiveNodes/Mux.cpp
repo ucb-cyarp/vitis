@@ -5,12 +5,12 @@
 #include "Mux.h"
 #include <iostream>
 
-Mux::Mux() {
+Mux::Mux() : booleanSelect(false) {
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
 
-Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
+Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), booleanSelect(false) {
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
@@ -18,6 +18,14 @@ Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
 std::shared_ptr<SelectPort> Mux::getSelectorPort() const {
     //Selector port should never be null as it is creates by the Mux constructor and accessors to change it to null do not exist.
     return selectorPort->getSharedPointerSelectPort();
+}
+
+bool Mux::isBooleanSelect() const {
+    return booleanSelect;
+}
+
+void Mux::setBooleanSelect(bool booleanSelect) {
+    Mux::booleanSelect = booleanSelect;
 }
 
 std::shared_ptr<Mux>
@@ -109,4 +117,98 @@ void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
     //Set the dst port of the arc, updating the previous port and this one
     arc->setDstPortUpdateNewUpdatePrev(selectorPort->getSharedPointerInputPort());
 }
+
+bool Mux::hasInternalFanout(int inputPort, bool imag) {
+    return true;
+}
+
+CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+
+    if(getOutputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //Get the expression for the select line
+    std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
+    int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
+    std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
+
+    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, selectSrcOutputPortNum, imag);
+
+    //Get the expressions for each input
+    std::vector<std::string> inputExprs;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+    }
+
+    //Declare output tmp var
+    std::string outputVarName = name+"_n"+std::to_string(id)+"_out";
+    DataType outType = getOutputPort(0)->getDataType();
+    Variable outVar = Variable(outputVarName, outType);
+
+    //TODO: This function currently implements a seperate conditional for real and imag.  Merge them in a later version
+    //to do this, need to pull both real and imagionary components of each input, construct both, and emit.
+    //a state variable would be needed to determine that the mux had already been emitted when the other component's emit
+    //call is made (ie. if real emit is called first, imag emit should simply return the output var).
+    if(outType.isComplex()){
+        cStatementQueue.push_back(outVar.getCVarDecl(true, true, false));
+    }else{
+        cStatementQueue.push_back(outVar.getCVarDecl(false, true, false));
+    }
+
+    DataType selectDataType = getSelectorPort()->getDataType();
+    if(selectDataType.isBool()){
+        //if/else statement
+        std::string ifExpr = "if(" + selectExpr + "){";
+        cStatementQueue.push_back(ifExpr);
+
+        std::string trueAssign;
+        std::string falseAssign;
+        if(booleanSelect){
+            //In this case, port 0 is the true port and port 1 is the false port
+            trueAssign = outVar.getCVarName(imag) + " = " + inputExprs[0] + ";";
+            falseAssign = outVar.getCVarName(imag) + " = " + inputExprs[1] + ";";
+        }else{
+            //This takes a select statement type perspective with the input ports being considered numbers
+            //false is 0 and true is 1.
+            trueAssign = outVar.getCVarName(imag) + " = " + inputExprs[1] + ";";
+            falseAssign = outVar.getCVarName(imag) + " = " + inputExprs[0] + ";";
+        }
+
+        cStatementQueue.push_back(trueAssign);
+        cStatementQueue.push_back("}else{");
+        cStatementQueue.push_back(falseAssign);
+        cStatementQueue.push_back("}");
+    }else{
+        //switch statement
+        std::string switchExpr = "switch(" + selectExpr + "){";
+        cStatementQueue.push_back(switchExpr);
+
+        for(unsigned long i = 0; i<(numInputPorts-1); i++){
+            std::string caseExpr = "case " + std::to_string(i) + ":";
+            cStatementQueue.push_back(caseExpr);
+            std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[i] + ";";
+            cStatementQueue.push_back(caseAssign);
+            cStatementQueue.push_back("break;");
+        }
+
+        cStatementQueue.push_back("default:");
+        std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[numInputPorts-1] + ";";
+        cStatementQueue.push_back(caseAssign);
+        cStatementQueue.push_back("break;");
+        cStatementQueue.push_back("}");
+    }
+
+    return CExpr(outVar.getCVarName(imag), true); //This is a variable
+
+}
+
+
+
 

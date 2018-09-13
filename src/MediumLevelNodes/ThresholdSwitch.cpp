@@ -103,6 +103,7 @@ bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     //++++ Create Mux Block and Rewire ++++
     std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(thisParent);
     muxNode->setName("Mux");
+    muxNode->setBooleanSelect(true);
     new_nodes.push_back(muxNode);
 
     //NOTE: Port 0 Is Assigned to Port 1

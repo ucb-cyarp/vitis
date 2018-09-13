@@ -305,8 +305,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
             }else{
                 //Single arc, check for internal fanout
                 std::shared_ptr<InputPort> dstInput = (*outputPort->getArcs().begin())->getDstPort();
-                std::shared_ptr<Node> dstNode = dstInput->getParent();
-                fanout = dstNode->hasInternalFanout(dstInput->getPortNum(), imag);
+                fanout = dstInput->hasInternalFanout(imag);
             }
 
         }

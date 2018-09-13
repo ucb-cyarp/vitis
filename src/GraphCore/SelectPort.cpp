@@ -2,6 +2,7 @@
 // Created by Christopher Yarp on 7/17/18.
 //
 
+#include <General/GeneralHelper.h>
 #include "SelectPort.h"
 
 #include "DataType.h"
@@ -36,4 +37,13 @@ std::shared_ptr<SelectPort> SelectPort::getSharedPointerSelectPort() {
         //return std::shared_ptr<Port>(nullptr);
         throw std::runtime_error("Pointer requested from port that has no parent");
     }
+}
+
+bool SelectPort::hasInternalFanout(bool imag) {
+    //TODO: Possibly look at being less conservative
+    //Internal fanout only really occurs if the select context is entered multiple times.  This is a decision made by
+    //the scheduler and not here.  In case the context is entered multiple times, (ie. the conditional needs to be
+    //checked multiple times) the safest solution is to declare it as having internal fanout to force the assignment
+    //of a temporary variable that can be referenced multiple times
+    return true;
 }

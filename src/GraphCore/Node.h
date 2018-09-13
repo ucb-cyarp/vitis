@@ -306,6 +306,10 @@ public:
      * Internal fanout occurs if an input is used more than once (either within the calculation of a single output or
      * or within the calculation of multiple outputs).
      *
+     * @note Use the port's hasInternalFunction function as it will call the correct hasInternalFanout function in the node.
+     * For example, select lines for muxes are inputs but are treated seperately and have their own internalFanout function.
+     * This function is called by the hadInternalFanout function of the port for standard input ports.
+     *
      * @param inputPort the input port being checked for internal fanout
      * @param imag if false, checks the real component of the input. if true, checks the imag component of the input
      * @return true if the port experiences internal fanout, false otherwise
@@ -333,7 +337,6 @@ public:
     virtual std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false, bool checkFanout = true, bool forceFanout = false);
 
 protected:
-    //TODO: Make this virtual.  Giving a default implementation now which throws an error message if not overwritten
     /**
      * @brief Emits a C expression to calculate the value of an output port
      *

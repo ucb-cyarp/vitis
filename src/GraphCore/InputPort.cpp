@@ -37,3 +37,8 @@ std::shared_ptr<InputPort> InputPort::getSharedPointerInputPort() {
 std::shared_ptr<OutputPort> InputPort::getSrcOutputPort() {
     return arcs.begin()->lock()->getSrcPort();
 }
+
+bool InputPort::hasInternalFanout(bool imag) {
+    //Call the function in the parent node for standard input ports
+    return parent->hasInternalFanout(portNum, imag);
+}

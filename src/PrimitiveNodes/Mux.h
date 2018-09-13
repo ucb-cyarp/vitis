@@ -27,6 +27,8 @@
  *
  * The selector port's value directly maps to the input port index which is passed through.
  *
+ * The default port is the last port (index n-1)
+ *
  * This switch object can act as a multiport switch
  *
  * @note This mux assumes the selector port input is the index of the input to forward.  If a switch with a threshold is desired,
@@ -41,7 +43,8 @@ class Mux : public PrimitiveNode{
     friend NodeFactory;
 
 private:
-    std::unique_ptr<SelectPort> selectorPort;
+    std::unique_ptr<SelectPort> selectorPort;///< The port which determines the mux selection
+    bool booleanSelect; ///< If true, the mux uses the simulink convention of the top (first) port being true and the bottom port being false
 
     //==== Constructors ====
     /**
@@ -82,6 +85,10 @@ public:
     */
     void addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
 
+    bool isBooleanSelect() const;
+
+    void setBooleanSelect(bool booleanSelect);
+
     //==== Factories ====
     /**
      * @brief Creates a mux node from a GraphML Description
@@ -114,6 +121,32 @@ public:
     std::string labelStr() override ;
 
     //TODO: When syntehsizing C/C++ check that boolean is handled (false = 0, true = 1)
+    //Boolean will produce an if/else statement
+
+    /**
+     * @brief Specifies that the MUX has internal fanout on each input.  This prevents logic from being ingested into
+     * the if/else/switch statement when using @emitCExpr
+     *
+     * @note It is often desierable for logic to be brought into the conditional block but care must be take as to
+     * what operations can safely be moved inside.  Emit with contexts & context wrappers (allong with context
+     * identification) can pull operations into the conditional.
+     */
+    virtual bool hasInternalFanout(int inputPort, bool imag) override;
+
+    /**
+     * @brief Emits a C expression for the mux
+     *
+     * for boolean select lines, an if/else is created.  For integer types, a switch statement is created.
+     *
+     * The output of the function is a tmp variable of the form: <muxName>_n<id>_out
+     *
+     * @note This function emits the most basic implementation of a multiplexer where all paths leading to the
+     * mux are fully computed but only one path's result is selected.  This function does not contain any logic other
+     * than selection in the if/else/switch conditional statements.  To contain other logic in the conditional
+     * statement, emit with contexts and context wrappers is required.  In this case, this function will not be called
+     * as the output assignment will occur during the context emit.
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
 
 };
 
