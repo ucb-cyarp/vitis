@@ -26,6 +26,7 @@
 #include "PrimitiveNodes/ComplexToRealImag.h"
 #include "PrimitiveNodes/RealImagToComplex.h"
 #include "PrimitiveNodes/DataTypeDuplicate.h"
+#include "PrimitiveNodes/LogicalOperator.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -910,6 +911,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = RealImagToComplex::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DataTypeDuplicate"){
         newNode = DataTypeDuplicate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "LogicalOperator" || blockFunction == "Logic"){ //Vitis name is LogicalOperator, Simulink name is Logic
+        newNode = LogicalOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction);
     }
