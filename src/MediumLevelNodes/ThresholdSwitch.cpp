@@ -213,12 +213,18 @@ void ThresholdSwitch::validate() {
     DataType outType = getOutputPort(0)->getDataType();
     unsigned long numInputPorts = inputPorts.size();
 
-    for(unsigned long i = 0; i<numInputPorts; i++){
-        DataType inType = getInputPort(i)->getDataType();
-
-        if(inType != outType){
-            throw std::runtime_error("Validation Failed - ThresholdSwitch - DataType of Input Port Does not Match Output Port");
-        }
+    //Port 0 is the line passed when true
+    //Port 1 is the select line
+    //Port 2 is the line passed when false
+    DataType inType0 = getInputPort(0)->getDataType();
+    if(inType0 != outType){
+        throw std::runtime_error("Validation Failed - ThresholdSwitch - DataType of Input Port 0 Does not Match Output Port");
     }
+
+    DataType inType2 = getInputPort(2)->getDataType();
+    if(inType2 != outType){
+        throw std::runtime_error("Validation Failed - ThresholdSwitch - DataType of Input Port 2 Does not Match Output Port");
+    }
+
 }
 

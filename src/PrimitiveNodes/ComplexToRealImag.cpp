@@ -65,11 +65,11 @@ void ComplexToRealImag::validate() {
         throw std::runtime_error("Validation Failed - ComplexToRealImag - Input Port Must Be Complex");
     }
 
-    if(!(getOutputPort(0)->getDataType().isComplex())){
+    if(getOutputPort(0)->getDataType().isComplex()){
         throw std::runtime_error("Validation Failed - ComplexToRealImag - Output Port 0 Must Be Real");
     }
 
-    if(!(getOutputPort(1)->getDataType().isComplex())){
+    if(getOutputPort(1)->getDataType().isComplex()){
         throw std::runtime_error("Validation Failed - ComplexToRealImag - Output Port 1 Must Be Real");
     }
 
