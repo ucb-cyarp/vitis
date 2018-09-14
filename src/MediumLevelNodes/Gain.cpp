@@ -129,7 +129,9 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(thisParent, shared_from_this());
 
     //Remove Current Node from Parent and Set Parent to nullptr
-    thisParent->removeChild(shared_from_this());
+    if(thisParent != nullptr) {
+        thisParent->removeChild(shared_from_this());
+    }
     parent = nullptr;
     //Add This node to the list of nodes to remove from the node vector
     deleted_nodes.push_back(shared_from_this());
