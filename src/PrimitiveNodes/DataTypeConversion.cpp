@@ -4,6 +4,8 @@
 
 #include "DataTypeConversion.h"
 
+#include <iostream>
+
 DataTypeConversion::DataTypeConversion() {
 
 }
@@ -93,8 +95,14 @@ DataTypeConversion::createFromGraphML(int id, std::string name, std::map<std::st
     //Parse the datatype if inheritType is SPECIFIED, otherwise accept the default
     if(inheritTypeParsed == InheritType::SPECIFIED){
         //NOTE: complex is set to true and width is set to 1 for now.  These will be resolved with a call to propagate from Arcs.
-        DataType dataType = DataType(datatypeStr, true, 1);
-        newNode->setTgtDataType(dataType);
+        DataType dataType;
+        try {
+            dataType = DataType(datatypeStr, true, 1);
+            newNode->setTgtDataType(dataType);
+        }catch(const std::invalid_argument& e){
+            std::cerr << "Warning: Could not parse specified DataType: " << datatypeStr << ". Reverting DataTypeConvert " << newNode->getFullyQualifiedName() << " to Using Inherited Type ..." << std::endl;
+            newNode->setInheritType(InheritType::INHERIT_FROM_OUTPUT);
+        }
     }
 
     return newNode;
