@@ -14,7 +14,7 @@ void SubSystem::addChild(std::shared_ptr<Node> child) {
 }
 
 void SubSystem::removeChild(std::shared_ptr<Node> child) {
-    children.insert(child);
+    children.erase(child);
 }
 
 SubSystem::SubSystem(std::shared_ptr<SubSystem> parent) : Node(parent) {
