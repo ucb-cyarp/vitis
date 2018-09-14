@@ -286,6 +286,10 @@ elseif strcmp(node.simulinkBlockType, 'Saturate' )
 
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 
+%---- Data Type Propagation (Unsupported but Changing Type) ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Signal' newline 'Attributes/Data Type' newline 'Propagation'])
+        %Changing block type from 'S-Function'
+        node.simulinkBlockType = 'DataTypePropagation';
         
 %TODO: More Blocks
 end

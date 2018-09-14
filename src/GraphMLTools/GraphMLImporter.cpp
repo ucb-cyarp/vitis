@@ -27,6 +27,7 @@
 #include "PrimitiveNodes/RealImagToComplex.h"
 #include "PrimitiveNodes/DataTypeDuplicate.h"
 #include "PrimitiveNodes/LogicalOperator.h"
+#include "PrimitiveNodes/UnsupportedSink.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -916,6 +917,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = LogicalOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Saturate"){
         newNode = Saturate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DataTypePropagation"){ //--This is an Unsupported Sink --
+        newNode = UnsupportedSink::createFromGraphML(id, name, blockFunction, dataKeyValueMap, parent);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
     }
