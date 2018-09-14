@@ -289,16 +289,16 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     new_arcs.push_back(upperLimitCompareToUpperLimitMux);
 
     std::shared_ptr<Arc> upperLimitToUpperLimitMux = Arc::connectNodes(upperLimitNode, 0, upperLimitMux, 0, intermediateType);
-    new_arcs.push_back(upperLimitToUpperLimitCompare);
+    new_arcs.push_back(upperLimitToUpperLimitMux);
 
     std::shared_ptr<Arc> inputToUpperLimitMux = Arc::connectNodes(inputSrcNode, 0, upperLimitMux, 1, intermediateType);
     new_arcs.push_back(inputToUpperLimitMux);
 
     std::shared_ptr<Arc> upperLimitMuxToLowerLimitMux = Arc::connectNodes(upperLimitMux, 0, lowerLimitMux, 1, intermediateType);
-    new_arcs.push_back(inputToUpperLimitMux);
+    new_arcs.push_back(upperLimitMuxToLowerLimitMux);
 
     std::shared_ptr<Arc> inputToLowerLimitMux = Arc::connectNodes(inputSrcNode, 0, lowerLimitMux, 1, intermediateType);
-    new_arcs.push_back(inputToUpperLimitMux);
+    new_arcs.push_back(inputToLowerLimitMux);
 
     std::shared_ptr<Arc> inputToLowerLimitCompare = Arc::connectNodes(inputSrcNode, 0, lowerLimitCompare, 0, intermediateType);
     new_arcs.push_back(inputToLowerLimitCompare);
@@ -388,16 +388,16 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         new_arcs.push_back(upperLimitCompareToUpperLimitMux);
 
         std::shared_ptr<Arc> upperLimitToUpperLimitMux = Arc::connectNodes(upperLimitNode, 0, upperLimitMux, 0, intermediateType);
-        new_arcs.push_back(upperLimitToUpperLimitCompare);
+        new_arcs.push_back(upperLimitToUpperLimitMux);
 
         std::shared_ptr<Arc> inputToUpperLimitMux = Arc::connectNodes(inputSrcNode, 1, upperLimitMux, 1, intermediateType);
         new_arcs.push_back(inputToUpperLimitMux);
 
         std::shared_ptr<Arc> upperLimitMuxToLowerLimitMux = Arc::connectNodes(upperLimitMux, 0, lowerLimitMux, 1, intermediateType);
-        new_arcs.push_back(inputToUpperLimitMux);
+        new_arcs.push_back(upperLimitMuxToLowerLimitMux);
 
         std::shared_ptr<Arc> inputToLowerLimitMux = Arc::connectNodes(inputSrcNode, 1, lowerLimitMux, 1, intermediateType);
-        new_arcs.push_back(inputToUpperLimitMux);
+        new_arcs.push_back(inputToLowerLimitMux);
 
         std::shared_ptr<Arc> inputToLowerLimitCompare = Arc::connectNodes(inputSrcNode, 1, lowerLimitCompare, 0, intermediateType);
         new_arcs.push_back(inputToLowerLimitCompare);
