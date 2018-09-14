@@ -23,6 +23,7 @@ CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, int outp
     //Get a Dummy Variable Object So We can use its formatter
     Variable var;
     var.setName(getCInputName(outputPortNum));
+    var.setDataType(getOutputPort(outputPortNum)->getDataType());
 
     return CExpr(var.getCVarName(imag), true);
 }
