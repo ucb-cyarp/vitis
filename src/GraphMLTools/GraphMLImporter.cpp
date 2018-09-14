@@ -31,6 +31,7 @@
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
 #include "MediumLevelNodes/SimulinkMultiPortSwitch.h"
+#include "MediumLevelNodes/Saturate.h"
 #include "HighLevelNodes/DiscreteFIR.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
@@ -913,8 +914,10 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = DataTypeDuplicate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "LogicalOperator" || blockFunction == "Logic"){ //Vitis name is LogicalOperator, Simulink name is Logic
         newNode = LogicalOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Saturate"){
+        newNode = Saturate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
-        throw std::runtime_error("Unknown block type: " + blockFunction);
+        throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
     }
 
     return newNode;

@@ -130,6 +130,8 @@ set(COMMON_SRCS
         src/MediumLevelNodes/ThresholdSwitch.h
         src/MediumLevelNodes/SimulinkMultiPortSwitch.cpp
         src/MediumLevelNodes/SimulinkMultiPortSwitch.h
+        src/MediumLevelNodes/Saturate.cpp
+        src/MediumLevelNodes/Saturate.h
         src/HighLevelNodes/HighLevelNode.cpp
         src/HighLevelNodes/HighLevelNode.h
         src/HighLevelNodes/DiscreteFIR.cpp

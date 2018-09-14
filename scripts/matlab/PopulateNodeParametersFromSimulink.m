@@ -277,9 +277,18 @@ elseif strcmp(node.simulinkBlockType, 'Logic')
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 
     node.simulinkBlockType = 'Logic';
-end
 
+
+%---- Saturate ----
+elseif strcmp(node.simulinkBlockType, 'Saturate' )
+    node.dialogPropertiesNumeric('UpperLimit') = GetParamEval(simulink_block_handle, 'UpperLimit');
+    node.dialogPropertiesNumeric('LowerLimit') = GetParamEval(simulink_block_handle, 'LowerLimit');
+
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+
+        
 %TODO: More Blocks
+end
     
 end
 
