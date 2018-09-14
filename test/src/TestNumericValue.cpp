@@ -287,3 +287,45 @@ TEST(NumericValue, ParseComplexMixedArray) {
     bool regexMatched2 = std::regex_match(str2, matches2, regexExpr2);
     ASSERT_TRUE(regexMatched2);
 }
+
+TEST(NumericValue, ParseRealMixedArrayWithExponents) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[9e1, 8e1, 2.25e1]");
+
+    ASSERT_EQ(test.size(), 3);
+
+    ASSERT_EQ(test[0].isComplex(), false);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 90);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[1].isComplex(), false);
+    ASSERT_EQ(test[1].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), 80);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[2].isComplex(), false);
+    ASSERT_EQ(test[2].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), 22.5);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), 0);
+}
+
+TEST(NumericValue, ParseComplexMixedArrayWithExponents) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[5e1+6e1i, 2e1 -8.5e1j, -9e1-2e1j]");
+
+    ASSERT_EQ(test.size(), 3);
+
+    ASSERT_EQ(test[0].isComplex(), true);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 50);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 60);
+
+    ASSERT_EQ(test[1].isComplex(), true);
+    ASSERT_EQ(test[1].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), 20);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), -85);
+
+    ASSERT_EQ(test[2].isComplex(), true);
+    ASSERT_EQ(test[2].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), -90);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), -20);
+}
