@@ -599,6 +599,20 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     cFile << fctnProto << "{" << std::endl;
 
+    //Emit compute next states
+    cFile << std::endl << "//==== Compute Next States ====" << std::endl;
+    unsigned long numNodesWithState = nodesWithState.size();
+    for(unsigned long i = 0; i<numNodesWithState; i++){
+        std::vector<std::string> nextStateExprs;
+        nodesWithState[i]->emitCExprNextState(nextStateExprs);
+        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getName() <<" ----" << std::endl;
+
+        unsigned long numNextStateExprs = nextStateExprs.size();
+        for(unsigned long j = 0; j<numNextStateExprs; j++){
+            cFile << nextStateExprs[j] << std::endl;
+        }
+    }
+
     //Assign each of the outputs (and emit any expressions that preceed it
     cFile << std::endl << "//==== Compute Outputs ====" << std::endl;
     unsigned long numOutputs = outputMaster->getInputPorts().size();
@@ -647,7 +661,6 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     //Emit state variable updates
     cFile << std::endl << "//==== Update State Vars ====" << std::endl;
-    unsigned long numNodesWithState = nodesWithState.size();
     for(unsigned long i = 0; i<numNodesWithState; i++){
         std::vector<std::string> stateUpdateExprs;
         nodesWithState[i]->emitCStateUpdate(stateUpdateExprs);

@@ -366,6 +366,10 @@ CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort,
     return CExpr();
 }
 
+void Node::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
+    //Default is to do nothing (since default is to have no state)
+}
+
 bool Node::hasState() {
     //Default is to return false
     return false;
@@ -390,7 +394,7 @@ std::vector<Variable> Node::getCStateVars() {
 }
 
 void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
-    //Default behavior is no action
+    //Default behavior is no action (since default is to have no state)
 }
 
 std::string Node::getGlobalDecl(){

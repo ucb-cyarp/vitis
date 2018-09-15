@@ -90,6 +90,8 @@ public:
 
     std::vector<Variable> getCStateVars() override;
 
+    void emitCExprNextState(std::vector<std::string> &cStatementQueue) override;
+
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
 
 

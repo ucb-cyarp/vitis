@@ -175,28 +175,17 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
         throw std::runtime_error("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented");
     }
 
-    std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
-    int srcOutPortNum = srcPort->getPortNum();
-    std::shared_ptr<Node> srcNode = srcPort->getParent();
-
-    //Emit the upstream
-    std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutPortNum, imag);
-
     if(delayValue == 0){
         //If delay = 0, simply pass through
+        std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+        int srcOutPortNum = srcPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+        //Emit the upstream
+        std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutPortNum, imag);
+
         return CExpr(inputExpr, false);
     }else {
-        //Assign the expr to a special variable defined here (before the state update)
-        std::string stateInputName = name + "_n" + std::to_string(id) + "_state_input";
-        Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
-        cStateInputVar = stateInputVar;
-
-        //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
-
-        std::string stateInputDeclAssign = stateInputVar.getCVarDecl(imag, false) + " = " + inputExpr + ";";
-
-        cStatementQueue.push_back(stateInputDeclAssign);
-
         //Return the state var name as the expression
         if (delayValue == 1) {
             //Return the simple name (no index needed as it is not an array_
@@ -235,4 +224,33 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
     }
 
     Node::emitCStateUpdate(cStatementQueue);
+}
+
+void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
+    DataType inputDataType = getInputPort(0)->getDataType();
+    std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+    int srcOutPortNum = srcPort->getPortNum();
+    std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+    //Emit the upstream
+    std::string inputExprRe = srcNode->emitC(cStatementQueue, srcOutPortNum, false);
+    std::string inputExprIm;
+
+    if(inputDataType.isComplex()){
+        inputExprIm = srcNode->emitC(cStatementQueue, srcOutPortNum, true);
+    }
+
+    //Assign the expr to a special variable defined here (before the state update)
+    std::string stateInputName = name + "_n" + std::to_string(id) + "_state_input";
+    Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
+    cStateInputVar = stateInputVar;
+
+    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
+
+    std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false) + " = " + inputExprRe + ";";
+    cStatementQueue.push_back(stateInputDeclAssignRe);
+    if(inputDataType.isComplex()){
+        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false) + " = " + inputExprRe + ";";
+        cStatementQueue.push_back(stateInputDeclAssignIm);
+    }
 }

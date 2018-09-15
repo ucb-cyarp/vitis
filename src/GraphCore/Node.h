@@ -340,6 +340,9 @@ protected:
     /**
      * @brief Emits a C expression to calculate the value of an output port
      *
+     * @warning This function is separated from the @ref emitCExprNextState function in order to break emit cycles.  For any node with state,
+     * the values of the new state elements should be computed in the @ref emitCExprNextState.
+     *
      * @note @ref emitC should be called from outside the class instead of this function.  @ref emitC automatically handles fanout while this function does not
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
@@ -404,6 +407,14 @@ public:
      * @return The global declaration(s) required by the node as a string
      */
     virtual std::string getGlobalDecl();
+
+    /**
+     * @brief Emits a C expressions to calculate the next value of the internal state elements.  These values will be used in @ref emitCStateUpdate
+     *
+     * @warning This function is separated from the @ref emitCExpr function in order to break emit cycles
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     */
+    virtual void emitCExprNextState(std::vector<std::string> &cStatementQueue);
 
     /**
      * @brief Emits the C code to update the state varibles of this node.
