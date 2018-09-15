@@ -201,7 +201,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     //==== Begin Creating new Nodes and Re-wireing ====
 
     std::shared_ptr<Node> inputSrcNode;
-    int inputSrcNodeOutputPortNumber; //Only used for when real
+    int inputSrcNodeOutputPortNumber;
 
     //Only used for complex output
     std::shared_ptr<RealImagToComplex> realImagToComplexNode;
@@ -217,6 +217,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
 
         //Set Input src node
         inputSrcNode = complexToRealImagNode;
+        inputSrcNodeOutputPortNumber = 0; //Used in the real expansion where the output of the ComplexToRealImag is used
 
         realImagToComplexNode = NodeFactory::createNode<RealImagToComplex>(parent);
         realImagToComplexNode->setName("RealImagToComplex");
@@ -278,7 +279,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         upperLimitCompare->addInArcUpdatePrevUpdateArc(0, inputArc); //Should remove the arc from this node's port
     }else{
         //The input node is the complexToRealImag, use port 0 for real
-        std::shared_ptr<Arc> inputToUpperLimitCompare = Arc::connectNodes(inputSrcNode, 0, upperLimitCompare, 0, intermediateType);
+        std::shared_ptr<Arc> inputToUpperLimitCompare = Arc::connectNodes(inputSrcNode, inputSrcNodeOutputPortNumber, upperLimitCompare, 0, intermediateType);
         new_arcs.push_back(inputToUpperLimitCompare);
     }
 
@@ -291,16 +292,16 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     std::shared_ptr<Arc> upperLimitToUpperLimitMux = Arc::connectNodes(upperLimitNode, 0, upperLimitMux, 0, intermediateType);
     new_arcs.push_back(upperLimitToUpperLimitMux);
 
-    std::shared_ptr<Arc> inputToUpperLimitMux = Arc::connectNodes(inputSrcNode, 0, upperLimitMux, 1, intermediateType);
+    std::shared_ptr<Arc> inputToUpperLimitMux = Arc::connectNodes(inputSrcNode, inputSrcNodeOutputPortNumber, upperLimitMux, 1, intermediateType);
     new_arcs.push_back(inputToUpperLimitMux);
 
     std::shared_ptr<Arc> upperLimitMuxToLowerLimitMux = Arc::connectNodes(upperLimitMux, 0, lowerLimitMux, 1, intermediateType);
     new_arcs.push_back(upperLimitMuxToLowerLimitMux);
 
-    std::shared_ptr<Arc> inputToLowerLimitMux = Arc::connectNodes(inputSrcNode, 0, lowerLimitMux, 1, intermediateType);
+    std::shared_ptr<Arc> inputToLowerLimitMux = Arc::connectNodes(inputSrcNode, inputSrcNodeOutputPortNumber, lowerLimitMux, 0, intermediateType);
     new_arcs.push_back(inputToLowerLimitMux);
 
-    std::shared_ptr<Arc> inputToLowerLimitCompare = Arc::connectNodes(inputSrcNode, 0, lowerLimitCompare, 0, intermediateType);
+    std::shared_ptr<Arc> inputToLowerLimitCompare = Arc::connectNodes(inputSrcNode, inputSrcNodeOutputPortNumber, lowerLimitCompare, 0, intermediateType);
     new_arcs.push_back(inputToLowerLimitCompare);
 
     std::shared_ptr<Arc> lowerLimitToLowerLimitCompare = Arc::connectNodes(lowerLimitNode, 0, lowerLimitCompare, 1, intermediateType);
@@ -377,7 +378,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         lowerLimitMux->setBooleanSelect(true); //Treat port 0 as the true port
         new_nodes.push_back(lowerLimitMux);
 
-        //The input node is the complexToRealImag, use port 1 for real
+        //The input node is the complexToRealImag, use port 1 for imag
         std::shared_ptr<Arc> inputToUpperLimitCompare = Arc::connectNodes(inputSrcNode, 1, upperLimitCompare, 0, intermediateType);
         new_arcs.push_back(inputToUpperLimitCompare);
 

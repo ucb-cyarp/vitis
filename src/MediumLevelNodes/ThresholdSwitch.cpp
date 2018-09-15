@@ -6,6 +6,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "GraphCore/ExpandedNode.h"
+#include <iostream>
 
 ThresholdSwitch::ThresholdSwitch() : compareOp(Compare::CompareOp::LT) {
 
@@ -103,7 +104,7 @@ bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     new_nodes.push_back(expandedNode);
 
     //++++ Create Mux Block and Rewire ++++
-    std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(thisParent);
+    std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(expandedNode);
     muxNode->setName("Mux");
     muxNode->setBooleanSelect(true);
     new_nodes.push_back(muxNode);
@@ -137,7 +138,7 @@ bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
         muxNode->addSelectArcUpdatePrevUpdateArc(inputArcSel);
     }else{
         //The input to the select line is not a boolean, insert a CompareToConstant block and wire
-        std::shared_ptr<CompareToConstant> compareNode = NodeFactory::createNode<CompareToConstant>(thisParent);
+        std::shared_ptr<CompareToConstant> compareNode = NodeFactory::createNode<CompareToConstant>(expandedNode);
         compareNode->setName("CompareToConstant");
         compareNode->setCompareConst(threshold); //Set the threshold of the comparison
         compareNode->setCompareOp(compareOp); //Set the operator used in the comparison

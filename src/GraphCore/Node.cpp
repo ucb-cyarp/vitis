@@ -273,7 +273,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
 
         if(varName.empty()){
             //This should not happen if fanout is properly reported
-            throw std::runtime_error("Tried to emit a port which has previously been emitted but did not create an output variable");
+            throw std::runtime_error("Tried to emit a port which has previously been emitted but did not create an output variable: " + getFullyQualifiedName() + " Port " + std::to_string(outputPortNum) + (imag ? " Imag" : " Real") + " Arcs: " + std::to_string(outputPort->getArcsRaw().size()));
         }
 
         //Return the stored temp var name
