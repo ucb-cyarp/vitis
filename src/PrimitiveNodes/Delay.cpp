@@ -227,12 +227,12 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
         //Emit a for loop to perform the shift for each
         std::string loopVarName = name+"_n"+std::to_string(id)+"_loopCounter";
 
-        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "++){");
+        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
         cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "-1];}");
         cStatementQueue.push_back(cStateVar.getCVarName(false) + "[0] = " + cStateInputVar.getCVarName(false) + ";");
 
         if(cStateVar.getDataType().isComplex()){
-            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "++){");
+            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
             cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "-1];}");
             cStatementQueue.push_back(cStateVar.getCVarName(true) + "[0] = " + cStateInputVar.getCVarName(true) + ";");
         }
