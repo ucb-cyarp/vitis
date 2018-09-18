@@ -45,10 +45,18 @@ std::string Variable::getCVarName(bool imag) {
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
-std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit) {
+std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
-    std::string decl = cpuStorageType.toString(DataType::StringStyle::C, includeWidth) + " " + getCVarName(imag);
+    std::string decl = cpuStorageType.toString(DataType::StringStyle::C, false, false) + " " + getCVarName(imag);
+
+    if(dataType.getWidth() > 1 && includeArray){
+        decl += "[";
+        if(includeWidth){
+            decl += std::to_string(dataType.getWidth());
+        }
+        decl += "]";
+    }
 
     if(includeInit){
         if(initValue.size() == 0) {
@@ -77,7 +85,7 @@ std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit
             //Emit Value
             decl += initValue[0].toStringComponent(imag, dataType); //Convert to the real type, not the CPU storage type
 
-            for(unsigned long i = 0; i<initValue.size(); i++){
+            for(unsigned long i = 1; i<initValue.size(); i++){
                 //Emit datatype (the CPU type used for storage)
                 decl += ", (" + storageTypeStr + ") ";
                 //Emit Value

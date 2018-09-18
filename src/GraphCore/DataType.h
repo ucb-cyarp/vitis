@@ -73,10 +73,11 @@ public:
     /**
      * @brief Get the string representation of the DataType.  Complexity is not included in the string representation
      * @param stringStyle The stype of the string to return
-     * @param includeWidth if true, includes the vector width in the type string.  if false, does not include the vector width in the type string. (only used for C style)
+     * @param includeWidth if true, includes the vector width in the type string.  if false, does not include the vector width in the type string. (only used for C style).  incudeArray must be true for this to have effect
+     * @param includeArray if true, includes the array brackets [] in the type string.  If false, does not include the array brackets []. (only used for C style)
      * @return a type string
      */
-    std::string toString(StringStyle stringStyle = StringStyle::SIMULINK, bool includeWidth = false);
+    std::string toString(StringStyle stringStyle = StringStyle::SIMULINK, bool includeWidth = false, bool includeArray = false);
 
     /**
      * @brief Get the smallest standard CPU type which can accomodate the given datatype.

@@ -157,9 +157,9 @@ CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
     //a state variable would be needed to determine that the mux had already been emitted when the other component's emit
     //call is made (ie. if real emit is called first, imag emit should simply return the output var).
     if(outType.isComplex()){
-        cStatementQueue.push_back(outVar.getCVarDecl(true, true, false));
+        cStatementQueue.push_back(outVar.getCVarDecl(true, true, false, true) + ";");
     }else{
-        cStatementQueue.push_back(outVar.getCVarDecl(false, true, false));
+        cStatementQueue.push_back(outVar.getCVarDecl(false, true, false, true) + ";");
     }
 
     DataType selectDataType = getSelectorPort()->getDataType();

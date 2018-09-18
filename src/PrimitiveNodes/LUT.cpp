@@ -427,12 +427,12 @@ std::string LUT::getGlobalDecl(){
 
     Variable tableVar = Variable(varName, tableType);
 
-    std::string tableDecl = "const " + tableVar.getCVarDecl(false, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
+    std::string tableDecl = "const " + tableVar.getCVarDecl(false, false, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
                             NumericValue::toStringComponent(false, tableType, tableData, "{\n", "\n}", ",\n") + ";";
 
     //Emit an imagionary vector if the table is complex
     if(tableType.isComplex()){
-         tableDecl += "const " + tableVar.getCVarDecl(true, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
+         tableDecl += "const " + tableVar.getCVarDecl(true, false, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
                       NumericValue::toStringComponent(true, tableType, tableData, "{\n", "\n}", ",\n") + ";";
     }
 
@@ -521,7 +521,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         double range = lastBreakpoint - firstBreakpoint;
         double breakpointStep = range/(numBreakPoints-1.0); //The range is divided by the number of intervals/steps
 
-        std::string indexDecl = indexVariable.getCVarDecl(false, false, false) + ";"; //Will output a standard CPU type automatically
+        std::string indexDecl = indexVariable.getCVarDecl(false, false, false, false) + ";"; //Will output a standard CPU type automatically
 
         cStatementQueue.push_back(indexDecl);
 

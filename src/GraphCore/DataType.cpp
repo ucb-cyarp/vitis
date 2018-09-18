@@ -218,7 +218,7 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
     }
 }
 
-std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
+std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool includeArray) {
 
     if(floatingPt){
         //Floing point types
@@ -227,7 +227,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
                 return "single";
             }else if(stringStyle == StringStyle::C){
                 std::string str = "float";
-                if(width > 1){
+                if(width > 1 && includeArray){
                     str += "[";
                     if(includeWidth){
                         str += std::to_string(width);
@@ -243,7 +243,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
                 return "double";
             }else if(stringStyle == StringStyle::C){
                 std::string str = "double";
-                if(width > 1){
+                if(width > 1 && includeArray){
                     str += "[";
                     if(includeWidth){
                         str += std::to_string(width);
@@ -271,7 +271,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
                     return str;
                 }else if(stringStyle == StringStyle::C){
                     str += "_t";
-                    if(width > 1){
+                    if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){
                             str += std::to_string(width);
@@ -290,7 +290,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
                     return "boolean";
                 }else if(stringStyle == StringStyle::C){
                     std::string str =  "bool";
-                    if(width > 1){
+                    if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){
                             str += std::to_string(width);
@@ -307,7 +307,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth) {
                     return str;
                 }else if(stringStyle == StringStyle::C){
                     str += "_t";
-                    if(width > 1){
+                    if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){
                             str += std::to_string(width);

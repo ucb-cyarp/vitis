@@ -420,7 +420,7 @@ std::string Design::getCFunctionArgPrototype() {
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, true);
+            prototype += ", const " + var.getCVarDecl(true, true, false, true);
         }
     }
 
@@ -456,11 +456,11 @@ std::string Design::getCInputPortStructDefn(){
     for(unsigned long i = 0; i<numInputVars; i++){
         Variable var = inputVars[i];
 
-        prototype += "\t" + var.getCVarDecl(false) + ";\n";
+        prototype += "\t" + var.getCVarDecl(false, false, false, true) + ";\n";
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += "\t" + var.getCVarDecl(true) + ";\n";
+            prototype += "\t" + var.getCVarDecl(true, false, false, true) + ";\n";
         }
     }
 
@@ -482,11 +482,11 @@ std::string Design::getCOutputStructDefn() {
 
         Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
 
-        str += "\n\t" + var.getCVarDecl(false) + ";";
+        str += "\n\t" + var.getCVarDecl(false, false, false, true) + ";";
 
         //Check if complex
         if(portDataType.isComplex()){
-            str += "\n\t" + var.getCVarDecl(true) + ";";
+            str += "\n\t" + var.getCVarDecl(true, false, false, true) + ";";
         }
     }
 
@@ -550,10 +550,10 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         unsigned long numStateVars = stateVars.size();
         for(unsigned long j = 0; j<numStateVars; j++){
             //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            headerFile << "extern " << stateVars[j].getCVarDecl(false, true, false) << ";" << std::endl;
+            headerFile << "extern " << stateVars[j].getCVarDecl(false, true, false, true) << ";" << std::endl;
 
             if(stateVars[j].getDataType().isComplex()){
-                headerFile << stateVars[j].getCVarDecl(true, true, false) << ";" << std::endl;
+                headerFile << "extern " << stateVars[j].getCVarDecl(true, true, false, true) << ";" << std::endl;
             }
         }
     }
@@ -585,10 +585,10 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         unsigned long numStateVars = stateVars.size();
         for(unsigned long j = 0; j<numStateVars; j++){
             //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            cFile << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            cFile << stateVars[j].getCVarDecl(false, true, true, true) << ";" << std::endl;
 
             if(stateVars[j].getDataType().isComplex()){
-                cFile << stateVars[j].getCVarDecl(true, true, true) << ";" << std::endl;
+                cFile << stateVars[j].getCVarDecl(true, true, true, true) << ";" << std::endl;
             }
         }
     }

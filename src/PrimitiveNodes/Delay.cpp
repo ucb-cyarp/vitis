@@ -76,6 +76,17 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
     newNode->setDelayValue(delayVal);
 
     std::vector<NumericValue> initialConds = NumericValue::parseXMLString(initialConditionStr);
+
+    if(initialConds.size() == 1 && delayVal > 1){
+        //There is a single initial value and the delay length is > 1 ... replicate initial conditions
+        NumericValue uniformVal = initialConds[0];
+
+        //Already have one entry, add the rest
+        for(unsigned long i = 1; i<delayVal; i++){
+            initialConds.push_back(uniformVal);
+        }
+    }
+
     newNode->setInitCondition(initialConds);
 
     return newNode;
@@ -133,6 +144,10 @@ void Delay::validate() {
 
     if(inType != outType){
         throw std::runtime_error("Validation Failed - Delay - DataType of Input Port Does not Match Output Port");
+    }
+
+    if(delayValue != initCondition.size()){
+        throw std::runtime_error("Validation Failed - Delay - Delay Length (" + std::to_string(delayValue) + ") Does not Match the Length of Init Condition Vector (" + std::to_string(initCondition.size()) + ")");
     }
 }
 
@@ -247,10 +262,10 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
 
     //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
 
-    std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false) + " = " + inputExprRe + ";";
+    std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
     cStatementQueue.push_back(stateInputDeclAssignRe);
     if(inputDataType.isComplex()){
-        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false) + " = " + inputExprRe + ";";
+        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false, false, false) + " = " + inputExprRe + ";";
         cStatementQueue.push_back(stateInputDeclAssignIm);
     }
 }
