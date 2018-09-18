@@ -581,11 +581,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
                 boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getRealInt());
             }
             boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
-            if((breakpoints[0])[numBreakPoints-1].isFractional()){
-                boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getComplexDouble().real());
-            }else{
-                boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getRealInt());
-            }
+            boundCheckStr += std::to_string(numBreakPoints-1);
 
             boundCheckStr += ";\n}else if(("+inputExpr+") < ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
@@ -594,11 +590,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
                 boundCheckStr += std::to_string((breakpoints[0])[0].getRealInt());
             }
             boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
-            if((breakpoints[0])[numBreakPoints-1].isFractional()){
-                boundCheckStr += std::to_string((breakpoints[0])[0].getComplexDouble().real());
-            }else{
-                boundCheckStr += std::to_string((breakpoints[0])[0].getRealInt());
-            }
+            boundCheckStr += "0";
             boundCheckStr += ";\n}else{\n" + indexVariable.getCVarName(false) + " = " + indexExpr + ";\n}";
 
             cStatementQueue.push_back(boundCheckStr);
