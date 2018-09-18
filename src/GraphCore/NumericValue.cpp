@@ -217,16 +217,42 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
             if(!imag) {
                 //Return Real Component
 
-                //TODO: Currently only support NumericValue signed integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
-                val = std::to_string(FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                //check if the target datatype is a bool
+                if(typeToConvertTo.isBool()){
+                    //Use C standard that 0 is false, nonzero is true
+                    if(realInt == 0){
+                        return "false";
+                    }else{
+                        return "true";
+                    }
+                }else{
+                    //TODO: Currently only support NumericValue signed integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
+                    val = std::to_string(FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                }
+
             }else{
                 //Return The Imag Component
                 if(complex) {
-                    //Return actual value (this number is complex)
-                    val = std::to_string(FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    //check if the target datatype is a bool
+                    if(typeToConvertTo.isBool()) {
+                        //Use C standard that 0 is false, nonzero is true
+                        if (realInt == 0) {
+                            return "false";
+                        } else {
+                            return "true";
+                        }
+                    }else{
+                        //Return actual value (this number is complex)
+                        val = std::to_string(FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    }
                 }else{
-                    //Return 0 since this number is not complex
-                    val = std::to_string(static_cast<int>(0));
+                    if(typeToConvertTo.isBool()) {
+                        //Default to false since this number is not complex
+                        return "false";
+                    } else {
+                        //Return 0 since this number is not complex
+                        val = std::to_string(static_cast<int>(0));
+                    }
                 }
             }
         }

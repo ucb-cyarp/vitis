@@ -17,6 +17,10 @@
 
 /**
  * @brief Represents a numeric value/constant in the design.  Provides method to parse strings from XML file.
+ *
+ * @note This class follows the C convention of bool types.
+ *   * Zero = false
+ *   * Non-zero = true
  */
 class NumericValue {
 private:
