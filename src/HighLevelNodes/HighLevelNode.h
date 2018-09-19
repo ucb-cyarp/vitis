@@ -46,7 +46,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    HighLevelNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<HighLevelNode> orig);
+    HighLevelNode(std::shared_ptr<SubSystem> parent, HighLevelNode* orig);
 
 public:
     //High level nodes can be expanded

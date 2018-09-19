@@ -5,6 +5,7 @@
 #include "EnableInput.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
+#include "NodeFactory.h"
 
 EnableInput::EnableInput() {
 
@@ -54,6 +55,10 @@ void EnableInput::validate() {
 }
 
 
-EnableInput::EnableInput(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnableInput> orig) : EnableNode(parent, orig){
+EnableInput::EnableInput(std::shared_ptr<SubSystem> parent, EnableInput* orig) : EnableNode(parent, orig){
     //Nothing extra to copy
+}
+
+std::shared_ptr<Node> EnableInput::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<EnableInput>(parent, this);
 }

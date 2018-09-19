@@ -3,6 +3,7 @@
 //
 
 #include "VectorFanOut.h"
+#include "GraphCore/NodeFactory.h"
 
 VectorFanOut::VectorFanOut() {
 
@@ -63,6 +64,10 @@ void VectorFanOut::validate() {
     }
 }
 
-VectorFanOut::VectorFanOut(std::shared_ptr<SubSystem> parent, std::shared_ptr<VectorFanOut> orig) : VectorFan(parent, orig){
+VectorFanOut::VectorFanOut(std::shared_ptr<SubSystem> parent, VectorFanOut* orig) : VectorFan(parent, orig){
     //No additional attributes to copy, just call superclass constructor
+}
+
+std::shared_ptr<Node> VectorFanOut::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<VectorFanOut>(parent, this);
 }

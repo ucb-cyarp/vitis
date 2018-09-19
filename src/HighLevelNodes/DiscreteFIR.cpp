@@ -3,6 +3,7 @@
 //
 
 #include "DiscreteFIR.h"
+#include "GraphCore/NodeFactory.h"
 
 DiscreteFIR::DiscreteFIR() {
 
@@ -210,6 +211,10 @@ void DiscreteFIR::validate() {
     }
 }
 
-DiscreteFIR::DiscreteFIR(std::shared_ptr<SubSystem> parent, std::shared_ptr<DiscreteFIR> orig) : HighLevelNode(parent, orig), coefSource(orig->coefSource), coefs(orig->coefs), initVals(orig->initVals) {
+DiscreteFIR::DiscreteFIR(std::shared_ptr<SubSystem> parent, DiscreteFIR* orig) : HighLevelNode(parent, orig), coefSource(orig->coefSource), coefs(orig->coefs), initVals(orig->initVals) {
 
+}
+
+std::shared_ptr<Node> DiscreteFIR::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<DiscreteFIR>(parent, this);
 }

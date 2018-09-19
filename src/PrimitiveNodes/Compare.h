@@ -94,7 +94,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Compare(std::shared_ptr<SubSystem> parent, std::shared_ptr<Compare> orig);
+    Compare(std::shared_ptr<SubSystem> parent, Compare* orig);
 
 public:
     CompareOp getCompareOp() const;
@@ -125,6 +125,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
      * @brief Emits a C expression for the comparison

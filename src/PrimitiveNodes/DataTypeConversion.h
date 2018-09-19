@@ -63,7 +63,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    DataTypeConversion(std::shared_ptr<SubSystem> parent, std::shared_ptr<DataTypeConversion> orig);
+    DataTypeConversion(std::shared_ptr<SubSystem> parent, DataTypeConversion* orig);
 
 public:
     static InheritType parseInheritType(std::string str);
@@ -109,6 +109,8 @@ public:
      * @brief Checks that the specified datatype and the output arc datatype match if @ref inheritType is @ref InheritType::SPECIFIED.
      */
     void validate() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
      * @brief Emits type conversion logic.

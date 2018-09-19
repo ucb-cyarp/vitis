@@ -3,6 +3,7 @@
 //
 
 #include "Compare.h"
+#include "GraphCore/NodeFactory.h"
 
 Compare::Compare() : compareOp(CompareOp::LT) {
 
@@ -191,6 +192,10 @@ CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
     return CExpr("", false);
 }
 
-Compare::Compare(std::shared_ptr<SubSystem> parent, std::shared_ptr<Compare> orig) : PrimitiveNode(parent, orig), compareOp(orig->compareOp) {
+Compare::Compare(std::shared_ptr<SubSystem> parent, Compare* orig) : PrimitiveNode(parent, orig), compareOp(orig->compareOp) {
 
+}
+
+std::shared_ptr<Node> Compare::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Compare>(parent, this);
 }

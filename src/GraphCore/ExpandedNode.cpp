@@ -4,6 +4,7 @@
 
 #include "ExpandedNode.h"
 #include "GraphMLTools/GraphMLHelper.h"
+#include "NodeFactory.h"
 
 ExpandedNode::ExpandedNode() {
     origNode = std::shared_ptr<ExpandedNode>(nullptr);
@@ -79,6 +80,10 @@ std::string ExpandedNode::labelStr() {
     return label;
 }
 
-ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<ExpandedNode> orig) : SubSystem(parent, orig) {
+ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, ExpandedNode* orig) : SubSystem(parent, orig) {
     //Does not copy orig node
+}
+
+std::shared_ptr<Node> ExpandedNode::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<ExpandedNode>(parent, this);
 }

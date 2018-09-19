@@ -3,6 +3,7 @@
 //
 
 #include "DataTypeDuplicate.h"
+#include "GraphCore/NodeFactory.h"
 
 DataTypeDuplicate::DataTypeDuplicate() {
 
@@ -75,6 +76,10 @@ CExpr DataTypeDuplicate::emitCExpr(std::vector<std::string> &cStatementQueue, in
     return Node::emitCExpr(cStatementQueue, outputPortNum, imag);
 }
 
-DataTypeDuplicate::DataTypeDuplicate(std::shared_ptr<SubSystem> parent, std::shared_ptr<DataTypeDuplicate> orig) : PrimitiveNode(parent, orig){
+DataTypeDuplicate::DataTypeDuplicate(std::shared_ptr<SubSystem> parent, DataTypeDuplicate* orig) : PrimitiveNode(parent, orig){
     //No new values to copy, just call superclass constructor
+}
+
+std::shared_ptr<Node> DataTypeDuplicate::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<DataTypeDuplicate>(parent, this);
 }

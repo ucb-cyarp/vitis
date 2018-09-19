@@ -54,7 +54,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    VectorFanIn(std::shared_ptr<SubSystem> parent, std::shared_ptr<VectorFanIn> orig);
+    VectorFanIn(std::shared_ptr<SubSystem> parent, VectorFanIn* orig);
 
 public:
     //====Factories====
@@ -82,6 +82,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

@@ -3,6 +3,7 @@
 //
 
 #include "RealImagToComplex.h"
+#include "GraphCore/NodeFactory.h"
 
 RealImagToComplex::RealImagToComplex() {
 
@@ -96,6 +97,10 @@ CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, in
     return CExpr(emitStr, false);
 }
 
-RealImagToComplex::RealImagToComplex(std::shared_ptr<SubSystem> parent, std::shared_ptr<RealImagToComplex> orig) : PrimitiveNode(parent, orig) {
+RealImagToComplex::RealImagToComplex(std::shared_ptr<SubSystem> parent, RealImagToComplex* orig) : PrimitiveNode(parent, orig) {
     //Nothing else to copy, call superclass constructor
+}
+
+std::shared_ptr<Node> RealImagToComplex::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<RealImagToComplex>(parent, this);
 }

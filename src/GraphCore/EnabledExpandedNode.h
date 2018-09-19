@@ -60,13 +60,15 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnabledExpandedNode> orig);
+    EnabledExpandedNode(std::shared_ptr<SubSystem> parent, EnabledExpandedNode* orig);
 
     //Init should be overwritten by EnabledSubSystem
 
     std::string labelStr() override ;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

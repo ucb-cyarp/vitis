@@ -75,7 +75,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Mux(std::shared_ptr<SubSystem> parent, std::shared_ptr<Mux> orig);
+    Mux(std::shared_ptr<SubSystem> parent, Mux* orig);
 
 public:
     //==== Getters/Setters ====
@@ -161,6 +161,8 @@ public:
      * as the output assignment will occur during the context emit.
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

@@ -6,6 +6,7 @@
 #include "GraphCore/ExpandedNode.h"
 #include "PrimitiveNodes/Constant.h"
 #include "General/GeneralHelper.h"
+#include "GraphCore/NodeFactory.h"
 
 CompareToConstant::CompareToConstant() : compareOp(Compare::CompareOp::LT) {
 
@@ -229,8 +230,12 @@ void CompareToConstant::validate() {
     }
 }
 
-CompareToConstant::CompareToConstant(std::shared_ptr<SubSystem> parent, std::shared_ptr<CompareToConstant> orig) : MediumLevelNode(parent, orig), compareConst(orig->compareConst), compareOp(orig->compareOp) {
+CompareToConstant::CompareToConstant(std::shared_ptr<SubSystem> parent, CompareToConstant* orig) : MediumLevelNode(parent, orig), compareConst(orig->compareConst), compareOp(orig->compareOp) {
 
+}
+
+std::shared_ptr<Node> CompareToConstant::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<CompareToConstant>(parent, this);
 }
 
 

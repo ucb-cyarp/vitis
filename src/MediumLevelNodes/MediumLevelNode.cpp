@@ -16,6 +16,6 @@ bool MediumLevelNode::canExpand() {
     return true;
 }
 
-MediumLevelNode::MediumLevelNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<MediumLevelNode> orig) : Node(parent, orig) {
+MediumLevelNode::MediumLevelNode(std::shared_ptr<SubSystem> parent, MediumLevelNode* orig) : Node(parent, orig) {
     //Nothing new to copy here, just call superclass constructor
 }

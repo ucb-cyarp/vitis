@@ -130,7 +130,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    LogicalOperator(std::shared_ptr<SubSystem> parent, std::shared_ptr<LogicalOperator> orig);
+    LogicalOperator(std::shared_ptr<SubSystem> parent, LogicalOperator* orig);
 
 public:
     LogicalOp getLogicalOp() const;
@@ -161,6 +161,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
      * @brief Emits a C expression for the logical operator

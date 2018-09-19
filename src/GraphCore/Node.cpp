@@ -403,6 +403,10 @@ std::string Node::getGlobalDecl(){
     return "";
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder) {
+Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder) {
 
+}
+
+std::shared_ptr<Node> Node::shallowClone(std::shared_ptr<SubSystem> parent) {
+    throw std::runtime_error("Called shallowClone on a class that has not provided a clone function");
 }

@@ -58,7 +58,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Gain(std::shared_ptr<SubSystem> parent, std::shared_ptr<Gain> orig);
+    Gain(std::shared_ptr<SubSystem> parent, Gain* orig);
 
 public:
     //==== Getters/Setters ====
@@ -106,6 +106,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

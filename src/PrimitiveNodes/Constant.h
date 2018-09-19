@@ -58,7 +58,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Constant(std::shared_ptr<SubSystem> parent, std::shared_ptr<Constant> orig);
+    Constant(std::shared_ptr<SubSystem> parent, Constant* orig);
 
 public:
     //==== Getters/Setters ====
@@ -90,6 +90,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
 

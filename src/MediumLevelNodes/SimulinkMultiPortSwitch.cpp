@@ -8,6 +8,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Sum.h"
+#include "GraphCore/NodeFactory.h"
 
 #include <iostream>
 
@@ -252,7 +253,11 @@ void SimulinkMultiPortSwitch::validate() {
 }
 
 SimulinkMultiPortSwitch::SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent,
-                                                 std::shared_ptr<SimulinkMultiPortSwitch> orig): MediumLevelNode(parent, orig), indexType(orig->indexType) {
+                                                 SimulinkMultiPortSwitch* orig): MediumLevelNode(parent, orig), indexType(orig->indexType) {
 
+}
+
+std::shared_ptr<Node> SimulinkMultiPortSwitch::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<SimulinkMultiPortSwitch>(parent, this);
 }
 

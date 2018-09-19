@@ -237,6 +237,10 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
     return CExpr("", false);
 }
 
-Sum::Sum(std::shared_ptr<SubSystem> parent, std::shared_ptr<Sum> orig) : PrimitiveNode(parent, orig), inputSign(orig->inputSign){
+Sum::Sum(std::shared_ptr<SubSystem> parent, Sum* orig) : PrimitiveNode(parent, orig), inputSign(orig->inputSign){
 
+}
+
+std::shared_ptr<Node> Sum::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Sum>(parent, this);
 }

@@ -4,6 +4,7 @@
 
 #include "SubSystem.h"
 #include "GraphMLTools/GraphMLHelper.h"
+#include "GraphCore/NodeFactory.h"
 
 SubSystem::SubSystem() {
 
@@ -84,7 +85,11 @@ void SubSystem::setChildren(const std::set<std::shared_ptr<Node>> &children) {
     SubSystem::children = children;
 }
 
-SubSystem::SubSystem(std::shared_ptr<SubSystem> parent, std::shared_ptr<SubSystem> orig) : Node(parent, orig) {
+SubSystem::SubSystem(std::shared_ptr<SubSystem> parent, SubSystem* orig) : Node(parent, orig) {
     //Do not copy children
+}
+
+std::shared_ptr<Node> SubSystem::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<SubSystem>(parent, this);
 }
 

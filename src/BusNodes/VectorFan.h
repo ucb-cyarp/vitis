@@ -48,7 +48,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    VectorFan(std::shared_ptr<SubSystem> parent, std::shared_ptr<VectorFan> orig);
+    VectorFan(std::shared_ptr<SubSystem> parent, VectorFan* orig);
 
 public:
 

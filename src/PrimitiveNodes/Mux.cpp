@@ -3,6 +3,7 @@
 //
 
 #include "Mux.h"
+#include "GraphCore/NodeFactory.h"
 #include <iostream>
 
 Mux::Mux() : booleanSelect(false) {
@@ -209,9 +210,13 @@ CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
 
 }
 
-Mux::Mux(std::shared_ptr<SubSystem> parent, std::shared_ptr<Mux> orig) : PrimitiveNode(parent, orig), booleanSelect(orig->booleanSelect){
+Mux::Mux(std::shared_ptr<SubSystem> parent, Mux* orig) : PrimitiveNode(parent, orig), booleanSelect(orig->booleanSelect){
     //The select port is not copied but a new one is created
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
+}
+
+std::shared_ptr<Node> Mux::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Mux>(parent, this);
 }
 
 

@@ -5,6 +5,7 @@
 #include "EnabledExpandedNode.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
+#include "NodeFactory.h"
 
 EnabledExpandedNode::EnabledExpandedNode() {
 
@@ -41,6 +42,10 @@ xercesc::DOMElement *EnabledExpandedNode::emitGraphML(xercesc::DOMDocument *doc,
     return thisNode;
 }
 
-EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnabledExpandedNode> orig) : EnabledSubSystem(parent, orig), ExpandedNode(parent, orig){
+EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, EnabledExpandedNode* orig) : EnabledSubSystem(parent, orig), ExpandedNode(parent, orig){
     //Nothing extra to copy, call superclass constructors
+}
+
+std::shared_ptr<Node> EnabledExpandedNode::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<EnabledExpandedNode>(parent, this);
 }

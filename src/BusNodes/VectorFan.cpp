@@ -40,6 +40,6 @@ bool VectorFan::canExpand() {
     return false;
 }
 
-VectorFan::VectorFan(std::shared_ptr<SubSystem> parent, std::shared_ptr<VectorFan> orig) : Node(parent, orig){
+VectorFan::VectorFan(std::shared_ptr<SubSystem> parent, VectorFan* orig) : Node(parent, orig){
     //Nothing else to copy
 }

@@ -4,6 +4,7 @@
 
 #include "DataTypeConversion.h"
 
+#include "GraphCore/NodeFactory.h"
 #include <iostream>
 
 DataTypeConversion::DataTypeConversion() {
@@ -246,6 +247,10 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, i
     }
 }
 
-DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent, std::shared_ptr<DataTypeConversion> orig) : PrimitiveNode(parent, orig), tgtDataType(orig->tgtDataType), inheritType(orig->inheritType){
+DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent, DataTypeConversion* orig) : PrimitiveNode(parent, orig), tgtDataType(orig->tgtDataType), inheritType(orig->inheritType){
 
+}
+
+std::shared_ptr<Node> DataTypeConversion::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<DataTypeConversion>(parent, this);
 }

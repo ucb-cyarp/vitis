@@ -16,6 +16,6 @@ bool PrimitiveNode::canExpand() {
     return false;
 }
 
-PrimitiveNode::PrimitiveNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : Node(parent, orig) {
+PrimitiveNode::PrimitiveNode(std::shared_ptr<SubSystem> parent, Node* orig) : Node(parent, orig) {
     //Nothing new to copy
 }

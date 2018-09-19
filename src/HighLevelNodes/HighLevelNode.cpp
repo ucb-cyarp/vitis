@@ -16,6 +16,6 @@ bool HighLevelNode::canExpand() {
     return true;
 }
 
-HighLevelNode::HighLevelNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<HighLevelNode> orig) : Node(parent, orig) {
+HighLevelNode::HighLevelNode(std::shared_ptr<SubSystem> parent, HighLevelNode* orig) : Node(parent, orig) {
     //Nothing new to copy here, just call the superclass constructor
 }

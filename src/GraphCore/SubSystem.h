@@ -49,7 +49,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    SubSystem(std::shared_ptr<SubSystem> parent, std::shared_ptr<SubSystem> orig);
+    SubSystem(std::shared_ptr<SubSystem> parent, SubSystem* orig);
 
     /**
      * @brief Emits the subgraph entry for this subsystem as well as calling the emitGraphML functions on each child node
@@ -87,6 +87,8 @@ public:
     std::string labelStr() override ;
 
     bool canExpand() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

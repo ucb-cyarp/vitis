@@ -63,7 +63,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Delay(std::shared_ptr<SubSystem> parent, std::shared_ptr<Delay> orig);
+    Delay(std::shared_ptr<SubSystem> parent, Delay* orig);
 
 public:
     //====Getters/Setters====
@@ -108,6 +108,7 @@ public:
 
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
 
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

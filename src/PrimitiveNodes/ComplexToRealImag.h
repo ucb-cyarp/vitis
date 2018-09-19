@@ -52,7 +52,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    ComplexToRealImag(std::shared_ptr<SubSystem> parent, std::shared_ptr<ComplexToRealImag> orig);
+    ComplexToRealImag(std::shared_ptr<SubSystem> parent, ComplexToRealImag* orig);
 
 public:
     //====Factories====
@@ -80,6 +80,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
      * @brief Emits a C expression for the Complex to Real/Imag

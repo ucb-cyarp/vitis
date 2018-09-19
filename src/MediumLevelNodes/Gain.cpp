@@ -8,6 +8,7 @@
 #include "PrimitiveNodes/Product.h"
 #include "PrimitiveNodes/Constant.h"
 #include "General/GeneralHelper.h"
+#include "GraphCore/NodeFactory.h"
 #include <cmath>
 
 Gain::Gain() {
@@ -236,7 +237,11 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     return true;
 }
 
-Gain::Gain(std::shared_ptr<SubSystem> parent, std::shared_ptr<Gain> orig) : MediumLevelNode(parent, orig), gain(orig->gain) {
+Gain::Gain(std::shared_ptr<SubSystem> parent, Gain* orig) : MediumLevelNode(parent, orig), gain(orig->gain) {
 
+}
+
+std::shared_ptr<Node> Gain::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Gain>(parent, this);
 }
 

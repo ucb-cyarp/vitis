@@ -104,7 +104,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    LUT(std::shared_ptr<SubSystem> parent, std::shared_ptr<LUT> orig);
+    LUT(std::shared_ptr<SubSystem> parent, LUT* orig);
 
 public:
     //====Getters/Setters====
@@ -164,6 +164,8 @@ public:
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
 
     bool hasInternalFanout(int inputPort, bool imag) override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

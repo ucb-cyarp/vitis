@@ -70,7 +70,7 @@ public:
      * @return pointer to the new node
      */
     template <typename T>
-    static std::shared_ptr<T> shallowCloneNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<T> cloneFrom)
+    static std::shared_ptr<T> shallowCloneNode(std::shared_ptr<SubSystem> parent, T* cloneFrom)
     {
         std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent, cloneFrom));
 

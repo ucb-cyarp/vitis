@@ -113,7 +113,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Node(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig);
+    Node(std::shared_ptr<SubSystem> parent, Node* orig);
 
     /**
      * @brief Initializes parts of the given object that rely on a shared_ptr to the object itself
@@ -368,6 +368,17 @@ protected:
     virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
 
 public:
+
+    /**
+     * @brief Constructs a shallow copy of the given node.  Ports are not copied and neither is the parent reference.  The parent parameter is set and the cloned node is added as a child of the parent.
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @param parent the parent node of the node
+     * @return returns a shared pointer to the cloned node
+     */
+    virtual std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent);
+
     /**
      * @brief Identifies if the node contains state elements
      *

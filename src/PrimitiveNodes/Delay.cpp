@@ -270,6 +270,10 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
     }
 }
 
-Delay::Delay(std::shared_ptr<SubSystem> parent, std::shared_ptr<Delay> orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue), initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar){
+Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue), initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar){
 
+}
+
+std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Delay>(parent, this);
 }

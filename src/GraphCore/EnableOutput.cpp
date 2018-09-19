@@ -5,6 +5,7 @@
 #include "EnableOutput.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
+#include "NodeFactory.h"
 
 EnableOutput::EnableOutput() {
 
@@ -54,6 +55,10 @@ void EnableOutput::validate() {
     }
 }
 
-EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnableOutput> orig) : EnableNode(parent, orig) {
+EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig) {
 
+}
+
+std::shared_ptr<Node> EnableOutput::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<EnableOutput>(parent, this);
 }

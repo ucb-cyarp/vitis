@@ -67,7 +67,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent, std::shared_ptr<SimulinkMultiPortSwitch> orig);
+    SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent, SimulinkMultiPortSwitch* orig);
 
 public:
     //==== Getters/Setters ====
@@ -121,6 +121,7 @@ public:
     //Check of ONE_BASED that number of bits >1 if integer
     void validate() override ;
 
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

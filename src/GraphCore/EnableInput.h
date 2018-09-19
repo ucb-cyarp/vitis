@@ -45,7 +45,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    EnableInput(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnableInput> orig);
+    EnableInput(std::shared_ptr<SubSystem> parent, EnableInput* orig);
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
@@ -60,6 +60,8 @@ protected:
      * If an invalid configuration is detected, the function will throw an exception
      */
     void validate() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

@@ -88,8 +88,12 @@ CExpr UnsupportedSink::emitCExpr(std::vector<std::string> &cStatementQueue, int 
     return CExpr("", false);
 }
 
-UnsupportedSink::UnsupportedSink(std::shared_ptr<SubSystem> parent, std::shared_ptr<UnsupportedSink> orig) : PrimitiveNode(parent, orig), nodeType(orig->nodeType), dataKeyValueMap(orig->dataKeyValueMap) {
+UnsupportedSink::UnsupportedSink(std::shared_ptr<SubSystem> parent, UnsupportedSink* orig) : PrimitiveNode(parent, orig), nodeType(orig->nodeType), dataKeyValueMap(orig->dataKeyValueMap) {
 
+}
+
+std::shared_ptr<Node> UnsupportedSink::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<UnsupportedSink>(parent, this);
 }
 
 

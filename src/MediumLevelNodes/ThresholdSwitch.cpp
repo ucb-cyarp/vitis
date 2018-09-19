@@ -6,6 +6,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "GraphCore/ExpandedNode.h"
+#include "GraphCore/NodeFactory.h"
 #include <iostream>
 
 ThresholdSwitch::ThresholdSwitch() : compareOp(Compare::CompareOp::LT) {
@@ -231,7 +232,11 @@ void ThresholdSwitch::validate() {
 
 }
 
-ThresholdSwitch::ThresholdSwitch(std::shared_ptr<SubSystem> parent, std::shared_ptr<ThresholdSwitch> orig) : MediumLevelNode(parent, orig), threshold(orig->threshold), compareOp(orig->compareOp) {
+ThresholdSwitch::ThresholdSwitch(std::shared_ptr<SubSystem> parent, ThresholdSwitch* orig) : MediumLevelNode(parent, orig), threshold(orig->threshold), compareOp(orig->compareOp) {
 
+}
+
+std::shared_ptr<Node> ThresholdSwitch::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<ThresholdSwitch>(parent, this);
 }
 

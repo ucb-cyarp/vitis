@@ -67,7 +67,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    UnsupportedSink(std::shared_ptr<SubSystem> parent, std::shared_ptr<UnsupportedSink> orig);
+    UnsupportedSink(std::shared_ptr<SubSystem> parent, UnsupportedSink* orig);
 
 public:
     //====Getters/Setters====
@@ -101,6 +101,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
      * @brief Does nothing since the sink node is unsupported.  Should never be called for bottom up emit but may

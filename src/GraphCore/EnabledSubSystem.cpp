@@ -5,6 +5,7 @@
 #include "EnabledSubSystem.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
+#include "NodeFactory.h"
 
 EnabledSubSystem::EnabledSubSystem() {
 }
@@ -145,6 +146,10 @@ EnabledSubSystem::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gr
     return thisNode;
 }
 
-EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnabledSubSystem> orig) : SubSystem(parent, orig) {
+EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent, EnabledSubSystem* orig) : SubSystem(parent, orig) {
     //Do  not copy the Enable Input and Output Lists
+}
+
+std::shared_ptr<Node> EnabledSubSystem::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<EnabledSubSystem>(parent, this);
 }

@@ -4,6 +4,7 @@
 
 #include "LUT.h"
 #include "General/GeneralHelper.h"
+#include "GraphCore/NodeFactory.h"
 
 LUT::InterpMethod LUT::parseInterpMethodStr(std::string str) {
     if(str == "Flat"){
@@ -629,6 +630,10 @@ bool LUT::hasInternalFanout(int inputPort, bool imag){
     }
 }
 
-LUT::LUT(std::shared_ptr<SubSystem> parent, std::shared_ptr<LUT> orig) : PrimitiveNode(parent, orig), breakpoints(orig->breakpoints), tableData(orig->tableData), interpMethod(orig->interpMethod), extrapMethod(orig->extrapMethod), searchMethod(orig->searchMethod), emittedIndexCalculation(orig->emittedIndexCalculation){
+LUT::LUT(std::shared_ptr<SubSystem> parent, LUT* orig) : PrimitiveNode(parent, orig), breakpoints(orig->breakpoints), tableData(orig->tableData), interpMethod(orig->interpMethod), extrapMethod(orig->extrapMethod), searchMethod(orig->searchMethod), emittedIndexCalculation(orig->emittedIndexCalculation){
 
+}
+
+std::shared_ptr<Node> LUT::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<LUT>(parent, this);
 }

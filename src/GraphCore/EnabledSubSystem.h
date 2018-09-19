@@ -52,7 +52,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    EnabledSubSystem(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnabledSubSystem> orig);
+    EnabledSubSystem(std::shared_ptr<SubSystem> parent, EnabledSubSystem* orig);
 
     /**
      * @brief Performs check of @ref Node in addition to checking the enable port
@@ -84,6 +84,8 @@ public:
     std::shared_ptr<Port> getEnableSrc();
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

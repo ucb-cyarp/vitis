@@ -55,7 +55,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Product(std::shared_ptr<SubSystem> parent, std::shared_ptr<Product> orig);
+    Product(std::shared_ptr<SubSystem> parent, Product* orig);
 
 public:
     //====Getters/Setters====
@@ -87,6 +87,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
      * @brief Emits a C expression for the product

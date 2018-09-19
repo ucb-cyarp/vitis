@@ -3,6 +3,7 @@
 //
 
 #include "Constant.h"
+#include "GraphCore/NodeFactory.h"
 
 Constant::Constant() {
 
@@ -162,8 +163,12 @@ std::string Constant::emitC(std::vector<std::string> &cStatementQueue, int outpu
     return Node::emitC(cStatementQueue, outputPortNum, imag, false, false);
 }
 
-Constant::Constant(std::shared_ptr<SubSystem> parent, std::shared_ptr<Constant> orig) : PrimitiveNode(parent, orig), value(orig->value) {
+Constant::Constant(std::shared_ptr<SubSystem> parent, Constant* orig) : PrimitiveNode(parent, orig), value(orig->value) {
 
+}
+
+std::shared_ptr<Node> Constant::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Constant>(parent, this);
 }
 
 

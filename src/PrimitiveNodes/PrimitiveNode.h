@@ -46,7 +46,7 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    PrimitiveNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig);
+    PrimitiveNode(std::shared_ptr<SubSystem> parent, Node* orig);
 
 public:
     //Primitive nodes cannot be expanded
