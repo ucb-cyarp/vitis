@@ -87,3 +87,27 @@ ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, ExpandedNode* orig
 std::shared_ptr<Node> ExpandedNode::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<ExpandedNode>(parent, this);
 }
+
+void ExpandedNode::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
+                                            std::vector<std::shared_ptr<Node>> &nodeCopies,
+                                            std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                                            std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) {
+    //Copy this node
+    std::shared_ptr<ExpandedNode> clonedNode = std::dynamic_pointer_cast<ExpandedNode>(shallowClone(parent)); //This is a subsystem so we can cast to a subsystem pointer
+
+    //Put into vectors and maps
+    nodeCopies.push_back(clonedNode);
+    origToCopyNode[shared_from_this()] = clonedNode;
+    copyToOrigNode[clonedNode] = shared_from_this();
+
+    //Copy the un-expanded node
+    std::shared_ptr<Node> unexpandNode = origNode->shallowClone(nullptr); //This is a subsystem so we can cast to a subsystem pointer
+
+    //Put into vectors and maps
+    nodeCopies.push_back(unexpandNode);
+    origToCopyNode[origNode] = unexpandNode;
+    copyToOrigNode[unexpandNode] = origNode;
+
+    //Add as unexpandedNode of clonedNode
+    clonedNode->setOrigNode(unexpandNode);
+}

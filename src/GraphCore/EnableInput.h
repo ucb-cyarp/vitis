@@ -47,6 +47,8 @@ protected:
      */
     EnableInput(std::shared_ptr<SubSystem> parent, EnableInput* orig);
 
+public:
+
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
     std::string labelStr() override ;

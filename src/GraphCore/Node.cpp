@@ -410,3 +410,14 @@ Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name
 std::shared_ptr<Node> Node::shallowClone(std::shared_ptr<SubSystem> parent) {
     throw std::runtime_error("Called shallowClone on a class that has not provided a clone function");
 }
+
+void Node::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode){
+    //By default, only copy current node (recursive copy is done in Subsystems and Expanded Nodes)
+
+    std::shared_ptr<Node> clonedNode = shallowClone(parent);
+
+    //Put into vectors and maps
+    nodeCopies.push_back(clonedNode);
+    origToCopyNode[shared_from_this()] = clonedNode;
+    copyToOrigNode[clonedNode] = shared_from_this();
+}

@@ -380,6 +380,19 @@ public:
     virtual std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent);
 
     /**
+     * @brief Constructs a shallow copy of the given node.  Ports are not copied and neither is the parent reference.  The parent parameter is set and the cloned node is added as a child of the parent.
+     * Copies are made recursivly to children of this node
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @param parent the parent node of the node
+     * @param nodeCopies A vector into which pointers to the node copies are added
+     * @param origToCopyNode A map of orig node pointers to copy pointers.  New node copies are entered into this map
+     * @param copyToOrigNode A map of copy node pointers to orig pointers.  New node copies are entered into this map
+     */
+    virtual void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
+
+    /**
      * @brief Identifies if the node contains state elements
      *
      * @return true if the node contains state elements, false if it does not contain state elements

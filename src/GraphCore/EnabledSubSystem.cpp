@@ -2,6 +2,7 @@
 // Created by Christopher Yarp on 6/26/18.
 //
 
+#include <General/GeneralHelper.h>
 #include "EnabledSubSystem.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
@@ -152,4 +153,44 @@ EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent, EnabledSub
 
 std::shared_ptr<Node> EnabledSubSystem::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<EnabledSubSystem>(parent, this);
+}
+
+void EnabledSubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
+                                                std::vector<std::shared_ptr<Node>> &nodeCopies,
+                                                std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                                                std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) {
+    //Copy this node
+    std::shared_ptr<EnabledSubSystem> clonedNode = std::dynamic_pointer_cast<EnabledSubSystem>(shallowClone(parent)); //This is a subsystem so we can cast to a subsystem pointer
+
+    //Put into vectors and maps
+    nodeCopies.push_back(clonedNode);
+    origToCopyNode[shared_from_this()] = clonedNode;
+    copyToOrigNode[clonedNode] = shared_from_this();
+
+    //Copy children
+    for(auto it = children.begin(); it != children.end(); it++){
+        std::shared_ptr<EnableInput> enabledInput = GeneralHelper::isType<Node, EnableInput>(*it);
+        std::shared_ptr<EnableOutput> enabledOutput = GeneralHelper::isType<Node, EnableOutput>(*it);
+
+        if(enabledInput != nullptr){
+            std::shared_ptr<EnableInput> enableInputCopy = std::static_pointer_cast<EnableInput>(enabledInput->shallowClone(clonedNode));
+
+            nodeCopies.push_back(enableInputCopy);
+            origToCopyNode[enabledInput] = enableInputCopy;
+            copyToOrigNode[enableInputCopy] = enabledInput;
+
+            clonedNode->enabledInputs.push_back(enableInputCopy);
+        }else if(enabledOutput != nullptr){
+            std::shared_ptr<EnableOutput> enableOutputCopy = std::static_pointer_cast<EnableOutput>(enabledOutput->shallowClone(clonedNode));
+
+            nodeCopies.push_back(enableOutputCopy);
+            origToCopyNode[enabledOutput] = enableOutputCopy;
+            copyToOrigNode[enableOutputCopy] = enabledOutput;
+
+            clonedNode->enabledOutputs.push_back(enableOutputCopy);
+        }else {
+            //Recursive call to this function
+            shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
+        }
+    }
 }

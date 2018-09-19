@@ -93,3 +93,23 @@ std::shared_ptr<Node> SubSystem::shallowClone(std::shared_ptr<SubSystem> parent)
     return NodeFactory::shallowCloneNode<SubSystem>(parent, this);
 }
 
+void
+SubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies,
+                                    std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                                    std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) {
+
+    //Copy this node
+    std::shared_ptr<SubSystem> clonedNode = std::static_pointer_cast<SubSystem>(shallowClone(parent)); //This is a subsystem so we can cast to a subsystem pointer
+
+    //Put into vectors and maps
+    nodeCopies.push_back(clonedNode);
+    origToCopyNode[shared_from_this()] = clonedNode;
+    copyToOrigNode[clonedNode] = shared_from_this();
+
+    //Copy children
+    for(auto it = children.begin(); it != children.end(); it++){
+        //Recursive call to this function
+        shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
+    }
+}
+
