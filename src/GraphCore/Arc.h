@@ -224,6 +224,16 @@ public:
     void setDstPort(const std::shared_ptr<InputPort> &dstPort);
 
 
+    /**
+     * @brief Performs a shallow copy of arc parameters from the given arc to this arc.
+     *
+     * The parameters copied do not include the port references
+     *
+     * @param orig the orig arc from which the parameters are copied
+     */
+    void shallowCopyPrameters(Arc* orig);
+
+
     DataType getDataType() const;
     void setDataType(const DataType &dataType);
     double getSampleTime() const;

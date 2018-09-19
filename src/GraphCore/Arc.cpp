@@ -285,3 +285,13 @@ std::string Arc::labelStr() {
     return label;
 }
 
+void Arc::shallowCopyPrameters(Arc *orig) {
+    id = orig->id;
+    dataType = orig->dataType;
+    sampleTime = orig->sampleTime;
+    delay = orig->delay;
+    slack = orig->slack;
+
+    //do not copy weakSelf as this is set when connecting the nodes
+}
+
