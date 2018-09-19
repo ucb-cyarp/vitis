@@ -596,7 +596,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         }
         nodeMap[fullNodeID] = newNode;
     } else if(blockType == "Expanded"){
-        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent, dialect);
+        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, nullptr, dialect); //Set parent as nullptr so it is not added to the parent
         //Do not add the orig node to the node list
 
         std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(parent, origNode);
