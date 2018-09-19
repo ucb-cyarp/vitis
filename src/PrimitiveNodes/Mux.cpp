@@ -6,19 +6,12 @@
 #include "GraphCore/NodeFactory.h"
 #include <iostream>
 
-Mux::Mux() : booleanSelect(false) {
-    selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
-    //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
+Mux::Mux() : PrimitiveNode(), SelectNode(), booleanSelect(false) {
+
 }
 
-Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), booleanSelect(false) {
-    selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
-    //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
-}
+Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), SelectNode(parent), booleanSelect(false) {
 
-std::shared_ptr<SelectPort> Mux::getSelectorPort() const {
-    //Selector port should never be null as it is creates by the Mux constructor and accessors to change it to null do not exist.
-    return selectorPort->getSharedPointerSelectPort();
 }
 
 bool Mux::isBooleanSelect() const {
@@ -111,12 +104,6 @@ void Mux::validate() {
         }
     }
 
-}
-
-void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
-
-    //Set the dst port of the arc, updating the previous port and this one
-    arc->setDstPortUpdateNewUpdatePrev(selectorPort->getSharedPointerInputPort());
 }
 
 bool Mux::hasInternalFanout(int inputPort, bool imag) {

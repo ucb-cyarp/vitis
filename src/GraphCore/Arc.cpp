@@ -171,7 +171,7 @@ Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Ena
 }
 
 std::shared_ptr<Arc>
-Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Mux> dst, DataType dataType,
+Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<SelectNode> dst, DataType dataType,
                   double sampleTime) {
     //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
     //Since shared_from_this is required for these functions, a blank arc is created first.
