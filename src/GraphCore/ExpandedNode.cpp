@@ -59,6 +59,8 @@ ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<No
 
 xercesc::DOMElement *
 ExpandedNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    //Copy ID number into origNode so that the emit is correct
+    origNode->setId(id);
 
     //Get the parameters from the orig node.  Have the original emit everything but its block type
     xercesc::DOMElement* thisNode = origNode->emitGraphML(doc, graphNode, false);
