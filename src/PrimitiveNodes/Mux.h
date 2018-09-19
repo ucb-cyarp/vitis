@@ -125,7 +125,7 @@ public:
 
     /**
      * @brief Specifies that the MUX has internal fanout on each input.  This prevents logic from being ingested into
-     * the if/else/switch statement when using @emitCExpr
+     * the if/else/switch statement when using @ref emitCExpr
      *
      * @note It is often desierable for logic to be brought into the conditional block but care must be take as to
      * what operations can safely be moved inside.  Emit with contexts & context wrappers (allong with context
@@ -138,7 +138,7 @@ public:
      *
      * for boolean select lines, an if/else is created.  For integer types, a switch statement is created.
      *
-     * The output of the function is a tmp variable of the form: <muxName>_n<id>_out
+     * The output of the function is a tmp variable of the form: \<muxName\>_n\<id\>_out
      *
      * @note This function emits the most basic implementation of a multiplexer where all paths leading to the
      * mux are fully computed but only one path's result is selected.  This function does not contain any logic other

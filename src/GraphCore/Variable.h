@@ -38,7 +38,7 @@ public:
     /**
      * @brief Get the C variable name for the real or imag component of the variable
      *
-     * @note If @ref imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
+     * @note If imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
      *
      * @param imag imag if true, generates the imaginary component's name.  if false, generate the real component's name
      * @return C variable name
@@ -48,11 +48,11 @@ public:
     /**
      * @brief Get a C variable declaration statement
      *
-     * Takes the form of datatype varname_<re/im>
+     * Takes the form of datatype varname_\<re/im\>
      *
      * @note This function does call DataType::getCPUStorageType to get the delaration type
      *
-     * @note If @ref imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
+     * @note If imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
      *
      * @param imag if true, generates the imaginary component's declaration.  if false, generate the real component's declaration
      * @param includeWidth if true, includes width for vector types in declaration (ex. int name[5]), otherwise does not (ex. int name[]).  includeArray

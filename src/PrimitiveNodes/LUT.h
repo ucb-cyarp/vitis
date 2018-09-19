@@ -134,7 +134,7 @@ public:
     /**
      * @brief Declares the LUT array as a global constant array
      *
-     * Table name has the form <nodeName>_n<NodeID>_table_<re/im>;
+     * Table name has the form \<nodeName\>_n\<NodeID\>_table_\<re/im\>;
      *
      * @return The C style declaration of the LUT table as a constant, global, array
      */
