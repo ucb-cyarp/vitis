@@ -40,3 +40,8 @@ void EnableNode::validate() {
 bool EnableNode::canExpand() {
     return false;
 }
+
+EnableNode::EnableNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnableNode> orig) : Node(parent, orig) {
+    //Do not copy enable port but create a new one
+    enablePort = std::unique_ptr<EnablePort>(new EnablePort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
+}

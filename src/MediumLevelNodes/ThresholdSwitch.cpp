@@ -231,3 +231,7 @@ void ThresholdSwitch::validate() {
 
 }
 
+ThresholdSwitch::ThresholdSwitch(std::shared_ptr<SubSystem> parent, std::shared_ptr<ThresholdSwitch> orig) : MediumLevelNode(parent, orig), threshold(orig->threshold), compareOp(orig->compareOp) {
+
+}
+

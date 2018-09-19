@@ -16,6 +16,10 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
 #include "EnabledExpandedNode.h"
+#include "EnableInput.h"
+#include "EnableOutput.h"
+
+
 
 
 /**
@@ -46,6 +50,29 @@ public:
     static std::shared_ptr<T> createNode(std::shared_ptr<SubSystem> parent)
     {
         std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent));
+
+        node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+
+        if(parent != nullptr)
+        {
+            parent->addChild(node);
+        }
+
+        return node;
+    }
+
+    /**
+     * @brief Create a shallow clone of a given node.  The new node will have a parent set to given parent.  Add new node to the parent's children list (if parent is not null).
+     *
+     * @note If cloning the graph, the parent should be
+     * @param parent Parent of the new node
+     * @param cloneFrom the node from which the shallow clone is being made
+     * @return pointer to the new node
+     */
+    template <typename T>
+    static std::shared_ptr<T> shallowCloneNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<T> cloneFrom)
+    {
+        std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent, cloneFrom));
 
         node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
 

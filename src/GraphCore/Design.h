@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <map>
 
 #include "GraphMLParameter.h"
 #include "General/GeneralHelper.h"
@@ -154,6 +155,8 @@ public:
     void setNodes(const std::vector<std::shared_ptr<Node>> nodes);
     std::vector<std::shared_ptr<Arc>> getArcs() const;
     void setArcs(const std::vector<std::shared_ptr<Arc>> arcs);
+
+    void copyGraph(std::vector<std::shared_ptr<Node>> nodeCopies, std::vector<std::shared_ptr<Arc>> arcCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> copyToOrigNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> copyToOrigArc);
 
     /**
      * @brief Get a node by its name path

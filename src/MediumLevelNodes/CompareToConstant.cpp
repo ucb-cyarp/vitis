@@ -229,4 +229,8 @@ void CompareToConstant::validate() {
     }
 }
 
+CompareToConstant::CompareToConstant(std::shared_ptr<SubSystem> parent, std::shared_ptr<CompareToConstant> orig) : MediumLevelNode(parent, orig), compareConst(orig->compareConst), compareOp(orig->compareOp) {
+
+}
+
 

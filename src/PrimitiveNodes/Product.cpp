@@ -233,3 +233,7 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
 
     return CExpr("", false);
 }
+
+Product::Product(std::shared_ptr<SubSystem> parent, std::shared_ptr<Product> orig) : PrimitiveNode(parent, orig), inputOp(orig->inputOp){
+
+}

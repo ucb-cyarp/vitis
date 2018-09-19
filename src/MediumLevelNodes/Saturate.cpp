@@ -417,3 +417,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     return true;
 }
 
+Saturate::Saturate(std::shared_ptr<SubSystem> parent, std::shared_ptr<Saturate> orig) : MediumLevelNode(parent, orig), lowerLimit(orig->lowerLimit), upperLimit(orig->upperLimit){
+
+}
+

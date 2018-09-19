@@ -21,7 +21,7 @@ void ExpandedNode::setOrigNode(std::shared_ptr<Node> origNode) {
     ExpandedNode::origNode = origNode;
 }
 
-ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : SubSystem(parent), origNode(orig) {
+ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig, void* nop) : SubSystem(parent), origNode(orig) {
     //Set ID
     id = orig->getId();
     name = "Expanded(" + orig->getName() + ")";
@@ -77,4 +77,8 @@ std::string ExpandedNode::labelStr() {
     label += "\nType: Expanded";
 
     return label;
+}
+
+ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<ExpandedNode> orig) : SubSystem(parent, orig) {
+    //Does not copy orig node
 }

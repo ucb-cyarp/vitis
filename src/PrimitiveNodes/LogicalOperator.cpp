@@ -229,3 +229,7 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, int 
 
     return CExpr(expr, false);
 }
+
+LogicalOperator::LogicalOperator(std::shared_ptr<SubSystem> parent, std::shared_ptr<LogicalOperator> orig) : PrimitiveNode(parent, orig), logicalOp(orig->logicalOp){
+
+}

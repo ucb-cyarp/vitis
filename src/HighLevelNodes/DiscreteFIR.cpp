@@ -209,3 +209,7 @@ void DiscreteFIR::validate() {
         throw std::runtime_error("Unknown Coef Source");
     }
 }
+
+DiscreteFIR::DiscreteFIR(std::shared_ptr<SubSystem> parent, std::shared_ptr<DiscreteFIR> orig) : HighLevelNode(parent, orig), coefSource(orig->coefSource), coefs(orig->coefs), initVals(orig->initVals) {
+
+}

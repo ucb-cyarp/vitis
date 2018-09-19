@@ -190,3 +190,7 @@ CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
 
     return CExpr("", false);
 }
+
+Compare::Compare(std::shared_ptr<SubSystem> parent, std::shared_ptr<Compare> orig) : PrimitiveNode(parent, orig), compareOp(orig->compareOp) {
+
+}

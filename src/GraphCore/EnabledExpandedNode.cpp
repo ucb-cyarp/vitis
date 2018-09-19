@@ -14,7 +14,7 @@ EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent) : En
 
 }
 
-EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : EnabledSubSystem(parent), ExpandedNode(parent, orig) {
+EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig, void* nop) : EnabledSubSystem(parent), ExpandedNode(parent, orig, nop) {
 
 }
 
@@ -39,4 +39,8 @@ xercesc::DOMElement *EnabledExpandedNode::emitGraphML(xercesc::DOMDocument *doc,
     emitGramphMLSubgraphAndChildren(doc, thisNode);
 
     return thisNode;
+}
+
+EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnabledExpandedNode> orig) : EnabledSubSystem(parent, orig), ExpandedNode(parent, orig){
+    //Nothing extra to copy, call superclass constructors
 }

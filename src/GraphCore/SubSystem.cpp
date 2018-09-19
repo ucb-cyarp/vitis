@@ -84,3 +84,7 @@ void SubSystem::setChildren(const std::set<std::shared_ptr<Node>> &children) {
     SubSystem::children = children;
 }
 
+SubSystem::SubSystem(std::shared_ptr<SubSystem> parent, std::shared_ptr<SubSystem> orig) : Node(parent, orig) {
+    //Do not copy children
+}
+

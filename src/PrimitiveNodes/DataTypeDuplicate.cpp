@@ -74,3 +74,7 @@ CExpr DataTypeDuplicate::emitCExpr(std::vector<std::string> &cStatementQueue, in
     throw std::runtime_error("Emit Failed - DataTypeDuplicate - Attempted to Emit \"Constraint Only\" Block With No Outputs");
     return Node::emitCExpr(cStatementQueue, outputPortNum, imag);
 }
+
+DataTypeDuplicate::DataTypeDuplicate(std::shared_ptr<SubSystem> parent, std::shared_ptr<DataTypeDuplicate> orig) : PrimitiveNode(parent, orig){
+    //No new values to copy, just call superclass constructor
+}

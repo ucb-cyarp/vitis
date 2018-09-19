@@ -628,3 +628,7 @@ bool LUT::hasInternalFanout(int inputPort, bool imag){
         return false;
     }
 }
+
+LUT::LUT(std::shared_ptr<SubSystem> parent, std::shared_ptr<LUT> orig) : PrimitiveNode(parent, orig), breakpoints(orig->breakpoints), tableData(orig->tableData), interpMethod(orig->interpMethod), extrapMethod(orig->extrapMethod), searchMethod(orig->searchMethod), emittedIndexCalculation(orig->emittedIndexCalculation){
+
+}

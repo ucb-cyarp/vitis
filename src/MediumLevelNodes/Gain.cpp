@@ -236,3 +236,7 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     return true;
 }
 
+Gain::Gain(std::shared_ptr<SubSystem> parent, std::shared_ptr<Gain> orig) : MediumLevelNode(parent, orig), gain(orig->gain) {
+
+}
+

@@ -12,17 +12,18 @@
 #include "Node.h"
 #include "InputPort.h"
 #include "OutputPort.h"
+#include "NodeFactory.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
 
-Node::Node() : id(-1), name(""), partitionNum(0), tmpCount(0)
+Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
 {
     parent = std::shared_ptr<SubSystem>(nullptr);
 
     //NOTE: CANNOT init ports here since we need a shared pointer to this object
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(0), tmpCount(0), parent(parent) { }
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(0), tmpCount(0), parent(parent) { }
 
 void Node::init() {
     //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports
@@ -400,4 +401,8 @@ void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
 std::string Node::getGlobalDecl(){
     //Default is to return ""
     return "";
+}
+
+Node::Node(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder) {
+
 }

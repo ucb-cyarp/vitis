@@ -245,3 +245,7 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, i
         return CExpr(outputExpr, false);
     }
 }
+
+DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent, std::shared_ptr<DataTypeConversion> orig) : PrimitiveNode(parent, orig), tgtDataType(orig->tgtDataType), inheritType(orig->inheritType){
+
+}

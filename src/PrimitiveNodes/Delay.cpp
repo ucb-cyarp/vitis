@@ -269,3 +269,7 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
         cStatementQueue.push_back(stateInputDeclAssignIm);
     }
 }
+
+Delay::Delay(std::shared_ptr<SubSystem> parent, std::shared_ptr<Delay> orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue), initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar){
+
+}

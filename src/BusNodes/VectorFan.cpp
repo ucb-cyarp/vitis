@@ -39,3 +39,7 @@ VectorFan::createFromGraphML(int id, std::string name, std::map<std::string, std
 bool VectorFan::canExpand() {
     return false;
 }
+
+VectorFan::VectorFan(std::shared_ptr<SubSystem> parent, std::shared_ptr<VectorFan> orig) : Node(parent, orig){
+    //Nothing else to copy
+}

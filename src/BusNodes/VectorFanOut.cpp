@@ -62,3 +62,7 @@ void VectorFanOut::validate() {
         throw std::runtime_error("Validation Failed - VectorFanIn - Width of Input Arc Should = Number of Output Ports");
     }
 }
+
+VectorFanOut::VectorFanOut(std::shared_ptr<SubSystem> parent, std::shared_ptr<VectorFanOut> orig) : VectorFan(parent, orig){
+    //No additional attributes to copy, just call superclass constructor
+}

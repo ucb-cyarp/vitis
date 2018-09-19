@@ -251,3 +251,8 @@ void SimulinkMultiPortSwitch::validate() {
     }
 }
 
+SimulinkMultiPortSwitch::SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent,
+                                                 std::shared_ptr<SimulinkMultiPortSwitch> orig): MediumLevelNode(parent, orig), indexType(orig->indexType) {
+
+}
+

@@ -161,3 +161,9 @@ std::string Constant::emitC(std::vector<std::string> &cStatementQueue, int outpu
     //Run the parent emitC routien except do not check for fanout.
     return Node::emitC(cStatementQueue, outputPortNum, imag, false, false);
 }
+
+Constant::Constant(std::shared_ptr<SubSystem> parent, std::shared_ptr<Constant> orig) : PrimitiveNode(parent, orig), value(orig->value) {
+
+}
+
+

@@ -53,3 +53,7 @@ void EnableOutput::validate() {
         throw std::runtime_error("EnableInput not found in parent EnabledInput list");
     }
 }
+
+EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnableOutput> orig) : EnableNode(parent, orig) {
+
+}

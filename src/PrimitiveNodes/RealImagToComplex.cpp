@@ -95,3 +95,7 @@ CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, in
 
     return CExpr(emitStr, false);
 }
+
+RealImagToComplex::RealImagToComplex(std::shared_ptr<SubSystem> parent, std::shared_ptr<RealImagToComplex> orig) : PrimitiveNode(parent, orig) {
+    //Nothing else to copy, call superclass constructor
+}

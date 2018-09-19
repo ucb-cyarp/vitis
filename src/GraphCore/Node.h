@@ -77,6 +77,7 @@ protected:
     int tmpCount; ///<Used to track how many temporary variables have been created for this node
 
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
+    int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -99,6 +100,20 @@ protected:
      * @param parent parent node
      */
     explicit Node(std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    Node(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig);
 
     /**
      * @brief Initializes parts of the given object that rely on a shared_ptr to the object itself
@@ -352,21 +367,6 @@ protected:
      */
     virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
 
-//    /**
-//     * @brief Get a new temporary variable with the specified DataType
-//     *
-//     * @note @ref DataType::getCPUStorageType is called on the dataType to get a standard CPU type
-//     *
-//     * The C variable declaration of the new temporary variable is enqueued on the cStatementQueue
-//     *
-//     * The variable name has the form nodeName_n<id>_tmp<num>
-//     *
-//     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The temporary variable declaration is pushed onto this queue
-//     * @param dataType the datatype of the new temporary variable
-//     * @return a new Variable object
-//     */
-//    Variable getNewTempVar(std::vector<std::string> &cStatementQueue, DataType dataType);
-
 public:
     /**
      * @brief Identifies if the node contains state elements
@@ -458,8 +458,6 @@ public:
     /**
      * @brief Sets the parent of the node without updating the child set of the parent to include this node.
      *
-     * Consider using @ref updateParent which updates the parents (old and new) along with changing the parent of this node.
-     *
      * @param parent the new parent of this node
      */
     void setParent(std::shared_ptr<SubSystem> parent);
@@ -471,16 +469,6 @@ public:
     const std::string &getName() const;
 
     void setName(const std::string &name);
-
-    //++++ Getters/Setters With Added Functionality ++++
-    /**
-     * @brief Sets the parent of the node.
-     *
-     * Before setting, removes from the children list of the old parent (if not NULL).
-     * Adds to the children list of the new parent (if not NULL).
-     * @param parent new parent
-     */
-    void updateParent(std::shared_ptr<SubSystem> parent);
 
 };
 

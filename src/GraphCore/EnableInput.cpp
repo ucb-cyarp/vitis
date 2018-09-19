@@ -52,3 +52,8 @@ void EnableInput::validate() {
         throw std::runtime_error("EnableInput not found in parent EnabledInput list");
     }
 }
+
+
+EnableInput::EnableInput(std::shared_ptr<SubSystem> parent, std::shared_ptr<EnableInput> orig) : EnableNode(parent, orig){
+    //Nothing extra to copy
+}
