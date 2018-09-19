@@ -10,7 +10,6 @@
 #include "GraphCore/SelectPort.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
-#include "GraphCore/SelectNode.h"
 
 #include <map>
 
@@ -40,10 +39,11 @@
  * mux and a -1 on the select line.
  *
  */
-class Mux : public PrimitiveNode, public SelectNode{
+class Mux : public PrimitiveNode{
     friend NodeFactory;
 
 private:
+    std::unique_ptr<SelectPort> selectorPort;///< The port which determines the mux selection
     bool booleanSelect; ///< If true, the mux uses the simulink convention of the top (first) port being true and the bottom port being false
 
     //==== Constructors ====
@@ -78,7 +78,26 @@ private:
     Mux(std::shared_ptr<SubSystem> parent, Mux* orig);
 
 public:
+    //==== Getters/Setters ====
+    /**
+     * @brief Get an aliased shared pointer to the selector port.
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to the selector port
+     */
+    std::shared_ptr<SelectPort> getSelectorPort() const;
 
+    /**
+    * @brief Add a select arc to the given node, updating referenced objects in the process
+    *
+    * Adds an select arc to this node.  Removes the arc from the orig port if not NULL.
+    * Updates the given arc so that the destination port is set to the specified input
+    * port of this node.  If the port object for the given number is not yet created, it
+    * will be created during the call.
+    * @param arc The arc to add
+    */
+    void addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
 
     bool isBooleanSelect() const;
 

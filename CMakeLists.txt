@@ -75,8 +75,6 @@ set(COMMON_SRCS
         src/GraphCore/Variable.h
         src/GraphCore/CExpr.cpp
         src/GraphCore/CExpr.h
-        src/GraphCore/SelectNode.cpp
-        src/GraphCore/SelectNode.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp

@@ -20,7 +20,7 @@
  * This is an abstract class.  It is not a friend of the NodeFactory class and the constructors are kept protected
  * as a result
  */
-class PrimitiveNode : virtual public Node{
+class PrimitiveNode : public Node{
 protected:
     /**
      * @brief Constructs a default primitive node
