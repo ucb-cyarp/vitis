@@ -219,6 +219,43 @@ std::shared_ptr<Node> Mux::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Mux>(parent, this);
 }
 
+void Mux::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
+                         std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                         std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
+                         std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
+    //Copy the input arcs from standard input ports
+    Node::cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+
+    //Copy the input arcs from the enable line
+    std::set<std::shared_ptr<Arc>> selectPortArcs = selectorPort->getArcs();
+
+    //Adding an arc to a mux node.  The copy of this node should be an Mux so we should be able to cast to it
+    std::shared_ptr<Mux> clonedDstNode = std::dynamic_pointer_cast<Mux>(
+            origToCopyNode[shared_from_this()]);
+
+    //Itterate through the arcs and duplicate
+    for (auto arcIt = selectPortArcs.begin(); arcIt != selectPortArcs.end(); arcIt++) {
+        std::shared_ptr<Arc> origArc = (*arcIt);
+        //Get Src Output Port Number and Src Node (as of now, all arcs origionate at an output port)
+        std::shared_ptr<OutputPort> srcPort = origArc->getSrcPort();
+        int srcPortNumber = srcPort->getPortNum();
+
+        std::shared_ptr<Node> origSrcNode = srcPort->getParent();
+        std::shared_ptr<Node> clonedSrcNode = origToCopyNode[origSrcNode];
+
+        //Create the Cloned Arc
+        std::shared_ptr<Arc> clonedArc = Arc::connectNodes(clonedSrcNode, srcPortNumber, clonedDstNode,
+                                                           (*arcIt)->getDataType()); //This creates a new arc and connects them to the referenced node ports.  This method connects to the select port of the clone of this node
+        clonedArc->shallowCopyPrameters(origArc.get());
+
+        //Add to arc list and maps
+        arcCopies.push_back(clonedArc);
+        origToCopyArc[origArc] = clonedArc;
+        copyToOrigArc[clonedArc] = origArc;
+
+    }
+}
+
 
 
 

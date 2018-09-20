@@ -126,7 +126,7 @@ public:
     /**
      * @brief Connects two nodes with a newly created Arc.  Dst port is the select port.
      *
-     * This function adds the new arc to the specified ports of the source node.  Adds the arc to the enable port of the destination.
+     * This function adds the new arc to the specified ports of the source node.  Adds the arc to the select port of the destination.
      *
      * @param src source node for Arc
      * @param srcPortNum source port number for Arc

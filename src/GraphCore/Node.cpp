@@ -421,3 +421,41 @@ void Node::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vect
     origToCopyNode[shared_from_this()] = clonedNode;
     copyToOrigNode[clonedNode] = shared_from_this();
 }
+
+void Node::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
+                          std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                          std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
+                          std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
+
+    //Itterate throught input ports
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::set<std::shared_ptr<Arc>> portArcs = inputPorts[i]->getArcs();
+        int inputPortNum = inputPorts[i]->getPortNum();
+
+        std::shared_ptr<Node> clonedDstNode = origToCopyNode[shared_from_this()];
+
+        //Itterate through the arcs and duplicate
+        for(auto arcIt = portArcs.begin(); arcIt != portArcs.end(); arcIt++){
+            std::shared_ptr<Arc> origArc = (*arcIt);
+            //Get Src Output Port Number and Src Node (as of now, all arcs origionate at an output port)
+            std::shared_ptr<OutputPort> srcPort = origArc->getSrcPort();
+            int srcPortNumber = srcPort->getPortNum();
+
+            std::shared_ptr<Node> origSrcNode = srcPort->getParent();
+            std::shared_ptr<Node> clonedSrcNode = origToCopyNode[origSrcNode];
+
+            //Create the Cloned Arc
+            std::shared_ptr<Arc> clonedArc = Arc::connectNodes(clonedSrcNode, srcPortNumber, clonedDstNode, inputPortNum, (*arcIt)->getDataType()); //This creates a new arc and connects them to the referenced node ports.
+            clonedArc->shallowCopyPrameters(origArc.get());
+
+            //Add to arc list and maps
+            arcCopies.push_back(clonedArc);
+            origToCopyArc[origArc] = clonedArc;
+            copyToOrigArc[clonedArc] = origArc;
+
+        }
+
+    }
+
+}

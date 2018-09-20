@@ -393,6 +393,22 @@ public:
     virtual void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
 
     /**
+     * @brief Clones input arcs for the given node
+     *
+     * The cloned arcs will connect the cloned versions of the nodes rather than redundantly connecting the origional nodes.
+     *
+     * @warning Nodes must already be cloned before this function is called.  It is assumed there is an entry in the origToCopyNode map.
+     *
+     * @note This function should be called on the origional node rather than a clone
+     *
+     * @param arcCopies A vector into which the cloned input arcs will be inserted into
+     * @param origToCopyNode A map of origional node pointers to cloned node pointers
+     * @param origToCopyArc A map of orig arc pointers to the cloned arc
+     * @param copyToOrigArc A map of cloned arc pointers to orig arcs
+     */
+    virtual void cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc);
+
+    /**
      * @brief Identifies if the node contains state elements
      *
      * @return true if the node contains state elements, false if it does not contain state elements
