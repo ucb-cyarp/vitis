@@ -560,12 +560,6 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     headerFile << std::endl;
 
-    headerFile << "//==== Global Declarations ====" << std::endl;
-    unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
-    for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
-        headerFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
-    }
-
     headerFile << "#endif" << std::endl;
 
     headerFile.close();
@@ -591,6 +585,14 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                 cFile << stateVars[j].getCVarDecl(true, true, true, true) << ";" << std::endl;
             }
         }
+    }
+
+    cFile << std::endl;
+
+    cFile << "//==== Global Declarations ====" << std::endl;
+    unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
+    for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
+        cFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
     }
 
     cFile << std::endl;
