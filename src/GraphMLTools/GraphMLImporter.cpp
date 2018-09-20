@@ -981,6 +981,8 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
         //Handle case when dst port number may not be given if enabled.
         std::string dstPortType = dataKeyValueMap.at("arc_dst_port_type");
         bool standardDst = dstPortType == "Standard";
+        bool isEnableDst = dstPortType == "Enable";
+        bool isSelectDst = dstPortType == "Select";
         if(standardDst){
             dstPortNum = std::stoi(dataKeyValueMap.at("arc_dst_port"));
         }
@@ -1030,9 +1032,14 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
 
         if(standardDst) {
             newArc = Arc::connectNodes(srcNode, srcPortNum, dstNode, dstPortNum, dataType);
-        }else {
+        }else if(isEnableDst) {
             std::shared_ptr<EnableNode> dstNodeEnabled = std::dynamic_pointer_cast<EnableNode>(dstNode);
             newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeEnabled, dataType);
+        }else if(isSelectDst){
+            std::shared_ptr<Mux> dstNodeSelect = std::dynamic_pointer_cast<Mux>(dstNode);
+            newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeSelect, dataType);
+        }else{
+            throw std::runtime_error("Unknown Port Type: " + dstPortType);
         }
 
         newArc->setId(id);
