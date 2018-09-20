@@ -3,6 +3,7 @@
 //
 
 #include "MasterInput.h"
+#include "General/GeneralHelper.h"
 
 MasterInput::MasterInput() {
 
@@ -10,7 +11,7 @@ MasterInput::MasterInput() {
 
 
 std::string MasterInput::getCInputName(int portNum) {
-    return getOutputPort(portNum)->getName() + "_inPort" + std::to_string(portNum);
+    return getOutputPort(portNum)->getName() + "_inPort" + GeneralHelper::to_string(portNum);
 }
 
 //std::string

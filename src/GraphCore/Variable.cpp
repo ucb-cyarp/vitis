@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <algorithm>
+#include "General/GeneralHelper.h"
 
 Variable::Variable() : name("") {
 
@@ -53,7 +54,7 @@ std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit
     if(dataType.getWidth() > 1 && includeArray){
         decl += "[";
         if(includeWidth){
-            decl += std::to_string(dataType.getWidth());
+            decl += GeneralHelper::to_string(dataType.getWidth());
         }
         decl += "]";
     }

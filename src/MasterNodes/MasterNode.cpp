@@ -4,6 +4,7 @@
 
 #include "MasterNode.h"
 #include "GraphMLTools/GraphMLHelper.h"
+#include "General/GeneralHelper.h"
 
 MasterNode::MasterNode() {
 
@@ -19,15 +20,15 @@ MasterNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNod
     //Emit port names
     unsigned long numInputPorts = inputPorts.size();
     unsigned long numOutputPorts = outputPorts.size();
-    GraphMLHelper::addDataNode(doc, thisNode, "named_input_ports", std::to_string(numInputPorts));
-    GraphMLHelper::addDataNode(doc, thisNode, "named_output_ports", std::to_string(numOutputPorts));
+    GraphMLHelper::addDataNode(doc, thisNode, "named_input_ports", GeneralHelper::to_string(numInputPorts));
+    GraphMLHelper::addDataNode(doc, thisNode, "named_output_ports", GeneralHelper::to_string(numOutputPorts));
 
     for(unsigned long i = 0; i<numInputPorts; i++){
-        GraphMLHelper::addDataNode(doc, thisNode, "input_port_name_" + std::to_string(i), inputPorts[i]->getName());
+        GraphMLHelper::addDataNode(doc, thisNode, "input_port_name_" + GeneralHelper::to_string(i), inputPorts[i]->getName());
     }
 
     for(unsigned long i = 0; i<numOutputPorts; i++){
-        GraphMLHelper::addDataNode(doc, thisNode, "output_port_name_" + std::to_string(i), outputPorts[i]->getName());
+        GraphMLHelper::addDataNode(doc, thisNode, "output_port_name_" + GeneralHelper::to_string(i), outputPorts[i]->getName());
     }
 
     return thisNode;
@@ -55,11 +56,11 @@ std::set<GraphMLParameter> MasterNode::graphMLParameters() {
     unsigned long numOutputPorts = outputPorts.size();
 
     for(unsigned long i = 0; i<numInputPorts; i++){
-        parameters.insert(GraphMLParameter("input_port_name_" + std::to_string(i) , "string", true));
+        parameters.insert(GraphMLParameter("input_port_name_" + GeneralHelper::to_string(i) , "string", true));
     }
 
     for(unsigned long i = 0; i<numOutputPorts; i++){
-        parameters.insert(GraphMLParameter("output_port_name_" + std::to_string(i) , "string", true));
+        parameters.insert(GraphMLParameter("output_port_name_" + GeneralHelper::to_string(i) , "string", true));
     }
 
     return parameters;

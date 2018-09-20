@@ -35,7 +35,7 @@ void EnabledSubSystem::validate() {
     for(unsigned long i = 0; i<enableInputsLen; i++){
         std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[i]->getEnablePort()->getArcs();
         if(enableArcs.size() != 1){
-            throw std::runtime_error("EnabledInput Found with " + std::to_string(enableArcs.size()) + " Enable arcs");
+            throw std::runtime_error("EnabledInput Found with " + GeneralHelper::to_string(enableArcs.size()) + " Enable arcs");
         }else{
             if((*enableArcs.begin())->getSrcPort() != srcPort){
                 throw std::runtime_error("EnabledInput Found with with different Enable src");
@@ -47,7 +47,7 @@ void EnabledSubSystem::validate() {
     for(unsigned long i = 0; i<enableOutputLen; i++){
         std::set<std::shared_ptr<Arc>> enableArcs = enabledOutputs[i]->getEnablePort()->getArcs();
         if(enableArcs.size() != 1){
-            throw std::runtime_error("EnabledOutput Found with " + std::to_string(enableArcs.size()) + " Enable arcs");
+            throw std::runtime_error("EnabledOutput Found with " + GeneralHelper::to_string(enableArcs.size()) + " Enable arcs");
         }else{
             if((*enableArcs.begin())->getSrcPort() != srcPort){
                 throw std::runtime_error("EnabledOutput Found with with different Enable src");

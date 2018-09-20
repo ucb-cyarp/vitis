@@ -70,23 +70,23 @@ void NumericValue::setFractional(bool fractional) {
 std::string NumericValue::toString() const{
     std::string val;
     if(fractional){
-        val = std::to_string(complexDouble.real());
+        val = GeneralHelper::to_string(complexDouble.real());
 
         if(complex){
             if(complexDouble.imag() >= 0) {
-                val = val + " + " + std::to_string(complexDouble.imag()) + "i";
+                val = val + " + " + GeneralHelper::to_string(complexDouble.imag()) + "i";
             }else{
-                val = val + " - " + std::to_string(-complexDouble.imag()) + "i";
+                val = val + " - " + GeneralHelper::to_string(-complexDouble.imag()) + "i";
             }
         }
     } else {
-        val = std::to_string(realInt);
+        val = GeneralHelper::to_string(realInt);
 
         if(complex){
             if(imagInt>=0) {
-                val = val + " + " + std::to_string(imagInt) + "i";
+                val = val + " + " + GeneralHelper::to_string(imagInt) + "i";
             }else{
-                val = val + " - " + std::to_string(-imagInt) + "i";
+                val = val + " - " + GeneralHelper::to_string(-imagInt) + "i";
             }
         }
     }
@@ -100,30 +100,30 @@ std::string NumericValue::toStringComponent(bool imag) {
         //Emit Fractional
         if(!imag) {
             //Return the real component
-            val = std::to_string(complexDouble.real());
+            val = GeneralHelper::to_string(complexDouble.real());
         }else{
             //Return the imag component
             if(complex) {
                 //Return actual value (this number is complex)
-                val = std::to_string(complexDouble.imag());
+                val = GeneralHelper::to_string(complexDouble.imag());
             }else{
                 //Return 0.0 since this number is not complex
-                val = std::to_string(0.0);
+                val = GeneralHelper::to_string(0.0);
             }
         }
     } else {
         //Emit Int
         if(!imag) {
             //Return Real Component
-            val = std::to_string(realInt);
+            val = GeneralHelper::to_string(realInt);
         }else{
             //Return The Imag Component
             if(complex) {
                 //Return actual value (this number is complex)
-                val = std::to_string(imagInt);
+                val = GeneralHelper::to_string(imagInt);
             }else{
                 //Return 0 since this number is not complex
-                val = std::to_string(0);
+                val = GeneralHelper::to_string(0);
             }
         }
     }
@@ -140,15 +140,15 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
             //Emit Fractional
             if(!imag) {
                 //Return the real component
-                val = std::to_string(complexDouble.real());
+                val = GeneralHelper::to_string(complexDouble.real());
             }else{
                 //Return the imag component
                 if(complex) {
                     //Return actual value (this number is complex)
-                    val = std::to_string(complexDouble.imag());
+                    val = GeneralHelper::to_string(complexDouble.imag());
                 }else{
                     //Return 0.0 since this number is not complex
-                    val = std::to_string(0.0);
+                    val = GeneralHelper::to_string(0.0);
                 }
             }
         } else {
@@ -156,9 +156,9 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
             if(!imag) {
                 //Return Real Component
                 if(typeToConvertTo.getTotalBits() == 64) {
-                    val = std::to_string(static_cast<double>(realInt));
+                    val = GeneralHelper::to_string(static_cast<double>(realInt));
                 }else if(typeToConvertTo.getTotalBits() == 32){
-                    val = std::to_string(static_cast<float>(realInt));
+                    val = GeneralHelper::to_string(static_cast<float>(realInt));
                 }else{
                     throw std::runtime_error("Tried to cast to floating point number that is not a double or single");
                 }
@@ -166,18 +166,18 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                 //Return The Imag Component
                 if(complex) {
                     if(typeToConvertTo.getTotalBits() == 64) {
-                        val = std::to_string(static_cast<double>(imagInt));
+                        val = GeneralHelper::to_string(static_cast<double>(imagInt));
                     }else if(typeToConvertTo.getTotalBits() == 32){
-                        val = std::to_string(static_cast<float>(imagInt));
+                        val = GeneralHelper::to_string(static_cast<float>(imagInt));
                     }else{
                         throw std::runtime_error("Tried to cast to floating point number that is not a double or single");
                     }
                 }else{
                     //Return 0 since this number is not complex
                     if(typeToConvertTo.getTotalBits() == 64) {
-                        val = std::to_string(static_cast<double>(0.0));
+                        val = GeneralHelper::to_string(static_cast<double>(0.0));
                     }else if(typeToConvertTo.getTotalBits() == 32){
-                        val = std::to_string(static_cast<float>(0.0));
+                        val = GeneralHelper::to_string(static_cast<float>(0.0));
                     }else{
                         throw std::runtime_error("Tried to cast to floating point number that is not a double or single");
                     }
@@ -191,10 +191,10 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
             if(!imag) {
                 //Return the real component
                 if(typeToConvertTo.isSignedType()) {
-                    val = std::to_string(FixedPointHelpers::toFixedPointSigned(complexDouble.real(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(complexDouble.real(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
                 }
                 else{
-                    val = std::to_string(FixedPointHelpers::toFixedPointUnsigned(complexDouble.real(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointUnsigned(complexDouble.real(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
                 }
 
             }else{
@@ -202,14 +202,14 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                 if(complex) {
                     //Return actual value (this number is complex)
                     if(typeToConvertTo.isSignedType()) {
-                        val = std::to_string(FixedPointHelpers::toFixedPointSigned(complexDouble.imag(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                        val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(complexDouble.imag(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
                     }
                     else{
-                        val = std::to_string(FixedPointHelpers::toFixedPointUnsigned(complexDouble.imag(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                        val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointUnsigned(complexDouble.imag(), typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
                     }
                 }else{
                     //Return 0.0 since this number is not complex
-                    val = std::to_string(0.0);
+                    val = GeneralHelper::to_string(0.0);
                 }
             }
         } else {
@@ -227,7 +227,7 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                     }
                 }else{
                     //TODO: Currently only support NumericValue signed integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
-                    val = std::to_string(FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
                 }
 
             }else{
@@ -243,7 +243,7 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                         }
                     }else{
                         //Return actual value (this number is complex)
-                        val = std::to_string(FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                        val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
                     }
                 }else{
                     if(typeToConvertTo.isBool()) {
@@ -251,7 +251,7 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                         return "false";
                     } else {
                         //Return 0 since this number is not complex
-                        val = std::to_string(static_cast<int>(0));
+                        val = GeneralHelper::to_string(static_cast<int>(0));
                     }
                 }
             }

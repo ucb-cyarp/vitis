@@ -15,6 +15,7 @@
 #include "NodeFactory.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
+#include "General/GeneralHelper.h"
 
 Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
 {
@@ -130,11 +131,11 @@ std::vector<std::shared_ptr<OutputPort>> Node::getOutputPorts() {
 }
 
 std::string Node::getFullGraphMLPath() {
-    std::string path = "n" + std::to_string(id);
+    std::string path = "n" + GeneralHelper::to_string(id);
 
     for(std::shared_ptr<SubSystem> cursor = parent; cursor != nullptr; cursor = cursor->getParent())
     {
-        path = "n" + std::to_string(cursor->getId()) + "::" + path;
+        path = "n" + GeneralHelper::to_string(cursor->getId()) + "::" + path;
     }
 
     return path;
@@ -274,7 +275,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
 
         if(varName.empty()){
             //This should not happen if fanout is properly reported
-            throw std::runtime_error("Tried to emit a port which has previously been emitted but did not create an output variable: " + getFullyQualifiedName() + " Port " + std::to_string(outputPortNum) + (imag ? " Imag" : " Real") + " Arcs: " + std::to_string(outputPort->getArcsRaw().size()));
+            throw std::runtime_error("Tried to emit a port which has previously been emitted but did not create an output variable: " + getFullyQualifiedName() + " Port " + GeneralHelper::to_string(outputPortNum) + (imag ? " Imag" : " Real") + " Arcs: " + GeneralHelper::to_string(outputPort->getArcsRaw().size()));
         }
 
         //Return the stored temp var name

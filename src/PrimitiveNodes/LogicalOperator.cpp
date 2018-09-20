@@ -4,6 +4,7 @@
 
 #include "LogicalOperator.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/GeneralHelper.h"
 
 LogicalOperator::LogicalOp LogicalOperator::getLogicalOp() const {
     return logicalOp;
@@ -167,7 +168,7 @@ void LogicalOperator::validate() {
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++) {
         if (!(getInputPort(i)->getDataType().isBool())) {
-            throw std::runtime_error("Validation Failed - LogicalOperator - Input " + std::to_string(i) + " is not a bool");
+            throw std::runtime_error("Validation Failed - LogicalOperator - Input " + GeneralHelper::to_string(i) + " is not a bool");
         }
     }
 

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <sstream>
 
 /**
  * \addtogroup General General Helper Classes
@@ -22,6 +23,27 @@
 class GeneralHelper {
 
 public:
+
+    /**
+     * @brief Replaces the std::to_string method with one which is capable of outputting higher prevision floating point
+     * values (not just a fixed number of fractional bits)
+     *
+     * Uses the ostream operators which do this.
+     *
+     * Use of ostringstream to get a string and realization that precision of std::to_string cannot be changed was informed
+     * by (https://stackoverflow.com/questions/16605967/set-precision-of-stdto-string-when-converting-floating-point-values)
+     *
+     * @tparam T
+     * @param val
+     * @return
+     */
+    template<typename T>
+    static std::string to_string(const T val){
+        std::ostringstream stringStream;
+        stringStream << val;
+        return stringStream.str();
+    }
+
     /**
      * @brief Outputs a string representation of a vector of types for which std::to_string is provided
      * @tparam T type of vector, must be a type for which std::to_string is provided
@@ -33,12 +55,12 @@ public:
         std::string str = "[";
 
         if(!vec.empty()){
-            str += std::to_string(vec[0]);
+            str += GeneralHelper::to_string(vec[0]);
         }
 
         unsigned long vecLen = vec.size();
         for(unsigned long i = 1; i<vecLen; i++){
-            str += ", " + std::to_string(vec[i]);
+            str += ", " + GeneralHelper::to_string(vec[i]);
         }
 
         str += "]";

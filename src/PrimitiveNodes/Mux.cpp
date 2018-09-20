@@ -4,6 +4,7 @@
 
 #include "Mux.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/GeneralHelper.h"
 #include <iostream>
 
 Mux::Mux() : booleanSelect(false) {
@@ -149,7 +150,7 @@ CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
     }
 
     //Declare output tmp var
-    std::string outputVarName = name+"_n"+std::to_string(id)+"_out";
+    std::string outputVarName = name+"_n"+GeneralHelper::to_string(id)+"_out";
     DataType outType = getOutputPort(0)->getDataType();
     Variable outVar = Variable(outputVarName, outType);
 
@@ -192,7 +193,7 @@ CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         cStatementQueue.push_back(switchExpr);
 
         for(unsigned long i = 0; i<(numInputPorts-1); i++){
-            std::string caseExpr = "case " + std::to_string(i) + ":";
+            std::string caseExpr = "case " + GeneralHelper::to_string(i) + ":";
             cStatementQueue.push_back(caseExpr);
             std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[i] + ";";
             cStatementQueue.push_back(caseAssign);

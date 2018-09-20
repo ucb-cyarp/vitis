@@ -6,6 +6,7 @@
 #include "DataType.h"
 #include "Arc.h"
 #include "Node.h"
+#include "General/GeneralHelper.h"
 
 OutputPort::OutputPort() : cEmittedRe(false), cEmittedIm(false), cEmitReStr(""), cEmitImStr("") {
 
@@ -77,7 +78,7 @@ std::shared_ptr<OutputPort> OutputPort::getSharedPointerOutputPort() {
 }
 
 std::string OutputPort::getCOutputVarNameBase() {
-    return parent->getName() + "_n" + std::to_string(parent->getId()) + "_outPort" + std::to_string(portNum);;
+    return parent->getName() + "_n" + GeneralHelper::to_string(parent->getId()) + "_outPort" + GeneralHelper::to_string(portNum);;
 }
 
 Variable OutputPort::getCOutputVar() {
