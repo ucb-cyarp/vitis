@@ -110,16 +110,18 @@ bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     muxNode->setBooleanSelect(true);
     new_nodes.push_back(muxNode);
 
-    //NOTE: Port 0 Is Assigned to Port 1
+    //NOTE: Port 0 Is Assigned to Port 0
     //      Port 1 Is Assigned to Select (Or CompareToConstant then Select)
-    //      Port 2 Is Assigned to Port 0
+    //      Port 2 Is Assigned to Port 1
+    //
+    //      The signal to treat port 0 as true and port 1 as false (if/else mode) is controlled by the Mux parameter setBooleanSelect
     //
     //      Do Port 0 and Port 2 Now
     std::shared_ptr<Arc> inputArc0 = *(inputPorts[0]->getArcs().begin());
-    muxNode->addInArcUpdatePrevUpdateArc(1, inputArc0); //Should remove the arc from this node's port
+    muxNode->addInArcUpdatePrevUpdateArc(0, inputArc0); //Should remove the arc from this node's port
 
     std::shared_ptr<Arc> inputArc2 = *(inputPorts[2]->getArcs().begin());
-    muxNode->addInArcUpdatePrevUpdateArc(0, inputArc2); //Should remove the arc from this node's port
+    muxNode->addInArcUpdatePrevUpdateArc(1, inputArc2); //Should remove the arc from this node's port
 
     std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[0]->getArcs(); //Make a copy of the arc set since re-assigning the arc will remove it from the port's set
     for(auto outputArc = outputArcs.begin(); outputArc != outputArcs.end(); outputArc++) {
