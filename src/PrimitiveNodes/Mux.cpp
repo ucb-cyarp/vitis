@@ -257,6 +257,26 @@ void Mux::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
     }
 }
 
+std::set<std::shared_ptr<Arc>> Mux::disconnectNode() {
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = Node::disconnectNode(); //Remove the arcs connected to the standard ports
+
+    //Remove arcs connected to the selector port
+    std::set<std::shared_ptr<Arc>> selectArcs = selectorPort->getArcs();
+
+    //Disconnect each of the arcs from both ends
+    //We can do this without disturbing the port the set since the set here is a copy of the port set
+    for(auto it = selectArcs.begin(); it != selectArcs.end(); it++){
+        //These functions update the previous endpoints of the arc (ie. removes the arc from them)
+        (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
+        (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+
+        //Add this arc to the list of arcs removed
+        disconnectedArcs.insert(*it);
+    }
+
+    return disconnectedArcs;
+}
+
 
 
 

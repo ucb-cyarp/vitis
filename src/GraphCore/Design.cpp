@@ -1255,3 +1255,36 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
     return designCopy;
 }
+
+void Design::removeNode(std::shared_ptr<Node> node) {
+    //Disconnect arcs from the node
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = disconnectedArcs = node->disconnectNode();
+
+    //Check if the node is a master node
+    if(GeneralHelper::isType<Node, MasterNode>(node) != nullptr){
+        //Master Node
+        if(node == inputMaster){
+            inputMaster == nullptr;
+        }else if(node == outputMaster){
+            outputMaster = nullptr;
+        }else if(node == visMaster){
+            visMaster = nullptr;
+        }else if(node == unconnectedMaster){
+            unconnectedMaster = nullptr;
+        }else if(node == terminatorMaster){
+            terminatorMaster = nullptr;
+        }else{
+            throw std::runtime_error("Removing an unexpected master node: " + node->getName());
+        }
+    }else{
+        //Remove the node from the node array (and the top level nodes array if applicable)
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), node));
+        nodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), node));
+    }
+
+    //Remove the arcs
+    for(auto it = disconnectedArcs.begin(); it != disconnectedArcs.end(); it++){
+        std::shared_ptr<Arc> arcToDelete = *it;
+        arcs.erase(std::remove(arcs.begin(), arcs.end(), arcToDelete));
+    }
+}

@@ -171,19 +171,19 @@ public:
      *
      * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
      */
-    std::vector<std::shared_ptr<Arc>> disconnectNode();
+    virtual std::set<std::shared_ptr<Arc>> disconnectNode(); //TODO: Override in nodes with extra ports
 
     /**
      * @brief Get the set of nodes connected to this node via arcs
      * @return
      */
-    std::set<std::shared_ptr<Node>> getConnectedNodes(); //TODO: Override in nodes with extra ports
+    virtual std::set<std::shared_ptr<Node>> getConnectedNodes(); //TODO: Override in nodes with extra ports
 
     /**
      * @brief Get the in-degree of this node (number of connected input arcs)
      * @return
      */
-    unsigned long inDegree();
+    virtual unsigned long inDegree(); //TODO: Override in nodes with extra ports
 
     /**
      * @brief

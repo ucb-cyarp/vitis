@@ -460,3 +460,45 @@ void Node::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
     }
 
 }
+
+std::set<std::shared_ptr<Arc>> Node::disconnectNode() {
+    std::set<std::shared_ptr<Arc>> disconnectedArcs;
+
+    //Iterate through the input ports/arcs
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> inputArcs = inputPorts[i]->getArcs();
+
+        //Disconnect each of the arcs from both ends
+        //We can do this without disturbing the port the set since the set here is a copy of the port set
+        for(auto it = inputArcs.begin(); it != inputArcs.end(); it++){
+            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
+            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
+            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+
+            //Add this arc to the list of arcs removed
+            disconnectedArcs.insert(*it);
+        }
+    }
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
+
+        //Disconnect each of the arcs from both ends
+        //We can do this without disturbing the port the set since the set here is a copy of the port set
+        for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
+            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
+            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+
+            //Add this arc to the list of arcs removed
+            disconnectedArcs.insert(*it);
+        }
+    }
+
+    return disconnectedArcs;
+}

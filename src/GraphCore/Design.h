@@ -175,10 +175,9 @@ public:
      *
      * @note This function is also capable of removing master nodes from the design.  If this occurs, the pointer to that node in the design is set to nullptr
      *
-     * @param node
-     * @return
+     * @param node node to remove from design
      */
-    bool removeNode(std::shared_ptr<Node> node);
+    void removeNode(std::shared_ptr<Node> node);
 
     /**
      * @brief Prunes the design
