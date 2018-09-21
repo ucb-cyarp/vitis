@@ -26,8 +26,8 @@ Design::Design() {
     unconnectedMaster = NodeFactory::createNode<MasterUnconnected>();
     terminatorMaster = NodeFactory::createNode<MasterOutput>();
 
-    std::vector<std::shared_ptr<Node>> nodes; ///< A vector of nodes in the design
-    std::vector<std::shared_ptr<Arc>> arcs; ///< A vector of arcs in the design
+//    std::vector<std::shared_ptr<Node>> nodes; //A vector of nodes in the design
+//    std::vector<std::shared_ptr<Arc>> arcs; //A vector of arcs in the design
 }
 
 //==== Getters/Setters ====
@@ -1193,12 +1193,65 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     makefileNoPCM.close();
 }
 
-void Design::copyGraph(std::vector<std::shared_ptr<Node>> &nodeCopies, std::vector<std::shared_ptr<Arc>> &arcCopies,
-                       std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
-                       std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode,
-                       std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
-                       std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
+Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                         std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode,
+                         std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
+                         std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
+    Design designCopy;
+
+    //==== Create new master nodes and add them to the node copies list and maps ====
+    designCopy.inputMaster = NodeFactory::createNode<MasterInput>();
+    designCopy.outputMaster = NodeFactory::createNode<MasterOutput>();
+    designCopy.visMaster = NodeFactory::createNode<MasterOutput>();
+    designCopy.unconnectedMaster = NodeFactory::createNode<MasterUnconnected>();
+    designCopy.terminatorMaster = NodeFactory::createNode<MasterOutput>();
+
+    origToCopyNode[inputMaster] = designCopy.inputMaster;
+    origToCopyNode[outputMaster] = designCopy.outputMaster;
+    origToCopyNode[visMaster] = designCopy.visMaster;
+    origToCopyNode[unconnectedMaster] = designCopy.unconnectedMaster;
+    origToCopyNode[terminatorMaster] = designCopy.terminatorMaster;
+
+    copyToOrigNode[designCopy.inputMaster] = inputMaster;
+    copyToOrigNode[designCopy.outputMaster] = outputMaster;
+    copyToOrigNode[designCopy.visMaster] = visMaster;
+    copyToOrigNode[designCopy.unconnectedMaster] = unconnectedMaster;
+    copyToOrigNode[designCopy.terminatorMaster] = terminatorMaster;
+
+    //==== Copy nodes ====
+    std::vector<std::shared_ptr<Node>> nodeCopies;
+
+    //Emit nodes hierarchically starting from the top level nodes (so that hierarchy is preserved)
+    unsigned long numTopLevelNodes = topLevelNodes.size();
+    for (unsigned long i = 0; i < numTopLevelNodes; i++) {
+        topLevelNodes[i]->shallowCloneWithChildren(nullptr, nodeCopies, origToCopyNode, copyToOrigNode);
+    }
+
+    designCopy.nodes=nodeCopies;
+
+    //==== Copy arcs ====
+    std::vector<std::shared_ptr<Arc>> arcCopies;
+
+    //Iterate through the list of nodes and copy input arcs
+    //All arcs should be copied because even arcs from sources should be connected to another node or to the unconnected master node
+    unsigned long numNodes = nodes.size();
+    for (unsigned long i = 0; i < numNodes; i++) {
+        nodes[i]->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+    }
+
+    //copy input arcs into master nodes
+    outputMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+    visMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+    unconnectedMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+    terminatorMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+
+    designCopy.arcs = arcCopies;
+
+    //Copy topLevelNode entries
+    for(unsigned long i = 0; i<numTopLevelNodes; i++){
+        designCopy.topLevelNodes.push_back(origToCopyNode[topLevelNodes[i]]);
+    }
 
 
-
+    return designCopy;
 }

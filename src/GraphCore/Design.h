@@ -157,15 +157,43 @@ public:
     void setArcs(const std::vector<std::shared_ptr<Arc>> arcs);
 
     /**
-     * @brief
-     * @param nodeCopies
-     * @param arcCopies
-     * @param origToCopyNode
-     * @param copyToOrigNode
-     * @param origToCopyArc
-     * @param copyToOrigArc
+     * @brief Copy a design
+     * Copies the nodes and arcs of this design and provides maps linking the original nodes/arcs and the copies.
+     *
+     * @param origToCopyNode A map of original nodes to the copies, which is populated during the copy
+     * @param copyToOrigNode A map of node copies to the originals, which is populated during the copy
+     * @param origToCopyArc A map of original arcs to the copies, which is populated during the copy
+     * @param copyToOrigArc A map of arc copies to the originals, nodes which is populated during the copy
+     * @return A copy of the design
      */
-    void copyGraph(std::vector<std::shared_ptr<Node>> &nodeCopies, std::vector<std::shared_ptr<Arc>> &arcCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc);
+    Design copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc);
+
+    /**
+     * @brief Removes a node from the design
+     *
+     * Removes all arcs connected the node from the design as well
+     *
+     * @note This function is also capable of removing master nodes from the design.  If this occurs, the pointer to that node in the design is set to nullptr
+     *
+     * @param node
+     * @return
+     */
+    bool removeNode(std::shared_ptr<Node> node);
+
+    /**
+     * @brief Prunes the design
+     *
+     * Removes unused nodes from the graph.
+     *
+     * Tracks nodes with 0 out degree (when connections to the Unconnected and Terminated masters are not counted)
+     *
+     * The unused and terminated masters are not removed during pruning.  However, nodes connected to them may be removed.
+     *
+     * Ports that are left unused are connected to the Unconnected master node
+     *
+     * @return number of nodes removed from the graph
+     */
+    unsigned long prune();
 
     /**
      * @brief Get a node by its name path

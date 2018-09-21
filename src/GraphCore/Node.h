@@ -165,6 +165,35 @@ public:
     void removeOutArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    std::vector<std::shared_ptr<Arc>> disconnectNode();
+
+    /**
+     * @brief Get the set of nodes connected to this node via arcs
+     * @return
+     */
+    std::set<std::shared_ptr<Node>> getConnectedNodes(); //TODO: Override in nodes with extra ports
+
+    /**
+     * @brief Get the in-degree of this node (number of connected input arcs)
+     * @return
+     */
+    unsigned long inDegree();
+
+    /**
+     * @brief
+     * @return
+     */
+    unsigned long outDegree();
+
+    unsigned long outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Node>> ignoreSet);
+
+    /**
      * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists a null pointer is returned.
      *
      * The pointer is aliased with this node as the stored pointer.
