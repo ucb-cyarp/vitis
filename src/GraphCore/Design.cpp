@@ -607,7 +607,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     for(unsigned long i = 0; i<numNodesWithState; i++){
         std::vector<std::string> nextStateExprs;
         nodesWithState[i]->emitCExprNextState(nextStateExprs);
-        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getName() <<" ----" << std::endl;
+        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
 
         unsigned long numNextStateExprs = nextStateExprs.size();
         for(unsigned long j = 0; j<numNextStateExprs; j++){

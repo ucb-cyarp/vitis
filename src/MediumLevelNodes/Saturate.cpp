@@ -99,7 +99,7 @@ Saturate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode,
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Saturate");
 
     GraphMLHelper::addDataNode(doc, thisNode, "LowerLimit", lowerLimit.toString());
-    GraphMLHelper::addDataNode(doc, thisNode, "UpperLimit", lowerLimit.toString());
+    GraphMLHelper::addDataNode(doc, thisNode, "UpperLimit", upperLimit.toString());
 
     return thisNode;
 }
@@ -298,8 +298,8 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     std::shared_ptr<Arc> upperLimitMuxToLowerLimitMux = Arc::connectNodes(upperLimitMux, 0, lowerLimitMux, 1, intermediateType);
     new_arcs.push_back(upperLimitMuxToLowerLimitMux);
 
-    std::shared_ptr<Arc> inputToLowerLimitMux = Arc::connectNodes(inputSrcNode, inputSrcNodeOutputPortNumber, lowerLimitMux, 0, intermediateType);
-    new_arcs.push_back(inputToLowerLimitMux);
+    std::shared_ptr<Arc> lowerLimitToLowerLimitMux = Arc::connectNodes(lowerLimitNode, 0, lowerLimitMux, 0, intermediateType);
+    new_arcs.push_back(lowerLimitToLowerLimitMux);
 
     std::shared_ptr<Arc> inputToLowerLimitCompare = Arc::connectNodes(inputSrcNode, inputSrcNodeOutputPortNumber, lowerLimitCompare, 0, intermediateType);
     new_arcs.push_back(inputToLowerLimitCompare);
@@ -397,8 +397,8 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         std::shared_ptr<Arc> upperLimitMuxToLowerLimitMux = Arc::connectNodes(upperLimitMux, 0, lowerLimitMux, 1, intermediateType);
         new_arcs.push_back(upperLimitMuxToLowerLimitMux);
 
-        std::shared_ptr<Arc> inputToLowerLimitMux = Arc::connectNodes(inputSrcNode, 1, lowerLimitMux, 1, intermediateType);
-        new_arcs.push_back(inputToLowerLimitMux);
+        std::shared_ptr<Arc> lowerLimitToLowerLimitMux = Arc::connectNodes(lowerLimitNode, 0, lowerLimitMux, 1, intermediateType);
+        new_arcs.push_back(lowerLimitToLowerLimitMux);
 
         std::shared_ptr<Arc> inputToLowerLimitCompare = Arc::connectNodes(inputSrcNode, 1, lowerLimitCompare, 0, intermediateType);
         new_arcs.push_back(inputToLowerLimitCompare);

@@ -265,7 +265,7 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
     std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
     cStatementQueue.push_back(stateInputDeclAssignRe);
     if(inputDataType.isComplex()){
-        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false, false, false) + " = " + inputExprRe + ";";
+        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false, false, false) + " = " + inputExprIm + ";";
         cStatementQueue.push_back(stateInputDeclAssignIm);
     }
 }
