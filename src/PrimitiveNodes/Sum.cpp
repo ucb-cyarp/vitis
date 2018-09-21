@@ -139,7 +139,7 @@ void Sum::validate() {
     }
 
     if(inputSign.size() != inputPorts.size()){
-        throw std::runtime_error("Validation Failed - Sum - The number of signs (" + std::to_string(inputSign.size()) + ") does not match the number of inputs (" + std::to_string(inputPorts.size()) + ")");
+        throw std::runtime_error("Validation Failed - Sum - The number of signs (" + GeneralHelper::to_string(inputSign.size()) + ") does not match the number of inputs (" + GeneralHelper::to_string(inputPorts.size()) + ")");
     }
 }
 

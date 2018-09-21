@@ -111,7 +111,7 @@ Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bo
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Delay");
 
-    GraphMLHelper::addDataNode(doc, thisNode, "DelayLength", std::to_string(delayValue));
+    GraphMLHelper::addDataNode(doc, thisNode, "DelayLength", GeneralHelper::to_string(delayValue));
 
     GraphMLHelper::addDataNode(doc, thisNode, "InitialCondition", NumericValue::toString(initCondition));
 
@@ -121,7 +121,7 @@ Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bo
 std::string Delay::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Delay\nDelayLength:" + std::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
+    label += "\nFunction: Delay\nDelayLength:" + GeneralHelper::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
 
     return label;
 }
@@ -147,7 +147,7 @@ void Delay::validate() {
     }
 
     if(delayValue != initCondition.size()){
-        throw std::runtime_error("Validation Failed - Delay - Delay Length (" + std::to_string(delayValue) + ") Does not Match the Length of Init Condition Vector (" + std::to_string(initCondition.size()) + ")");
+        throw std::runtime_error("Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) + ") Does not Match the Length of Init Condition Vector (" + GeneralHelper::to_string(initCondition.size()) + ")");
     }
 }
 
@@ -174,7 +174,7 @@ std::vector<Variable> Delay::getCStateVars() {
         //TODO: Extend to support vectors (must declare 2D array for state)
 
 
-        std::string varName = name+"_n"+std::to_string(id)+"_state";
+        std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
         Variable var = Variable(varName, stateType, initCondition);
         cStateVar = var;
         //Complex variable will be made if needed by the design code based on the data type
@@ -206,7 +206,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
             //Return the simple name (no index needed as it is not an array_
             return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
         }else{
-            return CExpr(cStateVar.getCVarName(imag) + "[" + std::to_string(delayValue-1) + "]", true);
+            return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(delayValue-1) + "]", true);
         }
     }
 }
@@ -225,14 +225,14 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
     }else{
         //This is a (pair) of arrays
         //Emit a for loop to perform the shift for each
-        std::string loopVarName = name+"_n"+std::to_string(id)+"_loopCounter";
+        std::string loopVarName = name+"_n"+GeneralHelper::to_string(id)+"_loopCounter";
 
-        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
+        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
         cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "-1];}");
         cStatementQueue.push_back(cStateVar.getCVarName(false) + "[0] = " + cStateInputVar.getCVarName(false) + ";");
 
         if(cStateVar.getDataType().isComplex()){
-            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + std::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
+            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
             cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "-1];}");
             cStatementQueue.push_back(cStateVar.getCVarName(true) + "[0] = " + cStateInputVar.getCVarName(true) + ";");
         }
@@ -256,7 +256,7 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
     }
 
     //Assign the expr to a special variable defined here (before the state update)
-    std::string stateInputName = name + "_n" + std::to_string(id) + "_state_input";
+    std::string stateInputName = name + "_n" + GeneralHelper::to_string(id) + "_state_input";
     Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
     cStateInputVar = stateInputVar;
 
@@ -265,7 +265,7 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
     std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
     cStatementQueue.push_back(stateInputDeclAssignRe);
     if(inputDataType.isComplex()){
-        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false, false, false) + " = " + inputExprRe + ";";
+        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false, false, false) + " = " + inputExprIm + ";";
         cStatementQueue.push_back(stateInputDeclAssignIm);
     }
 }

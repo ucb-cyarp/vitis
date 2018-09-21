@@ -140,7 +140,7 @@ void Product::validate() {
     }
 
     if(inputOp.size() != inputPorts.size()){
-        throw std::runtime_error("Validation Failed - Product - The number of operators (" + std::to_string(inputOp.size()) + ") does not match the number of inputs (" + std::to_string(inputPorts.size()) + ")");
+        throw std::runtime_error("Validation Failed - Product - The number of operators (" + GeneralHelper::to_string(inputOp.size()) + ") does not match the number of inputs (" + GeneralHelper::to_string(inputPorts.size()) + ")");
     }
 }
 

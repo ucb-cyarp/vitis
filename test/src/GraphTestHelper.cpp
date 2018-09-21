@@ -88,7 +88,7 @@ void GraphTestHelper::verifyNodePortNumbers(Design &design) {
     for(unsigned long i = 0; i<nodes.size(); i++)
     {
         {
-            SCOPED_TRACE("Node: " + std::to_string(i));
+            SCOPED_TRACE("Node: " + GeneralHelper::to_string(i));
             GraphTestHelper::verifyPortNumbers(nodes[i]);
         }
     }
@@ -113,7 +113,7 @@ void GraphTestHelper::verifyNodesWithoutParentAreInTopLevelList(Design &design) 
                 }
             }
 
-            ASSERT_TRUE(found) << "Node without parent found which is not in top level node list";
+            ASSERT_TRUE(found) << "Node without parent found which is not in top level node list - Name:" << nodes[i]->getName() << ", ID " << nodes[i]->getId();
         }
         else{
             //search top level nodes
@@ -140,7 +140,7 @@ void GraphTestHelper::verifyOutputPortArcCounts(std::shared_ptr<Node> node, std:
 
     //Check the number of arcs connected to each port
     for(unsigned long i = 0; i<outputPorts.size(); i++){
-        ASSERT_EQ(outputPorts[i]->getArcs().size(), arcCounts[i]) << "OutputPort: " << std::to_string(i);
+        ASSERT_EQ(outputPorts[i]->getArcs().size(), arcCounts[i]) << "OutputPort: " << GeneralHelper::to_string(i);
     }
 }
 

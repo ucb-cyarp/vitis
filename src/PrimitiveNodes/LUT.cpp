@@ -240,9 +240,9 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
     for(int i = 1; i <= dimension; i++){
         std::string breakpointsForDimensionStr;
         if(dialect == GraphMLDialect::VITIS) {
-            breakpointsForDimensionStr = "BreakpointsForDimension" + std::to_string(i);
+            breakpointsForDimensionStr = "BreakpointsForDimension" + GeneralHelper::to_string(i);
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
-            breakpointsForDimensionStr = "Numeric.BreakpointsForDimension" + std::to_string(i);
+            breakpointsForDimensionStr = "Numeric.BreakpointsForDimension" + GeneralHelper::to_string(i);
         } else {
             throw std::runtime_error("Unsupported Dialect when parsing XML - LUT");
         }
@@ -281,7 +281,7 @@ std::set<GraphMLParameter> LUT::graphMLParameters() {
     unsigned long dimension = breakpoints.size();
     for(unsigned long i = 1; i<=dimension; i++){
         //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
-        std::string breakpointStr = "BreakpointsForDimension" + std::to_string(i);
+        std::string breakpointStr = "BreakpointsForDimension" + GeneralHelper::to_string(i);
         parameters.insert(GraphMLParameter(breakpointStr, "string", true));
     }
 
@@ -293,7 +293,7 @@ void LUT::validate() {
 
     //TODO: implement n-D lookup table
     if(breakpoints.size()!=1){
-        throw std::runtime_error("Validation Failed - LUT - Currently only supports 1-D tables, requested " + std::to_string(breakpoints.size()));
+        throw std::runtime_error("Validation Failed - LUT - Currently only supports 1-D tables, requested " + GeneralHelper::to_string(breakpoints.size()));
     }
 
     //Should have n input ports and 1 output port
@@ -360,7 +360,7 @@ void LUT::validate() {
 
             //TODO: using double here.  Assuming there is enough precision to calculate the step exactly.  Check assumption
             if(step != breakpointStep){
-                throw std::runtime_error("Validation Failed - LUT - Breakpoints step conflicts: " + std::to_string(step) + " != " + std::to_string(breakpointStep));
+                throw std::runtime_error("Validation Failed - LUT - Breakpoints step conflicts: " + GeneralHelper::to_string(step) + " != " + GeneralHelper::to_string(breakpointStep));
             }
 
             if(step < 0){
@@ -378,7 +378,7 @@ std::string LUT::labelStr() {
 
     unsigned long dimension = breakpoints.size();
     for(unsigned long i = 1; i<=dimension; i++){
-        label += "\nBreakpoints Dimension(" + std::to_string(i) + "): " + NumericValue::toString(breakpoints[i-1]);
+        label += "\nBreakpoints Dimension(" + GeneralHelper::to_string(i) + "): " + NumericValue::toString(breakpoints[i-1]);
     }
 
 
@@ -395,7 +395,7 @@ LUT::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "LUT");
 
     unsigned long dimension = breakpoints.size();
-    GraphMLHelper::addDataNode(doc, thisNode, "Dimensions", std::to_string(dimension));
+    GraphMLHelper::addDataNode(doc, thisNode, "Dimensions", GeneralHelper::to_string(dimension));
 
     GraphMLHelper::addDataNode(doc, thisNode, "InterpMethod", interpMethodToString(interpMethod));
     GraphMLHelper::addDataNode(doc, thisNode, "ExtrapMethod", extrapMethodToString(extrapMethod));
@@ -404,7 +404,7 @@ LUT::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool
     GraphMLHelper::addDataNode(doc, thisNode, "Table", NumericValue::toString(tableData));
 
     for(unsigned long i = 1; i<=dimension; i++){
-        std::string breakpointStr = "BreakpointsForDimension" + std::to_string(i);
+        std::string breakpointStr = "BreakpointsForDimension" + GeneralHelper::to_string(i);
         GraphMLHelper::addDataNode(doc, thisNode, breakpointStr, NumericValue::toString(breakpoints[i-1]));
     }
 
@@ -424,16 +424,16 @@ std::string LUT::getGlobalDecl(){
     DataType tableType = getOutputPort(0)->getDataType();
 
     //Get the variable name
-    std::string varName = name+"_n"+std::to_string(id)+"_table";
+    std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_table";
 
     Variable tableVar = Variable(varName, tableType);
 
-    std::string tableDecl = "const " + tableVar.getCVarDecl(false, false, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
+    std::string tableDecl = "const " + tableVar.getCVarDecl(false, false, false, false) + "[" + GeneralHelper::to_string(tableData.size()) + "] = " +
                             NumericValue::toStringComponent(false, tableType, tableData, "{\n", "\n}", ",\n") + ";";
 
     //Emit an imagionary vector if the table is complex
     if(tableType.isComplex()){
-         tableDecl += "const " + tableVar.getCVarDecl(true, false, false, false) + "[" + std::to_string(tableData.size()) + "] = " +
+         tableDecl += "const " + tableVar.getCVarDecl(true, false, false, false) + "[" + GeneralHelper::to_string(tableData.size()) + "] = " +
                       NumericValue::toStringComponent(true, tableType, tableData, "{\n", "\n}", ",\n") + ";";
     }
 
@@ -442,7 +442,7 @@ std::string LUT::getGlobalDecl(){
 
 CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
     //Emit the index calculation
-    std::string indexName = name+"_n"+std::to_string(id)+"_index";
+    std::string indexName = name+"_n"+GeneralHelper::to_string(id)+"_index";
     Variable indexVariable = Variable(indexName, DataType()); //The correct type will be set durring index calculation.  Type is not required for de-reference
 
     if(!emittedIndexCalculation) {
@@ -530,7 +530,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
 
         if(inputType.isFloatingPt()){
             //Note that the first breakpoint and breakpointStep are doubles and should force promotion (they should be outputted with .00 if an integer)
-            indexExpr = "((" + inputExpr + ") - (" + std::to_string(firstBreakpoint) + "))/(" + std::to_string(breakpointStep) + ")";
+            indexExpr = "((" + inputExpr + ") - (" + GeneralHelper::to_string(firstBreakpoint) + "))/(" + GeneralHelper::to_string(breakpointStep) + ")";
 
             //Round if nessisary
             if(interpMethod == InterpMethod::NEAREST){
@@ -546,7 +546,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
             //This is an integer type
             //For now, we only support integer first breakpoints for integers
 
-            indexExpr = "(" + inputExpr + ") - (" + std::to_string((breakpoints[0])[0].getRealInt()) + ")";
+            indexExpr = "(" + inputExpr + ") - (" + GeneralHelper::to_string((breakpoints[0])[0].getRealInt()) + ")";
 
             if(breakpointStep<1){
                 double breakpointStepRecip = (numBreakPoints-1.0)/range;
@@ -554,17 +554,17 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
                 //TODO: Relying on exact integer value of double.  Check assumption
                 int64_t breakpointStepRecipInt = (int64_t) breakpointStepRecip;
 
-                indexExpr = "(" + indexExpr + ")*" + std::to_string(breakpointStepRecipInt);
+                indexExpr = "(" + indexExpr + ")*" + GeneralHelper::to_string(breakpointStepRecipInt);
             }else{
                 int64_t breakpointStepInt = (int64_t) (round(breakpointStep));
 
                 if(interpMethod == InterpMethod::NEAREST){
                     //Rounding only make sense when the step is greater than 1.  This is because we add 0.5*step to the numerator.  A step <1 will have no impact on the final result
 
-                    indexExpr += " + " + std::to_string(breakpointStepInt/2); //Take the integer divide
+                    indexExpr += " + " + GeneralHelper::to_string(breakpointStepInt/2); //Take the integer divide
                 }
 
-                indexExpr = "(" + indexExpr + ")/" + "(" + std::to_string(breakpointStepInt) + ")";
+                indexExpr = "(" + indexExpr + ")/" + "(" + GeneralHelper::to_string(breakpointStepInt) + ")";
             }
 
             indexExpr = "((" + indexType.toString(DataType::StringStyle::C, false) + ")(" + indexExpr + "))";
@@ -577,18 +577,18 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
             //Add bounds check logic
             std::string boundCheckStr = "if(("+inputExpr+") > ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
-                boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getComplexDouble().real());
+                boundCheckStr += GeneralHelper::to_string((breakpoints[0])[numBreakPoints-1].getComplexDouble().real());
             }else{
-                boundCheckStr += std::to_string((breakpoints[0])[numBreakPoints-1].getRealInt());
+                boundCheckStr += GeneralHelper::to_string((breakpoints[0])[numBreakPoints-1].getRealInt());
             }
             boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
-            boundCheckStr += std::to_string(numBreakPoints-1);
+            boundCheckStr += GeneralHelper::to_string(numBreakPoints-1);
 
             boundCheckStr += ";\n}else if(("+inputExpr+") < ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
-                boundCheckStr += std::to_string((breakpoints[0])[0].getComplexDouble().real());
+                boundCheckStr += GeneralHelper::to_string((breakpoints[0])[0].getComplexDouble().real());
             }else{
-                boundCheckStr += std::to_string((breakpoints[0])[0].getRealInt());
+                boundCheckStr += GeneralHelper::to_string((breakpoints[0])[0].getRealInt());
             }
             boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
             boundCheckStr += "0";
@@ -608,7 +608,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
     //Need to re-create
 
     //Emit the array dereference
-    std::string tablePrefix = name+"_n"+std::to_string(id)+"_table";
+    std::string tablePrefix = name+"_n"+GeneralHelper::to_string(id)+"_table";
     Variable tableVar = Variable(tablePrefix, DataType());
 
     if(imag){

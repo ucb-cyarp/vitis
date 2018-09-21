@@ -1074,9 +1074,9 @@ GraphMLImporter::importNodePortNames(std::shared_ptr<Node> node, std::map<std::s
     for(int i = 0; i < named_input_port_count; i++){
         std::string input_port_name_query_str;
         if(dialect == GraphMLDialect::VITIS) {
-            input_port_name_query_str = "input_port_name_" + std::to_string(i);
+            input_port_name_query_str = "input_port_name_" + GeneralHelper::to_string(i);
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
-            input_port_name_query_str = "input_port_name_" + std::to_string(i+1); //Need to correct for simulink numbering starting at 1
+            input_port_name_query_str = "input_port_name_" + GeneralHelper::to_string(i+1); //Need to correct for simulink numbering starting at 1
         } else {
             throw std::runtime_error("Unsupported Dialect when parsing XML");
         }
@@ -1089,9 +1089,9 @@ GraphMLImporter::importNodePortNames(std::shared_ptr<Node> node, std::map<std::s
     for(int i = 0; i < named_output_port_count; i++){
         std::string output_port_name_query_str;
         if(dialect == GraphMLDialect::VITIS) {
-            output_port_name_query_str = "output_port_name_" + std::to_string(i);
+            output_port_name_query_str = "output_port_name_" + GeneralHelper::to_string(i);
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
-            output_port_name_query_str = "output_port_name_" + std::to_string(i+1); //Need to correct for simulink numbering starting at 1
+            output_port_name_query_str = "output_port_name_" + GeneralHelper::to_string(i+1); //Need to correct for simulink numbering starting at 1
         } else {
             throw std::runtime_error("Unsupported Dialect when parsing XML");
         }

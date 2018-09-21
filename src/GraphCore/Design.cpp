@@ -560,12 +560,6 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     headerFile << std::endl;
 
-    headerFile << "//==== Global Declarations ====" << std::endl;
-    unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
-    for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
-        headerFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
-    }
-
     headerFile << "#endif" << std::endl;
 
     headerFile.close();
@@ -595,6 +589,14 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     cFile << std::endl;
 
+    cFile << "//==== Global Declarations ====" << std::endl;
+    unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
+    for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
+        cFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
+    }
+
+    cFile << std::endl;
+
     cFile << "//==== Functions ====" << std::endl;
 
     cFile << fctnProto << "{" << std::endl;
@@ -605,7 +607,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     for(unsigned long i = 0; i<numNodesWithState; i++){
         std::vector<std::string> nextStateExprs;
         nodesWithState[i]->emitCExprNextState(nextStateExprs);
-        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getName() <<" ----" << std::endl;
+        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
 
         unsigned long numNextStateExprs = nextStateExprs.size();
         for(unsigned long j = 0; j<numNextStateExprs; j++){

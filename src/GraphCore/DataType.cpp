@@ -230,7 +230,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 if(width > 1 && includeArray){
                     str += "[";
                     if(includeWidth){
-                        str += std::to_string(width);
+                        str += GeneralHelper::to_string(width);
                     }
                     str += "]";
                 }
@@ -246,7 +246,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 if(width > 1 && includeArray){
                     str += "[";
                     if(includeWidth){
-                        str += std::to_string(width);
+                        str += GeneralHelper::to_string(width);
                     }
                     str += "]";
                 }
@@ -266,7 +266,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 //Special case of fixed which doesn't make sense but is possible
                 return "sfix1_En0";
             } else{
-                std::string str = "int" + std::to_string(totalBits);
+                std::string str = "int" + GeneralHelper::to_string(totalBits);
                 if(stringStyle == StringStyle::SIMULINK) {
                     return str;
                 }else if(stringStyle == StringStyle::C){
@@ -274,7 +274,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){
-                            str += std::to_string(width);
+                            str += GeneralHelper::to_string(width);
                         }
                         str += "]";
                     }
@@ -293,7 +293,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){
-                            str += std::to_string(width);
+                            str += GeneralHelper::to_string(width);
                         }
                         str += "]";
                     }
@@ -302,7 +302,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     throw std::runtime_error("Unknown DataType String Style");
                 }
             } else{
-                std::string str = "uint" + std::to_string(totalBits);;
+                std::string str = "uint" + GeneralHelper::to_string(totalBits);;
                 if(stringStyle == StringStyle::SIMULINK) {
                     return str;
                 }else if(stringStyle == StringStyle::C){
@@ -310,7 +310,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){
-                            str += std::to_string(width);
+                            str += GeneralHelper::to_string(width);
                         }
                         str += "]";
                     }
@@ -331,7 +331,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 signedStr = "u";
             }
 
-            return signedStr + "fix" + std::to_string(totalBits) + "_En" + std::to_string(fractionalBits);
+            return signedStr + "fix" + GeneralHelper::to_string(totalBits) + "_En" + GeneralHelper::to_string(fractionalBits);
         }else if(stringStyle == StringStyle::C){
             throw std::runtime_error("No C Style Declaration Exists for Fixed Point Types");
             //Call DataType::getCPUStorageType() to get a C datatype then call this function
@@ -384,7 +384,7 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
         std::string converted = "((" + newTypeStr + ") (" + expr + "))";
 
         if(oldType.fractionalBits>0){
-            converted = "(" + converted + "* ((" + newTypeStr +  ") pow(2, -" + std::to_string(oldType.fractionalBits) + ")))";
+            converted = "(" + converted + "* ((" + newTypeStr +  ") pow(2, -" + GeneralHelper::to_string(oldType.fractionalBits) + ")))";
         }
 
         return converted;
@@ -395,7 +395,7 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
 
         //First, multiply by pow(2, numFractionalBits) then cast
         if(newType.fractionalBits > 0){
-            converted =  "("+expr + ") *pow(2, " + std::to_string(newType.fractionalBits) + ")";
+            converted =  "("+expr + ") *pow(2, " + GeneralHelper::to_string(newType.fractionalBits) + ")";
         }else{
             converted = expr;
         }
@@ -406,7 +406,7 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
         if(newType != newCPUType){
             //The new type is not a CPU type, we need to mask
             unsigned long mask = GeneralHelper::twoPow(newType.getTotalBits())-1;
-            converted = "(" + converted + ")&" + std::to_string(mask);
+            converted = "(" + converted + ")&" + GeneralHelper::to_string(mask);
         }
 
         return converted;
@@ -430,7 +430,7 @@ std::string DataType::cConvertType(std::string expr, DataType oldType, DataType 
             if(newType != newCPUType){
                 //The newType was not a CPU type, trunkation required
                 unsigned long mask = GeneralHelper::twoPow(newType.getTotalBits())-1;
-                converted = "(" + converted + ")&" + std::to_string(mask);
+                converted = "(" + converted + ")&" + GeneralHelper::to_string(mask);
             }
             //else, trunkation occured in conversion to CPU type
         }
