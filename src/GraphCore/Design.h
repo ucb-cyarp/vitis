@@ -195,6 +195,26 @@ public:
     unsigned long prune();
 
     /**
+     * @brief Schedule the nodes using topological sort.
+     */
+    void schedualTopologicalStort(); //TODO: copy the design, prune the design, remove master inputs & constants, remove outgoing arc from delays, call topological order, back propagate schedule
+
+    /**
+     * @brief Topological sort the current graph.
+     *
+     * @warning This destroys the graph by removing arcs from the nodes.
+     * It is reccomended to run on a copy of the graph and to back propagate the results
+     *
+     * @return A vector of nodes arranged in topological order
+     */
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive();
+
+    /**
+     * @brief Verify that the graph has topologic
+     */
+    void verifyTopologicalOrder();
+
+    /**
      * @brief Get a node by its name path
      *
      * The name path would have the form {"subsys", "nested subsys", "nodeName"}
