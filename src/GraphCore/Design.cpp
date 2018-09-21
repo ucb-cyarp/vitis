@@ -1192,3 +1192,13 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     makefile.close();
     makefileNoPCM.close();
 }
+
+void Design::copyGraph(std::vector<std::shared_ptr<Node>> &nodeCopies, std::vector<std::shared_ptr<Arc>> &arcCopies,
+                       std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                       std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode,
+                       std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
+                       std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
+
+
+
+}
