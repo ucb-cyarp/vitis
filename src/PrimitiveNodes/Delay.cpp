@@ -146,7 +146,7 @@ void Delay::validate() {
         throw std::runtime_error("Validation Failed - Delay - DataType of Input Port Does not Match Output Port");
     }
 
-    if(delayValue != initCondition.size()){
+    if(delayValue != 0 && delayValue != initCondition.size()){
         throw std::runtime_error("Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) + ") Does not Match the Length of Init Condition Vector (" + GeneralHelper::to_string(initCondition.size()) + ")");
     }
 }
