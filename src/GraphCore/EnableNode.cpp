@@ -102,3 +102,25 @@ std::set<std::shared_ptr<Arc>> EnableNode::disconnectNode() {
 
     return disconnectedArcs;
 }
+
+std::set<std::shared_ptr<Node>> EnableNode::getConnectedNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedNodes(); //Get the nodes connected to the standard input and output ports
+
+    //Get nodes connected to the enable port
+    std::set<std::shared_ptr<Arc>> enableArcs = enablePort->getArcs();
+
+    for(auto it = enableArcs.begin(); it != enableArcs.end(); it++){
+        connectedNodes.insert((*it)->getSrcPort()->getParent()); //The enable port is an input port
+    }
+
+    return connectedNodes;
+}
+
+unsigned long EnableNode::inDegree() {
+    unsigned long count = Node::inDegree(); //Get the number of arcs connected to the standard input ports
+
+    //Get the arcs connected to the enable port
+    count += enablePort->getArcs().size();
+
+    return count;
+}

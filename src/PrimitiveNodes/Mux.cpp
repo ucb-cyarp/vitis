@@ -277,6 +277,24 @@ std::set<std::shared_ptr<Arc>> Mux::disconnectNode() {
     return disconnectedArcs;
 }
 
+std::set<std::shared_ptr<Node>> Mux::getConnectedNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedNodes(); //Get the nodes connected to the standard input and output ports
 
+    //Get nodes connected to the selector port
+    std::set<std::shared_ptr<Arc>> selectArcs = selectorPort->getArcs();
 
+    for(auto it = selectArcs.begin(); it != selectArcs.end(); it++){
+        connectedNodes.insert((*it)->getSrcPort()->getParent()); //The selector port is an input port
+    }
 
+    return connectedNodes;
+}
+
+unsigned long Mux::inDegree() {
+    unsigned long count = Node::inDegree(); //Get the number of arcs connected to the standard input ports
+
+    //Get the arcs connected to the select port
+    count += selectorPort->getArcs().size();
+
+    return count;
+}

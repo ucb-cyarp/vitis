@@ -483,7 +483,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectNode() {
     }
 
     //Iterate through the output ports/arcs
-    unsigned long numOutputPorts = inputPorts.size();
+    unsigned long numOutputPorts = outputPorts.size();
     for(unsigned long i = 0; i<numOutputPorts; i++){
         //Get a copy of the arc set for this port
         std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
@@ -501,4 +501,78 @@ std::set<std::shared_ptr<Arc>> Node::disconnectNode() {
     }
 
     return disconnectedArcs;
+}
+
+std::set<std::shared_ptr<Node>> Node::getConnectedNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes;
+
+    //Iterate through the input ports/arcs
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> inputArcs = inputPorts[i]->getArcs();
+
+        for(auto it = inputArcs.begin(); it != inputArcs.end(); it++){
+            connectedNodes.insert((*it)->getSrcPort()->getParent()); //The node connected to the input arc is the src node of the arc
+        }
+    }
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = outputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
+
+        for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+            connectedNodes.insert((*it)->getDstPort()->getParent()); //The node connected to the output arc is the dst node of the arc
+        }
+    }
+
+    return connectedNodes;
+}
+
+unsigned long Node::inDegree(){
+    unsigned long count = 0;
+
+    //Iterate through the input ports/arcs
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        count += inputPorts[i]->getArcs().size(); //Get the number of arcs connected to this port
+    }
+
+    return count;
+}
+
+unsigned long Node::outDegree() {
+    unsigned long count = 0;
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = outputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        count += outputPorts[i]->getArcs().size(); //Get the number of arcs connected to this port
+    }
+
+    return count;
+}
+
+unsigned long Node::outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Node>> ignoreSet) {
+    unsigned long count = 0;
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = outputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
+
+        for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+            std::shared_ptr<Node> connectedNode = (*it)->getDstPort()->getParent(); //The connected node for output arcs is the dst node.
+
+            if(ignoreSet.find(connectedNode) != ignoreSet.end()){
+                //If the dst node is not in the ignore set, include it in the count
+                count++;
+            }
+        }
+    }
+
+    return count;
 }

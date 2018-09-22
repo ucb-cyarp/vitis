@@ -1258,13 +1258,13 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
 void Design::removeNode(std::shared_ptr<Node> node) {
     //Disconnect arcs from the node
-    std::set<std::shared_ptr<Arc>> disconnectedArcs = disconnectedArcs = node->disconnectNode();
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = node->disconnectNode();
 
     //Check if the node is a master node
     if(GeneralHelper::isType<Node, MasterNode>(node) != nullptr){
         //Master Node
         if(node == inputMaster){
-            inputMaster == nullptr;
+            inputMaster = nullptr;
         }else if(node == outputMaster){
             outputMaster = nullptr;
         }else if(node == visMaster){

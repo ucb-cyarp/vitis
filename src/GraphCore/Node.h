@@ -171,26 +171,31 @@ public:
      *
      * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
      */
-    virtual std::set<std::shared_ptr<Arc>> disconnectNode(); //TODO: Override in nodes with extra ports
+    virtual std::set<std::shared_ptr<Arc>> disconnectNode();
 
     /**
      * @brief Get the set of nodes connected to this node via arcs
-     * @return
+     * @return set of nodes connected to this node via arcs
      */
-    virtual std::set<std::shared_ptr<Node>> getConnectedNodes(); //TODO: Override in nodes with extra ports
+    virtual std::set<std::shared_ptr<Node>> getConnectedNodes();
 
     /**
      * @brief Get the in-degree of this node (number of connected input arcs)
-     * @return
+     * @return in-degree of this node (number of connected input arcs)
      */
-    virtual unsigned long inDegree(); //TODO: Override in nodes with extra ports
+    virtual unsigned long inDegree();
 
     /**
-     * @brief
-     * @return
+     * @brief Get the out-degree of this node (number of connected output arcs)
+     * @return out-degree of this node (number of connected output arcs)
      */
     unsigned long outDegree();
 
+    /**
+     * @brief Get the out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
+     * @param ignoreSet a set of pointers to nodes.  Arcs to these nodes are not included in the out degree
+     * @return out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
+     */
     unsigned long outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Node>> ignoreSet);
 
     /**
