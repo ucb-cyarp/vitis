@@ -190,9 +190,11 @@ public:
      *
      * Ports that are left unused are connected to the Unconnected master node
      *
+     * @param includeTerminatorsAndVis If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
+     *
      * @return number of nodes removed from the graph
      */
-    unsigned long prune();
+    unsigned long prune(bool includeVisMaster = true);
 
     /**
      * @brief Schedule the nodes using topological sort.
@@ -210,7 +212,7 @@ public:
     std::vector<std::shared_ptr<Node>> topologicalSortDestructive();
 
     /**
-     * @brief Verify that the graph has topologic
+     * @brief Verify that the graph has topological ordering
      */
     void verifyTopologicalOrder();
 

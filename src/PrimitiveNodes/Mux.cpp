@@ -3,6 +3,7 @@
 //
 
 #include "Mux.h"
+#include "GraphCore/Arc.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
 #include <iostream>
@@ -297,4 +298,23 @@ unsigned long Mux::inDegree() {
     count += selectorPort->getArcs().size();
 
     return count;
+}
+
+std::vector<std::shared_ptr<Arc>>
+Mux::connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink,
+                                   int srcPortNum, int sinkPortNum) {
+    std::vector<std::shared_ptr<Arc>> newArcs = Node::connectUnconnectedPortsToNode(connectToSrc, connectToSink, srcPortNum, sinkPortNum); //Connect standard ports
+
+    unsigned long numSelectArcs = selectorPort->getArcs().size();
+
+    if(numSelectArcs == 0){
+        //This port is unconnected, connect it to the given node.
+
+        //Connect from given node to this node's input port
+        //TODO: Use default datatype for now.  Perhaps change later?
+        std::shared_ptr<Arc> arc = Arc::connectNodes(connectToSrc, srcPortNum, std::dynamic_pointer_cast<Mux>(shared_from_this()), DataType());
+        newArcs.push_back(arc);
+    }
+
+    return newArcs;
 }

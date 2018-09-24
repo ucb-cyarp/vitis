@@ -172,6 +172,8 @@ public:
 
     unsigned long inDegree() override;
 
+    std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum) override;
+
 };
 
 /*@}*/

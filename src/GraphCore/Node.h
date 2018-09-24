@@ -192,6 +192,16 @@ public:
     unsigned long outDegree();
 
     /**
+     * @brief Connects input and output ports with no arcs to the given node
+     * @param connectToSrc the node to which unconnected input ports should be connected to
+     * @param connectToSink the node to which unconnected output ports should be connected to
+     * @param srcPortNum the port number of the connectToSrc to connect to
+     * @param sinkPortNum the port number of the connectToSink to connect to
+     * @return a vector of new arcs
+     */
+    virtual std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum);
+
+    /**
      * @brief Get the out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
      * @param ignoreSet a set of pointers to nodes.  Arcs to these nodes are not included in the out degree
      * @return out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet

@@ -1288,3 +1288,95 @@ void Design::removeNode(std::shared_ptr<Node> node) {
         arcs.erase(std::remove(arcs.begin(), arcs.end(), arcToDelete));
     }
 }
+
+unsigned long Design::prune(bool includeVisMaster) {
+    //Find nodes with 0 out-degree when not counting the various master nodes
+    std::set<std::shared_ptr<Node>> nodesToIgnore;
+    nodesToIgnore.insert(unconnectedMaster);
+    nodesToIgnore.insert(terminatorMaster);
+    if(includeVisMaster){
+        nodesToIgnore.insert(visMaster);
+    }
+
+    std::set<std::shared_ptr<Node>> nodesWithZeroOutDeg;
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->outDegreeExclusingConnectionsTo(nodesToIgnore) == 0){
+            nodesWithZeroOutDeg.insert(nodes[i]);
+        }
+    }
+
+    //Get the candidate nodes which may have out-deg 0 after removing the nodes
+    //Note that all of the connected nodes have zero out degree so connected nodes are either connected to the input ports or are the master nodes
+    std::set<std::shared_ptr<Node>> candidateNodes;
+    for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
+        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
+        candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
+    }
+
+    //Remove the master nodes from the candidate list as well as any nodes that are about to be removed
+    candidateNodes.erase(unconnectedMaster);
+    candidateNodes.erase(terminatorMaster);
+    candidateNodes.erase(visMaster);
+    candidateNodes.erase(inputMaster);
+    candidateNodes.erase(outputMaster);
+    for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
+        candidateNodes.erase((*it));
+    }
+
+    //Erase
+    std::set<std::shared_ptr<Node>> nodesDeleted;
+    std::set<std::shared_ptr<Arc>> arcsDeleted;
+
+    while(!nodesWithZeroOutDeg.empty()){
+        //Disconnect, erase nodes, remove from candidate set if it is in it
+        for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
+            std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
+            arcsDeleted.insert(arcsToRemove.begin(), arcsToRemove.end());
+            nodesDeleted.insert(*it);
+            candidateNodes.erase(*it);
+        }
+
+        //Reset nodes with zero out degree
+        nodesWithZeroOutDeg.clear();
+
+        //Find nodes with zero out degree from candidates list
+        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
+            if((*it)->outDegreeExclusingConnectionsTo(nodesToIgnore) == 0){
+                nodesWithZeroOutDeg.insert(*it);
+            }
+        }
+
+        //Update candidates list
+        for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
+            std::set<std::shared_ptr<Node>> newCandidates = (*it)->getConnectedNodes();
+            candidateNodes.insert(newCandidates.begin(), newCandidates.end());
+        }
+
+        //Remove master nodes from candidates list
+        candidateNodes.erase(unconnectedMaster);
+        candidateNodes.erase(terminatorMaster);
+        candidateNodes.erase(visMaster);
+        candidateNodes.erase(inputMaster);
+        candidateNodes.erase(outputMaster);
+    }
+
+    //Delete nodes and arcs from design
+    for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), *it), nodes.end());
+    }
+
+    for(auto it = arcsDeleted.begin(); it != arcsDeleted.end(); it++){
+        arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
+    }
+
+    //Connect unconnected arcs to unconnected master node
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        std::vector<std::shared_ptr<Arc>> newArcs =
+        nodes[i]->connectUnconnectedPortsToNode(unconnectedMaster, unconnectedMaster, 0, 0);
+
+        //Add newArcs to arc vector
+        for(unsigned long j = 0; j<newArcs.size(); j++){
+            arcs.push_back(newArcs[j]);
+        }
+    }
+}

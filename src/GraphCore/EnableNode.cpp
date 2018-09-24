@@ -5,6 +5,7 @@
 #include "EnableNode.h"
 #include "Port.h"
 #include "EnabledSubSystem.h"
+#include "Arc.h"
 
 EnableNode::EnableNode() {
     enablePort = std::unique_ptr<EnablePort>(new EnablePort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
@@ -123,4 +124,23 @@ unsigned long EnableNode::inDegree() {
     count += enablePort->getArcs().size();
 
     return count;
+}
+
+std::vector<std::shared_ptr<Arc>>
+EnableNode::connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink,
+                                          int srcPortNum, int sinkPortNum) {
+    std::vector<std::shared_ptr<Arc>> newArcs = Node::connectUnconnectedPortsToNode(connectToSrc, connectToSink, srcPortNum, sinkPortNum); //Connect standard ports
+
+    unsigned long numEnableArcs = enablePort->getArcs().size();
+
+    if(numEnableArcs == 0){
+        //This port is unconnected, connect it to the given node.
+
+        //Connect from given node to this node's input port
+        //TODO: Use default datatype for now.  Perhaps change later?
+        std::shared_ptr<Arc> arc = Arc::connectNodes(connectToSrc, srcPortNum, std::dynamic_pointer_cast<EnableNode>(shared_from_this()), DataType());
+        newArcs.push_back(arc);
+    }
+
+    return newArcs;
 }

@@ -576,3 +576,43 @@ unsigned long Node::outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Nod
 
     return count;
 }
+
+std::vector<std::shared_ptr<Arc>> Node::connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum){
+    std::vector<std::shared_ptr<Arc>> newArcs;
+
+    //Iterate through the input ports/arcs
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        //Get a copy of the arc set for this port
+        unsigned long numInputArcs = inputPorts[i]->getArcs().size();
+
+        if(numInputArcs == 0){
+            //This port is unconnected, connect it to the given node.
+            int inputPortNumber = inputPorts[i]->getPortNum();
+
+            //Connect from given node to this node's input port
+            //TODO: Use default datatype for now.  Perhaps change later?
+            std::shared_ptr<Arc> arc = Arc::connectNodes(connectToSrc, srcPortNum, shared_from_this(), inputPortNumber, DataType());
+            newArcs.push_back(arc);
+        }
+    }
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = outputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        //Get a copy of the arc set for this port
+        unsigned long numOutputArcs = outputPorts[i]->getArcs().size();
+
+        if(numOutputArcs == 0){
+            //This port is unconnected, connect it to the given node.
+            int outputPortNumber = outputPorts[i]->getPortNum();
+
+            //Connect from this node's output port to the given node's port
+            //TODO: Use default datatype for now.  Perhaps change later?
+            std::shared_ptr<Arc> arc = Arc::connectNodes(shared_from_this(), outputPortNumber, connectToSink, sinkPortNum, DataType());
+            newArcs.push_back(arc);
+        }
+    }
+
+    return newArcs;
+}
