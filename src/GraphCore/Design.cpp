@@ -1377,6 +1377,8 @@ unsigned long Design::prune(bool includeVisMaster) {
             arcs.push_back(newArcs[j]);
         }
     }
+
+    return nodesDeleted.size();
 }
 
 void Design::verifyTopologicalOrder() {
@@ -1421,29 +1423,6 @@ void Design::verifyTopologicalOrder() {
 std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     std::set<std::shared_ptr<Arc>> arcsToDelete;
     std::vector<std::shared_ptr<Node>> schedule;
-
-    //Remove input master and constants
-    std::set<std::shared_ptr<Arc>> newArcsToDelete = inputMaster->disconnectNode();
-    arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
-
-    std::set<std::shared_ptr<Node>> nodesToRemove;
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        if(GeneralHelper::isType<Node, Constant>(nodes[i]) != nullptr){
-            //This is a constant node, disconnect it and remove it from the graph to be ordered
-            std::set<std::shared_ptr<Arc>> newArcsToDelete = nodes[i]->disconnectNode();
-            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
-
-            nodesToRemove.insert(nodes[i]);
-        }else if(nodes[i]->hasState()){ //TODO: Check if this works for all nodes with state
-            //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
-            std::set<std::shared_ptr<Arc>> newArcsToDelete = nodes[i]->disconnectOutputs();
-            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
-        }
-    }
-
-    for(auto it = nodesToRemove.begin(); it != nodesToRemove.end(); it++){
-        nodes.erase(std::remove(nodes.begin(), nodes.end(), *it), nodes.end());
-    }
 
     //Find nodes with 0 in degree
     std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
@@ -1515,4 +1494,49 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     }
 
     return schedule;
+}
+
+void Design::schedualTopologicalStort() {
+    std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
+    std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
+    std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
+    std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> clonedToOrigArcs;
+
+    //Make a copy of the design to conduct the destructive topological sort on
+    Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
+
+    //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
+    std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
+    std::set<std::shared_ptr<Node>> nodesToRemove;
+
+    for(unsigned long i = 0; i<designClone.nodes.size(); i++){
+        if(GeneralHelper::isType<Node, Constant>(designClone.nodes[i]) != nullptr){
+            //This is a constant node, disconnect it and remove it from the graph to be ordered
+            std::set<std::shared_ptr<Arc>> newArcsToDelete = designClone.nodes[i]->disconnectNode();
+            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+
+            nodesToRemove.insert(designClone.nodes[i]);
+        }else if(designClone.nodes[i]->hasState()){ //TODO: Check if this works for all nodes with state
+            //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
+            std::set<std::shared_ptr<Arc>> newArcsToDelete = designClone.nodes[i]->disconnectOutputs();
+            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+        }
+    }
+
+    for(auto it = nodesToRemove.begin(); it != nodesToRemove.end(); it++){
+        designClone.nodes.erase(std::remove(designClone.nodes.begin(), designClone.nodes.end(), *it), designClone.nodes.end());
+    }
+    for(auto it = arcsToDelete.begin(); it != arcsToDelete.end(); it++){
+        arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
+    }
+
+    //==== Topological Sort (Destructive) ====
+    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive();
+
+    //==== Back Propagate Schedule ====
+    for(unsigned long i = 0; i<schedule.size(); i++){
+        //Index is the schedule number
+        std::shared_ptr<Node> origNode = clonedToOrigNodes[schedule[i]];
+        origNode->setSchedOrder(i);
+    }
 }

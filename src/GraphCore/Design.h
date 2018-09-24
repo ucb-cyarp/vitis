@@ -199,7 +199,7 @@ public:
     /**
      * @brief Schedule the nodes using topological sort.
      */
-    void schedualTopologicalStort(); //TODO: copy the design, prune the design, remove master inputs & constants, remove outgoing arc from delays, call topological order, back propagate schedule
+    void schedualTopologicalStort();
 
     /**
      * @brief Topological sort the current graph.
