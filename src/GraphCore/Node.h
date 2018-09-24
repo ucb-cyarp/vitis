@@ -171,7 +171,25 @@ public:
      *
      * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
      */
-    virtual std::set<std::shared_ptr<Arc>> disconnectNode();
+    std::set<std::shared_ptr<Arc>> disconnectNode();
+
+    /**
+     * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all input arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectInputs();
+
+    /**
+     * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all output arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    std::set<std::shared_ptr<Arc>> disconnectOutputs();
 
     /**
      * @brief Get the set of nodes connected to this node via arcs
@@ -553,6 +571,14 @@ public:
     const std::string &getName() const;
 
     void setName(const std::string &name);
+
+    int getPartitionNum() const;
+
+    void setPartitionNum(int partitionNum);
+
+    int getSchedOrder() const;
+
+    void setSchedOrder(int schedOrder);
 
 };
 

@@ -84,8 +84,8 @@ void EnableNode::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
     }
 }
 
-std::set<std::shared_ptr<Arc>> EnableNode::disconnectNode() {
-    std::set<std::shared_ptr<Arc>> disconnectedArcs = Node::disconnectNode(); //Remove the arcs connected to the standard ports
+std::set<std::shared_ptr<Arc>> EnableNode::disconnectInputs() {
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = Node::disconnectInputs(); //Remove the arcs connected to the standard ports
 
     //Remove arcs connected to the enable port
     std::set<std::shared_ptr<Arc>> enableArcs = enablePort->getArcs();

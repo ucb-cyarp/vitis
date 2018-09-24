@@ -17,6 +17,7 @@
 #include "GraphCore/Node.h"
 #include "GraphCore/Arc.h"
 #include "GraphCore/Variable.h"
+#include "PrimitiveNodes/Constant.h"
 
 //==== Constructors
 Design::Design() {
@@ -1319,16 +1320,13 @@ unsigned long Design::prune(bool includeVisMaster) {
     candidateNodes.erase(visMaster);
     candidateNodes.erase(inputMaster);
     candidateNodes.erase(outputMaster);
-    for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
-        candidateNodes.erase((*it));
-    }
 
     //Erase
     std::set<std::shared_ptr<Node>> nodesDeleted;
     std::set<std::shared_ptr<Arc>> arcsDeleted;
 
     while(!nodesWithZeroOutDeg.empty()){
-        //Disconnect, erase nodes, remove from candidate set if it is in it
+        //Disconnect, erase nodes, remove from candidate set (if it is included)
         for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
             std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
             arcsDeleted.insert(arcsToRemove.begin(), arcsToRemove.end());
@@ -1379,4 +1377,142 @@ unsigned long Design::prune(bool includeVisMaster) {
             arcs.push_back(newArcs[j]);
         }
     }
+}
+
+void Design::verifyTopologicalOrder() {
+    //First, check that the output is scheduled (so long as there are output arcs)
+    if(outputMaster->inDegree() > 0){
+        if(outputMaster->getSchedOrder() == -1){
+            throw std::runtime_error("Topological Order Validation: Output was not scheduled even though the system does has outputs.");
+        }
+    }
+
+    for(unsigned long i = 0; i<arcs.size(); i++){
+        //Check if the src node is a constant or the input master node
+        //If so, do not check the ordering
+        std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
+
+        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr){
+            std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
+
+            //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
+            //The srcNode can only be -1 if the destination is also -1
+            if(srcNode->getSchedOrder() == -1){
+                //Src node is unscheduled
+                if(dstNode->getSchedOrder() != -1){
+                    //dst node is scheduled
+                    throw std::runtime_error("Topological Order Validation: Src Node is Unscheduled but Dst Node is Scheduled");
+                }
+                //otherwise, there is no error here as both nodes are unscheduled
+            }else{
+                //Src node is scheduled
+                if(dstNode->getSchedOrder() != -1){
+                    //Dst node is scheduled
+                    if(srcNode->getSchedOrder() >= dstNode->getSchedOrder()){
+                        throw std::runtime_error("Topological Order Validation: Src Node is not Scheduled before Dst Node");
+                    }
+                }
+                //Dst node unscheduled is OK
+            }
+        }
+    }
+}
+
+std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
+    std::set<std::shared_ptr<Arc>> arcsToDelete;
+    std::vector<std::shared_ptr<Node>> schedule;
+
+    //Remove input master and constants
+    std::set<std::shared_ptr<Arc>> newArcsToDelete = inputMaster->disconnectNode();
+    arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+
+    std::set<std::shared_ptr<Node>> nodesToRemove;
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(GeneralHelper::isType<Node, Constant>(nodes[i]) != nullptr){
+            //This is a constant node, disconnect it and remove it from the graph to be ordered
+            std::set<std::shared_ptr<Arc>> newArcsToDelete = nodes[i]->disconnectNode();
+            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+
+            nodesToRemove.insert(nodes[i]);
+        }else if(nodes[i]->hasState()){ //TODO: Check if this works for all nodes with state
+            //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
+            std::set<std::shared_ptr<Arc>> newArcsToDelete = nodes[i]->disconnectOutputs();
+            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+        }
+    }
+
+    for(auto it = nodesToRemove.begin(); it != nodesToRemove.end(); it++){
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), *it), nodes.end());
+    }
+
+    //Find nodes with 0 in degree
+    std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->inDegree() == 0){
+            nodesWithZeroInDeg.insert(nodes[i]);
+        }
+    }
+
+    //Find Candidate Nodes
+    std::set<std::shared_ptr<Node>> candidateNodes;
+    for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
+        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
+        candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
+    }
+
+    //Remove the master nodes from the candidate list as well as any nodes that are about to be removed
+    candidateNodes.erase(unconnectedMaster);
+    candidateNodes.erase(terminatorMaster);
+    candidateNodes.erase(visMaster);
+    candidateNodes.erase(inputMaster);
+    candidateNodes.erase(outputMaster);
+
+    //Schedule Nodes
+    while(!nodesWithZeroInDeg.empty()){
+        //Schedule Nodes with Zero In Degree
+        //Disconnect, erase nodes, remove from candidate set (if it is included)
+        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
+            std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
+            arcsToDelete.insert(arcsToRemove.begin(), arcsToRemove.end());
+            schedule.push_back(*it);
+            candidateNodes.erase(*it);
+        }
+
+        //Reset nodes with zero in degree
+        nodesWithZeroInDeg.clear();
+
+        //Find nodes with zero in degree from candidates list
+        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
+            if((*it)->inDegree() == 0){
+                nodesWithZeroInDeg.insert(*it);
+            }
+        }
+
+        //Update candidates list
+        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
+            std::set<std::shared_ptr<Node>> newCandidates = (*it)->getConnectedNodes();
+            candidateNodes.insert(newCandidates.begin(), newCandidates.end());
+        }
+
+        //Remove master nodes from candidates list
+        candidateNodes.erase(unconnectedMaster);
+        candidateNodes.erase(terminatorMaster);
+        candidateNodes.erase(visMaster);
+        candidateNodes.erase(inputMaster);
+        candidateNodes.erase(outputMaster);
+
+    }
+
+    //If there are still viable candidate nodes, there was a cycle.
+    if(!candidateNodes.empty()){
+        throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
+    }
+
+    //Delete the arcs
+    //TODO: Remove this?  May not be needed for most applications.  We are probably going to distroy the design anyway
+    for(auto it = arcsToDelete.begin(); it != arcsToDelete.end(); it++){
+        arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
+    }
+
+    return schedule;
 }

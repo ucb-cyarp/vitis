@@ -166,7 +166,7 @@ public:
 
     void cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) override;
 
-    std::set<std::shared_ptr<Arc>> disconnectNode() override;
+    std::set<std::shared_ptr<Arc>> disconnectInputs() override;
 
     std::set<std::shared_ptr<Node>> getConnectedNodes() override;
 
