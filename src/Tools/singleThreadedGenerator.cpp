@@ -12,14 +12,27 @@
 #include "GraphMLTools/GraphMLDialect.h"
 
 int main(int argc, char* argv[]) {
+    Design::SchedType sched = Design::SchedType::BOTTOM_UP;
 
-    if(argc != 4)
+    if(argc < 4  || argc > 5)
     {
         std::cout << "singleThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Single Threaded C Function" << std::endl;
+        std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    singleThreadedGenerator inputfile.graphml outputDir designName" << std::endl;
+        std::cout << "    singleThreadedGenerator inputfile.graphml outputDir designName <SCHED>" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Possible SCHED:" << std::endl;
+        std::cout << "    bottomUp <DEFAULT> = Bottom Up Scheduler" << std::endl;
+        std::cout << "    topological = Topological Sort Scheduler" << std::endl;
 
         return 1;
+    }else if(argc == 5){
+        try{
+            Design::SchedType parsedSched = Design::parseSchedTypeStr(argv[4]);
+            sched = parsedSched;
+        }catch(std::runtime_error e){
+            throw std::runtime_error("Unknown Scheduler, Possible SCHED: bottomUp, topological");
+        }
     }
 
     std::string inputFilename = argv[1];
@@ -50,12 +63,22 @@ int main(int argc, char* argv[]) {
     design->assignNodeIDs();
     design->assignArcIDs();
 
+    //Print Scheduler
+    std::cout << "SCHED: " << Design::schedTypeToString(sched) << std::endl;
+
     //Emit C
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
 
     try{
-        design->emitSingleThreadedC(outputDir, designName, designName);
+        if(sched == Design::SchedType::BOTTOM_UP)
+            design->emitSingleThreadedC(outputDir, designName, designName, false);
+        else if(sched == Design::SchedType::TOPOLOGICAL){
+            design->schedualTopologicalStort(true);
+            design->emitSingleThreadedC(outputDir, designName, designName, true);
+        }else{
+            throw std::runtime_error("Unknown SCHED Type");
+        }
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

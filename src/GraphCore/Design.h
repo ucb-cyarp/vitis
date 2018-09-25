@@ -66,6 +66,28 @@ public:
     void addArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Represents the types of schedulers supported
+     */
+    enum class SchedType{
+        BOTTOM_UP, ///<The original bottom up emit.  Emits from outputs backwards
+        TOPOLOGICAL ///<A generic topological sort based scheduler
+    };
+
+    /**
+     * @brief Parse a scheduler type
+     * @param str the string to parse
+     * @return The equivalent SchedType
+     */
+    static SchedType parseSchedTypeStr(std::string str);
+
+    /**
+     * @brief Get a string representation of the SchedType
+     * @param schedType the SchedType to get a string of
+     * @return string representation of the SchedType
+     */
+    static std::string schedTypeToString(SchedType schedType);
+
+    /**
      * @brief Re-number node IDs
      *
      * @note The node IDs may change in node that previously had valid IDs
@@ -198,8 +220,10 @@ public:
 
     /**
      * @brief Schedule the nodes using topological sort.
+     * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
+     * @return the number of nodes pruned (if prune is true)
      */
-    void schedualTopologicalStort();
+    unsigned long schedualTopologicalStort(bool prune);
 
     /**
      * @brief Topological sort the current graph.
@@ -298,7 +322,19 @@ public:
     std::string getCOutputStructDefn();
 
     /**
-     * @brief Emits the design as a single threaded C function
+     * @brief Emits operators using the bottom up emitter
+     * @param cFile the cFile to emit to
+     */
+    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState);
+
+    /**
+     * @brief Emits operators using the schedule emitter
+     * @param cFile the cFile to emit to
+     */
+    void emitSingleThreadedOpsSched(std::ofstream &cFile);
+
+    /**
+     * @brief Emits the design as a single threaded C function (using the bottom-up method)
      *
      * @note Design expansion and validation should be run before calling this function
      *
@@ -307,8 +343,9 @@ public:
      * @param path path to where the output files will be generated
      * @param fileName name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
+     * @param explicitSched if true, uses the Node schedOrder parameter to control the sequence of emitted operations.  If false, uses thr bottom up synthesis approach
      */
-    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName);
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool explicitSched);
 
     /**
      * @brief Emits the benchmarking drivers for the design

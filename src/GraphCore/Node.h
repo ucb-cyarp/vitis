@@ -580,6 +580,14 @@ public:
 
     void setSchedOrder(int schedOrder);
 
+    /**
+     * @brief Returns true if a->schedOrder < b->schedOrder
+     * @param a
+     * @param b
+     * @return true if a->schedOrder < b->schedOrder
+     */
+    static bool lessThanSchedOrder(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
+
 };
 
 /*@}*/

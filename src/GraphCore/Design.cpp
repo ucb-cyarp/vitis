@@ -496,7 +496,183 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName) {
+void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState){
+    //Emit compute next states
+    cFile << std::endl << "//==== Compute Next States ====" << std::endl;
+    unsigned long numNodesWithState = nodesWithState.size();
+    for(unsigned long i = 0; i<numNodesWithState; i++){
+        std::vector<std::string> nextStateExprs;
+        nodesWithState[i]->emitCExprNextState(nextStateExprs);
+        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
+
+        unsigned long numNextStateExprs = nextStateExprs.size();
+        for(unsigned long j = 0; j<numNextStateExprs; j++){
+            cFile << nextStateExprs[j] << std::endl;
+        }
+    }
+
+    //Assign each of the outputs (and emit any expressions that preceed it)
+    cFile << std::endl << "//==== Compute Outputs ====" << std::endl;
+    unsigned long numOutputs = outputMaster->getInputPorts().size();
+    for(unsigned long i = 0; i<numOutputs; i++){
+        std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
+        cFile << std::endl << "//---- Compute Output " << i << ": " << output->getName() <<" ----" << std::endl;
+
+        //Get the arc connected to the output
+        std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
+
+        DataType outputDataType = outputArc->getDataType();
+
+        std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
+        int srcNodeOutputPortNum = srcOutputPort->getPortNum();
+
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        cFile << "//-- Compute Real Component --" << std::endl;
+        std::vector<std::string> cStatements_re;
+        std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false);
+        //emit the expressions
+        unsigned long numStatements_re = cStatements_re.size();
+        for(unsigned long j = 0; j<numStatements_re; j++){
+            cFile << cStatements_re[j] << std::endl;
+        }
+
+        //emit the assignment
+        Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
+        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+
+        //Emit Imag if Datatype is complex
+        if(outputDataType.isComplex()){
+            cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
+            std::vector<std::string> cStatements_im;
+            std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true);
+            //emit the expressions
+            unsigned long numStatements_im = cStatements_im.size();
+            for(unsigned long j = 0; j<numStatements_im; j++){
+                cFile << cStatements_im[j] << std::endl;
+            }
+
+            //emit the assignment
+            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+        }
+    }
+}
+
+void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
+
+    cFile << std::endl << "//==== Compute Operators ====" << std::endl;
+
+    //Sort nodes by schedOrder.
+    std::vector<std::shared_ptr<Node>> orderedNodes = nodes;
+    std::sort(orderedNodes.begin(), orderedNodes.end(), Node::lessThanSchedOrder);
+
+    std::shared_ptr<Node> zeroSchedNodeCmp = NodeFactory::createNode<MasterUnconnected>(); //Need a node to compare to
+    zeroSchedNodeCmp->setSchedOrder(0);
+
+    auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0)
+
+    //Itterate through the schedule and emit
+    for(auto it = schedIt; it != orderedNodes.end(); it++){
+
+        if(*it == outputMaster){
+            //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
+            unsigned long numOutputs = outputMaster->getInputPorts().size();
+            for(unsigned long i = 0; i<numOutputs; i++){
+                std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
+                cFile << std::endl << "//---- Assign Output " << i << ": " << output->getName() <<" ----" << std::endl;
+
+                //Get the arc connected to the output
+                std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
+
+                DataType outputDataType = outputArc->getDataType();
+
+                std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
+                int srcNodeOutputPortNum = srcOutputPort->getPortNum();
+
+                std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+                cFile << "//-- Assign Real Component --" << std::endl;
+                std::vector<std::string> cStatements_re;
+                std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false, true, true);
+                //emit the expressions
+                unsigned long numStatements_re = cStatements_re.size();
+                for(unsigned long j = 0; j<numStatements_re; j++){
+                    cFile << cStatements_re[j] << std::endl;
+                }
+
+                //emit the assignment
+                Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
+                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+
+                //Emit Imag if Datatype is complex
+                if(outputDataType.isComplex()){
+                    cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
+                    std::vector<std::string> cStatements_im;
+                    std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true, true, true);
+                    //emit the expressions
+                    unsigned long numStatements_im = cStatements_im.size();
+                    for(unsigned long j = 0; j<numStatements_im; j++){
+                        cFile << cStatements_im[j] << std::endl;
+                    }
+
+                    //emit the assignment
+                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                }
+            }
+        }else if((*it)->hasState()){
+            //Call emit for state element input
+            //The state element output is treateded similarly to a constant and a variable name is always returned
+            //The output has no dependencies within the cycle
+            //The input can have dependencies
+
+            //Emit comment
+            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+
+            std::vector<std::string> nextStateExprs;
+            (*it)->emitCExprNextState(nextStateExprs);
+
+            for(unsigned long j = 0; j<nextStateExprs.size(); j++){
+                cFile << nextStateExprs[j] << std::endl;
+            }
+
+        }else{
+            //Emit standard node
+
+            //Emit comment
+            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " ----" << std::endl;
+
+            unsigned long numOutputPorts = (*it)->getOutputPorts().size();
+            //Emit each output port
+            //TODO: check for unconnected output ports and do not emit them
+            for(unsigned long i = 0; i<numOutputPorts; i++){
+                std::vector<std::string> cStatementsRe;
+                //Emit real component (force fanout)
+                (*it)->emitC(cStatementsRe, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                for(unsigned long j = 0; j<cStatementsRe.size(); j++){
+                    cFile << cStatementsRe[j] << std::endl;
+                }
+
+                if((*it)->getOutputPort(i)->getDataType().isComplex()) {
+                    //Emit imag component (force fanout)
+                    std::vector<std::string> cStatementsIm;
+                    //Emit real component (force fanout)
+                    (*it)->emitC(cStatementsIm, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                    for(unsigned long j = 0; j<cStatementsIm.size(); j++){
+                        cFile << cStatementsIm[j] << std::endl;
+                    }
+                }
+            }
+        }
+
+    }
+
+
+
+}
+
+void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool sched) {
     //Get the OutputType struct defn
     std::string outputTypeDefn = getCOutputStructDefn();
 
@@ -602,69 +778,16 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     cFile << fctnProto << "{" << std::endl;
 
-    //Emit compute next states
-    cFile << std::endl << "//==== Compute Next States ====" << std::endl;
-    unsigned long numNodesWithState = nodesWithState.size();
-    for(unsigned long i = 0; i<numNodesWithState; i++){
-        std::vector<std::string> nextStateExprs;
-        nodesWithState[i]->emitCExprNextState(nextStateExprs);
-        cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
-
-        unsigned long numNextStateExprs = nextStateExprs.size();
-        for(unsigned long j = 0; j<numNextStateExprs; j++){
-            cFile << nextStateExprs[j] << std::endl;
-        }
-    }
-
-    //Assign each of the outputs (and emit any expressions that preceed it
-    cFile << std::endl << "//==== Compute Outputs ====" << std::endl;
-    unsigned long numOutputs = outputMaster->getInputPorts().size();
-    for(unsigned long i = 0; i<numOutputs; i++){
-        std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
-        cFile << std::endl << "//---- Compute Output " << i << ": " << output->getName() <<" ----" << std::endl;
-
-        //Get the arc connected to the output
-        std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
-
-        DataType outputDataType = outputArc->getDataType();
-
-        std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
-        int srcNodeOutputPortNum = srcOutputPort->getPortNum();
-
-        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-
-        cFile << "//-- Compute Real Component --" << std::endl;
-        std::vector<std::string> cStatements_re;
-        std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false);
-        //emit the expressions
-        unsigned long numStatements_re = cStatements_re.size();
-        for(unsigned long j = 0; j<numStatements_re; j++){
-            cFile << cStatements_re[j] << std::endl;
-        }
-
-        //emit the assignment
-        Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
-
-        //Emit Imag if Datatype is complex
-        if(outputDataType.isComplex()){
-            cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
-            std::vector<std::string> cStatements_im;
-            std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true);
-            //emit the expressions
-            unsigned long numStatements_im = cStatements_im.size();
-            for(unsigned long j = 0; j<numStatements_im; j++){
-                cFile << cStatements_im[j] << std::endl;
-            }
-
-            //emit the assignment
-            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
-        }
+    //Emit operators
+    if(sched){
+        emitSingleThreadedOpsSched(cFile);
+    }else{
+        emitSingleThreadedOpsBottomUp(cFile, nodesWithState);
     }
 
     //Emit state variable updates
     cFile << std::endl << "//==== Update State Vars ====" << std::endl;
-    for(unsigned long i = 0; i<numNodesWithState; i++){
+    for(unsigned long i = 0; i<nodesWithState.size(); i++){
         std::vector<std::string> stateUpdateExprs;
         nodesWithState[i]->emitCStateUpdate(stateUpdateExprs);
 
@@ -1496,7 +1619,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     return schedule;
 }
 
-void Design::schedualTopologicalStort() {
+unsigned long Design::schedualTopologicalStort(bool prune) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -1504,6 +1627,11 @@ void Design::schedualTopologicalStort() {
 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
+
+    unsigned long numNodesPruned=0;
+    if(prune){
+        numNodesPruned = designClone.prune(true);
+    }
 
     //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
     std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
@@ -1538,5 +1666,27 @@ void Design::schedualTopologicalStort() {
         //Index is the schedule number
         std::shared_ptr<Node> origNode = clonedToOrigNodes[schedule[i]];
         origNode->setSchedOrder(i);
+    }
+
+    return numNodesPruned;
+}
+
+Design::SchedType Design::parseSchedTypeStr(std::string str) {
+    if(str == "BOTTOM_UP" || str == "bottomUp" || str == "bottomup"){
+        return SchedType::BOTTOM_UP;
+    }else if(str == "TOPOLOGICAL" || str == "topological"){
+        return SchedType::TOPOLOGICAL;
+    }else{
+        throw std::runtime_error("Unable to parse Scheduler: " + str);
+    }
+}
+
+std::string Design::schedTypeToString(Design::SchedType schedType) {
+    if(schedType == SchedType::BOTTOM_UP){
+        return "BOTTOM_UP";
+    }else if(schedType == SchedType::TOPOLOGICAL){
+        return "TOPOLOGICAL";
+    }else{
+        throw std::runtime_error("Unknown scheduler");
     }
 }

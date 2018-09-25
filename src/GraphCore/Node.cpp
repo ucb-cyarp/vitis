@@ -647,3 +647,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectOutputs() {
 
     return disconnectedArcs;
 }
+
+bool Node::lessThanSchedOrder(std::shared_ptr<Node> a, std::shared_ptr<Node> b){
+    return a->schedOrder < b->schedOrder;
+}
