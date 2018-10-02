@@ -190,7 +190,7 @@ void EnabledSubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> paren
             clonedNode->enabledOutputs.push_back(enableOutputCopy);
         }else {
             //Recursive call to this function
-            shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
+            (*it)->shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
         }
     }
 }

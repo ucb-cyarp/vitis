@@ -109,7 +109,7 @@ SubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vect
     //Copy children
     for(auto it = children.begin(); it != children.end(); it++){
         //Recursive call to this function
-        shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
+        (*it)->shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
     }
 }
 
