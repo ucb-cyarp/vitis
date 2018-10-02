@@ -117,7 +117,7 @@ void Gain::validate() {
     }
 }
 
-bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+std::shared_ptr<ExpandedNode> Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
                   std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
 
     //Validate first to check that Gain is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
@@ -141,7 +141,7 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     new_nodes.push_back(expandedNode);
 
     //++++ Create Multiply Block and Rewire ++++
-    std::shared_ptr<Product> multiplyNode = NodeFactory::createNode<Product>(thisParent);
+    std::shared_ptr<Product> multiplyNode = NodeFactory::createNode<Product>(expandedNode);
     multiplyNode->setName("Multiply");
     multiplyNode->setInputOp({true, true}); //This is a multiply for 2 inputs
     new_nodes.push_back(multiplyNode);
@@ -155,7 +155,7 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     }
 
     //++++ Create Constant Node and Wire ++++
-    std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(parent);
+    std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(expandedNode);
     constantNode->setName("Constant");
     constantNode->setValue(gain);
     new_nodes.push_back(constantNode);
@@ -234,7 +234,7 @@ bool Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std
     std::shared_ptr<Arc> constantArc = Arc::connectNodes(constantNode, 0, multiplyNode, 1, constantType);
     new_arcs.push_back(constantArc);
 
-    return true;
+    return expandedNode;
 }
 
 Gain::Gain(std::shared_ptr<SubSystem> parent, Gain* orig) : MediumLevelNode(parent, orig), gain(orig->gain) {

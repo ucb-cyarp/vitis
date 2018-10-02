@@ -242,9 +242,11 @@ void Node::setParent(std::shared_ptr<SubSystem> parent) {
 }
 
 //Default behavior is to not do any expansion and to return false.
-bool Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                  std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
-    return false;
+std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                           std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    return nullptr;
 }
 
 std::string Node::getFullyQualifiedName() {
@@ -436,6 +438,10 @@ void Node::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
 
         std::shared_ptr<Node> clonedDstNode = origToCopyNode[shared_from_this()];
 
+        if(clonedDstNode == nullptr){
+            exit(0);
+        }
+
         //Itterate through the arcs and duplicate
         for(auto arcIt = portArcs.begin(); arcIt != portArcs.end(); arcIt++){
             std::shared_ptr<Arc> origArc = (*arcIt);
@@ -532,7 +538,9 @@ unsigned long Node::outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Nod
         std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
 
         for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
-            std::shared_ptr<Node> connectedNode = (*it)->getDstPort()->getParent(); //The connected node for output arcs is the dst node.
+            std::shared_ptr<Arc> arc = *it;
+            std::shared_ptr<Port> dstPort = arc->getDstPort();
+            std::shared_ptr<Node> connectedNode = dstPort->getParent(); //The connected node for output arcs is the dst node.
 
             if(ignoreSet.find(connectedNode) != ignoreSet.end()){
                 //If the dst node is not in the ignore set, include it in the count

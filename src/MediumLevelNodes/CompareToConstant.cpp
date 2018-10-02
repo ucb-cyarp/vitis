@@ -65,7 +65,7 @@ CompareToConstant::createFromGraphML(int id, std::string name, std::map<std::str
     return newNode;
 }
 
-bool CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+std::shared_ptr<ExpandedNode> CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
                                std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
@@ -91,7 +91,7 @@ bool CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     new_nodes.push_back(expandedNode);
 
     //++++ Create Compare Block and Rewire ++++
-    std::shared_ptr<Compare> compareNode = NodeFactory::createNode<Compare>(thisParent);
+    std::shared_ptr<Compare> compareNode = NodeFactory::createNode<Compare>(expandedNode);
     compareNode->setName("Compare");
     compareNode->setCompareOp(compareOp); //Set the proper comparison operation
     new_nodes.push_back(compareNode);
@@ -105,7 +105,7 @@ bool CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     }
 
     //++++ Create Constant Node and Wire ++++
-    std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(parent);
+    std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(expandedNode);
     constantNode->setName("Constant");
     constantNode->setValue(compareConst); //set the proper constant to compare to
     new_nodes.push_back(constantNode);
@@ -174,7 +174,7 @@ bool CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
     std::shared_ptr<Arc> constantArc = Arc::connectNodes(constantNode, 0, compareNode, 1, constantType);
     new_arcs.push_back(constantArc);
 
-    return true;
+    return expandedNode;
 }
 
 std::set<GraphMLParameter> CompareToConstant::graphMLParameters() {

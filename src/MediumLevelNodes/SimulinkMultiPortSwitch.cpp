@@ -94,7 +94,7 @@ SimulinkMultiPortSwitch::createFromGraphML(int id, std::string name, std::map<st
     return newNode;
 }
 
-bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
                                      std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                      std::vector<std::shared_ptr<Arc>> &new_arcs,
                                      std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
@@ -119,7 +119,7 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
     new_nodes.push_back(expandedNode);
 
     //++++ Create Mux Block and Rewire ++++
-    std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(thisParent);
+    std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(expandedNode);
     muxNode->setName("Mux");
     new_nodes.push_back(muxNode);
 
@@ -146,12 +146,12 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
         muxNode->addSelectArcUpdatePrevUpdateArc(inputArcSel);
     }else if(indexType == IndexType::ONE_BASED){
         //Need to decrement the index
-        std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(parent);
+        std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(expandedNode);
         constantNode->setName("Constant");
         constantNode->setValue(std::vector<NumericValue>{NumericValue(-1, 0, std::complex<double>(0, 0), false, false)});
         new_nodes.push_back(constantNode);
 
-        std::shared_ptr<Sum> minusNode = NodeFactory::createNode<Sum>(parent);
+        std::shared_ptr<Sum> minusNode = NodeFactory::createNode<Sum>(expandedNode);
         minusNode->setName("Sub");
         minusNode->setInputSign(std::vector<bool>{true, false});
         new_nodes.push_back(minusNode);
@@ -173,7 +173,7 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
         throw std::runtime_error("Unknown Index Type While Expanding - SimulinkMultiPortSwitch");
     }
 
-    return true;
+    return expandedNode;
 }
 
 std::set<GraphMLParameter> SimulinkMultiPortSwitch::graphMLParameters() {

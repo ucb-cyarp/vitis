@@ -119,7 +119,7 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
     return newNode;
 }
 
-bool
+std::shared_ptr<ExpandedNode>
 DiscreteFIR::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
                     std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
     //Validate first to check that the DiscreteFIR block is properly wired

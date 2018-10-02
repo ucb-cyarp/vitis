@@ -163,7 +163,7 @@ void Saturate::validate() {
     }
 }
 
-bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+std::shared_ptr<ExpandedNode> Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
                       std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
 
     //Validate first to check that Saturate is properly wired
@@ -207,7 +207,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     std::shared_ptr<RealImagToComplex> realImagToComplexNode;
 
     if(complex){
-        std::shared_ptr<ComplexToRealImag> complexToRealImagNode = NodeFactory::createNode<ComplexToRealImag>(parent);
+        std::shared_ptr<ComplexToRealImag> complexToRealImagNode = NodeFactory::createNode<ComplexToRealImag>(expandedNode);
         complexToRealImagNode->setName("ComplexToRealImag");
         new_nodes.push_back(complexToRealImagNode);
 
@@ -219,7 +219,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         inputSrcNode = complexToRealImagNode;
         inputSrcNodeOutputPortNumber = 0; //Used in the real expansion where the output of the ComplexToRealImag is used
 
-        realImagToComplexNode = NodeFactory::createNode<RealImagToComplex>(parent);
+        realImagToComplexNode = NodeFactory::createNode<RealImagToComplex>(expandedNode);
         realImagToComplexNode->setName("RealImagToComplex");
         new_nodes.push_back(realImagToComplexNode);
 
@@ -241,33 +241,33 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
     NumericValue upperLimitReal = upperLimit;
     upperLimitReal.setComplex(false);
 
-    std::shared_ptr<Constant> upperLimitNode = NodeFactory::createNode<Constant>(parent);
+    std::shared_ptr<Constant> upperLimitNode = NodeFactory::createNode<Constant>(expandedNode);
     upperLimitNode->setName("UpperLimitReal");
     upperLimitNode->setValue(std::vector<NumericValue>{upperLimitReal});
     new_nodes.push_back(upperLimitNode);
 
-    std::shared_ptr<Constant> lowerLimitNode = NodeFactory::createNode<Constant>(parent);
+    std::shared_ptr<Constant> lowerLimitNode = NodeFactory::createNode<Constant>(expandedNode);
     lowerLimitNode->setValue(std::vector<NumericValue>{lowerLimitReal});
     lowerLimitNode->setName("LowerLimitReal");
 
     new_nodes.push_back(lowerLimitNode);
 
-    std::shared_ptr<Compare> upperLimitCompare = NodeFactory::createNode<Compare>(parent);
+    std::shared_ptr<Compare> upperLimitCompare = NodeFactory::createNode<Compare>(expandedNode);
     upperLimitCompare->setName("UpperLimitRealCompare");
     upperLimitCompare->setCompareOp(Compare::CompareOp::GT);
     new_nodes.push_back(upperLimitCompare);
 
-    std::shared_ptr<Compare> lowerLimitCompare = NodeFactory::createNode<Compare>(parent);
+    std::shared_ptr<Compare> lowerLimitCompare = NodeFactory::createNode<Compare>(expandedNode);
     lowerLimitCompare->setName("LowerLimitRealCompare");
     lowerLimitCompare->setCompareOp(Compare::CompareOp::LT);
     new_nodes.push_back(lowerLimitCompare);
 
-    std::shared_ptr<Mux> upperLimitMux = NodeFactory::createNode<Mux>(parent);
+    std::shared_ptr<Mux> upperLimitMux = NodeFactory::createNode<Mux>(expandedNode);
     upperLimitMux->setName("UpperLimitRealMux");
     upperLimitMux->setBooleanSelect(true); //Treat port 0 as the true port
     new_nodes.push_back(upperLimitMux);
 
-    std::shared_ptr<Mux> lowerLimitMux = NodeFactory::createNode<Mux>(parent);
+    std::shared_ptr<Mux> lowerLimitMux = NodeFactory::createNode<Mux>(expandedNode);
     lowerLimitMux->setName("LowerLimitRealMux");
     lowerLimitMux->setBooleanSelect(true); //Treat port 0 as the true port
     new_nodes.push_back(lowerLimitMux);
@@ -348,32 +348,32 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         }
         upperLimitImag.setComplex(false);
 
-        std::shared_ptr<Constant> upperLimitNode = NodeFactory::createNode<Constant>(parent);
+        std::shared_ptr<Constant> upperLimitNode = NodeFactory::createNode<Constant>(expandedNode);
         upperLimitNode->setName("UpperLimitImag");
         upperLimitNode->setValue(std::vector<NumericValue>{upperLimitImag});
         new_nodes.push_back(upperLimitNode);
 
-        std::shared_ptr<Constant> lowerLimitNode = NodeFactory::createNode<Constant>(parent);
+        std::shared_ptr<Constant> lowerLimitNode = NodeFactory::createNode<Constant>(expandedNode);
         lowerLimitNode->setName("LowerLimitImag");
         lowerLimitNode->setValue(std::vector<NumericValue>{lowerLimitImag});
         new_nodes.push_back(lowerLimitNode);
 
-        std::shared_ptr<Compare> upperLimitCompare = NodeFactory::createNode<Compare>(parent);
+        std::shared_ptr<Compare> upperLimitCompare = NodeFactory::createNode<Compare>(expandedNode);
         upperLimitCompare->setName("UpperLimitImagCompare");
         upperLimitCompare->setCompareOp(Compare::CompareOp::GT);
         new_nodes.push_back(upperLimitCompare);
 
-        std::shared_ptr<Compare> lowerLimitCompare = NodeFactory::createNode<Compare>(parent);
+        std::shared_ptr<Compare> lowerLimitCompare = NodeFactory::createNode<Compare>(expandedNode);
         lowerLimitCompare->setName("LowerLimitImagCompare");
         lowerLimitCompare->setCompareOp(Compare::CompareOp::LT);
         new_nodes.push_back(lowerLimitCompare);
 
-        std::shared_ptr<Mux> upperLimitMux = NodeFactory::createNode<Mux>(parent);
+        std::shared_ptr<Mux> upperLimitMux = NodeFactory::createNode<Mux>(expandedNode);
         upperLimitMux->setName("UpperLimitImagMux");
         upperLimitMux->setBooleanSelect(true); //Treat port 0 as the true port
         new_nodes.push_back(upperLimitMux);
 
-        std::shared_ptr<Mux> lowerLimitMux = NodeFactory::createNode<Mux>(parent);
+        std::shared_ptr<Mux> lowerLimitMux = NodeFactory::createNode<Mux>(expandedNode);
         lowerLimitMux->setName("LowerLimitImagMux");
         lowerLimitMux->setBooleanSelect(true); //Treat port 0 as the true port
         new_nodes.push_back(lowerLimitMux);
@@ -414,7 +414,7 @@ bool Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector
         new_arcs.push_back(lowerLimitMuxToOut);
     }
 
-    return true;
+    return expandedNode;
 }
 
 Saturate::Saturate(std::shared_ptr<SubSystem> parent, Saturate* orig) : MediumLevelNode(parent, orig), lowerLimit(orig->lowerLimit), upperLimit(orig->upperLimit){

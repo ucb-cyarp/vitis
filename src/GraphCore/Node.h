@@ -11,6 +11,7 @@
 class NodeFactory;
 
 class SubSystem;
+class ExpandedNode;
 class GraphMLParameter;
 
 #include <vector>
@@ -373,9 +374,12 @@ public:
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
-     * @return true if expansion occurred, false if it did not
+     * @return pointer to expanded node if expansion occurred, nullptr if it did not
      */
-    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Identifies if the given input port experiences internal fanout in the node.

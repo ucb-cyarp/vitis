@@ -287,7 +287,13 @@ bool Design::expand() {
     std::vector<std::shared_ptr<Arc>> deletedArcs;
 
     for(auto node = nodes.begin(); node != nodes.end(); node++){
-        expanded |= (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
+        std::shared_ptr<ExpandedNode> expandedPtr = (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
+        if(expandedPtr != nullptr){
+            if((*node)->getParent() == nullptr){
+                addTopLevelNode(expandedPtr);
+            }
+            expanded = true;
+        }
     }
 
     //Add new nodes first, then delete old ones
@@ -302,6 +308,17 @@ bool Design::expand() {
                 candidate = nodes.erase(candidate);
             }else{
                 candidate++;
+            }
+        }
+
+        if((*node)->getParent() == nullptr) {
+            //If it is a top level node
+            for (auto candidate = topLevelNodes.begin(); candidate != topLevelNodes.end();) {//Will handle iteration in body since erase returns next iterator pos
+                if ((*candidate) == (*node)) {
+                    candidate = topLevelNodes.erase(candidate);
+                } else {
+                    candidate++;
+                }
             }
         }
     }
@@ -1376,7 +1393,6 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
         designCopy.topLevelNodes.push_back(origToCopyNode[topLevelNodes[i]]);
     }
 
-
     return designCopy;
 }
 
@@ -1414,6 +1430,9 @@ void Design::removeNode(std::shared_ptr<Node> node) {
 }
 
 unsigned long Design::prune(bool includeVisMaster) {
+    //TODO: Check connected components to make sure that there is a link to an output.  If not, prune connected
+    //component.  This eliminates cycles that do no useful work.
+
     //Find nodes with 0 out-degree when not counting the various master nodes
     std::set<std::shared_ptr<Node>> nodesToIgnore;
     nodesToIgnore.insert(unconnectedMaster);
