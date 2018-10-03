@@ -289,7 +289,7 @@ bool Design::expand() {
     for(auto node = nodes.begin(); node != nodes.end(); node++){
         std::shared_ptr<ExpandedNode> expandedPtr = (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
         if(expandedPtr != nullptr){
-            if((*node)->getParent() == nullptr){
+            if(expandedPtr->getParent() == nullptr){ //We need to check the expanded Ptr instead of the origional node ptr because the parent of expanded nodes are set to null (they become the orig node of the expanded node container)
                 addTopLevelNode(expandedPtr);
             }
             expanded = true;
@@ -311,14 +311,12 @@ bool Design::expand() {
             }
         }
 
-        if((*node)->getParent() == nullptr) {
-            //If it is a top level node
-            for (auto candidate = topLevelNodes.begin(); candidate != topLevelNodes.end();) {//Will handle iteration in body since erase returns next iterator pos
-                if ((*candidate) == (*node)) {
-                    candidate = topLevelNodes.erase(candidate);
-                } else {
-                    candidate++;
-                }
+        //TODO: make this check for top level nodes more intelligent.  Right now, all deletions are checked against the top level node list.  Really, only top level node should be considered.  Consider changing top level nodes to a set.
+        for (auto candidate = topLevelNodes.begin(); candidate != topLevelNodes.end();) {//Will handle iteration in body since erase returns next iterator pos
+            if ((*candidate) == (*node)) {
+                candidate = topLevelNodes.erase(candidate);
+            } else {
+                candidate++;
             }
         }
     }
@@ -1527,7 +1525,7 @@ void Design::verifyTopologicalOrder() {
     //First, check that the output is scheduled (so long as there are output arcs)
     if(outputMaster->inDegree() > 0){
         if(outputMaster->getSchedOrder() == -1){
-            throw std::runtime_error("Topological Order Validation: Output was not scheduled even though the system does has outputs.");
+            throw std::runtime_error("Topological Order Validation: Output was not scheduled even though the system does have outputs.");
         }
     }
 
