@@ -589,6 +589,8 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
     //Itterate through the schedule and emit
     for(auto it = schedIt; it != orderedNodes.end(); it++){
 
+//        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
+
         if(*it == outputMaster){
             //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
             unsigned long numOutputs = outputMaster->getInputPorts().size();
@@ -1428,8 +1430,7 @@ void Design::removeNode(std::shared_ptr<Node> node) {
 }
 
 unsigned long Design::prune(bool includeVisMaster) {
-    //TODO: Check connected components to make sure that there is a link to an output.  If not, prune connected
-    //component.  This eliminates cycles that do no useful work.
+    //TODO: Check connected components to make sure that there is a link to an output.  If not, prune connected component.  This eliminates cycles that do no useful work.
 
     //Find nodes with 0 out-degree when not counting the various master nodes
     std::set<std::shared_ptr<Node>> nodesToIgnore;
@@ -1441,8 +1442,11 @@ unsigned long Design::prune(bool includeVisMaster) {
 
     std::set<std::shared_ptr<Node>> nodesWithZeroOutDeg;
     for(unsigned long i = 0; i<nodes.size(); i++){
-        if(nodes[i]->outDegreeExclusingConnectionsTo(nodesToIgnore) == 0){
-            nodesWithZeroOutDeg.insert(nodes[i]);
+        //Do not remove subsystems (they will have outdeg 0)
+        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr) {
+            if (nodes[i]->outDegreeExclusingConnectionsTo(nodesToIgnore) == 0) {
+                nodesWithZeroOutDeg.insert(nodes[i]);
+            }
         }
     }
 
@@ -1500,7 +1504,8 @@ unsigned long Design::prune(bool includeVisMaster) {
 
     //Delete nodes and arcs from design
     for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
-        nodes.erase(std::remove(nodes.begin(), nodes.end(), *it), nodes.end());
+        std::shared_ptr<Node> nodeToDelete = *it;
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), nodeToDelete), nodes.end());
     }
 
     for(auto it = arcsDeleted.begin(); it != arcsDeleted.end(); it++){
@@ -1534,7 +1539,7 @@ void Design::verifyTopologicalOrder() {
         //If so, do not check the ordering
         std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
 
-        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr){
+        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr && !(srcNode->hasState())){ //Note that the outputs of nodes with state are considered constants
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
             //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
@@ -1551,7 +1556,7 @@ void Design::verifyTopologicalOrder() {
                 if(dstNode->getSchedOrder() != -1){
                     //Dst node is scheduled
                     if(srcNode->getSchedOrder() >= dstNode->getSchedOrder()){
-                        throw std::runtime_error("Topological Order Validation: Src Node is not Scheduled before Dst Node");
+                        throw std::runtime_error("Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() + ")[" + GeneralHelper::to_string(srcNode->getSchedOrder()) + "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() + ")[" + GeneralHelper::to_string(dstNode->getSchedOrder()) +"]");
                     }
                 }
                 //Dst node unscheduled is OK
@@ -1567,9 +1572,21 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     //Find nodes with 0 in degree
     std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
     for(unsigned long i = 0; i<nodes.size(); i++){
-        if(nodes[i]->inDegree() == 0){
-            nodesWithZeroInDeg.insert(nodes[i]);
+        //Do not add subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
+        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr) {
+            unsigned long inDeg = nodes[i]->inDegree();
+            if (inDeg == 0) {
+                nodesWithZeroInDeg.insert(nodes[i]);
+            }
         }
+    }
+
+    //Handle the case where the output is only connected to nodes with state (or is unconnected).  When this happens, all the arcs
+    //to the output are removed and it is its own connected component.  It will never be considered a candidate.  Add it to the
+    //list of nodes with zero in deg if this is the case.  Note that if there is at least 1 arc to a node without state, it will be
+    //considered a candidate
+    if(outputMaster->inDegree() == 0){
+        nodesWithZeroInDeg.insert(outputMaster);
     }
 
     //Find Candidate Nodes
@@ -1584,7 +1601,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     candidateNodes.erase(terminatorMaster);
     candidateNodes.erase(visMaster);
     candidateNodes.erase(inputMaster);
-    candidateNodes.erase(outputMaster);
+//    candidateNodes.erase(outputMaster); //Actually, schedule this master
 
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
@@ -1602,14 +1619,16 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
 
         //Find nodes with zero in degree from candidates list
         for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
-            if((*it)->inDegree() == 0){
-                nodesWithZeroInDeg.insert(*it);
+            std::shared_ptr<Node> candidateNode = *it;
+            if(candidateNode->inDegree() == 0){
+                nodesWithZeroInDeg.insert(candidateNode);
             }
         }
 
         //Update candidates list
         for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            std::set<std::shared_ptr<Node>> newCandidates = (*it)->getConnectedNodes();
+            std::shared_ptr<Node> zeroInDegNode = *it;
+            std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedNodes();
             candidateNodes.insert(newCandidates.begin(), newCandidates.end());
         }
 
@@ -1618,7 +1637,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
         candidateNodes.erase(terminatorMaster);
         candidateNodes.erase(visMaster);
         candidateNodes.erase(inputMaster);
-        candidateNodes.erase(outputMaster);
+//        candidateNodes.erase(outputMaster); //Actually, schedule this master
 
     }
 
@@ -1678,12 +1697,22 @@ unsigned long Design::schedualTopologicalStort(bool prune) {
     //==== Topological Sort (Destructive) ====
     std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive();
 
+//    std::cout << "Schedule" << std::endl;
+//    for(unsigned long i = 0; i<schedule.size(); i++){
+//        std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
+//    }
+
     //==== Back Propagate Schedule ====
     for(unsigned long i = 0; i<schedule.size(); i++){
         //Index is the schedule number
         std::shared_ptr<Node> origNode = clonedToOrigNodes[schedule[i]];
         origNode->setSchedOrder(i);
     }
+
+//    std::cout << "Schedule - All Nodes" << std::endl;
+//    for(unsigned long i = 0; i<nodes.size(); i++){
+//        std::cout << nodes[i]->getSchedOrder() << ": " << nodes[i]->getFullyQualifiedName() << std::endl;
+//    }
 
     return numNodesPruned;
 }

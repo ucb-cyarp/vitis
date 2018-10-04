@@ -83,7 +83,7 @@ std::string ExpandedNode::labelStr() {
 }
 
 ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, ExpandedNode* orig) : SubSystem(parent, orig) {
-    //Does not copy orig node
+    //Does not copy orig node, that is done in the clone method below
 }
 
 std::shared_ptr<Node> ExpandedNode::shallowClone(std::shared_ptr<SubSystem> parent) {

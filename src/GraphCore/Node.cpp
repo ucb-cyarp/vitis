@@ -24,7 +24,7 @@ Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
     //NOTE: CANNOT init ports here since we need a shared pointer to this object
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(0), tmpCount(0), parent(parent) { }
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent) { }
 
 void Node::init() {
     //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports
@@ -477,6 +477,16 @@ std::set<std::shared_ptr<Arc>> Node::disconnectNode() {
 }
 
 std::set<std::shared_ptr<Node>> Node::getConnectedNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes = getConnectedInputNodes();
+
+    std::set<std::shared_ptr<Node>> moreConnectedNodes = getConnectedOutputNodes();
+
+    connectedNodes.insert(moreConnectedNodes.begin(), moreConnectedNodes.end());
+
+    return connectedNodes;
+}
+
+std::set<std::shared_ptr<Node>> Node::getConnectedInputNodes(){
     std::set<std::shared_ptr<Node>> connectedNodes;
 
     //Iterate through the input ports/arcs
@@ -489,6 +499,12 @@ std::set<std::shared_ptr<Node>> Node::getConnectedNodes() {
             connectedNodes.insert((*it)->getSrcPort()->getParent()); //The node connected to the input arc is the src node of the arc
         }
     }
+
+    return connectedNodes;
+}
+
+std::set<std::shared_ptr<Node>> Node::getConnectedOutputNodes(){
+    std::set<std::shared_ptr<Node>> connectedNodes;
 
     //Iterate through the output ports/arcs
     unsigned long numOutputPorts = outputPorts.size();
@@ -542,7 +558,7 @@ unsigned long Node::outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Nod
             std::shared_ptr<Port> dstPort = arc->getDstPort();
             std::shared_ptr<Node> connectedNode = dstPort->getParent(); //The connected node for output arcs is the dst node.
 
-            if(ignoreSet.find(connectedNode) != ignoreSet.end()){
+            if(ignoreSet.find(connectedNode) == ignoreSet.end()){
                 //If the dst node is not in the ignore set, include it in the count
                 count++;
             }

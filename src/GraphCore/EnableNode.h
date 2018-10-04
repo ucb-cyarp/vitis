@@ -81,7 +81,7 @@ public:
 
     std::set<std::shared_ptr<Arc>> disconnectInputs() override;
 
-    std::set<std::shared_ptr<Node>> getConnectedNodes() override;
+    std::set<std::shared_ptr<Node>> getConnectedInputNodes() override;
 
     unsigned long inDegree() override;
 

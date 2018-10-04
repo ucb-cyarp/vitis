@@ -78,7 +78,7 @@ protected:
     int tmpCount; ///<Used to track how many temporary variables have been created for this node
 
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
-    int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition
+    int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -196,7 +196,19 @@ public:
      * @brief Get the set of nodes connected to this node via arcs
      * @return set of nodes connected to this node via arcs
      */
-    virtual std::set<std::shared_ptr<Node>> getConnectedNodes();
+    std::set<std::shared_ptr<Node>> getConnectedNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the inputs of this node via arcs
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedInputNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs
+     * @return set of nodes connected to this node via outgoing arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedOutputNodes();
 
     /**
      * @brief Get the in-degree of this node (number of connected input arcs)

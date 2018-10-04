@@ -278,8 +278,8 @@ std::set<std::shared_ptr<Arc>> Mux::disconnectInputs() {
     return disconnectedArcs;
 }
 
-std::set<std::shared_ptr<Node>> Mux::getConnectedNodes() {
-    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedNodes(); //Get the nodes connected to the standard input and output ports
+std::set<std::shared_ptr<Node>> Mux::getConnectedInputNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedInputNodes(); //Get the nodes connected to the standard input ports
 
     //Get nodes connected to the selector port
     std::set<std::shared_ptr<Arc>> selectArcs = selectorPort->getArcs();
