@@ -152,6 +152,8 @@ public:
      * @return 2^exp as an integer
      */
     static unsigned long twoPow(unsigned long exp);
+
+    static std::string replaceAll(std::string src, char orig, char repl);
 };
 
 /*@}*/

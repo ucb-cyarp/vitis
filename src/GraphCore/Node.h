@@ -315,9 +315,12 @@ public:
      * @brief Get the fully qualified human readable name of the node
      *
      * A typical fully qualified name would be "subsysName/nodeName"
+     *
+     * @param sanitize If true, replaces newlines with spaces in returned string.  Otherwise, will not replace newlines in returned string.
+     *
      * @return Fully qualified human readable name of the node as a std::string
      */
-    std::string getFullyQualifiedName();
+    std::string getFullyQualifiedName(bool sanitize = true);
 
     /**
      * @brief Get the node ID from a full GraphML ID path

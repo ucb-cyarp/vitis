@@ -249,12 +249,24 @@ std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &n
     return nullptr;
 }
 
-std::string Node::getFullyQualifiedName() {
-    std::string fullName = name;
+std::string Node::getFullyQualifiedName(bool sanitize) {
+    std::string fullName;
+
+    if(sanitize) {
+        fullName = GeneralHelper::replaceAll(name, '\n', ' ');
+    }else{
+        fullName = name;
+    }
 
     for(std::shared_ptr<SubSystem> parentPtr = parent; parentPtr != nullptr; parentPtr = parentPtr->parent)
     {
-        fullName = parentPtr->getName() + "/" + fullName;
+        std::string componentName = parentPtr->getName();
+
+        if(sanitize){
+            componentName = GeneralHelper::replaceAll(componentName, '\n', ' ');
+        }
+
+        fullName = componentName + "/" + fullName;
     }
 
     return fullName;
