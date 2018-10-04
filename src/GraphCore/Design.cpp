@@ -579,6 +579,8 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
 
     //Sort nodes by schedOrder.
     std::vector<std::shared_ptr<Node>> orderedNodes = nodes;
+    //Add the output master to the scheduled node list
+    orderedNodes.push_back(outputMaster);
     std::sort(orderedNodes.begin(), orderedNodes.end(), Node::lessThanSchedOrder);
 
     std::shared_ptr<Node> zeroSchedNodeCmp = NodeFactory::createNode<MasterUnconnected>(); //Need a node to compare to
