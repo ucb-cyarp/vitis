@@ -223,7 +223,7 @@ public:
      * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long schedualTopologicalStort(bool prune);
+    unsigned long scheduleTopologicalStort(bool prune);
 
     /**
      * @brief Topological sort the current graph.

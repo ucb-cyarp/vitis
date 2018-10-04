@@ -1655,7 +1655,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     return schedule;
 }
 
-unsigned long Design::schedualTopologicalStort(bool prune) {
+unsigned long Design::scheduleTopologicalStort(bool prune) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
