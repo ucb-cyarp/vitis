@@ -3,14 +3,17 @@
 //
 
 #include "Mux.h"
+#include "GraphCore/Arc.h"
+#include "GraphCore/NodeFactory.h"
+#include "General/GeneralHelper.h"
 #include <iostream>
 
-Mux::Mux() {
+Mux::Mux() : booleanSelect(false) {
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
 
-Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
+Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), booleanSelect(false) {
     selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
     //However, any call to get a shared_ptr of the node or port need to be conducted after a shared pointer has returned
 }
@@ -18,6 +21,14 @@ Mux::Mux(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
 std::shared_ptr<SelectPort> Mux::getSelectorPort() const {
     //Selector port should never be null as it is creates by the Mux constructor and accessors to change it to null do not exist.
     return selectorPort->getSharedPointerSelectPort();
+}
+
+bool Mux::isBooleanSelect() const {
+    return booleanSelect;
+}
+
+void Mux::setBooleanSelect(bool booleanSelect) {
+    Mux::booleanSelect = booleanSelect;
 }
 
 std::shared_ptr<Mux>
@@ -89,6 +100,19 @@ void Mux::validate() {
     if((*selectorPort->getArcs().begin())->getDataType().isFloatingPt()){
         std::cerr << "Warning: MUX Select Port is Driven by Floating Point" << std::endl;
     }
+
+    //Check that all input ports and the output port have the same type
+    DataType outType = getOutputPort(0)->getDataType();
+    unsigned long numInputPorts = inputPorts.size();
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+
+        if(inType != outType){
+            throw std::runtime_error("Validation Failed - Mux - DataType of Input Port Does not Match Output Port");
+        }
+    }
+
 }
 
 void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
@@ -97,3 +121,200 @@ void Mux::addSelectArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
     arc->setDstPortUpdateNewUpdatePrev(selectorPort->getSharedPointerInputPort());
 }
 
+bool Mux::hasInternalFanout(int inputPort, bool imag) {
+    return true;
+}
+
+CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+
+    if(getOutputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //Get the expression for the select line
+    std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
+    int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
+    std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
+
+    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, selectSrcOutputPortNum, imag);
+
+    //Get the expressions for each input
+    std::vector<std::string> inputExprs;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+    }
+
+    //Declare output tmp var
+    std::string outputVarName = name+"_n"+GeneralHelper::to_string(id)+"_out";
+    DataType outType = getOutputPort(0)->getDataType();
+    Variable outVar = Variable(outputVarName, outType);
+
+    //TODO: This function currently implements a seperate conditional for real and imag.  Merge them in a later version
+    //to do this, need to pull both real and imagionary components of each input, construct both, and emit.
+    //a state variable would be needed to determine that the mux had already been emitted when the other component's emit
+    //call is made (ie. if real emit is called first, imag emit should simply return the output var).
+    if(outType.isComplex()){
+        cStatementQueue.push_back(outVar.getCVarDecl(true, true, false, true) + ";");
+    }else{
+        cStatementQueue.push_back(outVar.getCVarDecl(false, true, false, true) + ";");
+    }
+
+    DataType selectDataType = getSelectorPort()->getDataType();
+    if(selectDataType.isBool()){
+        //if/else statement
+        std::string ifExpr = "if(" + selectExpr + "){";
+        cStatementQueue.push_back(ifExpr);
+
+        std::string trueAssign;
+        std::string falseAssign;
+        if(booleanSelect){
+            //In this case, port 0 is the true port and port 1 is the false port
+            trueAssign = outVar.getCVarName(imag) + " = " + inputExprs[0] + ";";
+            falseAssign = outVar.getCVarName(imag) + " = " + inputExprs[1] + ";";
+        }else{
+            //This takes a select statement type perspective with the input ports being considered numbers
+            //false is 0 and true is 1.
+            trueAssign = outVar.getCVarName(imag) + " = " + inputExprs[1] + ";";
+            falseAssign = outVar.getCVarName(imag) + " = " + inputExprs[0] + ";";
+        }
+
+        cStatementQueue.push_back(trueAssign);
+        cStatementQueue.push_back("}else{");
+        cStatementQueue.push_back(falseAssign);
+        cStatementQueue.push_back("}");
+    }else{
+        //switch statement
+        std::string switchExpr = "switch(" + selectExpr + "){";
+        cStatementQueue.push_back(switchExpr);
+
+        for(unsigned long i = 0; i<(numInputPorts-1); i++){
+            std::string caseExpr = "case " + GeneralHelper::to_string(i) + ":";
+            cStatementQueue.push_back(caseExpr);
+            std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[i] + ";";
+            cStatementQueue.push_back(caseAssign);
+            cStatementQueue.push_back("break;");
+        }
+
+        cStatementQueue.push_back("default:");
+        std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[numInputPorts-1] + ";";
+        cStatementQueue.push_back(caseAssign);
+        cStatementQueue.push_back("break;");
+        cStatementQueue.push_back("}");
+    }
+
+    return CExpr(outVar.getCVarName(imag), true); //This is a variable
+
+}
+
+Mux::Mux(std::shared_ptr<SubSystem> parent, Mux* orig) : PrimitiveNode(parent, orig), booleanSelect(orig->booleanSelect){
+    //The select port is not copied but a new one is created
+    selectorPort = std::unique_ptr<SelectPort>(new SelectPort(this, 0)); //Don't need to do this in init as a raw pointer is passed to the port
+}
+
+std::shared_ptr<Node> Mux::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Mux>(parent, this);
+}
+
+void Mux::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
+                         std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                         std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
+                         std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
+    //Copy the input arcs from standard input ports
+    Node::cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
+
+    //Copy the input arcs from the enable line
+    std::set<std::shared_ptr<Arc>> selectPortArcs = selectorPort->getArcs();
+
+    //Adding an arc to a mux node.  The copy of this node should be an Mux so we should be able to cast to it
+    std::shared_ptr<Mux> clonedDstNode = std::dynamic_pointer_cast<Mux>(
+            origToCopyNode[shared_from_this()]);
+
+    //Itterate through the arcs and duplicate
+    for (auto arcIt = selectPortArcs.begin(); arcIt != selectPortArcs.end(); arcIt++) {
+        std::shared_ptr<Arc> origArc = (*arcIt);
+        //Get Src Output Port Number and Src Node (as of now, all arcs origionate at an output port)
+        std::shared_ptr<OutputPort> srcPort = origArc->getSrcPort();
+        int srcPortNumber = srcPort->getPortNum();
+
+        std::shared_ptr<Node> origSrcNode = srcPort->getParent();
+        std::shared_ptr<Node> clonedSrcNode = origToCopyNode[origSrcNode];
+
+        //Create the Cloned Arc
+        std::shared_ptr<Arc> clonedArc = Arc::connectNodes(clonedSrcNode, srcPortNumber, clonedDstNode,
+                                                           (*arcIt)->getDataType()); //This creates a new arc and connects them to the referenced node ports.  This method connects to the select port of the clone of this node
+        clonedArc->shallowCopyPrameters(origArc.get());
+
+        //Add to arc list and maps
+        arcCopies.push_back(clonedArc);
+        origToCopyArc[origArc] = clonedArc;
+        copyToOrigArc[clonedArc] = origArc;
+
+    }
+}
+
+std::set<std::shared_ptr<Arc>> Mux::disconnectInputs() {
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = Node::disconnectInputs(); //Remove the arcs connected to the standard ports
+
+    //Remove arcs connected to the selector port
+    std::set<std::shared_ptr<Arc>> selectArcs = selectorPort->getArcs();
+
+    //Disconnect each of the arcs from both ends
+    //We can do this without disturbing the port the set since the set here is a copy of the port set
+    for(auto it = selectArcs.begin(); it != selectArcs.end(); it++){
+        //These functions update the previous endpoints of the arc (ie. removes the arc from them)
+        (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
+        (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+
+        //Add this arc to the list of arcs removed
+        disconnectedArcs.insert(*it);
+    }
+
+    return disconnectedArcs;
+}
+
+std::set<std::shared_ptr<Node>> Mux::getConnectedInputNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedInputNodes(); //Get the nodes connected to the standard input ports
+
+    //Get nodes connected to the selector port
+    std::set<std::shared_ptr<Arc>> selectArcs = selectorPort->getArcs();
+
+    for(auto it = selectArcs.begin(); it != selectArcs.end(); it++){
+        connectedNodes.insert((*it)->getSrcPort()->getParent()); //The selector port is an input port
+    }
+
+    return connectedNodes;
+}
+
+unsigned long Mux::inDegree() {
+    unsigned long count = Node::inDegree(); //Get the number of arcs connected to the standard input ports
+
+    //Get the arcs connected to the select port
+    count += selectorPort->getArcs().size();
+
+    return count;
+}
+
+std::vector<std::shared_ptr<Arc>>
+Mux::connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink,
+                                   int srcPortNum, int sinkPortNum) {
+    std::vector<std::shared_ptr<Arc>> newArcs = Node::connectUnconnectedPortsToNode(connectToSrc, connectToSink, srcPortNum, sinkPortNum); //Connect standard ports
+
+    unsigned long numSelectArcs = selectorPort->getArcs().size();
+
+    if(numSelectArcs == 0){
+        //This port is unconnected, connect it to the given node.
+
+        //Connect from given node to this node's input port
+        //TODO: Use default datatype for now.  Perhaps change later?
+        std::shared_ptr<Arc> arc = Arc::connectNodes(connectToSrc, srcPortNum, std::dynamic_pointer_cast<Mux>(shared_from_this()), DataType());
+        newArcs.push_back(arc);
+    }
+
+    return newArcs;
+}

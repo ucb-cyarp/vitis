@@ -78,6 +78,8 @@ classdef GraphArc < handle & matlab.mixin.Copyable
            %emitGraphml Writes GraphML entries for this arc.
            %numTabs specifies the initial indent (in hardtabs)
            
+           global verbose;
+           
            sourceIdPath = obj.srcNode.getFullIDPath('::', 'n%d', false);
            dstIdPath = obj.dstNode.getFullIDPath('::', 'n%d', false);
            
@@ -220,6 +222,10 @@ classdef GraphArc < handle & matlab.mixin.Copyable
            %Close arc entry
            writeNTabs(file, numTabs);
            fprintf(file, '</edge>\n');
+           
+           if verbose >= 3
+               disp(['[SimulinkToGraphML] Emitted Arc: ' obj.srcNode.getFullSimulinkPath() ':' num2str(obj.srcPortNumber) ' -> ' obj.dstNode.getFullSimulinkPath() ':'  obj.dstPortTypeStr() ':' num2str(obj.dstPortNumber)]);
+           end
             
         end
         
@@ -291,11 +297,17 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         %createBasicArc Create a GraphArc object between the src and dst node.  Adds
         %this arc to the src node's out_arcs and to the dst node's in_arcs lists.
         %The ir_node arguments need to be handles.
+        
+        global verbose;
 
         newArc = GraphArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number, dstPortType);
 
         src_ir_node.addOut_arc(newArc);
         dst_ir_node.addIn_arc(newArc);
+        
+        if verbose >= 3
+            disp(['[SimulinkToGraphML] Imported Arc: ' src_ir_node.getFullSimulinkPath() ':' num2str(src_ir_port_number) ' -> ' dst_ir_node.getFullSimulinkPath() ':'  newArc.dstPortTypeStr() ':' num2str(dst_ir_port_number)]);
+        end
 
         %returns newArc
         end
@@ -307,6 +319,8 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         %the nodes is a master in which case only one port is checked).
         %The datatype properites of the arc are set.
         %The ir_node arguments need to be handles.
+        
+        global verbose;
 
         newArc = GraphArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number, dstPortType);
         
@@ -431,6 +445,10 @@ classdef GraphArc < handle & matlab.mixin.Copyable
             newArc.width = [];
 
         end
+        
+        if verbose >= 3
+            disp(['[SimulinkToGraphML] Imported Arc: ' src_ir_node.getFullSimulinkPath() ':' num2str(src_ir_port_number) ' -> ' dst_ir_node.getFullSimulinkPath() ':'  newArc.dstPortTypeStr() ':' num2str(dst_ir_port_number)]);
+        end
 
         %returns newArc
         end
@@ -441,6 +459,8 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         %this case, the datatype is taken from the src (driver) alone.
         %this arc to the src node's out_arcs and to the dst node's in_arcs lists.
         %The ir_node arguments need to be handles.
+        
+        global verbose;
 
         newArc = GraphArc(src_ir_node, src_ir_port_number, dst_ir_node, dst_ir_port_number, 'Enable');
 
@@ -467,6 +487,10 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         newArc.width = src_width;
 
         %returns newArc
+        
+        if verbose >= 3
+            disp(['[SimulinkToGraphML] Imported Arc: ' src_ir_node.getFullSimulinkPath() ':' num2str(src_ir_port_number) ' -> ' dst_ir_node.getFullSimulinkPath() ':'  newArc.dstPortTypeStr() ':' num2str(dst_ir_port_number)]);
+        end
         end
         
         function num = portTypeFromStr(portType)

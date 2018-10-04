@@ -225,21 +225,21 @@ TEST(NumericValue, ParseRealMixedArray) {
     ASSERT_EQ(test[0].isFractional(), true);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 9);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
-    std::regex regexExpr0("9[.][0]*");
+    std::regex regexExpr0("9([.][0]*)?");
     std::smatch matches0;
     std::string str0 = test[0].toString();
     bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
-    ASSERT_TRUE(regexMatched0);
+    ASSERT_TRUE(regexMatched0) << str0 << " does not match " << "9([.][0]*)?";
 
     ASSERT_EQ(test[1].isComplex(), false);
     ASSERT_EQ(test[1].isFractional(), true);
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), 8);
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
-    std::regex regexExpr1("8[.][0]*");
+    std::regex regexExpr1("8([.][0]*)?");
     std::smatch matches1;
     std::string str1 = test[1].toString();
     bool regexMatched1 = std::regex_match(str1, matches1, regexExpr1);
-    ASSERT_TRUE(regexMatched1);
+    ASSERT_TRUE(regexMatched1) << str0 << " does not match " << "8([.][0]*)?";
 
     ASSERT_EQ(test[2].isComplex(), false);
     ASSERT_EQ(test[2].isFractional(), true);
@@ -261,29 +261,71 @@ TEST(NumericValue, ParseComplexMixedArray) {
     ASSERT_EQ(test[0].isFractional(), true);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 5);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 6);
-    std::regex regexExpr0("5[.][0]* [+] 6[.][0]*i");
+    std::regex regexExpr0("5([.][0]*)? [+] 6([.][0]*)?i");
     std::smatch matches0;
     std::string str0 = test[0].toString();
     bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
-    ASSERT_TRUE(regexMatched0);
+    ASSERT_TRUE(regexMatched0) << str0 << " does not match " << "5([.][0]*)? [+] 6([.][0]*)?i";
 
     ASSERT_EQ(test[1].isComplex(), true);
     ASSERT_EQ(test[1].isFractional(), true);
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), 2);
     ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), -8.5);
-    std::regex regexExpr1("2[.][0]* [-] 8[.]5[0]*i");
+    std::regex regexExpr1("2([.][0]*)? [-] 8[.]5[0]*i");
     std::smatch matches1;
     std::string str1 = test[1].toString();
     bool regexMatched1 = std::regex_match(str1, matches1, regexExpr1);
-    ASSERT_TRUE(regexMatched1);
+    ASSERT_TRUE(regexMatched1) << str0 << " does not match " << "2([.][0]*)? [-] 8[.]5[0]*i";
 
     ASSERT_EQ(test[2].isComplex(), true);
     ASSERT_EQ(test[2].isFractional(), true);
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), -9);
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), -2);
-    std::regex regexExpr2("[-]9[.][0]* [-] 2[.][0]*i");
+    std::regex regexExpr2("[-]9([.][0]*)? [-] 2([.][0]*)?i");
     std::smatch matches2;
     std::string str2 = test[2].toString();
     bool regexMatched2 = std::regex_match(str2, matches2, regexExpr2);
-    ASSERT_TRUE(regexMatched2);
+    ASSERT_TRUE(regexMatched2) << str0 << " does not match " << "[-]9([.][0]*)? [-] 2([.][0]*)?i";
+}
+
+TEST(NumericValue, ParseRealMixedArrayWithExponents) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[9e1, 8e1, 2.25e1]");
+
+    ASSERT_EQ(test.size(), 3);
+
+    ASSERT_EQ(test[0].isComplex(), false);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 90);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[1].isComplex(), false);
+    ASSERT_EQ(test[1].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), 80);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[2].isComplex(), false);
+    ASSERT_EQ(test[2].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), 22.5);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), 0);
+}
+
+TEST(NumericValue, ParseComplexMixedArrayWithExponents) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[5e1+6e1i, 2e1 -8.5e1j, -9e1-2e1j]");
+
+    ASSERT_EQ(test.size(), 3);
+
+    ASSERT_EQ(test[0].isComplex(), true);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 50);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 60);
+
+    ASSERT_EQ(test[1].isComplex(), true);
+    ASSERT_EQ(test[1].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), 20);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), -85);
+
+    ASSERT_EQ(test[2].isComplex(), true);
+    ASSERT_EQ(test[2].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), -90);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), -20);
 }

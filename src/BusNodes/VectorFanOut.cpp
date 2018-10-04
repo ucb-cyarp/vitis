@@ -3,6 +3,7 @@
 //
 
 #include "VectorFanOut.h"
+#include "GraphCore/NodeFactory.h"
 
 VectorFanOut::VectorFanOut() {
 
@@ -61,4 +62,12 @@ void VectorFanOut::validate() {
     if(inputArc->getDataType().getWidth() != outputPorts.size()){
         throw std::runtime_error("Validation Failed - VectorFanIn - Width of Input Arc Should = Number of Output Ports");
     }
+}
+
+VectorFanOut::VectorFanOut(std::shared_ptr<SubSystem> parent, VectorFanOut* orig) : VectorFan(parent, orig){
+    //No additional attributes to copy, just call superclass constructor
+}
+
+std::shared_ptr<Node> VectorFanOut::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<VectorFanOut>(parent, this);
 }

@@ -5,6 +5,7 @@
 #include "GeneralHelper.h"
 
 #include <cmath>
+#include <locale>
 
 std::string
 GeneralHelper::vectorToString(std::vector<bool> vec, std::string trueStr, std::string falseStr, std::string separator,
@@ -75,4 +76,38 @@ unsigned long GeneralHelper::roundUpToCPUBits(unsigned long bits) {
     }else{
         throw std::runtime_error("Cannot find a standard CPU integer type for a number of " + std::to_string(bits) + " bits");
     }
+}
+
+bool GeneralHelper::isStandardNumberOfCPUBits(unsigned long bits){
+    return bits == 1 || bits == 8 || bits == 16 || bits == 32 || bits == 64;
+
+}
+
+std::string GeneralHelper::toUpper(std::string str) {
+    unsigned long strLen = str.length();
+
+    std::string upperCaseStr = "";
+
+    for(unsigned long i = 0; i<strLen; i++){
+        upperCaseStr.push_back(std::toupper(str[i], std::locale::classic()));
+    }
+
+    return upperCaseStr;
+}
+
+unsigned long GeneralHelper::twoPow(unsigned long exp){
+    unsigned long tmp = 1;
+    return tmp << exp;
+}
+
+std::string GeneralHelper::replaceAll(std::string src, char orig, char repl){
+    std::string replaced = src;
+
+    for(unsigned long i = 0; i < replaced.size(); i++){
+        if(replaced[i] == orig){
+            replaced.replace(i, 1, std::string(1,repl));
+        }
+    }
+
+    return replaced;
 }

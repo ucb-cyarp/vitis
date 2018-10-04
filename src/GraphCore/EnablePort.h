@@ -56,6 +56,7 @@ public:
      */
     std::shared_ptr<EnablePort> getSharedPointerEnablePort(); //NOTE: should never return a bare pointer or an unaliased shared pointer to a port
 
+    bool hasInternalFanout(bool imag) override;
 };
 
 /*@}*/

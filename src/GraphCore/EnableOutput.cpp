@@ -5,6 +5,7 @@
 #include "EnableOutput.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
+#include "NodeFactory.h"
 
 EnableOutput::EnableOutput() {
 
@@ -52,4 +53,12 @@ void EnableOutput::validate() {
     if(!found){
         throw std::runtime_error("EnableInput not found in parent EnabledInput list");
     }
+}
+
+EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig) {
+
+}
+
+std::shared_ptr<Node> EnableOutput::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<EnableOutput>(parent, this);
 }

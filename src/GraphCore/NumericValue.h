@@ -17,11 +17,15 @@
 
 /**
  * @brief Represents a numeric value/constant in the design.  Provides method to parse strings from XML file.
+ *
+ * @note This class follows the C convention of bool types.
+ *   * Zero = false
+ *   * Non-zero = true
  */
 class NumericValue {
 private:
-    long int realInt;
-    long int imagInt;
+    int64_t realInt;
+    int64_t imagInt;
     std::complex<double> complexDouble;
 
     bool complex; ///<True if complex, false if real
@@ -57,7 +61,7 @@ public:
      * @param complex
      * @param fractional
      */
-    NumericValue(long int realInt, long int imagInt, std::complex<double> complexDouble, bool complex, bool fractional);
+    NumericValue(int64_t realInt, int64_t imagInt, std::complex<double> complexDouble, bool complex, bool fractional);
 
     /**
      * @brief Check if the numeric value is signed
@@ -82,14 +86,49 @@ public:
     std::string toString() const;
 
     /**
+     * @brief Returns the real or imagionary component of the numeric value as a string.  Will output numbers in accordance with their stored datatypes
+     * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @return string representation of the real or imagionary component of the numeric value
+     */
+    std::string toStringComponent(bool imag);
+
+    /**
+     * @brief Returns the real or imagionary component of the numeric value as a string.  The component is converted to the target data type
+     * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @param typeToConvertTo The datatype to convert the numeric value to
+     * @return string representation of the real or imagionary component of the numeric value
+     */
+    std::string toStringComponent(bool imag, DataType typeToConvertTo);
+
+    /**
      * @brief Constructs a string from an array of numeric values.
      *
      * Has the form "[vector[0], vector[1], ...]"
      *
      * @param vector vector to construct string from
+     * @param startStr the string used to start the returned string
+     * @param endStr the string used to end the returned string
+     * @param delimStr the string used as the deliminator between items in the returned string
      * @return string representation of vector
      */
-    static std::string toString(std::vector<NumericValue> vector);
+    static std::string toString(std::vector<NumericValue> vector, std::string startStr = "[", std::string endStr = "]", std::string delimStr = ", ");
+
+    /**
+     * @brief Constructs a string from an array of numeric values.
+     *
+     * It uses the @ref toStringComponent method to print the numeric value
+     *
+     * Has the form "[vector[0], vector[1], ...]"
+     *
+     * @param imag If true, the imagionary component is returned.  If false, the real component is returned.
+     * @param typeToConvertTo The datatype to convert the numeric value to
+     * @param vector vector to construct string from
+     * @param startStr the string used to start the returned string
+     * @param endStr the string used to end the returned string
+     * @param delimStr the string used as the deliminator between items in the returned string
+     * @return string representation of vector
+     */
+    static std::string toStringComponent(bool imag, DataType typeToConvertTo, std::vector<NumericValue> vector, std::string startStr = "[", std::string endStr = "]", std::string delimStr = ", ");
 
     /*
      * @brief Returns the numeric value as a string.  If a complex, it will output a + bi.  Will output numbers in accordance with the specified datatype
@@ -110,13 +149,13 @@ public:
     static std::vector<NumericValue> parseXMLString(std::string str);
 
     //====Getters/Setters====
-    long getRealInt() const;
+    int64_t getRealInt() const;
 
-    void setRealInt(long realInt);
+    void setRealInt(int64_t realInt);
 
-    long getImagInt() const;
+    int64_t getImagInt() const;
 
-    void setImagInt(long imagInt);
+    void setImagInt(int64_t imagInt);
 
     std::complex<double> getComplexDouble() const;
 

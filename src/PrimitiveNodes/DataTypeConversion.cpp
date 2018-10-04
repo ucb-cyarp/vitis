@@ -4,6 +4,9 @@
 
 #include "DataTypeConversion.h"
 
+#include "GraphCore/NodeFactory.h"
+#include <iostream>
+
 DataTypeConversion::DataTypeConversion() {
 
 }
@@ -69,7 +72,7 @@ DataTypeConversion::createFromGraphML(int id, std::string name, std::map<std::st
 
         //Get the datatype str if the inheritType is SPECIFIED
         if(inheritTypeParsed == InheritType::SPECIFIED){
-            std::string datatypeStr = dataKeyValueMap.at("TgtDataType");
+            datatypeStr = dataKeyValueMap.at("TgtDataType");
         }
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //Simulink Names -- OutDataTypeStr
@@ -93,8 +96,14 @@ DataTypeConversion::createFromGraphML(int id, std::string name, std::map<std::st
     //Parse the datatype if inheritType is SPECIFIED, otherwise accept the default
     if(inheritTypeParsed == InheritType::SPECIFIED){
         //NOTE: complex is set to true and width is set to 1 for now.  These will be resolved with a call to propagate from Arcs.
-        DataType dataType = DataType(datatypeStr, true, 1);
-        newNode->setTgtDataType(dataType);
+        DataType dataType;
+        try {
+            dataType = DataType(datatypeStr, true, 1);
+            newNode->setTgtDataType(dataType);
+        }catch(const std::invalid_argument& e){
+            std::cerr << "Warning: Could not parse specified DataType: " << datatypeStr << ". Reverting DataTypeConvert " << newNode->getFullyQualifiedName() << " to Using Inherited Type ..." << std::endl;
+            newNode->setInheritType(InheritType::INHERIT_FROM_OUTPUT);
+        }
     }
 
     return newNode;
@@ -147,13 +156,13 @@ std::string DataTypeConversion::labelStr() {
 
 void DataTypeConversion::propagateProperties() {
     if(getOutputPorts().size() < 1){
-        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Ports");
+        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Ports (" + name + ")");
     }
 
     std::shared_ptr<OutputPort> output = getOutputPort(0);
 
-    if(output->getArcs().size()){
-        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Arcs");
+    if(output->getArcs().size() < 1){
+        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Arcs (" + name + ")");
     }
 
     //Have a valid arc
@@ -194,4 +203,54 @@ void DataTypeConversion::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - DataTypeConversion - Should Have Exactly 1 Output Port");
     }
+}
+
+CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getInputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //TODO: Implement Fixed Point Support
+    if((!getInputPort(0)->getDataType().isCPUType()) || (!getOutputPort(0)->getDataType().isCPUType())) {
+        throw std::runtime_error(
+                "C Emit Error - DataType Conversion to/from Fixed Point Types has Not Yet Been Implemented");
+    }
+
+    //Get the Expression for the input (should only be 1)
+    std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
+    int srcOutputPortNum = srcOutputPort->getPortNum();
+    std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+    std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+
+    //Type Conversion logic
+    DataType tgtType;
+
+    if(inheritType == DataTypeConversion::InheritType::SPECIFIED){
+        tgtType = tgtDataType;
+    }else if(inheritType == DataTypeConversion::InheritType::INHERIT_FROM_OUTPUT){
+        tgtType = getOutputPort(0)->getDataType();
+    }
+
+    DataType srcType = getInputPort(0)->getDataType();
+
+
+    if(tgtType == srcType){
+        //Just return the input expression, no conversion required.
+        return CExpr(inputExpr, false);
+    }else{
+        //Perform the cast
+        //TODO: Implement Fixed Point Support
+
+        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + ")" ;
+        return CExpr(outputExpr, false);
+    }
+}
+
+DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent, DataTypeConversion* orig) : PrimitiveNode(parent, orig), tgtDataType(orig->tgtDataType), inheritType(orig->inheritType){
+
+}
+
+std::shared_ptr<Node> DataTypeConversion::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<DataTypeConversion>(parent, this);
 }

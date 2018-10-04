@@ -56,6 +56,8 @@ public:
      */
     std::shared_ptr<SelectPort> getSharedPointerSelectPort(); //NOTE: should never return a bare pointer or an unaliased shared pointer to a port
 
+    bool hasInternalFanout(bool imag) override;
+
 };
 
 /*@}*/

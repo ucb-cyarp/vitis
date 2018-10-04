@@ -17,7 +17,7 @@
 /**
  * @brief Represents a Simulink Multi-port Switch
  *
- * This node is expanded to the standard Mux node.  To correct for Simulink's index starting from 1 if one ordering is specified
+ * This node is expanded to the standard Mux node.  Logic is included to correct for Simulink's index starting from 1 if "one ordering" is specified
  */
 class SimulinkMultiPortSwitch : public MediumLevelNode {
     friend NodeFactory;
@@ -54,6 +54,20 @@ private:
      * @param parent parent node
      */
     explicit SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent, SimulinkMultiPortSwitch* orig);
 
 public:
     //==== Getters/Setters ====
@@ -95,7 +109,7 @@ public:
      *
      * The type of the constant (-1) used for the decrement is the same as the input.  The output of the subtract block is the same as the select input
      */
-    bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
+    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
@@ -107,6 +121,7 @@ public:
     //Check of ONE_BASED that number of bits >1 if integer
     void validate() override ;
 
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

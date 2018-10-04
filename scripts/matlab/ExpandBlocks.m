@@ -134,6 +134,8 @@ function [new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks
 %
 %
 
+global verbose;
+
 %% Expand
 
 %Try to expand each node in the graph.  Nodes that should not be expanded
@@ -152,11 +154,17 @@ vector_fans = []; %Will be removed in bus cleanup
 for i = 1:length(master_nodes)
     node = master_nodes(i);
     
+    expandedNodeOrigName = node.getFullSimulinkPath();
+
     %Expand masters to handle bus types (inserts VectorFan objects)
     [must_keep_vector_fans, other_vector_fans, new_new_arcs] = ExpandMaster(node);
     synth_vector_fans = [synth_vector_fans, must_keep_vector_fans];
     vector_fans = [vector_fans, other_vector_fans];
     new_arcs = [new_arcs, new_new_arcs];
+    
+    if verbose >= 2
+        disp(['[SimulinkToGraphML] Expanded Node: ' expandedNodeOrigName]);
+    end
 end
 
 % ---- Expand FIR Only ----
@@ -164,11 +172,17 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     node = nodes(i);
     
     if node.isStandard() && strcmp(node.simulinkBlockType, 'DiscreteFir')
+        expandedNodeOrigName = node.getFullSimulinkPath();
+        
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandFIR(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
         arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+        
+        if verbose >= 2
+            disp(['[SimulinkToGraphML] Expanded Node: ' expandedNodeOrigName]);
+        end
     end
 end
 
@@ -177,10 +191,16 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     node = nodes(i);
     
     if node.isStandard() && strcmp(node.simulinkBlockType, 'TappedDelay')
+        expandedNodeOrigName = node.getFullSimulinkPath();
+        
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandTappedDelay(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];
         new_arcs = [new_arcs, new_new_arcs];
+        
+        if verbose >= 2
+            disp(['[SimulinkToGraphML] Expanded Node: ' expandedNodeOrigName]);
+        end
     end
 end
     
@@ -202,6 +222,8 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     
     %Call the expanded for the type of block
     %DO NOT
+    expanded = true;
+    expandedNodeOrigName = node.getFullSimulinkPath();
     if node.isMaster()
         error('Master node should not be in general node list.  Expansion occurs seperatly.');
     elseif node.isSpecial()
@@ -256,6 +278,24 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
         arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
         new_arcs = [new_arcs, new_new_arcs];
         vector_fans = [vector_fans, new_vector_fans];
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'DataTypeDuplicate')
+        %Expand DataTypeDuplicate
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs] = ExpandDataTypeDuplicate(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+    elseif node.isStandard() && strcmp(node.simulinkBlockType, 'Logic')
+        [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
+        new_nodes = [new_nodes, new_expanded_nodes];
+        vector_fans = [vector_fans, new_vector_fans];
+        new_arcs = [new_arcs, new_new_arcs];
+        arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
+    else
+        expanded = false;
+    end
+    
+    if expanded == true && verbose >= 2
+        disp(['[SimulinkToGraphML] Expanded Node: ' expandedNodeOrigName]);
     end
     
     %If not one of the recognized types, do not expand
@@ -301,6 +341,10 @@ for i = 1:length(vector_fans)
     vector_fan = vector_fans(i);
     
     if vector_fan.isFanIn()
+        if expanded == true && verbose >= 3
+            disp(['[SimulinkToGraphML] Cleaning Bus: ' vector_fan.getFullSimulinkPath()]);
+        end
+        
         new_arcs_to_delete = vector_fan.reconnectArcs(UnconnectedMasterNode);
         arcs_to_delete = [arcs_to_delete, new_arcs_to_delete];
     end

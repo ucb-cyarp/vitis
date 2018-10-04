@@ -269,9 +269,30 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
-end
 
+%---- Logical Operator ----
+elseif strcmp(node.simulinkBlockType, 'Logic')
+    node.dialogPropertiesNumeric('Inputs') = GetParamEval(simulink_block_handle, 'Inputs');
+
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+
+    node.simulinkBlockType = 'Logic';
+
+
+%---- Saturate ----
+elseif strcmp(node.simulinkBlockType, 'Saturate' )
+    node.dialogPropertiesNumeric('UpperLimit') = GetParamEval(simulink_block_handle, 'UpperLimit');
+    node.dialogPropertiesNumeric('LowerLimit') = GetParamEval(simulink_block_handle, 'LowerLimit');
+
+    node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+
+%---- Data Type Propagation (Unsupported but Changing Type) ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Signal' newline 'Attributes/Data Type' newline 'Propagation'])
+        %Changing block type from 'S-Function'
+        node.simulinkBlockType = 'DataTypePropagation';
+        
 %TODO: More Blocks
+end
     
 end
 

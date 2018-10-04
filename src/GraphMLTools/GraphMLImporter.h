@@ -166,6 +166,14 @@ private:
      * @param node The XML node to print
      */
     static void printXMLNodeAndChildren(const xercesc::DOMNode *node, int tabs=0);
+
+    /**
+     * @brief Imports the human readable names of a node's ports
+     * @param node The node to import
+     * @param dataKeyValueMap The key value map of imported XML properties
+     * @param dialect The dialect of the XML being imported
+     */
+    static void importNodePortNames(std::shared_ptr<Node> node, std::map<std::string, std::string> dataKeyValueMap, GraphMLDialect dialect);
 };
 
 /*@}*/

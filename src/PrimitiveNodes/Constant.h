@@ -46,6 +46,20 @@ private:
      */
     explicit Constant(std::shared_ptr<SubSystem> parent);
 
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    Constant(std::shared_ptr<SubSystem> parent, Constant* orig);
+
 public:
     //==== Getters/Setters ====
     std::vector<NumericValue> getValue() const;
@@ -76,6 +90,17 @@ public:
     std::string labelStr() override ;
 
     void validate() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+
+    /**
+     * @brief Constants do not need to check for fanout.  There is is no savings to storing the constant in a temporary variable if it is used
+     * more than once.  Putting the number directly in the code allows instructions with immediate operands to be used.
+     */
+    std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag, bool checkFanout, bool forceFanout) override;
+
 
 };
 

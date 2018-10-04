@@ -1,6 +1,6 @@
 function [expansion_occured, expanded_nodes, vector_fans, new_arcs, arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(opBlock)
 %ExpandMultiInputSingleOutputOp Expands a vector operation (+, -, *, /, 
-%switch, special nodes) into replicas of that operation on each element of 
+%switch, logic special nodes) into replicas of that operation on each element of 
 %the vector.  Replicas are contained within the given node.  Node type is
 %changed to subsystem.
 
@@ -96,6 +96,8 @@ elseif opBlock.isSpecialInput()
     blockName = 'Special Input Port';
 elseif opBlock.isSpecialOutput()
     blockName = 'Special Output Port';
+elseif strcmp(opBlock.simulinkBlockType, 'Logic')
+    blockName = 'Logic';
 else
     error('Expansion performed on an unsupported block')
 end
@@ -128,6 +130,11 @@ for i = 1:busWidth
         %Nothing to copy
     elseif opBlock.isSpecialOutput()
         %Nothing to copy
+    elseif strcmp(opBlock.simulinkBlockType, 'Logic')
+        node.dialogPropertiesNumeric('Inputs') = opBlock.dialogPropertiesNumeric('Inputs');
+        node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogPropertiesNumeric('SampleTime');
+        node.dialogProperties('Operator') = opBlock.dialogProperties('Operator');
+        node.dialogProperties('AllPortsSameDT') = opBlock.dialogProperties('AllPortsSameDT');
     else
         error('Expansion performed on an unsupported block')
     end

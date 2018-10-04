@@ -41,7 +41,7 @@ out_arc = delayBlock.out_arcs(1);
 
 %Check for matrix ports, we don't support them at the moment
 if length(out_arc.dimension) >2 || (out_arc.dimension(1) > 1 && out_arc.dimension(2) > 1)
-    error('Delay block expansion does not currently support N-dimensional matrix port types.');
+    error(['Delay block expansion does not currently support N-dimensional matrix port types. ' delayBlock.getFullSimulinkPath()]);
 end
 
 %Check for unsupported modes

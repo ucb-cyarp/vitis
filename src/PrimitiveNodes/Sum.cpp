@@ -117,4 +117,130 @@ void Sum::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Sum - Should Have Exactly 1 Output Port");
     }
+
+    //Check that if any input is complex, the result is complex
+    unsigned long numInputPorts = inputPorts.size();
+    bool foundComplex = false;
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+        if(inType.isComplex()){
+            foundComplex = true;
+            break;
+        }
+
+    }
+
+    if(foundComplex) {
+        DataType outType = getOutputPort(0)->getDataType();
+        if(!outType.isComplex()){
+            throw std::runtime_error("Validation Failed - Sum - An Input Port is Complex but Output is Real");
+        }
+    }
+
+    if(inputSign.size() != inputPorts.size()){
+        throw std::runtime_error("Validation Failed - Sum - The number of signs (" + GeneralHelper::to_string(inputSign.size()) + ") does not match the number of inputs (" + GeneralHelper::to_string(inputPorts.size()) + ")");
+    }
+}
+
+CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getOutputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //Get the expressions for each input
+    std::vector<std::string> inputExprs;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+    }
+
+    //Check if any of the inputs are floating point & if so, find the largest
+    //Also check for any fixed point types.  Find the max integer type
+    bool foundFloat = false;
+    DataType largestFloat;
+    bool foundFixedPt = false;
+    bool foundInt = false;
+    DataType largestInt;
+
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType portDataType = getInputPort(i)->getDataType();
+        if(portDataType.isFloatingPt()){
+            if(foundFloat == false){
+                foundFloat = true;
+                largestFloat = portDataType;
+            }else{
+                if(largestFloat.getTotalBits() < portDataType.getTotalBits()){
+                    largestFloat = portDataType;
+                }
+            }
+        }else if(portDataType.getFractionalBits() != 0){
+            foundFixedPt = true;
+        }else{
+            if(foundInt == false){
+                largestInt = portDataType;
+                foundInt = true;
+            }else{
+                if(largestInt.getTotalBits() < portDataType.getTotalBits()){
+                    largestInt = portDataType;
+                }
+            }
+        }
+    }
+
+    //TODO: Implement Fixed Point
+
+    if(!foundFixedPt){
+        DataType accumType;
+        if(foundFloat){
+            accumType = largestFloat; //Floating point types do not grow
+        }else{
+            //Integer
+            accumType = largestInt;
+            accumType.setTotalBits(accumType.getTotalBits()+numInputPorts-1); //Grow 1 bit per input.  Since this is a promotion, masking will not occur
+        }
+
+        //floating point numbers
+        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), accumType);
+
+        if(!inputSign[0]){
+            expr = "(-(" + expr + "))";
+        }else{
+            expr = "(" + expr + ")";
+        }
+
+        for(unsigned long i = 1; i<numInputPorts; i++) {
+            if (inputSign[i]) {
+                expr += "+";
+            } else {
+                expr += "-";
+            }
+            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), accumType) + ")";
+        }
+
+        expr = DataType::cConvertType(expr, accumType, getOutputPort(0)->getDataType());//Convert to output if nessisary
+
+        return CExpr(expr, false);
+    }
+    else{
+        //TODO: Fixed Point Support
+        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Sum");
+    }
+
+    return CExpr("", false);
+}
+
+Sum::Sum(std::shared_ptr<SubSystem> parent, Sum* orig) : PrimitiveNode(parent, orig), inputSign(orig->inputSign){
+
+}
+
+std::shared_ptr<Node> Sum::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Sum>(parent, this);
 }

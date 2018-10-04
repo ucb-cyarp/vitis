@@ -38,6 +38,20 @@ protected:
     SubSystem(std::shared_ptr<SubSystem> parent);
 
     /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  Children are also not copied.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    SubSystem(std::shared_ptr<SubSystem> parent, SubSystem* orig);
+
+    /**
      * @brief Emits the subgraph entry for this subsystem as well as calling the emitGraphML functions on each child node
      *
      * Was broken into a seperate helper function so the logic could be re-used in enabled subsystem
@@ -73,6 +87,11 @@ public:
     std::string labelStr() override ;
 
     bool canExpand() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
+
 };
 
 /*@}*/

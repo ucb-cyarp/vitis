@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -159,6 +165,42 @@
 	<key id="VectorParams1D" for="node" attr.name="VectorParams1D" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_10" for="node" attr.name="input_port_name_10" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_2" for="node" attr.name="input_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_3" for="node" attr.name="input_port_name_3" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_4" for="node" attr.name="input_port_name_4" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_5" for="node" attr.name="input_port_name_5" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_6" for="node" attr.name="input_port_name_6" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_7" for="node" attr.name="input_port_name_7" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_8" for="node" attr.name="input_port_name_8" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_9" for="node" attr.name="input_port_name_9" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_1" for="node" attr.name="output_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_2" for="node" attr.name="output_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
 	<graph id="G" edgedefault="directed">
 		<node id="n1">
 			<data key="instance_name">Input Master</data>
@@ -167,6 +209,10 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">2</data>
+			<data key="output_port_name_1">In1</data>
+			<data key="output_port_name_2">In2</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -175,6 +221,18 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">10</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
+			<data key="input_port_name_2">Out2</data>
+			<data key="input_port_name_3">Out3</data>
+			<data key="input_port_name_4">Out4</data>
+			<data key="input_port_name_5">Out5</data>
+			<data key="input_port_name_6">Out6</data>
+			<data key="input_port_name_7">Out7</data>
+			<data key="input_port_name_8">Out8</data>
+			<data key="input_port_name_9">Out9</data>
+			<data key="input_port_name_10">Out10</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -183,6 +241,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -191,6 +251,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -199,6 +261,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Discrete FIR Filter FixedCoef2</data>
@@ -211,6 +275,8 @@ CoefSource: Dialog parameters
 Coefficients: 2
 InitialStates: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -245,6 +311,8 @@ ID: n6::n18
 Function: Gain
 Gain: 2
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -260,6 +328,8 @@ ID: n6::n19
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -272,7 +342,9 @@ ID: n6::n20
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -289,6 +361,8 @@ CoefSource: Dialog parameters
 Coefficients: [0.25, 0.5, 0.25, 0.125]
 InitialStates: [0, 0, 1]
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Same as product output</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -326,6 +400,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -344,6 +420,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -362,6 +440,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 1
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -377,6 +457,8 @@ ID: n7::n24
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -392,6 +474,8 @@ ID: n7::n25
 Function: Gain
 Gain: 0.5
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -407,6 +491,8 @@ ID: n7::n26
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -422,6 +508,8 @@ ID: n7::n27
 Function: Gain
 Gain: 0.125
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -437,6 +525,8 @@ ID: n7::n28
 Function: Sum
 Inputs: ++++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -455,6 +545,8 @@ CoefSource: Dialog parameters
 Coefficients: [0.25, 0.5, 0.25, 0.125]
 InitialStates: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -489,6 +581,8 @@ ID: n8::n29
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -504,6 +598,8 @@ ID: n8::n30
 Function: Gain
 Gain: 0.5
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -519,6 +615,8 @@ ID: n8::n31
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -534,6 +632,8 @@ ID: n8::n32
 Function: Gain
 Gain: 0.125
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -549,6 +649,8 @@ ID: n8::n33
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -561,6 +663,8 @@ ID: n8::n34
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -573,6 +677,8 @@ ID: n8::n35
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -585,6 +691,8 @@ ID: n8::n36
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -600,6 +708,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -615,6 +725,8 @@ ID: n8::n38
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -632,6 +744,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -647,6 +761,8 @@ ID: n8::n40
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -664,6 +780,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -679,6 +797,8 @@ ID: n8::n42
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -693,6 +813,8 @@ ID: n8::n43
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -709,6 +831,8 @@ CoefSource: Dialog parameters
 Coefficients: [0.25, 0.5, 0.25, 0.125]
 InitialStates: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -743,6 +867,8 @@ ID: n9::n44
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -758,6 +884,8 @@ ID: n9::n45
 Function: Gain
 Gain: 0.5
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -773,6 +901,8 @@ ID: n9::n46
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -788,6 +918,8 @@ ID: n9::n47
 Function: Gain
 Gain: 0.125
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -803,6 +935,8 @@ ID: n9::n48
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -815,6 +949,8 @@ ID: n9::n49
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -827,6 +963,8 @@ ID: n9::n50
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -839,6 +977,8 @@ ID: n9::n51
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -854,6 +994,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -869,6 +1011,8 @@ ID: n9::n53
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -886,6 +1030,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -901,6 +1047,8 @@ ID: n9::n55
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -918,6 +1066,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -933,6 +1083,8 @@ ID: n9::n57
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -951,6 +1103,8 @@ CoefSource: Dialog parameters
 Coefficients: [0.25, 0.5, 0.25, 0.125]
 InitialStates: [0, 0, 1]
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -988,6 +1142,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1006,6 +1162,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1024,6 +1182,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 1
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1039,6 +1199,8 @@ ID: n10::n61
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -1054,6 +1216,8 @@ ID: n10::n62
 Function: Gain
 Gain: 0.5
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -1069,6 +1233,8 @@ ID: n10::n63
 Function: Gain
 Gain: 0.25
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -1084,6 +1250,8 @@ ID: n10::n64
 Function: Gain
 Gain: 0.125
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -1099,6 +1267,8 @@ ID: n10::n65
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1111,6 +1281,8 @@ ID: n10::n66
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1123,6 +1295,8 @@ ID: n10::n67
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1135,6 +1309,8 @@ ID: n10::n68
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1147,6 +1323,8 @@ ID: n10::n69
 Function: Sum
 Inputs: ++++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -1165,6 +1343,8 @@ CoefSource: Dialog parameters
 Coefficients: 2
 InitialStates: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -1199,6 +1379,8 @@ ID: n11::n70
 Function: Gain
 Gain: 2
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Multiplication">Element-wise(K.*u)</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="ParamDataTypeStr">Inherit: Same word length as input</data>
@@ -1214,6 +1396,8 @@ ID: n11::n71
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1229,6 +1413,8 @@ Function: DiscreteFir
 CoefSource: Input port
 InitialStates: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -1265,6 +1451,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1283,6 +1471,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1301,6 +1491,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1314,9 +1506,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_1_Product
 ID: n12::n75
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1329,6 +1523,8 @@ ID: n12::n76
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1339,9 +1535,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_2_Product
 ID: n12::n77
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1354,6 +1552,8 @@ ID: n12::n78
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1364,9 +1564,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_3_Product
 ID: n12::n79
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1379,6 +1581,8 @@ ID: n12::n80
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1389,9 +1593,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef_Expanded_4_Product
 ID: n12::n81
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1404,6 +1610,8 @@ ID: n12::n82
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1416,6 +1624,8 @@ ID: n12::n83
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1428,6 +1638,8 @@ ID: n12::n84
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1440,6 +1652,8 @@ ID: n12::n85
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1452,6 +1666,8 @@ ID: n12::n86
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1464,6 +1680,8 @@ ID: n12::n87
 Function: Sum
 Inputs: ++++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -1481,6 +1699,8 @@ Function: DiscreteFir
 CoefSource: Input port
 InitialStates: [0, 0, 1]
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -1512,9 +1732,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_1_Product
 ID: n13::n88
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1527,6 +1749,8 @@ ID: n13::n89
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1537,9 +1761,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_2_Product
 ID: n13::n90
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1552,6 +1778,8 @@ ID: n13::n91
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1562,9 +1790,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_3_Product
 ID: n13::n92
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1577,6 +1807,8 @@ ID: n13::n93
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1587,9 +1819,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit2_Expanded_4_Product
 ID: n13::n94
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1602,6 +1836,8 @@ ID: n13::n95
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1614,6 +1850,8 @@ ID: n13::n96
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1626,6 +1864,8 @@ ID: n13::n97
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1638,6 +1878,8 @@ ID: n13::n98
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1650,6 +1892,8 @@ ID: n13::n99
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1665,6 +1909,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 1
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1680,6 +1926,8 @@ ID: n13::n101
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -1697,6 +1945,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1712,6 +1962,8 @@ ID: n13::n103
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -1729,6 +1981,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1744,6 +1998,8 @@ ID: n13::n105
 Function: Sum
 Inputs: ++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -1761,6 +2017,8 @@ Function: DiscreteFir
 CoefSource: Input port
 InitialStates: 0
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -1792,9 +2050,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit1_Expanded_1_Product
 ID: n14::n106
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1807,6 +2067,8 @@ ID: n14::n107
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1819,6 +2081,8 @@ ID: n14::n108
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1834,6 +2098,8 @@ Function: DiscreteFir
 CoefSource: Input port
 InitialStates: [0, 0, 1]
 SampleTime: -1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AccumDataTypeStr">Inherit: Inherit via internal rule</data>
 			<data key="CoefDataTypeStr">Inherit: Same word length as input</data>
 			<data key="CoefMax">[]</data>
@@ -1870,6 +2136,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1888,6 +2156,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 0
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1906,6 +2176,8 @@ InitialConditionSource: Dialog
 DelayLength: 1
 InitialCondition: 1
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="DelayLengthSource">Dialog</data>
 					<data key="InitialConditionSource">Dialog</data>
 					<data key="Numeric.DelayLength">1</data>
@@ -1919,9 +2191,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_1_Product
 ID: n15::n112
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1934,6 +2208,8 @@ ID: n15::n113
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1944,9 +2220,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_2_Product
 ID: n15::n114
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1959,6 +2237,8 @@ ID: n15::n115
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1969,9 +2249,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_3_Product
 ID: n15::n116
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1984,6 +2266,8 @@ ID: n15::n117
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -1994,9 +2278,11 @@ SampleTime: -1</data>
 					<data key="block_label">Discrete FIR ExtCoef1 VectInit_Expanded_4_Product
 ID: n15::n118
 Function: Product
-Inputs: *
+Inputs: **
 SampleTime: -1</data>
-					<data key="Inputs">*</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
+					<data key="Inputs">**</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via internal rule</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2009,6 +2295,8 @@ ID: n15::n119
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2021,6 +2309,8 @@ ID: n15::n120
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2033,6 +2323,8 @@ ID: n15::n121
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2045,6 +2337,8 @@ ID: n15::n122
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2057,6 +2351,8 @@ ID: n15::n123
 Function: DataTypeConversion
 OutDataTypeStr: double
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="OutDataTypeStr">double</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
@@ -2069,6 +2365,8 @@ ID: n15::n124
 Function: Sum
 Inputs: ++++
 SampleTime: -1</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="AccumDataTypeStr">double</data>
 					<data key="Inputs">++++</data>
 					<data key="OutDataTypeStr">double</data>
@@ -2085,6 +2383,8 @@ ID: n16
 Function: Constant
 SampleTime: Inf
 Value: [0.25, 0.5, 0.25, 0.125]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
@@ -2105,6 +2405,8 @@ ID: n16::n125
 Function: Constant
 SampleTime: Inf
 Value: 0.25</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">0.25</data>
 				</node>
@@ -2117,6 +2419,8 @@ ID: n16::n126
 Function: Constant
 SampleTime: Inf
 Value: 0.5</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">0.5</data>
 				</node>
@@ -2129,6 +2433,8 @@ ID: n16::n127
 Function: Constant
 SampleTime: Inf
 Value: 0.25</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">0.25</data>
 				</node>
@@ -2141,6 +2447,8 @@ ID: n16::n128
 Function: Constant
 SampleTime: Inf
 Value: 0.125</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">0.125</data>
 				</node>
@@ -2155,6 +2463,8 @@ ID: n17
 Function: Constant
 SampleTime: Inf
 Value: 2</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>

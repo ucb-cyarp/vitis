@@ -25,6 +25,8 @@ void NestedSubSystemValidator::validate(Design &design) {
 
     }
     ASSERT_EQ(inputs->getName(), "Input Master");
+    ASSERT_EQ(inputs->getOutputPort(0)->getName(), "In1");
+    ASSERT_EQ(inputs->getOutputPort(1)->getName(), "In2");
 
     std::shared_ptr<MasterOutput> outputs = design.getOutputMaster();
     {
@@ -32,6 +34,9 @@ void NestedSubSystemValidator::validate(Design &design) {
         GraphTestHelper::verifyPortArcCounts(outputs, 3, std::vector<unsigned long>{});
     }
     ASSERT_EQ(outputs->getName(), "Output Master");
+    ASSERT_EQ(outputs->getInputPort(0)->getName(), "Out1");
+    ASSERT_EQ(outputs->getInputPort(1)->getName(), "Out2");
+    ASSERT_EQ(outputs->getInputPort(2)->getName(), "Out3");
 
     std::shared_ptr<MasterOutput> terminator = design.getTerminatorMaster();
     {

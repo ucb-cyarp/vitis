@@ -234,14 +234,14 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
     //---Create the Edge Node---
     xercesc::DOMElement* arcElement = GraphMLHelper::createNode(doc, "edge");
     //Set ID
-    GraphMLHelper::setAttribute(arcElement, "id", "e"+std::to_string(id)); //Do not need a full path for the edge
+    GraphMLHelper::setAttribute(arcElement, "id", "e"+GeneralHelper::to_string(id)); //Do not need a full path for the edge
     //Set Src & Dst
     GraphMLHelper::setAttribute(arcElement, "source", srcPort->getParent()->getFullGraphMLPath());
     GraphMLHelper::setAttribute(arcElement, "target", dstPort->getParent()->getFullGraphMLPath());
 
     //---Add data entries---
-    GraphMLHelper::addDataNode(doc, arcElement, "arc_src_port", std::to_string(srcPort->getPortNum()));
-    GraphMLHelper::addDataNode(doc, arcElement, "arc_dst_port", std::to_string(dstPort->getPortNum()));
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_src_port", GeneralHelper::to_string(srcPort->getPortNum()));
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_dst_port", GeneralHelper::to_string(dstPort->getPortNum()));
     std::string dstPortType;
     //Check for Specific Input Types
     if(GeneralHelper::isType<InputPort, EnablePort>(dstPort) != nullptr){
@@ -257,7 +257,7 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
     GraphMLHelper::addDataNode(doc, arcElement, "arc_datatype", dataType.toString());
     std::string complexStr = (dataType.isComplex() ? "true" : "false");
     GraphMLHelper::addDataNode(doc, arcElement, "arc_complex", complexStr);
-    GraphMLHelper::addDataNode(doc, arcElement, "arc_width", std::to_string(dataType.getWidth()));
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_width", GeneralHelper::to_string(dataType.getWidth()));
     GraphMLHelper::addDataNode(doc, arcElement, "arc_disp_label", labelStr());
 
     //---Add to graph node---
@@ -276,12 +276,22 @@ std::string Arc::labelStr() {
         dstPortType = "Standard";
     }
 
-    std::string label = "ID: e" + std::to_string(id) +
-                        "\nSrc Port: " + std::to_string(srcPort->getPortNum()) +
-                        "\nDst Port: " + std::to_string(dstPort->getPortNum()) + " (" + dstPortType + ")"
+    std::string label = "ID: e" + GeneralHelper::to_string(id) +
+                        "\nSrc Port: " + GeneralHelper::to_string(srcPort->getPortNum()) +
+                        "\nDst Port: " + GeneralHelper::to_string(dstPort->getPortNum()) + " (" + dstPortType + ")"
                         "\nDatatype: " + dataType.toString() + " (" + (dataType.isComplex() ? "Complex" : "Real") + ")" +
-                        "\nWidth: " + std::to_string(dataType.getWidth());
+                        "\nWidth: " + GeneralHelper::to_string(dataType.getWidth());
 
     return label;
+}
+
+void Arc::shallowCopyPrameters(Arc *orig) {
+    id = orig->id;
+    dataType = orig->dataType;
+    sampleTime = orig->sampleTime;
+    delay = orig->delay;
+    slack = orig->slack;
+
+    //do not copy weakSelf as this is set when connecting the nodes
 }
 

@@ -5,11 +5,11 @@
 #include "Port.h"
 #include "Node.h"
 
-Port::Port() : portNum(0), parent(nullptr)  {
+Port::Port() : portNum(0), name(""), parent(nullptr)  {
 
 }
 
-Port::Port(Node* parent, int portNum) : portNum(portNum), parent(parent) {
+Port::Port(Node* parent, int portNum) : portNum(portNum), name(""), parent(parent) {
 
 }
 
@@ -89,4 +89,23 @@ std::shared_ptr<Port> Port::getSharedPointer() {
 
 unsigned long Port::numArcs() {
     return arcs.size();
+}
+
+const std::string Port::getName() {
+    return name;
+}
+
+void Port::setName(const std::string &name) {
+    Port::name = name;
+}
+
+DataType Port::getDataType() {
+    //Get the orig type of the output port from the connected arcs
+    if(arcs.size() < 1){
+        throw std::runtime_error("Tried to get DataType for port which is unconnected");
+    }
+
+    DataType type = arcs.begin()->lock()->getDataType();
+
+    return type;
 }

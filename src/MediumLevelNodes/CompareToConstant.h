@@ -51,6 +51,20 @@ private:
      */
     explicit CompareToConstant(std::shared_ptr<SubSystem> parent);
 
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    CompareToConstant(std::shared_ptr<SubSystem> parent, CompareToConstant* orig);
+
 public:
     //==== Getters/Setters ====
     std::vector<NumericValue> getCompareConst() const;
@@ -89,7 +103,7 @@ public:
      *
      *   Complexity and width are taken from the constant NumericValue
      */
-    bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
+    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
@@ -99,6 +113,8 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -108,6 +114,9 @@
 	<key id="ZeroCross" for="node" attr.name="ZeroCross" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
 	<graph id="G" edgedefault="directed">
 		<node id="n1">
 			<data key="instance_name">Input Master</data>
@@ -116,6 +125,8 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -124,6 +135,9 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">1</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -132,6 +146,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -140,6 +156,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -148,6 +166,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Constant</data>
@@ -158,6 +178,8 @@ ID: n6
 Function: Constant
 SampleTime: Inf
 Value: 1</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
@@ -180,6 +202,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AllowDiffInputSizes">off</data>
 			<data key="Criteria">u2 &gt; Threshold</data>
 			<data key="InputSameDT">off</data>
@@ -206,6 +230,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Criteria">u2 &gt; Threshold</data>
 					<data key="ZeroCross">on</data>
 					<data key="Numeric.SampleTime">-1</data>
@@ -222,6 +248,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Criteria">u2 &gt; Threshold</data>
 					<data key="ZeroCross">on</data>
 					<data key="Numeric.SampleTime">-1</data>
@@ -238,6 +266,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Criteria">u2 &gt; Threshold</data>
 					<data key="ZeroCross">on</data>
 					<data key="Numeric.SampleTime">-1</data>
@@ -254,6 +284,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Criteria">u2 &gt; Threshold</data>
 					<data key="ZeroCross">on</data>
 					<data key="Numeric.SampleTime">-1</data>
@@ -270,6 +302,8 @@ ID: n8
 Function: Constant
 SampleTime: Inf
 Value: [5, 6, 7, 8]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
@@ -290,6 +324,8 @@ ID: n8::n14
 Function: Constant
 SampleTime: Inf
 Value: 5</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">5</data>
 				</node>
@@ -302,6 +338,8 @@ ID: n8::n15
 Function: Constant
 SampleTime: Inf
 Value: 6</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">6</data>
 				</node>
@@ -314,6 +352,8 @@ ID: n8::n16
 Function: Constant
 SampleTime: Inf
 Value: 7</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">7</data>
 				</node>
@@ -326,6 +366,8 @@ ID: n8::n17
 Function: Constant
 SampleTime: Inf
 Value: 8</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">8</data>
 				</node>
@@ -340,6 +382,8 @@ ID: n9
 Function: Constant
 SampleTime: Inf
 Value: [9, 10, 11, 12]</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
@@ -360,6 +404,8 @@ ID: n9::n18
 Function: Constant
 SampleTime: Inf
 Value: 9</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">9</data>
 				</node>
@@ -372,6 +418,8 @@ ID: n9::n19
 Function: Constant
 SampleTime: Inf
 Value: 10</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">10</data>
 				</node>
@@ -384,6 +432,8 @@ ID: n9::n20
 Function: Constant
 SampleTime: Inf
 Value: 11</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">11</data>
 				</node>
@@ -396,6 +446,8 @@ ID: n9::n21
 Function: Constant
 SampleTime: Inf
 Value: 12</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="Numeric.SampleTime">Inf</data>
 					<data key="Numeric.Value">12</data>
 				</node>
@@ -409,6 +461,8 @@ Value: 12</data>
 ID: n22
 Type: VectorFan
 Direction: Fan-In</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="Direction">Fan-In</data>
 		</node>
 		<edge id="e1" source="n22" target="n2">

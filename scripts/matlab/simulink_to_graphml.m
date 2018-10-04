@@ -1,8 +1,20 @@
-function simulink_to_graphml(simulink_file, system, graphml_filename)
+function simulink_to_graphml(simulink_file, system, graphml_filename, verbose_in)
 %simulink_to_graphml Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 
+global verbose;
+
+if ~exist('verbose_in', 'var')
+    verbose = 0;
+else
+    verbose = verbose_in;
+end
+
 %% Load Simulink and put into compile mode
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Opening System ****');
+end
+
 %Open the system
 open_system(simulink_file);
 
@@ -40,6 +52,10 @@ top_system_func([], [], [], 'compile');
 
 %% Create Top Level IR Node -> Set Type to Top Level
 
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Creating Top Level Nodes ****');
+end
+
 %% Create Virtual Nodes
 top_level_ir_node = GraphNode(system, 'Top Level', []);
 top_level_ir_node.nodeId = 0;
@@ -67,6 +83,10 @@ nodes = [];
 arcs = [];
 special_nodes = [];
 node_handle_ir_map = containers.Map('KeyType','double','ValueType','any');
+
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Traversing Simulink Graph from Input Ports ****');
+end
 
 %% Call Arc Follower on Each With Driver Set To Input Virtual Node and Port 1 (Also Add Name to Input Master Node)
 %Get a list of Inports within system
@@ -120,6 +140,10 @@ for i = 1:length(outports)
     output_master_node.inputPorts{port_number} = port_name{1}; 
 end
 
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Traversing Simulink Graph To Find Sources that are not Inputs ****');
+end
+
 %% Traverse Remaining Nodes (ie. ones that would not be reached by just following inputs
 [new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = traverseRemainingNodes(system, top_level_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
 nodes = [nodes, new_nodes_recur];
@@ -127,6 +151,10 @@ arcs = [arcs, new_arcs_recur];
 special_nodes = [special_nodes, new_special_nodes_recur];
 
 %% Connect Special Input/Output Ports to Enable Drivers
+
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Connecting Enable Ports to Drivers ****');
+end
 
 %Interate through the special nodes
 for i = 1:length(special_nodes)
@@ -147,6 +175,11 @@ for i = 1:length(special_nodes)
     end
     
     newArc = GraphArc.createEnableArc(en_driver_node, en_driver_port, special_node, 2);
+    
+    if exist('verbose', 'var') && verbose >= 3
+        disp(['[SimulinkToGraphML] Imported Arc: ' newArc.srcNode.getFullSimulinkPath() ':' num2str(newArc.srcPortNumber) ' -> ' newArc.dstNode.getFullSimulinkPath() ':'  newArc.dstPortTypeStr() ':' num2str(newArc.dstPortNumber)]);
+    end
+    
     %Add the arc back to the list
     arcs = [arcs, newArc];
     
@@ -158,6 +191,10 @@ end
 top_system_func([], [], [], 'term');
 
 %% Expand graph & cleanup busses
+
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Expanding Nodes & Cleaning Up Busses ****');
+end
 
 [new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, master_nodes, unconnected_master_node);
 nodes = [nodes, new_nodes];
@@ -173,6 +210,11 @@ for i = 1:length(arcs_to_delete)
 end
 
 %% Assign Unique Ids To each Node and Arc
+
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Assigning Node and Arc IDs ****');
+end
+
 for i = 1:length(nodes)
     node = nodes(i);
     node.nodeId = i + 5; %+3 because of master nodes & top level (which is 0)
@@ -184,6 +226,10 @@ for i = 1:length(arcs)
 end
 
 %% Get Set of Parameters from Nodes
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Collecting Parameter Set ****');
+end
+
 node_param_names = {};
 for i = 1:length(nodes)
     node = nodes(i);
@@ -236,6 +282,10 @@ for i = 1:length(master_nodes)
 end
 
 %% Open GraphML file for writing
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Emitting GraphML ****');
+end
+
 graphml_filehandle = fopen(graphml_filename,'w');
 
 %% ==== Emit GraphML Preamble =====
@@ -383,6 +433,25 @@ fprintf(graphml_filehandle, '\t</graph>\n');
 fprintf(graphml_filehandle, '</graphml>');
 
 fclose(graphml_filehandle);
+
+%Report Export
+
+if verbose >= 1
+    disp('[SimulinkToGraphML] **** Finished GraphML Export ****');
+    disp(['[SimulinkToGraphML] Exported ' num2str(length(nodes)+5) ' Nodes']); %+5 for master nodes
+    disp(['[SimulinkToGraphML] Exported ' num2str(length(arcs)) ' Arcs']);
+    
+    disp('[SimulinkToGraphML] Statistics:');
+    %Report Some Stats
+    countMap = GetNodeStatistics(nodes);
+    nodeTypes = sort(keys(countMap));
+    for i = 1:length(nodeTypes)
+       key = nodeTypes{i};
+       count = countMap(key);
+       
+       disp(sprintf('%s | Count: %6d', key, count));
+    end
+end
 
 end
 

@@ -28,6 +28,9 @@ void EnabledSubsystemDesignValidator::validate(Design &design) {
 
     }
     ASSERT_EQ(inputs->getName(), "Input Master");
+    ASSERT_EQ(inputs->getOutputPort(0)->getName(), "In1");
+    ASSERT_EQ(inputs->getOutputPort(1)->getName(), "In2");
+    ASSERT_EQ(inputs->getOutputPort(2)->getName(), "In3");
 
     std::shared_ptr<MasterOutput> outputs = design.getOutputMaster();
     {
@@ -35,6 +38,17 @@ void EnabledSubsystemDesignValidator::validate(Design &design) {
         GraphTestHelper::verifyPortArcCounts(outputs, 10, std::vector<unsigned long>{});
     }
     ASSERT_EQ(outputs->getName(), "Output Master");
+    //Note, the Out names to not match the port numbers for this example
+    ASSERT_EQ(outputs->getInputPort(0)->getName(), "Out1");
+    ASSERT_EQ(outputs->getInputPort(1)->getName(), "Out4");
+    ASSERT_EQ(outputs->getInputPort(2)->getName(), "Out2");
+    ASSERT_EQ(outputs->getInputPort(3)->getName(), "Out3");
+    ASSERT_EQ(outputs->getInputPort(4)->getName(), "Out5");
+    ASSERT_EQ(outputs->getInputPort(5)->getName(), "Out6");
+    ASSERT_EQ(outputs->getInputPort(6)->getName(), "Out7");
+    ASSERT_EQ(outputs->getInputPort(7)->getName(), "Out8");
+    ASSERT_EQ(outputs->getInputPort(8)->getName(), "Out9");
+    ASSERT_EQ(outputs->getInputPort(9)->getName(), "Out10");
 
     std::shared_ptr<MasterOutput> terminator = design.getTerminatorMaster();
     {

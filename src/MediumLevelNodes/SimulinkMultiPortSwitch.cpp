@@ -8,6 +8,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Sum.h"
+#include "GraphCore/NodeFactory.h"
 
 #include <iostream>
 
@@ -93,7 +94,7 @@ SimulinkMultiPortSwitch::createFromGraphML(int id, std::string name, std::map<st
     return newNode;
 }
 
-bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
                                      std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                      std::vector<std::shared_ptr<Arc>> &new_arcs,
                                      std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
@@ -107,7 +108,9 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
     std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(thisParent, shared_from_this());
 
     //Remove Current Node from Parent and Set Parent to nullptr
-    thisParent->removeChild(shared_from_this());
+    if(thisParent != nullptr) {
+        thisParent->removeChild(shared_from_this());
+    }
     parent = nullptr;
     //Add This node to the list of nodes to remove from the node vector
     deleted_nodes.push_back(shared_from_this());
@@ -116,7 +119,7 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
     new_nodes.push_back(expandedNode);
 
     //++++ Create Mux Block and Rewire ++++
-    std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(thisParent);
+    std::shared_ptr<Mux> muxNode = NodeFactory::createNode<Mux>(expandedNode);
     muxNode->setName("Mux");
     new_nodes.push_back(muxNode);
 
@@ -143,12 +146,12 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
         muxNode->addSelectArcUpdatePrevUpdateArc(inputArcSel);
     }else if(indexType == IndexType::ONE_BASED){
         //Need to decrement the index
-        std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(parent);
+        std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(expandedNode);
         constantNode->setName("Constant");
         constantNode->setValue(std::vector<NumericValue>{NumericValue(-1, 0, std::complex<double>(0, 0), false, false)});
         new_nodes.push_back(constantNode);
 
-        std::shared_ptr<Sum> minusNode = NodeFactory::createNode<Sum>(parent);
+        std::shared_ptr<Sum> minusNode = NodeFactory::createNode<Sum>(expandedNode);
         minusNode->setName("Sub");
         minusNode->setInputSign(std::vector<bool>{true, false});
         new_nodes.push_back(minusNode);
@@ -170,7 +173,7 @@ bool SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nod
         throw std::runtime_error("Unknown Index Type While Expanding - SimulinkMultiPortSwitch");
     }
 
-    return true;
+    return expandedNode;
 }
 
 std::set<GraphMLParameter> SimulinkMultiPortSwitch::graphMLParameters() {
@@ -236,6 +239,25 @@ void SimulinkMultiPortSwitch::validate() {
         std::cerr << "Warning: SimulinkMultiPortSwitch Select Port is Driven by Floating Point" << std::endl;
     }
 
+    //Check that all input ports and the output port have the same type
+    DataType outType = getOutputPort(0)->getDataType();
+    unsigned long numInputPorts = inputPorts.size();
 
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+
+        if(inType != outType){
+            throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - DataType of Input Port Does not Match Output Port");
+        }
+    }
+}
+
+SimulinkMultiPortSwitch::SimulinkMultiPortSwitch(std::shared_ptr<SubSystem> parent,
+                                                 SimulinkMultiPortSwitch* orig): MediumLevelNode(parent, orig), indexType(orig->indexType) {
+
+}
+
+std::shared_ptr<Node> SimulinkMultiPortSwitch::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<SimulinkMultiPortSwitch>(parent, this);
 }
 

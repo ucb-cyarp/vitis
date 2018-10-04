@@ -6,6 +6,7 @@
 #define VITIS_INPUTPORT_H
 
 #include "Port.h"
+#include "OutputPort.h"
 
 /**
 * \addtogroup GraphCore Graph Core
@@ -55,6 +56,19 @@ public:
      * @return an aliased shared pointer to the port
      */
     std::shared_ptr<InputPort> getSharedPointerInputPort(); //NOTE: should never return a bare pointer or an unaliased shared pointer to a port
+
+    /**
+     * @brief Get the output port connected to this input port
+     * @return A shared pointer to the output port
+     */
+    std::shared_ptr<OutputPort> getSrcOutputPort();
+
+    /**
+     * @brief Checks if this input port experiences internal fanout
+     * @param imag if true, check if the imagionary component has internal fanout, if false, check if the real component has internal fanout
+     * @return true if the input is internally fanned out, false otherwise
+     */
+    virtual bool hasInternalFanout(bool imag = false);
 };
 
 /*@}*/

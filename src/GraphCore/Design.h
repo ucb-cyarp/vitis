@@ -8,8 +8,11 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <map>
 
 #include "GraphMLParameter.h"
+#include "General/GeneralHelper.h"
+#include "Variable.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -61,6 +64,28 @@ public:
     void addNode(std::shared_ptr<Node> node);
     void addTopLevelNode(std::shared_ptr<Node> node);
     void addArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Represents the types of schedulers supported
+     */
+    enum class SchedType{
+        BOTTOM_UP, ///<The original bottom up emit.  Emits from outputs backwards
+        TOPOLOGICAL ///<A generic topological sort based scheduler
+    };
+
+    /**
+     * @brief Parse a scheduler type
+     * @param str the string to parse
+     * @return The equivalent SchedType
+     */
+    static SchedType parseSchedTypeStr(std::string str);
+
+    /**
+     * @brief Get a string representation of the SchedType
+     * @param schedType the SchedType to get a string of
+     * @return string representation of the SchedType
+     */
+    static std::string schedTypeToString(SchedType schedType);
 
     /**
      * @brief Re-number node IDs
@@ -154,6 +179,68 @@ public:
     void setArcs(const std::vector<std::shared_ptr<Arc>> arcs);
 
     /**
+     * @brief Copy a design
+     * Copies the nodes and arcs of this design and provides maps linking the original nodes/arcs and the copies.
+     *
+     * @param origToCopyNode A map of original nodes to the copies, which is populated during the copy
+     * @param copyToOrigNode A map of node copies to the originals, which is populated during the copy
+     * @param origToCopyArc A map of original arcs to the copies, which is populated during the copy
+     * @param copyToOrigArc A map of arc copies to the originals, nodes which is populated during the copy
+     * @return A copy of the design
+     */
+    Design copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc);
+
+    /**
+     * @brief Removes a node from the design
+     *
+     * Removes all arcs connected the node from the design as well
+     *
+     * @note This function is also capable of removing master nodes from the design.  If this occurs, the pointer to that node in the design is set to nullptr
+     *
+     * @param node node to remove from design
+     */
+    void removeNode(std::shared_ptr<Node> node);
+
+    /**
+     * @brief Prunes the design
+     *
+     * Removes unused nodes from the graph.
+     *
+     * Tracks nodes with 0 out degree (when connections to the Unconnected and Terminated masters are not counted)
+     *
+     * The unused and terminated masters are not removed during pruning.  However, nodes connected to them may be removed.
+     *
+     * Ports that are left unused are connected to the Unconnected master node
+     *
+     * @param includeTerminatorsAndVis If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
+     *
+     * @return number of nodes removed from the graph
+     */
+    unsigned long prune(bool includeVisMaster = true);
+
+    /**
+     * @brief Schedule the nodes using topological sort.
+     * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
+     * @return the number of nodes pruned (if prune is true)
+     */
+    unsigned long scheduleTopologicalStort(bool prune);
+
+    /**
+     * @brief Topological sort the current graph.
+     *
+     * @warning This destroys the graph by removing arcs from the nodes.
+     * It is reccomended to run on a copy of the graph and to back propagate the results
+     *
+     * @return A vector of nodes arranged in topological order
+     */
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive();
+
+    /**
+     * @brief Verify that the graph has topological ordering
+     */
+    void verifyTopologicalOrder();
+
+    /**
      * @brief Get a node by its name path
      *
      * The name path would have the form {"subsys", "nested subsys", "nodeName"}
@@ -167,6 +254,131 @@ public:
      */
     std::shared_ptr<Node> getNodeByNamePath(std::vector<std::string> namePath);
 
+    /**
+     * @brief Get the input variables for this design
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return a vector of input variables ordered by the input port number
+     */
+    std::vector<Variable> getCInputVariables();
+
+    /**
+     * @brief Get the argument portion of the C function prototype for this design.
+     *
+     * For example, if there are 3 inputs to the system:
+     *   - double realIn
+     *   - double imagIn
+     *   - bool pass
+     *
+     * The input names take the form: portName_portNum
+     *
+     * The function prototype would be designName(double In_0_re, double In_0_re, bool pass_1, OutputType *output, unsigned long *outputCount)
+     *
+     * This function returns "double In_0_re, double In_0_re, bool pass_1, OutputType *output, unsigned long *outputCount"
+     *
+     * Complex types are split into 2 arguments, each is prepended with _re or _im for real and imagionary component respectivly.
+     *
+     * The DataType is converted to the smallest standard CPU type that can contain the type
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return argument portion of the C function prototype for this design
+     */
+    std::string getCFunctionArgPrototype();
+
+    /**
+     * @brief Get the structure definition for the Input ports
+     *
+     * The struture definition takes the form of
+     *
+     * typedef struct Input{
+     *     type1 var1;
+     *     type2 var2;
+     *     ...
+     * }
+     *
+     * This is used by the driver generator if arrays need to be defined and the .
+     *
+     * @return
+     */
+    std::string getCInputPortStructDefn();
+
+    /**
+     * @brief Get the structure definition for the output type
+     *
+     * The struture definition takes the form of
+     *
+     * typedef struct OutputType{
+     *     type1 var1;
+     *     type2 var2;
+     *     ...
+     * }
+     *
+     * @return
+     */
+    std::string getCOutputStructDefn();
+
+    /**
+     * @brief Emits operators using the bottom up emitter
+     * @param cFile the cFile to emit to
+     */
+    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState);
+
+    /**
+     * @brief Emits operators using the schedule emitter
+     * @param cFile the cFile to emit to
+     */
+    void emitSingleThreadedOpsSched(std::ofstream &cFile);
+
+    /**
+     * @brief Emits the design as a single threaded C function (using the bottom-up method)
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @note To avoid dead code being emitted, prune the design before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     * @param explicitSched if true, uses the Node schedOrder parameter to control the sequence of emitted operations.  If false, uses thr bottom up synthesis approach
+     */
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool explicitSched);
+
+    /**
+     * @brief Emits the benchmarking drivers for the design
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName base name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Emits the benchmarking drivers (constant arguments) for the design
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName base name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Emits the benchmarking drivers (memory arguments) for the design
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName base name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     */
+    void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName);
 };
 
 /*@}*/

@@ -34,6 +34,8 @@ add_compile_options("-DDEBUG")
 set(COMMON_SRCS
         src/General/GeneralHelper.cpp
         src/General/GeneralHelper.h
+        src/General/FixedPointHelpers.cpp
+        src/General/FixedPointHelpers.h
         src/GraphCore/Node.cpp
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
@@ -69,6 +71,10 @@ set(COMMON_SRCS
         src/GraphCore/ExpandedNode.cpp
         src/GraphCore/ExpandedNode.h
         src/GraphCore/NodeFactory.h
+        src/GraphCore/Variable.cpp
+        src/GraphCore/Variable.h
+        src/GraphCore/CExpr.cpp
+        src/GraphCore/CExpr.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
@@ -106,6 +112,16 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Compare.h
         src/PrimitiveNodes/LUT.cpp
         src/PrimitiveNodes/LUT.h
+        src/PrimitiveNodes/ComplexToRealImag.cpp
+        src/PrimitiveNodes/ComplexToRealImag.h
+        src/PrimitiveNodes/RealImagToComplex.cpp
+        src/PrimitiveNodes/RealImagToComplex.h
+        src/PrimitiveNodes/DataTypeDuplicate.cpp
+        src/PrimitiveNodes/DataTypeDuplicate.h
+        src/PrimitiveNodes/LogicalOperator.cpp
+        src/PrimitiveNodes/LogicalOperator.h
+        src/PrimitiveNodes/UnsupportedSink.cpp
+        src/PrimitiveNodes/UnsupportedSink.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
@@ -116,6 +132,12 @@ set(COMMON_SRCS
         src/MediumLevelNodes/ThresholdSwitch.h
         src/MediumLevelNodes/SimulinkMultiPortSwitch.cpp
         src/MediumLevelNodes/SimulinkMultiPortSwitch.h
+        src/MediumLevelNodes/Saturate.cpp
+        src/MediumLevelNodes/Saturate.h
+        src/HighLevelNodes/HighLevelNode.cpp
+        src/HighLevelNodes/HighLevelNode.h
+        src/HighLevelNodes/DiscreteFIR.cpp
+        src/HighLevelNodes/DiscreteFIR.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
@@ -149,7 +171,19 @@ target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES})
 add_executable(designExpander src/Tools/designExpander.cpp)
 target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 
+add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
+target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+
 #==== Google Test ====
 set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file
 enable_testing()
 add_subdirectory(test)
+
+#==== Coverage ====
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    # using Clang
+    add_custom_target(coverage ${CMAKE_SOURCE_DIR}/scripts/bash/clangCoverage.sh)
+elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+    # using GCC
+    add_custom_target(coverage ${CMAKE_SOURCE_DIR}/scripts/bash/gccCoverage.sh)
+endif()

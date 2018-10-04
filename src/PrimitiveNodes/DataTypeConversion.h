@@ -51,6 +51,20 @@ private:
      */
     explicit DataTypeConversion(std::shared_ptr<SubSystem> parent);
 
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    DataTypeConversion(std::shared_ptr<SubSystem> parent, DataTypeConversion* orig);
+
 public:
     static InheritType parseInheritType(std::string str);
     static std::string inheritTypeToString(InheritType type);
@@ -95,6 +109,15 @@ public:
      * @brief Checks that the specified datatype and the output arc datatype match if @ref inheritType is @ref InheritType::SPECIFIED.
      */
     void validate() override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    /**
+     * @brief Emits type conversion logic.
+     *
+     * If no type conversion is required (input and target types are the same), no type conversion logic is returned.
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
 
 };
 

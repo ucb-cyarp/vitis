@@ -11,6 +11,7 @@
 class NodeFactory;
 
 class SubSystem;
+class ExpandedNode;
 class GraphMLParameter;
 
 #include <vector>
@@ -24,6 +25,8 @@ class GraphMLParameter;
 #include "OutputPort.h"
 #include "Arc.h"
 #include "GraphMLParameter.h"
+#include "Variable.h"
+#include "CExpr.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -71,9 +74,11 @@ protected:
     //nodes, they alias to the port.
     std::vector<std::unique_ptr<InputPort>> inputPorts; ///<The input ports of this node
     std::vector<std::unique_ptr<OutputPort>> outputPorts; ///<The output ports of this node
+
+    int tmpCount; ///<Used to track how many temporary variables have been created for this node
+
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
-    std::vector<bool> cOutEmitted; ///<A vector of bools indicating if a particular output has been emitted in C++
-    std::vector<std::string> cOutVarName; ///<A vector of strings which hold the variable names in C++ if the output was stored in a C++ var
+    int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -96,6 +101,20 @@ protected:
      * @param parent parent node
      */
     explicit Node(std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    Node(std::shared_ptr<SubSystem> parent, Node* orig);
 
     /**
      * @brief Initializes parts of the given object that rely on a shared_ptr to the object itself
@@ -147,6 +166,80 @@ public:
     void removeOutArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    std::set<std::shared_ptr<Arc>> disconnectNode();
+
+    /**
+     * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all input arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectInputs();
+
+    /**
+     * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all output arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    std::set<std::shared_ptr<Arc>> disconnectOutputs();
+
+    /**
+     * @brief Get the set of nodes connected to this node via arcs
+     * @return set of nodes connected to this node via arcs
+     */
+    std::set<std::shared_ptr<Node>> getConnectedNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the inputs of this node via arcs
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedInputNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs
+     * @return set of nodes connected to this node via outgoing arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedOutputNodes();
+
+    /**
+     * @brief Get the in-degree of this node (number of connected input arcs)
+     * @return in-degree of this node (number of connected input arcs)
+     */
+    virtual unsigned long inDegree();
+
+    /**
+     * @brief Get the out-degree of this node (number of connected output arcs)
+     * @return out-degree of this node (number of connected output arcs)
+     */
+    unsigned long outDegree();
+
+    /**
+     * @brief Connects input and output ports with no arcs to the given node
+     * @param connectToSrc the node to which unconnected input ports should be connected to
+     * @param connectToSink the node to which unconnected output ports should be connected to
+     * @param srcPortNum the port number of the connectToSrc to connect to
+     * @param sinkPortNum the port number of the connectToSink to connect to
+     * @return a vector of new arcs
+     */
+    virtual std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum);
+
+    /**
+     * @brief Get the out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
+     * @param ignoreSet a set of pointers to nodes.  Arcs to these nodes are not included in the out degree
+     * @return out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
+     */
+    unsigned long outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Node>> ignoreSet);
+
+    /**
      * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists a null pointer is returned.
      *
      * The pointer is aliased with this node as the stored pointer.
@@ -165,6 +258,26 @@ public:
      * @return aliased shared pointer to output port or nullptr
      */
     std::shared_ptr<OutputPort> getOutputPort(int portNum);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the input port number
+     * @return aliased shared pointer to input port
+     */
+    std::shared_ptr<InputPort> getInputPortCreateIfNot(int portNum);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @param portNum the output port number
+     * @return aliased shared pointer to output port
+     */
+    std::shared_ptr<OutputPort> getOutputPortCreateIfNot(int portNum);
 
     /**
      * @brief Get a vector of pointers to the current input ports of the node
@@ -202,9 +315,12 @@ public:
      * @brief Get the fully qualified human readable name of the node
      *
      * A typical fully qualified name would be "subsysName/nodeName"
+     *
+     * @param sanitize If true, replaces newlines with spaces in returned string.  Otherwise, will not replace newlines in returned string.
+     *
      * @return Fully qualified human readable name of the node as a std::string
      */
-    std::string getFullyQualifiedName();
+    std::string getFullyQualifiedName(bool sanitize = true);
 
     /**
      * @brief Get the node ID from a full GraphML ID path
@@ -273,20 +389,162 @@ public:
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
-     * @return true if expansion occurred, false if it did not
+     * @return pointer to expanded node if expansion occurred, nullptr if it did not
      */
-    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
-    /*
-     * @brief Emit C++ code to calculate the value of an output port.
+    /**
+     * @brief Identifies if the given input port experiences internal fanout in the node.
+     *
+     * Internal fanout occurs if an input is used more than once (either within the calculation of a single output or
+     * or within the calculation of multiple outputs).
+     *
+     * @note Use the port's hasInternalFunction function as it will call the correct hasInternalFanout function in the node.
+     * For example, select lines for muxes are inputs but are treated seperately and have their own internalFanout function.
+     * This function is called by the hadInternalFanout function of the port for standard input ports.
+     *
+     * @param inputPort the input port being checked for internal fanout
+     * @param imag if false, checks the real component of the input. if true, checks the imag component of the input
+     * @return true if the port experiences internal fanout, false otherwise
+     */
+    virtual bool hasInternalFanout(int inputPort, bool imag = false);
+
+    /**
+     * @brief Emit C code to calculate the value of an output port.
      *
      * If the output is dependant on the result of other operations, those dependant operations will be emitted
-     * and included in the returned string before the code for the given operation.
+     * and enqueued on the cStatementQueue before the code for the given operation is returned.
      *
-     * @param outputPort the output port for which the C++ code should be generated for
-     * @return a string containing the C++ code for calculating the result of the output port
+     * This function can also check if the output port is fanned out (by checking the number of out
+     * ports or checking for internal fanout).  This check occurs by default but can be disabled.
+     *
+     * Fanout can also be forced which results in temporary variable creation
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param outputPortNum the output port for which the C++ code should be generated for
+     * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
+     * @param checkFanout if true, checks if the output is used in a fanout.  If false, no check is performed
+     * @param forceFanout if true, a temporary variable is always create, if false the value of checkFanout dictates whether or not a temporary variable is created
+     * @return a string containing the C code for calculating the result of the output port
      */
-//    virtual std::string emitCpp(int outputPort) = 0;
+    virtual std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false, bool checkFanout = true, bool forceFanout = false);
+
+protected:
+    /**
+     * @brief Emits a C expression to calculate the value of an output port
+     *
+     * @warning This function is separated from the @ref emitCExprNextState function in order to break emit cycles.  For any node with state,
+     * the values of the new state elements should be computed in the @ref emitCExprNextState.
+     *
+     * @note @ref emitC should be called from outside the class instead of this function.  @ref emitC automatically handles fanout while this function does not
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param outputPortNum the output port for which the C++ code should be generated for
+     * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
+     * @return a string containing the C expression for calculating the result of the output port
+     */
+    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
+
+public:
+
+    /**
+     * @brief Constructs a shallow copy of the given node.  Ports are not copied and neither is the parent reference.  The parent parameter is set and the cloned node is added as a child of the parent.
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @param parent the parent node of the node
+     * @return returns a shared pointer to the cloned node
+     */
+    virtual std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Constructs a shallow copy of the given node.  Ports are not copied and neither is the parent reference.  The parent parameter is set and the cloned node is added as a child of the parent.
+     * Copies are made recursivly to children of this node
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @param parent the parent node of the node
+     * @param nodeCopies A vector into which pointers to the node copies are added
+     * @param origToCopyNode A map of orig node pointers to copy pointers.  New node copies are entered into this map
+     * @param copyToOrigNode A map of copy node pointers to orig pointers.  New node copies are entered into this map
+     */
+    virtual void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
+
+    /**
+     * @brief Clones input arcs for the given node
+     *
+     * The cloned arcs will connect the cloned versions of the nodes rather than redundantly connecting the origional nodes.
+     *
+     * @warning Nodes must already be cloned before this function is called.  It is assumed there is an entry in the origToCopyNode map.
+     *
+     * @note This function should be called on the origional node rather than a clone
+     *
+     * @param arcCopies A vector into which the cloned input arcs will be inserted into
+     * @param origToCopyNode A map of origional node pointers to cloned node pointers
+     * @param origToCopyArc A map of orig arc pointers to the cloned arc
+     * @param copyToOrigArc A map of cloned arc pointers to orig arcs
+     */
+    virtual void cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc);
+
+    /**
+     * @brief Identifies if the node contains state elements
+     *
+     * @return true if the node contains state elements, false if it does not contain state elements
+     */
+    virtual bool hasState();
+
+    /**
+     * @brief Identifies if the node requires a global declaration.
+     *
+     * Examples of requiring global declarations include declaring constant values or constant arrays
+     *
+     * This function is called by the emitter to determine if global declarations are required
+     *
+     * @return true if the node requires an global declaration, false if it does not
+     */
+    virtual bool hasGlobalDecl();
+
+    /**
+     * @brief Get a list of state variables used by this node which must be declared by the emitter as thread local
+     *
+     * If the node has multiple output ports, this function checks which ports are connected to the Unconnected Master
+     * node and does not return state variables that are solely used by those outputs.
+     *
+     * @note Graph pruning should take place before this function is called to avoid emitting thread local variables for
+     * pruned nodes.
+     *
+     * @return a list of state variables used by this node
+     */
+    virtual std::vector<Variable> getCStateVars();
+
+    /**
+     * @brief Get the global declaration(s) required by the node
+     *
+     * Use @ref hasGlobalDecl to determine if a node requires global declaration(s)
+     *
+     * @return The global declaration(s) required by the node as a string
+     */
+    virtual std::string getGlobalDecl();
+
+    /**
+     * @brief Emits a C expressions to calculate the next value of the internal state elements.  These values will be used in @ref emitCStateUpdate
+     *
+     * @warning This function is separated from the @ref emitCExpr function in order to break emit cycles
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     */
+    virtual void emitCExprNextState(std::vector<std::string> &cStatementQueue);
+
+    /**
+     * @brief Emits the C code to update the state varibles of this node.
+     *
+     * This code should be called at the end of the emit for the given function.
+     *
+     * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
+     */
+    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue);
 
     /**
      * @brief Get a human readable description of the node
@@ -321,8 +579,6 @@ public:
     /**
      * @brief Sets the parent of the node without updating the child set of the parent to include this node.
      *
-     * Consider using @ref updateParent which updates the parents (old and new) along with changing the parent of this node.
-     *
      * @param parent the new parent of this node
      */
     void setParent(std::shared_ptr<SubSystem> parent);
@@ -335,15 +591,21 @@ public:
 
     void setName(const std::string &name);
 
-    //++++ Getters/Setters With Added Functionality ++++
+    int getPartitionNum() const;
+
+    void setPartitionNum(int partitionNum);
+
+    int getSchedOrder() const;
+
+    void setSchedOrder(int schedOrder);
+
     /**
-     * @brief Sets the parent of the node.
-     *
-     * Before setting, removes from the children list of the old parent (if not NULL).
-     * Adds to the children list of the new parent (if not NULL).
-     * @param parent new parent
+     * @brief Returns true if a->schedOrder < b->schedOrder
+     * @param a
+     * @param b
+     * @return true if a->schedOrder < b->schedOrder
      */
-    void updateParent(std::shared_ptr<SubSystem> parent);
+    static bool lessThanSchedOrder(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
 
 };
 

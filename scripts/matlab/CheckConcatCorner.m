@@ -61,7 +61,7 @@ else
             new_vector_fans = [new_vector_fans, fan_in];
             
             %Add this arc to the fan-in object
-            fan_in.addArc(in_arc);
+            fan_in.addArc(in_arc, 1);
             
             %Dst entries will be filled in durring the bus cleanup
             %Src entries are correct (point to orig driver of concat port)

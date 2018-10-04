@@ -6,6 +6,9 @@
 #define VITIS_NODEFACTORY_H
 
 #include <memory>
+#include <MasterNodes/MasterOutput.h>
+#include <MasterNodes/MasterInput.h>
+
 
 #include "Node.h"
 #include "SubSystem.h"
@@ -13,6 +16,10 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
 #include "EnabledExpandedNode.h"
+#include "EnableInput.h"
+#include "EnableOutput.h"
+
+
 
 
 /**
@@ -55,6 +62,29 @@ public:
     }
 
     /**
+     * @brief Create a shallow clone of a given node.  The new node will have a parent set to given parent.  Add new node to the parent's children list (if parent is not null).
+     *
+     * @note If cloning the graph, the parent should be the clone of the parent
+     * @param parent Parent of the new node
+     * @param cloneFrom the node from which the shallow clone is being made
+     * @return pointer to the new node
+     */
+    template <typename T>
+    static std::shared_ptr<T> shallowCloneNode(std::shared_ptr<SubSystem> parent, T* cloneFrom)
+    {
+        std::shared_ptr<T> node = std::shared_ptr<T>(new T(parent, cloneFrom));
+
+        node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
+
+        if(parent != nullptr)
+        {
+            parent->addChild(node);
+        }
+
+        return node;
+    }
+
+    /**
      * @brief Create (expanded) node with parent set to given parent and orig node set to given orig.  Add new node to the parent's children list (if parent is not null).
      * @param parent Parent of the new node
      * @param orig Origional node of new
@@ -67,6 +97,7 @@ public:
 
         node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
         node->setOrigNode(orig);
+        node->setName(orig->getName() + "_expanded");
 
         if(parent != nullptr)
         {

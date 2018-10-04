@@ -38,6 +38,7 @@ public:
      * @brief Methods for dealing with inputs outside of breakpoint range
      */
     enum class ExtrapMethod{
+        NO_CHECK, ///< no extrapolation, does not check for out of bound array indexes.  May result in memory access exceptions or undefined behavior if an out of bound index is supplied
         CLIP, ///< no extrapolation, returns end of range
         LINEAR, ///< linear extrapolation between outer pair of breakpoints
         CUBIC_SPLINE ///< cubic spline extrapolation between outer pair of breakpoints
@@ -70,6 +71,8 @@ private:
     ExtrapMethod extrapMethod; ///<The method for dealing with inputs outside of breakpoint range
     SearchMethod searchMethod; ///<The method to search through the LUT
 
+    bool emittedIndexCalculation; ///<Used by the emitter to determine if the index calculation has already been emitted.  Used when the output is complex to avoid re-computing index.
+
     //TODO:implement N-D LUTs, currently only support 1D.  Need to modify Matlab script to output array as 1D row major
 
     //==== Constructors ====
@@ -88,6 +91,20 @@ private:
      * @param parent parent node
      */
     explicit LUT(std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    LUT(std::shared_ptr<SubSystem> parent, LUT* orig);
 
 public:
     //====Getters/Setters====
@@ -127,6 +144,29 @@ public:
     std::string labelStr() override ;
 
     void validate() override;
+
+    /**
+     * @brief Declares the LUT array as a global constant array
+     *
+     * Table name has the form \<nodeName\>_n\<NodeID\>_table_\<re/im\>;
+     *
+     * @return The C style declaration of the LUT table as a constant, global, array
+     */
+    std::string getGlobalDecl() override;
+
+    bool hasGlobalDecl() override;
+
+    /**
+     * @brief Emits the LUT lookup code.
+     *
+     * This code references the constant arrays declared as globals
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+
+    bool hasInternalFanout(int inputPort, bool imag) override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
 };
 
 /*@}*/

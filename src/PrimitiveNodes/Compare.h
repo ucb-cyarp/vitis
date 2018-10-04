@@ -55,6 +55,13 @@ public:
      */
     static std::string compareOpToString(CompareOp op);
 
+    /**
+     * @brief Get a C style string representation of the CompareOp
+     * @param op CompareOp to get a string representation of
+     * @return C style string representation of the CompareOp
+     */
+    static std::string compareOpToCString(CompareOp op);
+
 private:
     CompareOp compareOp;
 
@@ -74,6 +81,20 @@ private:
      * @param parent parent node
      */
     explicit Compare(std::shared_ptr<SubSystem> parent);
+
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    Compare(std::shared_ptr<SubSystem> parent, Compare* orig);
 
 public:
     CompareOp getCompareOp() const;
@@ -104,6 +125,13 @@ public:
     std::string labelStr() override ;
 
     void validate() override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    /**
+     * @brief Emits a C expression for the comparison
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
 
 };
 

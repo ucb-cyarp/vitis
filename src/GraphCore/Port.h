@@ -7,6 +7,8 @@
 
 #include <memory>
 #include <set>
+#include <string>
+#include "DataType.h"
 //#include "Node.h"
 //#include "Arc.h"
 
@@ -29,6 +31,7 @@ class Port {
 protected:
     Node* parent; ///< The node this port belongs to (not a shared ptr because the port is a component of the node - there would always be a shared ptr to a node and would therefore never be deleted)
     int portNum; ///< The number of this port
+    std::string name; ///< The human readable name of this port.  May not be defined in which case it is an empty string.
     //Issue with ordering weak pointers described in: https://stackoverflow.com/questions/23210092/is-it-safe-to-use-a-weak-ptr-in-a-stdset-or-key-of-stdmap
     //Note that the ownership comparision is OK in this case since shared_ptrs to Arc objects are not aliased
     std::set<std::weak_ptr<Arc>, std::owner_less<std::weak_ptr<Arc>>> arcs; ///< A vector containing pointers to arcs connected to this port
@@ -156,6 +159,17 @@ public:
      */
     virtual void validate() = 0;
 
+
+    /**
+     * @brief Returns the true DataType (not closest CPU DataType) of the port
+     *
+     * @warning Validation should occur before this function is called to confirm all arcs have the same type
+     * and that the port is connected
+     *
+     * @return
+     */
+    DataType getDataType();
+
     //==== Getters/Setters ====
 
     //Do not provide setter to parent as the port is contained within the parent.  Needs to be initialized at the constructor.
@@ -165,6 +179,9 @@ public:
 
     int getPortNum() const;
     void setPortNum(int portNum);
+
+    const std::string getName();
+    void setName(const std::string &name);
 
 };
 

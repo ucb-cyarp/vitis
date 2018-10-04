@@ -23,10 +23,17 @@
 #include "PrimitiveNodes/DataTypeConversion.h"
 #include "PrimitiveNodes/Compare.h"
 #include "PrimitiveNodes/LUT.h"
+#include "PrimitiveNodes/ComplexToRealImag.h"
+#include "PrimitiveNodes/RealImagToComplex.h"
+#include "PrimitiveNodes/DataTypeDuplicate.h"
+#include "PrimitiveNodes/LogicalOperator.h"
+#include "PrimitiveNodes/UnsupportedSink.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
 #include "MediumLevelNodes/SimulinkMultiPortSwitch.h"
+#include "MediumLevelNodes/Saturate.h"
+#include "HighLevelNodes/DiscreteFIR.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
 #include "BusNodes/VectorFanOut.h"
@@ -543,6 +550,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Output Master"){
             std::shared_ptr<Node> master = design.getOutputMaster();
             nodeMap[fullNodeID]=master;
@@ -550,6 +558,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Visualization Master"){
             std::shared_ptr<Node> master = design.getVisMaster();
             nodeMap[fullNodeID]=master;
@@ -557,6 +566,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Unconnected Master"){
             std::shared_ptr<Node> master = design.getUnconnectedMaster();
             nodeMap[fullNodeID]=master;
@@ -564,6 +574,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else if(instanceName == "Terminator Master"){
             std::shared_ptr<Node> master = design.getTerminatorMaster();
             nodeMap[fullNodeID]=master;
@@ -571,6 +582,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             if(hasName){
                 master->setName(name);
             }
+            importNodePortNames(master, dataKeyValueMap, dialect);
         } else {
             throw std::runtime_error("Unknown Master Type: " + instanceName);
         }
@@ -584,7 +596,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         }
         nodeMap[fullNodeID] = newNode;
     } else if(blockType == "Expanded"){
-        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent, dialect);
+        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, nullptr, dialect); //Set parent as nullptr so it is not added to the parent
         //Do not add the orig node to the node list
 
         std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(parent, origNode);
@@ -592,6 +604,14 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         if(hasName){
             expandedNode->setName(name);
         }
+
+        //Add node to design
+        design.addNode(expandedNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(expandedNode);
+        }
+        //Add to map
+        nodeMap[fullNodeID]=expandedNode;
 
         //Iterate through the children
         //Traverse the children in the subgraph
@@ -885,8 +905,22 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = ThresholdSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "SimulinkMultiPortSwitch" || blockFunction == "MultiPortSwitch"){ //Vitis name is SimulinkMultiPortSwitch, Simulink name is MultiPortSwitch
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DiscreteFIR" || blockFunction == "DiscreteFir"){ //Vitis name is DiscreteFIR, Simulink name is DiscreteFir
+        newNode = DiscreteFIR::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "ComplexToRealImag"){
+        newNode = ComplexToRealImag::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "RealImagToComplex"){
+        newNode = RealImagToComplex::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DataTypeDuplicate"){
+        newNode = DataTypeDuplicate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "LogicalOperator" || blockFunction == "Logic"){ //Vitis name is LogicalOperator, Simulink name is Logic
+        newNode = LogicalOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Saturate"){
+        newNode = Saturate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DataTypePropagation"){ //--This is an Unsupported Sink --
+        newNode = UnsupportedSink::createFromGraphML(id, name, blockFunction, dataKeyValueMap, parent);
     }else{
-        throw std::runtime_error("Unknown block type: " + blockFunction);
+        throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
     }
 
     return newNode;
@@ -947,6 +981,8 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
         //Handle case when dst port number may not be given if enabled.
         std::string dstPortType = dataKeyValueMap.at("arc_dst_port_type");
         bool standardDst = dstPortType == "Standard";
+        bool isEnableDst = dstPortType == "Enable";
+        bool isSelectDst = dstPortType == "Select";
         if(standardDst){
             dstPortNum = std::stoi(dataKeyValueMap.at("arc_dst_port"));
         }
@@ -996,9 +1032,14 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
 
         if(standardDst) {
             newArc = Arc::connectNodes(srcNode, srcPortNum, dstNode, dstPortNum, dataType);
-        }else {
+        }else if(isEnableDst) {
             std::shared_ptr<EnableNode> dstNodeEnabled = std::dynamic_pointer_cast<EnableNode>(dstNode);
             newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeEnabled, dataType);
+        }else if(isSelectDst){
+            std::shared_ptr<Mux> dstNodeSelect = std::dynamic_pointer_cast<Mux>(dstNode);
+            newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeSelect, dataType);
+        }else{
+            throw std::runtime_error("Unknown Port Type: " + dstPortType);
         }
 
         newArc->setId(id);
@@ -1008,4 +1049,55 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
     }
 
     return (int) numEdges; //We import all edges/arcs in the list
+}
+
+void
+GraphMLImporter::importNodePortNames(std::shared_ptr<Node> node, std::map<std::string, std::string> dataKeyValueMap,
+                                     GraphMLDialect dialect) {
+    unsigned long named_input_port_count = 0;
+    unsigned long named_output_port_count = 0;
+
+    auto named_input_port_count_str = dataKeyValueMap.find("named_input_ports");
+    if(named_input_port_count_str != dataKeyValueMap.end()){
+        if(!named_input_port_count_str->second.empty()) {
+            named_input_port_count = std::stoul(named_input_port_count_str->second);
+        }
+    }
+
+    auto named_output_port_count_str = dataKeyValueMap.find("named_output_ports");
+    if(named_output_port_count_str != dataKeyValueMap.end()){
+        if(!named_output_port_count_str->second.empty()) {
+            named_output_port_count = std::stoul(named_output_port_count_str->second);
+        }
+    }
+
+    for(int i = 0; i < named_input_port_count; i++){
+        std::string input_port_name_query_str;
+        if(dialect == GraphMLDialect::VITIS) {
+            input_port_name_query_str = "input_port_name_" + GeneralHelper::to_string(i);
+        } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            input_port_name_query_str = "input_port_name_" + GeneralHelper::to_string(i+1); //Need to correct for simulink numbering starting at 1
+        } else {
+            throw std::runtime_error("Unsupported Dialect when parsing XML");
+        }
+
+        std::string input_port_name = dataKeyValueMap.at(input_port_name_query_str);
+        std::shared_ptr<Port> inputPort = node->getInputPortCreateIfNot(i);
+        inputPort->setName(input_port_name);
+    }
+
+    for(int i = 0; i < named_output_port_count; i++){
+        std::string output_port_name_query_str;
+        if(dialect == GraphMLDialect::VITIS) {
+            output_port_name_query_str = "output_port_name_" + GeneralHelper::to_string(i);
+        } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            output_port_name_query_str = "output_port_name_" + GeneralHelper::to_string(i+1); //Need to correct for simulink numbering starting at 1
+        } else {
+            throw std::runtime_error("Unsupported Dialect when parsing XML");
+        }
+
+        std::string output_port_name = dataKeyValueMap.at(output_port_name_query_str);
+        std::shared_ptr<Port> outputPort = node->getOutputPortCreateIfNot(i);
+        outputPort->setName(output_port_name);
+    }
 }

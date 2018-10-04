@@ -126,7 +126,7 @@ public:
     /**
      * @brief Connects two nodes with a newly created Arc.  Dst port is the select port.
      *
-     * This function adds the new arc to the specified ports of the source node.  Adds the arc to the enable port of the destination.
+     * This function adds the new arc to the specified ports of the source node.  Adds the arc to the select port of the destination.
      *
      * @param src source node for Arc
      * @param srcPortNum source port number for Arc
@@ -222,6 +222,16 @@ public:
      * @param dstPort the new dstPort for the arc.
      */
     void setDstPort(const std::shared_ptr<InputPort> &dstPort);
+
+
+    /**
+     * @brief Performs a shallow copy of arc parameters from the given arc to this arc.
+     *
+     * The parameters copied do not include the port references
+     *
+     * @param orig the orig arc from which the parameters are copied
+     */
+    void shallowCopyPrameters(Arc* orig);
 
 
     DataType getDataType() const;

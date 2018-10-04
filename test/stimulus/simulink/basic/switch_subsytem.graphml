@@ -15,6 +15,12 @@
 	<key id="block_label" for="node" attr.name="block_label" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="named_input_ports" for="node" attr.name="named_input_ports" attr.type="int">
+		<default>0</default>
+	</key>
+	<key id="named_output_ports" for="node" attr.name="named_output_ports" attr.type="int">
+		<default>0</default>
+	</key>
 	<key id="arc_src_port" for="edge" attr.name="arc_src_port" attr.type="int">
 		<default>0</default>
 	</key>
@@ -153,6 +159,27 @@
 	<key id="const" for="node" attr.name="const" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="input_port_name_1" for="node" attr.name="input_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_2" for="node" attr.name="input_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_3" for="node" attr.name="input_port_name_3" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="input_port_name_4" for="node" attr.name="input_port_name_4" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_1" for="node" attr.name="output_port_name_1" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_2" for="node" attr.name="output_port_name_2" attr.type="string">
+		<default>""</default>
+	</key>
+	<key id="output_port_name_3" for="node" attr.name="output_port_name_3" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="relop" for="node" attr.name="relop" attr.type="string">
 		<default>""</default>
 	</key>
@@ -164,6 +191,11 @@
 			<data key="block_label">Input Master
 ID: n1
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">3</data>
+			<data key="output_port_name_1">In1</data>
+			<data key="output_port_name_2">In2</data>
+			<data key="output_port_name_3">In3</data>
 		</node>
 		<node id="n2">
 			<data key="instance_name">Output Master</data>
@@ -172,6 +204,12 @@ Type: Master</data>
 			<data key="block_label">Output Master
 ID: n2
 Type: Master</data>
+			<data key="named_input_ports">4</data>
+			<data key="named_output_ports">0</data>
+			<data key="input_port_name_1">Out1</data>
+			<data key="input_port_name_2">Out2</data>
+			<data key="input_port_name_3">Out3</data>
+			<data key="input_port_name_4">Out4</data>
 		</node>
 		<node id="n3">
 			<data key="instance_name">Visualization Master</data>
@@ -180,6 +218,8 @@ Type: Master</data>
 			<data key="block_label">Visualization Master
 ID: n3
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n4">
 			<data key="instance_name">Unconnected Master</data>
@@ -188,6 +228,8 @@ Type: Master</data>
 			<data key="block_label">Unconnected Master
 ID: n4
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n5">
 			<data key="instance_name">Terminator Master</data>
@@ -196,6 +238,8 @@ Type: Master</data>
 			<data key="block_label">Terminator Master
 ID: n5
 Type: Master</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Relational
@@ -206,6 +250,8 @@ Operator</data>
 Operator
 ID: n6
 Function: RelationalOperator</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="InputSameDT">off</data>
 			<data key="Operator">&lt;=</data>
 			<data key="OutDataTypeStr">boolean</data>
@@ -224,6 +270,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AllowDiffInputSizes">off</data>
 			<data key="Criteria">u2 &gt; Threshold</data>
 			<data key="InputSameDT">off</data>
@@ -250,6 +298,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AllowDiffInputSizes">off</data>
 			<data key="Criteria">u2 &gt; Threshold</data>
 			<data key="InputSameDT">off</data>
@@ -274,6 +324,8 @@ Switch</data>
 Switch
 ID: n9
 Function: MultiPortSwitch</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AllowDiffInputSizes">off</data>
 			<data key="DataPortForDefault">Last data port</data>
 			<data key="DataPortIndices">{1,2,3}</data>
@@ -300,6 +352,8 @@ Criteria: u2 > Threshold
 ZeroCross: on
 SampleTime: -1
 Threshold: 0</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="AllowDiffInputSizes">off</data>
 			<data key="Criteria">u2 &gt; Threshold</data>
 			<data key="InputSameDT">off</data>
@@ -324,6 +378,8 @@ To Constant</data>
 To Constant
 ID: n11
 Function: SubSystem</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="OutDataTypeStr">boolean</data>
 			<data key="ZeroCross">on</data>
 			<data key="const">3.0</data>
@@ -346,6 +402,8 @@ To Constant</data>
 					<data key="block_label">Compare
 ID: n11::n12
 Function: RelationalOperator</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="InputSameDT">on</data>
 					<data key="Operator">&lt;=</data>
 					<data key="OutDataTypeStr">boolean</data>
@@ -362,6 +420,8 @@ ID: n11::n13
 Function: Constant
 SampleTime: Inf
 Value: 3</data>
+					<data key="named_input_ports">0</data>
+					<data key="named_output_ports">0</data>
 					<data key="FramePeriod">inf</data>
 					<data key="LockScale">off</data>
 					<data key="OutDataTypeStr">Inherit: Inherit via back propagation</data>
@@ -384,6 +444,8 @@ ID: n14
 Function: Constant
 SampleTime: Inf
 Value: 3</data>
+			<data key="named_input_ports">0</data>
+			<data key="named_output_ports">0</data>
 			<data key="FramePeriod">inf</data>
 			<data key="LockScale">off</data>
 			<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>

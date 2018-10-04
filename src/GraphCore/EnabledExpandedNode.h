@@ -44,14 +44,34 @@ protected:
      *
      * @param parent of new node
      * @param orig original node
+     * @param nop needed an extra argument to seperate this from the clone constructor
      */
-    EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig);
+    EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig, void* nop);
+
+    /**
+     * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
+     *
+     * @note If copying a graph, the parent should be one of the copies and not from the original graph.
+     *
+     * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
+     *
+     * @param parent parent node
+     * @param orig The origional node from which a shallow copy is being made
+     */
+    EnabledExpandedNode(std::shared_ptr<SubSystem> parent, EnabledExpandedNode* orig);
 
     //Init should be overwritten by EnabledSubSystem
 
     std::string labelStr() override ;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
+
 };
 
 /*@}*/

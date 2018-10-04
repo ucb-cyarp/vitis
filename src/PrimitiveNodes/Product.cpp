@@ -118,4 +118,126 @@ void Product::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error("Validation Failed - Product - Should Have Exactly 1 Output Port");
     }
+
+    //Check that if any input is complex, the result is complex
+    unsigned long numInputPorts = inputPorts.size();
+    bool foundComplex = false;
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType inType = getInputPort(i)->getDataType();
+        if(inType.isComplex()){
+            foundComplex = true;
+            break;
+        }
+
+    }
+
+    if(foundComplex) {
+        DataType outType = getOutputPort(0)->getDataType();
+        if(!outType.isComplex()){
+            throw std::runtime_error("Validation Failed - Product - An Input Port is Complex but Output is Real");
+        }
+    }
+
+    if(inputOp.size() != inputPorts.size()){
+        throw std::runtime_error("Validation Failed - Product - The number of operators (" + GeneralHelper::to_string(inputOp.size()) + ") does not match the number of inputs (" + GeneralHelper::to_string(inputPorts.size()) + ")");
+    }
+}
+
+CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+    //TODO: Implement Vector Support
+    if(getOutputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Product Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //TODO: Implement Complex Support
+    if(getOutputPort(0)->getDataType().isComplex() || getInputPort(1)->getDataType().isComplex()){
+        throw std::runtime_error("C Emit Error - Product Support for Complex has Not Yet Been Implemented");
+    }
+
+    //Get the expressions for each input
+    std::vector<std::string> inputExprs;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+    }
+
+    //Check if any of the inputs are floating point & if so, find the largest
+    //Also check for any fixed point types.  Find the integer final width
+    bool foundFloat = false;
+    DataType largestFloat;
+    bool foundFixedPt = false;
+    unsigned long intFinalWidth = 0;
+
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType portDataType = getInputPort(i)->getDataType();
+        if(portDataType.isFloatingPt()){
+            if(foundFloat == false){
+                foundFloat = true;
+                largestFloat = portDataType;
+            }else{
+                if(largestFloat.getTotalBits() < portDataType.getTotalBits()){
+                    largestFloat = portDataType;
+                }
+            }
+        }else if(portDataType.getFractionalBits() != 0){
+            foundFixedPt = true;
+        }else{
+            //Integer
+            intFinalWidth += portDataType.getTotalBits(); //For multiply, bit growth is the sum of
+        }
+    }
+
+    if(!foundFixedPt){
+        DataType intermediateType;
+        if(foundFloat){
+            intermediateType = largestFloat; //Floating point types do not grow
+        }else{
+            //Integer
+            intermediateType = getInputPort(0)->getDataType(); //Get the base datatype of the 1st input to modify (we did not find a float or fixed pt so this is an int)
+            intermediateType.setTotalBits(intFinalWidth); //Since this is a promotion, masking will not occur in the datatype convert
+        };
+
+        //floating point numbers
+        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), intermediateType);
+
+        if(!inputOp[0]){
+            expr = "(( (" + intermediateType.toString(DataType::StringStyle::C, false) + " ) 1.0)/(" + expr + "))";
+        }else{
+            expr = "(" + expr + ")";
+        }
+
+        for(unsigned long i = 1; i<numInputPorts; i++) {
+            if (inputOp[i]) {
+                expr += "*";
+            } else {
+                expr += "/";
+            }
+            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), intermediateType) + ")";
+        }
+
+        expr = DataType::cConvertType(expr, intermediateType, getOutputPort(0)->getDataType());//Convert to output if nessisary
+
+        return CExpr(expr, false);
+    }
+    else{
+        //TODO: Finish
+        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Product");
+    }
+
+    return CExpr("", false);
+}
+
+Product::Product(std::shared_ptr<SubSystem> parent, Product* orig) : PrimitiveNode(parent, orig), inputOp(orig->inputOp){
+
+}
+
+std::shared_ptr<Node> Product::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<Product>(parent, this);
 }

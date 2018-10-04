@@ -4,6 +4,7 @@
 
 #include "ExpandedNode.h"
 #include "GraphMLTools/GraphMLHelper.h"
+#include "NodeFactory.h"
 
 ExpandedNode::ExpandedNode() {
     origNode = std::shared_ptr<ExpandedNode>(nullptr);
@@ -21,7 +22,7 @@ void ExpandedNode::setOrigNode(std::shared_ptr<Node> origNode) {
     ExpandedNode::origNode = origNode;
 }
 
-ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig) : SubSystem(parent), origNode(orig) {
+ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> orig, void* nop) : SubSystem(parent), origNode(orig) {
     //Set ID
     id = orig->getId();
     name = "Expanded(" + orig->getName() + ")";
@@ -58,6 +59,8 @@ ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, std::shared_ptr<No
 
 xercesc::DOMElement *
 ExpandedNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    //Copy ID number into origNode so that the emit is correct
+    origNode->setId(id);
 
     //Get the parameters from the orig node.  Have the original emit everything but its block type
     xercesc::DOMElement* thisNode = origNode->emitGraphML(doc, graphNode, false);
@@ -77,4 +80,42 @@ std::string ExpandedNode::labelStr() {
     label += "\nType: Expanded";
 
     return label;
+}
+
+ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, ExpandedNode* orig) : SubSystem(parent, orig) {
+    //Does not copy orig node, that is done in the clone method below
+}
+
+std::shared_ptr<Node> ExpandedNode::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<ExpandedNode>(parent, this);
+}
+
+void ExpandedNode::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
+                                            std::vector<std::shared_ptr<Node>> &nodeCopies,
+                                            std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                                            std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) {
+    //Copy this node
+    std::shared_ptr<ExpandedNode> clonedNode = std::dynamic_pointer_cast<ExpandedNode>(shallowClone(parent)); //This is a subsystem so we can cast to a subsystem pointer
+
+    //Put into vectors and maps
+    nodeCopies.push_back(clonedNode);
+    origToCopyNode[shared_from_this()] = clonedNode;
+    copyToOrigNode[clonedNode] = shared_from_this();
+
+    //Copy the un-expanded node
+    std::shared_ptr<Node> unexpandNode = origNode->shallowClone(nullptr); //This is a subsystem so we can cast to a subsystem pointer
+
+    //Put into vectors and maps
+//    nodeCopies.push_back(unexpandNode); //When expanding the orig node is removed from the node array
+    origToCopyNode[origNode] = unexpandNode;
+    copyToOrigNode[unexpandNode] = origNode;
+
+    //Add as unexpandedNode of clonedNode
+    clonedNode->setOrigNode(unexpandNode);
+
+    //Clone the children of this expanded node (subsystem)
+    for(auto it = children.begin(); it != children.end(); it++){
+        //Recursive call to this function
+        (*it)->shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
+    }
 }

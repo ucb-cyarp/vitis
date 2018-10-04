@@ -318,7 +318,7 @@ classdef VectorFan < GraphNode
             else
                 %Found a different node type.  This should
                 %not happen.
-                error('Found an unexpected node type durring VectorFan traversal');
+                error(['Found an unexpected node type durring VectorFan traversal. Node: ', cursor.getFullSimulinkPath()]);
             end
         end
     end

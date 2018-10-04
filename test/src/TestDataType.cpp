@@ -207,3 +207,38 @@ TEST(DataType, toStringFixedPt) {
     DataType fixdt_ufix32_En11Type2 = DataType("fixdt(0, 32, 11)", false);
     ASSERT_EQ(fixdt_ufix32_En11Type2.toString(), "ufix32_En11");
 }
+
+TEST(DataType, toStringC) {
+    DataType singleType = DataType("single", false);
+    ASSERT_EQ(singleType.toString(DataType::StringStyle::C), "float");
+
+    DataType doubleType = DataType("double", false);
+    ASSERT_EQ(doubleType.toString(DataType::StringStyle::C), "double");
+
+    DataType int8Type = DataType("int8", false);
+    ASSERT_EQ(int8Type.toString(DataType::StringStyle::C), "int8_t");
+
+    DataType int16Type = DataType("int16", false);
+    ASSERT_EQ(int16Type.toString(DataType::StringStyle::C), "int16_t");
+
+    DataType int32Type = DataType("int32", false);
+    ASSERT_EQ(int32Type.toString(DataType::StringStyle::C), "int32_t");
+
+    DataType int64Type = DataType("int64", false);
+    ASSERT_EQ(int64Type.toString(DataType::StringStyle::C), "int64_t");
+
+    DataType uint8Type = DataType("uint8", false);
+    ASSERT_EQ(uint8Type.toString(DataType::StringStyle::C), "uint8_t");
+
+    DataType uint16Type = DataType("uint16", false);
+    ASSERT_EQ(uint16Type.toString(DataType::StringStyle::C), "uint16_t");
+
+    DataType uint32Type = DataType("uint32", false);
+    ASSERT_EQ(uint32Type.toString(DataType::StringStyle::C), "uint32_t");
+
+    DataType uint64Type = DataType("uint64", false);
+    ASSERT_EQ(uint64Type.toString(DataType::StringStyle::C), "uint64_t");
+
+    DataType boolType = DataType("boolean", false);
+    ASSERT_EQ(boolType.toString(DataType::StringStyle::C), "bool");
+}
