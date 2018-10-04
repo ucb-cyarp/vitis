@@ -74,7 +74,8 @@ int main(int argc, char* argv[]) {
         if(sched == Design::SchedType::BOTTOM_UP)
             design->emitSingleThreadedC(outputDir, designName, designName, false);
         else if(sched == Design::SchedType::TOPOLOGICAL){
-            design->schedualTopologicalStort(true);
+            design->scheduleTopologicalStort(true);
+            design->verifyTopologicalOrder();
             design->emitSingleThreadedC(outputDir, designName, designName, true);
         }else{
             throw std::runtime_error("Unknown SCHED Type");

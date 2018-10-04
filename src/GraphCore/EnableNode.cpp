@@ -104,8 +104,8 @@ std::set<std::shared_ptr<Arc>> EnableNode::disconnectInputs() {
     return disconnectedArcs;
 }
 
-std::set<std::shared_ptr<Node>> EnableNode::getConnectedNodes() {
-    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedNodes(); //Get the nodes connected to the standard input and output ports
+std::set<std::shared_ptr<Node>> EnableNode::getConnectedInputNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes = Node::getConnectedInputNodes(); //Get the nodes connected to the standard input ports
 
     //Get nodes connected to the enable port
     std::set<std::shared_ptr<Arc>> enableArcs = enablePort->getArcs();

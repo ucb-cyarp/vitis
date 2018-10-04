@@ -64,7 +64,7 @@ public:
     /**
      * @brief Create a shallow clone of a given node.  The new node will have a parent set to given parent.  Add new node to the parent's children list (if parent is not null).
      *
-     * @note If cloning the graph, the parent should be
+     * @note If cloning the graph, the parent should be the clone of the parent
      * @param parent Parent of the new node
      * @param cloneFrom the node from which the shallow clone is being made
      * @return pointer to the new node

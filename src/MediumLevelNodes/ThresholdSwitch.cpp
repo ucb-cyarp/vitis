@@ -80,7 +80,7 @@ ThresholdSwitch::createFromGraphML(int id, std::string name, std::map<std::strin
     return newNode;
 }
 
-bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+std::shared_ptr<ExpandedNode> ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
                              std::vector<std::shared_ptr<Arc>> &new_arcs,
                              std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
@@ -160,7 +160,7 @@ bool ThresholdSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
         new_arcs.push_back(compareOutputArc);
     }
 
-    return true;
+    return expandedNode;
 }
 
 std::set<GraphMLParameter> ThresholdSwitch::graphMLParameters() {

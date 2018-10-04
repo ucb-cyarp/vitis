@@ -11,6 +11,7 @@
 class NodeFactory;
 
 class SubSystem;
+class ExpandedNode;
 class GraphMLParameter;
 
 #include <vector>
@@ -77,7 +78,7 @@ protected:
     int tmpCount; ///<Used to track how many temporary variables have been created for this node
 
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
-    int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition
+    int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -195,7 +196,19 @@ public:
      * @brief Get the set of nodes connected to this node via arcs
      * @return set of nodes connected to this node via arcs
      */
-    virtual std::set<std::shared_ptr<Node>> getConnectedNodes();
+    std::set<std::shared_ptr<Node>> getConnectedNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the inputs of this node via arcs
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedInputNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs
+     * @return set of nodes connected to this node via outgoing arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedOutputNodes();
 
     /**
      * @brief Get the in-degree of this node (number of connected input arcs)
@@ -302,9 +315,12 @@ public:
      * @brief Get the fully qualified human readable name of the node
      *
      * A typical fully qualified name would be "subsysName/nodeName"
+     *
+     * @param sanitize If true, replaces newlines with spaces in returned string.  Otherwise, will not replace newlines in returned string.
+     *
      * @return Fully qualified human readable name of the node as a std::string
      */
-    std::string getFullyQualifiedName();
+    std::string getFullyQualifiedName(bool sanitize = true);
 
     /**
      * @brief Get the node ID from a full GraphML ID path
@@ -373,9 +389,12 @@ public:
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
-     * @return true if expansion occurred, false if it did not
+     * @return pointer to expanded node if expansion occurred, nullptr if it did not
      */
-    virtual bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Identifies if the given input port experiences internal fanout in the node.

@@ -83,7 +83,7 @@ std::string ExpandedNode::labelStr() {
 }
 
 ExpandedNode::ExpandedNode(std::shared_ptr<SubSystem> parent, ExpandedNode* orig) : SubSystem(parent, orig) {
-    //Does not copy orig node
+    //Does not copy orig node, that is done in the clone method below
 }
 
 std::shared_ptr<Node> ExpandedNode::shallowClone(std::shared_ptr<SubSystem> parent) {
@@ -106,10 +106,16 @@ void ExpandedNode::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
     std::shared_ptr<Node> unexpandNode = origNode->shallowClone(nullptr); //This is a subsystem so we can cast to a subsystem pointer
 
     //Put into vectors and maps
-    nodeCopies.push_back(unexpandNode);
+//    nodeCopies.push_back(unexpandNode); //When expanding the orig node is removed from the node array
     origToCopyNode[origNode] = unexpandNode;
     copyToOrigNode[unexpandNode] = origNode;
 
     //Add as unexpandedNode of clonedNode
     clonedNode->setOrigNode(unexpandNode);
+
+    //Clone the children of this expanded node (subsystem)
+    for(auto it = children.begin(); it != children.end(); it++){
+        //Recursive call to this function
+        (*it)->shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
+    }
 }

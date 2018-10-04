@@ -99,3 +99,15 @@ unsigned long GeneralHelper::twoPow(unsigned long exp){
     unsigned long tmp = 1;
     return tmp << exp;
 }
+
+std::string GeneralHelper::replaceAll(std::string src, char orig, char repl){
+    std::string replaced = src;
+
+    for(unsigned long i = 0; i < replaced.size(); i++){
+        if(replaced[i] == orig){
+            replaced.replace(i, 1, std::string(1,repl));
+        }
+    }
+
+    return replaced;
+}

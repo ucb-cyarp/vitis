@@ -105,7 +105,7 @@ public:
      * 1 selecting the second input.  To address this, and the convention that false is 0 and true is 1, the
      * order of the inputs are swapped in the expanded mux.
      */
-    bool expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
+    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
