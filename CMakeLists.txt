@@ -44,6 +44,8 @@ set(COMMON_SRCS
         src/GraphCore/InputPort.h
         src/GraphCore/OutputPort.cpp
         src/GraphCore/OutputPort.h
+        src/GraphCore/OrderConstraintInputPort.cpp
+        src/GraphCore/OrderConstraintInputPort.h
         src/GraphCore/EnablePort.cpp
         src/GraphCore/EnablePort.h
         src/GraphCore/SelectPort.cpp
