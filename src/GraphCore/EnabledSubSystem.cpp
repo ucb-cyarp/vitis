@@ -2,11 +2,14 @@
 // Created by Christopher Yarp on 6/26/18.
 //
 
-#include <General/GeneralHelper.h>
+#include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
 #include "EnabledSubSystem.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "NodeFactory.h"
+
+#include <map>
 
 EnabledSubSystem::EnabledSubSystem() {
 }
@@ -56,8 +59,8 @@ void EnabledSubSystem::validate() {
     }
 }
 
-std::shared_ptr<Port> EnabledSubSystem::getEnableSrc() {
-    std::shared_ptr<Port> srcPort = nullptr;
+std::shared_ptr<OutputPort> EnabledSubSystem::getEnableSrc() {
+    std::shared_ptr<OutputPort> srcPort = nullptr;
 
     if(enabledInputs.size()>0){
         std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[0]->getEnablePort()->getArcs();
@@ -193,4 +196,69 @@ void EnabledSubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> paren
             (*it)->shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
         }
     }
+}
+
+void EnabledSubSystem::extendContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                     std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    //==== Get the enable src before removing enabled inputs (in case all are removed) ====
+    std::shared_ptr<OutputPort> enabledSystemDriver = getEnableSrc();
+
+    //==== Get set of nodes to expand context to at inputs ====
+    std::set<std::shared_ptr<Node>> extendedContext;
+
+    //Iterate though all of the input node's input ports
+    std::map<std::shared_ptr<Arc>, bool> inputMarks;
+    for(unsigned long i = 0; i<enabledInputs.size(); i++){
+        //Enabled inputs should only have 1 standard input.  Should be caught durring validation if otherwise.
+        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceBackAndMark(enabledInputs[i]->getInputPort(0), inputMarks); //Reuse the same inputMarks map.  See docs for scopedTraceBackAndMark
+        extendedContext.insert(moreExtendedContextNodes.begin(), moreExtendedContextNodes.end());
+    }
+
+    std::vector<std::shared_ptr<EnableInput>> enableInputsToRemove;
+    //==== Remove input nodes connected to a node in the extended context, rewire ====
+    for(unsigned long i = 0; i<enabledInputs.size(); i++){
+        std::set<std::shared_ptr<Arc>> inputArcs = enabledInputs[i]->getInputPort(0)->getArcs(); //There should only be 1 input arc
+        if(inputArcs.size() != 1){
+            throw std::runtime_error("Enable Input Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1");
+        }
+        std::shared_ptr<Arc> inputArc = *inputArcs.begin();
+
+        std::shared_ptr<OutputPort> srcPort = inputArc->getSrcPort();
+
+        std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+        if(extendedContext.find(srcNode) != extendedContext.end()){
+            //The src node is in the extended context
+            //Rewire the outputs of the enabled input to the output port of the src node
+            std::shared_ptr<OutputPort> sourcePort = inputArc->getSrcPort();
+
+            std::set<std::shared_ptr<Arc>> outputArcs = enabledInputs[i]->getOutputPort(0)->getArcs();
+            for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                (*it)->setSrcPortUpdateNewUpdatePrev(srcPort);
+            }
+
+            //Remove this enable input port from the enabled subsystem.
+            enableInputsToRemove.push_back(enabledInputs[i]);
+        }
+    }
+
+    for(unsigned long i = 0; i<enableInputsToRemove.size(); i++){
+        removeEnableInput(enableInputsToRemove[i]);
+        removeChild(enableInputsToRemove[i]);
+        deleted_nodes.push_back(enableInputsToRemove[i]);
+    }
+
+    //==== Move nodes into enabled subsystem, replicating subsystem hierarchy ====
+    //Replicating subsystem hierarchy involves finding the parent of the enabled subsystem and tracing up from the node to be moved
+    //Replicate subsystems (or find if they do not already exist)
+    //Move node
+
+    //==== Create new input nodes for arcs between a node not in the extended context to a node in the extended context ====
+
+    //==== Get set of nodes to expand context to at outputs ====
+
+
 }

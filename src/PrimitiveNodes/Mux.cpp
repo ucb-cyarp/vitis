@@ -318,3 +318,13 @@ Mux::connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shar
 
     return newArcs;
 }
+
+std::vector<std::shared_ptr<InputPort>> Mux::getInputPortsIncludingSpecial() {
+    //Get standard input ports
+    std::vector<std::shared_ptr<InputPort>> portList = Node::getInputPortsIncludingSpecial();
+
+    //Add select port
+    portList.push_back(selectorPort->getSharedPointerSelectPort());
+
+    return portList;
+}

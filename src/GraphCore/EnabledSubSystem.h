@@ -81,7 +81,7 @@ public:
      *
      * @return the source port for the enable lines to the EnableNodes
      */
-    std::shared_ptr<Port> getEnableSrc();
+    std::shared_ptr<OutputPort> getEnableSrc();
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
@@ -89,6 +89,20 @@ public:
 
     void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
 
+    /**
+     * @brief Extends the context of the enabled subsystem by pulling combinational nodes from outside the enabled subsystem inside.
+     *
+     * The nodes pulled in are not depended upon outside of the enabled subsystem (on the input side) and do not depend on signals from outside of the enabled subsystem (on the output side)
+     *
+     * @param new_nodes A vector which will be filled with the new nodes created during expansion
+     * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
+     * @param new_arcs A vector which will be filled with the new arcs created during expansion
+     * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     */
+    void extendContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                       std::vector<std::shared_ptr<Arc>> &new_arcs,
+                       std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
 /*@}*/

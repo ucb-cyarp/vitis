@@ -174,6 +174,7 @@ public:
 
     std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum) override;
 
+    std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecial() override;
 };
 
 /*@}*/

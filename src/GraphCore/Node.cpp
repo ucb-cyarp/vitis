@@ -830,4 +830,16 @@ std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintPortCreateIfNo
     return orderConstraintPort->getSharedPointerOrderConstraintPort();
 }
 
+std::vector<std::shared_ptr<InputPort>> Node::getInputPortsIncludingSpecial() {
+    //By default, just return the standard input ports
+    return getInputPorts();
+}
 
+
+std::vector<std::shared_ptr<InputPort>> Node::getInputPortsIncludingSpecialAndOrderConstraint(){
+    std::vector<std::shared_ptr<InputPort>> inputPortList = getInputPortsIncludingSpecial();
+
+    inputPortList.push_back(orderConstraintPort->getSharedPointerOrderConstraintPort());
+
+    return inputPortList;
+}

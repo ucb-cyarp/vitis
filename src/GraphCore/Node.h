@@ -347,11 +347,10 @@ public:
     std::shared_ptr<InputPort> getInputPortCreateIfNot(int portNum);
 
     /**
-     * @brief Get an aliased shared pointer to the specified input port of this node.  If no such port exists, create one
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists, create one
      *
      * The pointer is aliased with this node as the stored pointer.
      *
-     * @param portNum the input port number
      * @return aliased shared pointer to input port
      */
     std::shared_ptr<OrderConstraintInputPort> getOrderConstraintPortCreateIfNot();
@@ -374,6 +373,30 @@ public:
      * @return vector of aliased pointers to the current input ports of the node
      */
     std::vector<std::shared_ptr<InputPort>> getInputPorts();
+
+    /**
+     * @brief Get a vector of pointers to the current input ports of the node (including special inputs such as enables and selects)
+     *
+     * @warning Does not include the OrderConstraintPort
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @note The position in the vector does not nessisarily match the port number of the port.
+     *
+     * @return vector of aliased pointers to the current input ports of the node (including special inputs)
+     */
+    virtual std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecial();
+
+    /**
+     * @brief Get a vector of pointers to the current input ports of the node (including special inputs such as enables and selects).  Also includes the OrderConstraint port
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @note The position in the vector does not nessisarily match the port number of the port.
+     *
+     * @return vector of aliased pointers to the current input ports of the node (including special inputs)
+     */
+    std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecialAndOrderConstraint();
 
     /**
      * @brief Get a vector of pointers to the current output ports of the node

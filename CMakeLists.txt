@@ -36,6 +36,8 @@ set(COMMON_SRCS
         src/General/GeneralHelper.h
         src/General/FixedPointHelpers.cpp
         src/General/FixedPointHelpers.h
+        src/General/GraphAlgs.cpp
+        src/General/GraphAlgs.h
         src/GraphCore/Node.cpp
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
