@@ -233,7 +233,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
     std::shared_ptr<OutputPort> enabledSystemDriver = getEnableSrc();
     std::shared_ptr<Arc> enabledSystemDriverArc = getEnableDriverArc();
     DataType enabledSystemDriverDataType = enabledSystemDriverArc->getDataType();
-    int enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
+    double enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
 
     //==== Get set of nodes to expand context to at inputs ====
     std::set<std::shared_ptr<Node>> extendedContext;
@@ -269,6 +269,23 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
             for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
                 (*it)->setSrcPortUpdateNewUpdatePrev(srcPort);
             }
+
+            //+++ Remove the Enable Input Node +++
+
+            //Remove the enable input arc
+            inputArc->setSrcPortUpdateNewUpdatePrev(nullptr);
+            inputArc->setDstPortUpdateNewUpdatePrev(nullptr);
+            deleted_arcs.push_back(inputArc);
+
+            //Remove the enable driver arc
+            std::set<std::shared_ptr<Arc>> enableDriverArcs = enabledInputs[i]->getEnablePort()->getArcs();
+            if(enableDriverArcs.size() != 1){
+                throw std::runtime_error("Enable Input Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1");
+            }
+            std::shared_ptr<Arc> enableDriverArc = *enableDriverArcs.begin();
+            enableDriverArc->setSrcPortUpdateNewUpdatePrev(nullptr);
+            enableDriverArc->setDstPort(nullptr);
+            deleted_arcs.push_back(enableDriverArc);
 
             //Remove this enable input port from the enabled subsystem.
             enableInputsToRemove.push_back(enabledInputs[i]);
@@ -312,6 +329,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
                     std::shared_ptr<EnableInput> enableInput = NodeFactory::createNode<EnableInput>(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()));
                     enableInput->setName("Expanded Context Enable Input");
                     addEnableInput(enableInput);
+                    new_nodes.push_back(enableInput);
 
                     //Create input port 0 and output port 0 of enable node;
                     std::shared_ptr<InputPort> enableInputInputPort = enableInput->getInputPortCreateIfNot(0);
@@ -341,7 +359,7 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
     std::shared_ptr<OutputPort> enabledSystemDriver = getEnableSrc();
     std::shared_ptr<Arc> enabledSystemDriverArc = getEnableDriverArc();
     DataType enabledSystemDriverDataType = enabledSystemDriverArc->getDataType();
-    int enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
+    double enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
 
     //==== Get set of nodes to expand context to at inputs ====
     std::set<std::shared_ptr<Node>> extendedContext;
@@ -354,7 +372,120 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
         extendedContext.insert(moreExtendedContextNodes.begin(), moreExtendedContextNodes.end());
     }
 
-    //TODO: Complete
+    //==== Remove output nodes connected to a node in the extended context, rewire ====
+    std::vector<std::shared_ptr<EnableOutput>> enableOutputsToRemove;
+    for(unsigned long i = 0; i<enabledOutputs.size(); i++){
+        std::set<std::shared_ptr<Arc>> outputArcs = enabledOutputs[i]->getOutputPort(0)->getArcs();
+
+        std::set<std::shared_ptr<Arc>> inputArcs = enabledOutputs[i]->getInputPort(0)->getArcs();
+        if(inputArcs.size() != 1){//Should only have 1 input arc
+            throw std::runtime_error("Enable Output Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1");
+        }
+        std::shared_ptr<Arc> enabledOutputInput = *inputArcs.begin();
+        std::shared_ptr<OutputPort> innerSrcPort = enabledOutputInput->getSrcPort();
+
+        //Check all of the output arcs.  If all are to nodes in the extended context, remove the output node
+        //Otherwise, keep the output node but rewire nodes in the extended context.
+        unsigned long numOutArcs = outputArcs.size();
+        unsigned long numRewired = 0;
+        for(auto outputArcIt = outputArcs.begin(); outputArcIt != outputArcs.end(); outputArcIt++){
+            std::shared_ptr<InputPort> dstNodePort = (*outputArcIt)->getDstPort();
+            std::shared_ptr<Node> dstNode = dstNodePort->getParent();
+
+            if(extendedContext.find(dstNode) != extendedContext.end()){
+                //The dst node is in the extended context, rewire
+                (*outputArcIt)->setSrcPortUpdateNewUpdatePrev(innerSrcPort);
+                numRewired++;
+            }
+        }
+
+        if(numRewired == numOutArcs){
+            //+++ Remove the Enable Output Node +++
+
+            //Remove the input to the enable output node
+            enabledOutputInput->setSrcPortUpdateNewUpdatePrev(nullptr);
+            enabledOutputInput->setDstPortUpdateNewUpdatePrev(nullptr);
+            deleted_arcs.push_back(enabledOutputInput);
+
+            //Remove the Enable Driver Arc
+            std::set<std::shared_ptr<Arc>> enableDriverArcs = enabledOutputs[i]->getEnablePort()->getArcs();
+            if(enableDriverArcs.size() != 1){
+                throw std::runtime_error("Enable Output Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1");
+            }
+            std::shared_ptr<Arc> enableDriverArc = *enableDriverArcs.begin();
+            enableDriverArc->setSrcPortUpdateNewUpdatePrev(nullptr);
+            enableDriverArc->setDstPort(nullptr);
+            deleted_arcs.push_back(enableDriverArc);
+
+            //Remove Node
+            enableOutputsToRemove.push_back(enabledOutputs[i]);
+        }
+    }
+
+    for(unsigned long i = 0; i<enableOutputsToRemove.size(); i++){
+        removeEnableOutput(enableOutputsToRemove[i]);
+        removeChild(enableOutputsToRemove[i]);
+        deleted_nodes.push_back(enableOutputsToRemove[i]);
+    }
+
+    //==== Move nodes into enabled subsystem, replicating subsystem hierarchy ====
+    for(auto it = extendedContext.begin(); it != extendedContext.end(); it++){
+        GraphAlgs::moveNodePreserveHierarchy(*it, std::dynamic_pointer_cast<SubSystem>(getSharedPointer()), new_nodes);
+    }
+
+    //==== Create new output nodes for arcs between a node in the extended context to a node not in the extended context ====
+    //Note: Nodes in previous (unexpanded context) context cannot have inputs from nodes in the extended context.  This is because
+    //any path from a node in the extended context must have passed through an enabled input.  Context discovery currently
+    //stops at enabled inputs and outputs.
+    //TODO: handle the corner case where there is a loop from an enabled output to an enabled input.  Currently, expansion is stopped
+
+    for(auto extendedNodeIt = extendedContext.begin(); extendedNodeIt != extendedContext.end(); extendedNodeIt++){
+        //Interate through out ports
+        std::vector<std::shared_ptr<OutputPort>> extendedNodeOutputPorts = (*extendedNodeIt)->getOutputPorts();
+
+        for(auto extendedNodeOutputPortIt = extendedNodeOutputPorts.begin(); extendedNodeOutputPortIt != extendedNodeOutputPorts.end(); extendedNodeOutputPortIt++){
+            //Iterate through all the out arcs.  For arcs that are to another extended context node, leave connected as is.
+            //For arcs to nodes not in the extended context, create the output node and rewire
+            //Note, we may have multiple output arcs to nodes not in the extended context, we need to add only 1 enable output node
+
+            std::set<std::shared_ptr<Arc>> extendedNodeOutputArcs = (*extendedNodeOutputPortIt)->getArcs();
+
+            std::shared_ptr<EnableOutput> enableOutputNode = nullptr;
+            std::shared_ptr<OutputPort> enableOutputOutPort = nullptr;
+
+            for(auto extendedNodeOutputArc = extendedNodeOutputArcs.begin(); extendedNodeOutputArc != extendedNodeOutputArcs.end(); extendedNodeOutputArc++){
+                std::shared_ptr<InputPort> dstPort = (*extendedNodeOutputArc)->getDstPort();
+                std::shared_ptr<Node> dstNode = dstPort->getParent();
+
+                if(extendedContext.find(dstNode) == extendedContext.end()){
+                    //The node is not in the extended context
+
+                    //Check if an enable output has already been created
+                    if(enableOutputNode == nullptr){
+                        enableOutputNode = NodeFactory::createNode<EnableOutput>(std::dynamic_pointer_cast<SubSystem>(getSharedPointer()));
+                        enableOutputOutPort = enableOutputNode->getOutputPortCreateIfNot(0);
+                        addEnableOutput(enableOutputNode);
+                        new_nodes.push_back(enableOutputNode);
+
+                        //Wire input
+                        DataType arcDataType = (*extendedNodeOutputArc)->getDataType();
+                        double arcSampleTime = (*extendedNodeOutputArc)->getSampleTime();
+                        std::shared_ptr<Arc> inputArc = Arc::connectNodes(*extendedNodeOutputPortIt, enableOutputNode->getInputPortCreateIfNot(0), arcDataType, arcSampleTime);
+                        new_arcs.push_back(inputArc);
+
+                        //Wire Enable Driver
+                        std::shared_ptr<Arc> enableDriver = Arc::connectNodes(enabledSystemDriver, enableOutputNode, enabledSystemDriverDataType, enabledSystemDriverSampleTime);
+                        new_arcs.push_back(enableDriver);
+                    }
+
+                    //Rewire (can rewire because the arc set is a copy and modifications will not effect it)
+                    (*extendedNodeOutputArc)->setSrcPortUpdateNewUpdatePrev(enableOutputOutPort);
+
+
+                }//else, do not rewire
+            }
+        }
+    }
 }
 
 void EnabledSubSystem::extendContext(std::vector<std::shared_ptr<Node>> &new_nodes,
