@@ -3,6 +3,7 @@
 //
 
 #include "GraphAlgs.h"
+#include "GraphCore/NodeFactory.h"
 
 std::set<std::shared_ptr<Node>>
 GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks) {
@@ -149,10 +150,62 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 }
 
 void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std::shared_ptr<SubSystem> moveUnder,
-                                          std::string moveSuffix) {
+                                          std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix) {
 
+    //==== Discover Herarechy ====
     std::shared_ptr<SubSystem> moveUnderParent = moveUnder->getParent();
 
-    //Discover hierarchy up to
+    std::vector<std::shared_ptr<SubSystem>> subsystemStack;
 
+    std::shared_ptr<SubSystem> cursor = nodeToMove->getParent();
+    while(cursor != nullptr && cursor != moveUnder && cursor != moveUnderParent){
+        subsystemStack.push_back(cursor);
+        cursor = cursor->getParent();
+    }
+
+    //Check if we traced to the root (nullptr) and the parent of the moveUnder node is not nullptr or if we traced to the moveUnder
+    if((moveUnderParent != nullptr && cursor == nullptr) || (cursor == moveUnder)) {
+        subsystemStack.clear();
+    }
+
+
+    //Replicate the hierarcy if it does not exist under moveUnder
+    std::shared_ptr<SubSystem> cursorDown = moveUnder;
+
+    for(unsigned long i = 0; i < subsystemStack.size(); i++){
+        unsigned long ind = subsystemStack.size()-1-i;
+
+        std::string searchingFor = subsystemStack[ind]->getName();
+        std::string searchingForWSuffix = searchingFor+moveSuffix;
+
+        //search through nodes within the cursor
+        std::set<std::shared_ptr<Node>> cursorChildren = cursorDown->getChildren();
+        std::shared_ptr<SubSystem> tgtSubsys = nullptr;
+        for(auto childIt = cursorChildren.begin(); childIt != cursorChildren.end(); childIt++){
+            std::shared_ptr<Node> child = *childIt;
+            if(GeneralHelper::isType<Node,SubSystem>(child) != nullptr && (child->getName() == searchingFor || child->getName() == searchingForWSuffix)){
+                tgtSubsys = std::dynamic_pointer_cast<SubSystem>(child);
+                break;
+            }
+        }
+
+        //Could not find the desired subsystem, need to create it
+        if(tgtSubsys == nullptr){
+            std::shared_ptr<SubSystem> newSubsys = NodeFactory::createNode<SubSystem>(cursorDown);
+            newSubsys->setName(searchingForWSuffix);
+            newNodes.push_back(newSubsys);
+            tgtSubsys = newSubsys;
+        }
+
+        cursorDown = tgtSubsys;
+    }
+
+    //Move node under
+    std::shared_ptr<SubSystem> prevParent = nodeToMove->getParent();
+    if(prevParent != nullptr){
+        prevParent->removeChild(nodeToMove);
+    }
+
+    nodeToMove->setParent(cursorDown);
+    cursorDown->addChild(nodeToMove);
 }

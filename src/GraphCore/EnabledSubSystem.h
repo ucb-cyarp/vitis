@@ -83,11 +83,53 @@ public:
      */
     std::shared_ptr<OutputPort> getEnableSrc();
 
+    /**
+     * @brief Gets an example arc which is the source of the enable input to the EnableNodes directly contained within this enabled subsystem
+     *
+     * @note EnableSubsystem::validate should generally be run before calling this function.  It ensures that all EnableNodes have the same enable source.
+     *
+     * This method first checks the first EnableInput node to get the enable source, if that does not exist it checks the
+     * first EnableOutput.
+     *
+     * @return an example arc for the enable lines to the EnableNodes
+     */
+    std::shared_ptr<Arc> getEnableDriverArc();
+
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
+
+    /**
+     * @brief Extends the context of the enabled subsystem by pulling combinational nodes from outside the enabled subsystem (inputs) inside.
+     *
+     * The nodes pulled in are not depended upon outside of the enabled subsystem (on the input side) and do not depend on signals from outside of the enabled subsystem (on the output side)
+     *
+     * @param new_nodes A vector which will be filled with the new nodes created during expansion
+     * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
+     * @param new_arcs A vector which will be filled with the new arcs created during expansion
+     * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     */
+    void extendContextInputs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                       std::vector<std::shared_ptr<Arc>> &new_arcs,
+                       std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+    /**
+     * @brief Extends the context of the enabled subsystem by pulling combinational nodes from outside the enabled subsystem (outputs) inside.
+     *
+     * The nodes pulled in are not depended upon outside of the enabled subsystem (on the input side) and do not depend on signals from outside of the enabled subsystem (on the output side)
+     *
+     * @param new_nodes A vector which will be filled with the new nodes created during expansion
+     * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
+     * @param new_arcs A vector which will be filled with the new arcs created during expansion
+     * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     */
+    void extendContextOutputs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                             std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                             std::vector<std::shared_ptr<Arc>> &new_arcs,
+                             std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Extends the context of the enabled subsystem by pulling combinational nodes from outside the enabled subsystem inside.
