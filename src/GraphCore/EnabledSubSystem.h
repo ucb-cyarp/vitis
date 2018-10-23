@@ -145,6 +145,15 @@ public:
                        std::vector<std::shared_ptr<Node>> &deleted_nodes,
                        std::vector<std::shared_ptr<Arc>> &new_arcs,
                        std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+
+    /**
+     * @brief Expands the enabled system context of theis node, then extends the context of decendent enabled subsystem
+     */
+    void extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                       std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
 };
 
 /*@}*/

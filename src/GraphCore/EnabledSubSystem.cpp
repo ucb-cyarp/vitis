@@ -481,7 +481,6 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
                     //Rewire (can rewire because the arc set is a copy and modifications will not effect it)
                     (*extendedNodeOutputArc)->setSrcPortUpdateNewUpdatePrev(enableOutputOutPort);
 
-
                 }//else, do not rewire
             }
         }
@@ -495,4 +494,15 @@ void EnabledSubSystem::extendContext(std::vector<std::shared_ptr<Node>> &new_nod
 
     extendContextInputs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
     extendContextOutputs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+void EnabledSubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                   std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //Expand self
+    extendContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+
+    //Then run on children
+    SubSystem::extendEnabledSubsystemContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 }

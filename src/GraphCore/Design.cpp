@@ -296,12 +296,34 @@ bool Design::expand() {
         }
     }
 
+    addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
+
+    return expanded;
+}
+
+bool Design::expandToPrimitive() {
+    bool expanded = false;
+
+    bool done = false;
+    while(!done){
+        bool localExpanded = expand();
+        expanded |= localExpanded;
+        done = !localExpanded;
+    }
+
+    return expanded;
+}
+
+void Design::addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                           std::vector<std::shared_ptr<Arc>> &new_arcs,
+                           std::vector<std::shared_ptr<Arc>> &deleted_arcs){
     //Add new nodes first, then delete old ones
-    for(auto node = newNodes.begin(); node != newNodes.end(); node++){
+    for(auto node = new_nodes.begin(); node != new_nodes.end(); node++){
         nodes.push_back(*node);
     }
 
-    for(auto node = deletedNodes.begin(); node != deletedNodes.end(); node++){
+    for(auto node = deleted_nodes.begin(); node != deleted_nodes.end(); node++){
         //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
         for(auto candidate = nodes.begin(); candidate != nodes.end(); ){//Will handle iteration in body since erase returns next iterator pos
             if((*candidate) == (*node)){
@@ -322,11 +344,11 @@ bool Design::expand() {
     }
 
     //Add new arcs first, then delete old ones
-    for(auto arc = newArcs.begin(); arc != newArcs.end(); arc++){
+    for(auto arc = new_arcs.begin(); arc != new_arcs.end(); arc++){
         arcs.push_back(*arc);
     }
 
-    for(auto arc = deletedArcs.begin(); arc != deletedArcs.end(); arc++){
+    for(auto arc = deleted_arcs.begin(); arc != deleted_arcs.end(); arc++){
         //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
         for(auto candidate = arcs.begin(); candidate != arcs.end(); ){//Will handle iteration in body since erase returns next iterator pos
             if((*candidate) == (*arc)){
@@ -336,21 +358,6 @@ bool Design::expand() {
             }
         }
     }
-
-    return expanded;
-}
-
-bool Design::expandToPrimitive() {
-    bool expanded = false;
-
-    bool done = false;
-    while(!done){
-        bool localExpanded = expand();
-        expanded |= localExpanded;
-        done = !localExpanded;
-    }
-
-    return expanded;
 }
 
 std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePath) {
@@ -1737,4 +1744,30 @@ std::string Design::schedTypeToString(Design::SchedType schedType) {
     }else{
         throw std::runtime_error("Unknown scheduler");
     }
+}
+
+void Design::expandEnabledSubsystemContexts(){
+    std::vector<std::shared_ptr<Node>> newNodes;
+    std::vector<std::shared_ptr<Node>> deletedNodes;
+    std::vector<std::shared_ptr<Arc>> newArcs;
+    std::vector<std::shared_ptr<Arc>> deletedArcs;
+
+    std::vector<std::shared_ptr<SubSystem>> childSubsystems;
+    for(auto topLvlNode = topLevelNodes.begin(); topLvlNode != topLevelNodes.end(); topLvlNode++){
+        if(GeneralHelper::isType<Node, SubSystem>(*topLvlNode) != nullptr){
+            childSubsystems.push_back(std::dynamic_pointer_cast<SubSystem>(*topLvlNode));
+        }
+    }
+
+    for(unsigned long i = 0; i<childSubsystems.size(); i++){
+        //Adding a condition to check if the subsystem still has this node as parent.
+        //TODO: remove condition if subsystems are never moved
+        if(childSubsystems[i]->getParent() == nullptr){ //We are at the top level
+            childSubsystems[i]->extendEnabledSubsystemContext(newNodes, deletedNodes, newArcs, deletedArcs);
+        }else{
+            throw std::runtime_error("Subsystem moved during enabled subsystem context expansion.  This was unexpected.");
+        }
+    }
+
+    addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
 }

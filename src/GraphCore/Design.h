@@ -133,6 +133,24 @@ public:
     std::set<GraphMLParameter> graphMLParameters();
 
     /**
+     * @brief This utility functions adds/removes nodes and arcs supplied in arrays
+     *
+     * New nodes are added before old nodes are deleted
+     * New nodes with parent set to nullptr are added as top level nodes
+     *
+     * New arcs are added before old arcs are deleted
+     *
+     * @param new_nodes vector of nodes to add to the design
+     * @param deleted_nodes vector of nodes to remove from the design
+     * @param new_arcs vector of arcs to add to the design
+     * @param deleted_arcs vector of arcs to remove from the design
+     */
+    void addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                               std::vector<std::shared_ptr<Arc>> &new_arcs,
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+    /**
      * @brief Check if any of the nodes in the design can be expanded
      * @return true if any node in the design can be expanded, false if all nodes cannot be expanded
      */
@@ -379,6 +397,13 @@ public:
      * @param designName The name of the design (used as the function name)
      */
     void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Expands the enabled subsystems in the design to include combinational logic at the inputs and outputs of enabled subsystems
+     *
+     * Note that expansion occurs hierarchically starting with the highest level and expanding any enabled subsystem within
+     */
+    void expandEnabledSubsystemContexts();
 };
 
 /*@}*/

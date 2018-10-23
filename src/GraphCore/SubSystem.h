@@ -92,6 +92,20 @@ public:
 
     void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
 
+    /**
+     * @brief Extends the context of enabled subsystems contained within this subsystem.
+     *
+     * Extends hierarchically, starting at this level
+     *
+     * @param new_nodes A vector which will be filled with the new nodes created during expansion
+     * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
+     * @param new_arcs A vector which will be filled with the new arcs created during expansion
+     * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     */
+    virtual void extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                               std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
 /*@}*/
