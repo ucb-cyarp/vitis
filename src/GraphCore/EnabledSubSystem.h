@@ -11,6 +11,7 @@
 #include "EnablePort.h"
 #include "EnableInput.h"
 #include "EnableOutput.h"
+#include "ContextRoot.h"
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -22,7 +23,7 @@
  *
  * The enable line is passed to each of the EnableInput/Output node.  The same source should exist for each EnableInput/Output
  */
-class EnabledSubSystem : public virtual SubSystem {
+class EnabledSubSystem : public virtual SubSystem, public ContextRoot {
 friend class NodeFactory;
 
 protected:

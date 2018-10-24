@@ -28,14 +28,13 @@ class GraphMLParameter;
 #include "GraphMLParameter.h"
 #include "Variable.h"
 #include "CExpr.h"
+#include "Context.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
 
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
-
-//This Class
 
 /**
 * \addtogroup GraphCore Graph Core
@@ -84,6 +83,7 @@ protected:
 
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
+    std::vector<Context> context; ///<A stack of contexts this node resides in.  The most specific context has the highest index.  Pushes onto the back of the stack and pops from the back of the stack.
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -186,6 +186,50 @@ public:
      * @param arc Arc to remove
      */
     void removeOrderConstraintInArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Gets a copy of the node's context stack
+     * @return A copy of the node's context stack
+     */
+    std::vector<Context> getContext() const;
+
+    /**
+     * @brief Set the context stack of the node
+     * @param context the context stack
+     */
+    void setContext(std::vector<Context> &context);
+
+    /**
+     * @brief Gets the context at index i in the stack
+     * @param i the index into the context stack to fetch from
+     * @return context[i]
+     */
+    Context getContext(unsigned long i) const;
+
+    /**
+     * @brief Sets the context at index i in the context stack
+     * @param i index of the context stack to set
+     * @param context context to set
+     */
+    void setContext(unsigned long i, Context &context);
+
+    /**
+     * @brief Pushes a new context onto the back of the context stack
+     * @param context context to push onto the context stack
+     */
+    void pushBackContext(Context &context);
+
+    /**
+     * @brief Removes the given context from the context stack
+     * @param context the context to remove
+     */
+    void removeContext(Context &context);
+
+    /**
+     * @brief Removes context[i] from the context stack
+     * @param i the index to remove
+     */
+    void removeContext(unsigned long i);
 
     /**
      * @brief Disconnects the node from the graph.

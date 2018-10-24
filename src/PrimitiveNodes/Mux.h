@@ -10,6 +10,7 @@
 #include "GraphCore/SelectPort.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
+#include "GraphCore/ContextRoot.h"
 
 #include <map>
 
@@ -39,7 +40,7 @@
  * mux and a -1 on the select line.
  *
  */
-class Mux : public PrimitiveNode{
+class Mux : public PrimitiveNode, public ContextRoot{
     friend NodeFactory;
 
 private:

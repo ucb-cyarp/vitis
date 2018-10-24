@@ -13,6 +13,7 @@
 #include "InputPort.h"
 #include "OutputPort.h"
 #include "NodeFactory.h"
+#include "Context.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
@@ -842,4 +843,32 @@ std::vector<std::shared_ptr<InputPort>> Node::getInputPortsIncludingSpecialAndOr
     inputPortList.push_back(orderConstraintPort->getSharedPointerOrderConstraintPort());
 
     return inputPortList;
+}
+
+std::vector<Context> Node::getContext() const {
+    return context;
+}
+
+void Node::setContext(std::vector<Context> &context) {
+    Node::context = context;
+}
+
+Context Node::getContext(unsigned long i) const {
+    return context[i];
+}
+
+void Node::setContext(unsigned long i, Context &context) {
+    Node::context[i] = context;
+}
+
+void Node::pushBackContext(Context &context) {
+    Node::context.push_back(context);
+}
+
+void Node::removeContext(Context &context) {
+    Node::context.erase(std::remove(Node::context.begin(), Node::context.end(), context), Node::context.end());
+}
+
+void Node::removeContext(unsigned long i){
+    context.erase(context.begin()+i);
 }

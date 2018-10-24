@@ -79,6 +79,14 @@ set(COMMON_SRCS
         src/GraphCore/Variable.h
         src/GraphCore/CExpr.cpp
         src/GraphCore/CExpr.h
+        src/GraphCore/Context.cpp
+        src/GraphCore/Context.h
+        src/GraphCore/ContextContainer.cpp
+        src/GraphCore/ContextContainer.h
+        src/GraphCore/ContextFamilyContainer.cpp
+        src/GraphCore/ContextFamilyContainer.h
+        src/GraphCore/ContextRoot.cpp
+        src/GraphCore/ContextRoot.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
