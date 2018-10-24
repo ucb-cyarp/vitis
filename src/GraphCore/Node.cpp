@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <algorithm>
 
 #include "SubSystem.h"
 #include "Port.h"
