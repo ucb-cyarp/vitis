@@ -73,6 +73,25 @@ public:
      * @param moveSuffix this suffix is added to new subsystems created during the move process
      */
     static void moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std::shared_ptr<SubSystem> moveUnder, std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix = "_moved");
+
+    /**
+     * @brief Discovers all the nodes at this level in the context hierarchy (including at enabled subsystems and muxes).
+     *
+     * Also finds muxes and enabled enabled within subsystems (and below).
+     *
+     * @note Does not recurse into enabled subsystems
+     *
+     * @param nodesToSearch a set of nodes within this level of the design
+     * @param contextStack The context stack at this point.  Nodes at this level will be updated with this context stack
+     * @param discoveredMux a vector modified to include discovered muxes
+     * @param discoveredEnabledSubSystems a vector modified to include discovered enabled subsystems
+     * @param discoveredGeneral a vector modified to include discovered general nodes
+     */
+    static void discoverAndUpdateContexts(std::set<std::shared_ptr<Node>> nodesToSearch,
+                                          std::vector<Context> contextStack,
+                                          std::vector<std::shared_ptr<Mux>> &discoveredMux,
+                                          std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                          std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 };
 
 

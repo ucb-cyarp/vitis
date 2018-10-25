@@ -8,6 +8,9 @@
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "NodeFactory.h"
+#include "Context.h"
+
+#include "PrimitiveNodes/Mux.h"
 
 #include <map>
 
@@ -505,4 +508,38 @@ void EnabledSubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr
 
     //Then run on children
     SubSystem::extendEnabledSubsystemContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+void EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextStack){
+    //Add this to the context stack
+    std::vector<Context> newContextStack = curContextStack;
+    newContextStack.push_back(Context(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()), 0)); //The sub-context for enabled subsystems is 0
+
+    //Update each of the nodes in this system with the input context + the context for this enabled subsystem
+    //Also, Find the multiplexers and enabled subsystems at this level
+    std::vector<std::shared_ptr<Mux>> discoveredMuxes;
+    std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
+    std::vector<std::shared_ptr<Node>> discoveredGeneral;
+
+    discoverAndUpdateContexts(newContextStack, discoveredMuxes, discoveredEnabledSubsystems, discoveredGeneral);
+
+    //Set the nodes in the context for this enabled subsystem
+    for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
+        addSubContextNode(0, discoveredMuxes[i]);
+    }
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
+        addSubContextNode(0, discoveredEnabledSubsystems[i]);
+    }
+    for(unsigned long i = 0; i<discoveredGeneral.size(); i++){
+        addSubContextNode(0, discoveredGeneral[i]);
+    }
+
+    //Get and mark the Mux contexts
+    //Note that context should be set for the nodes within this subsystem before this is called (done above)
+    Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
+
+    //Recursivly call on the discovered enabled subsystems
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
+        discoveredEnabledSubsystems[i]->discoverAndMarkContexts(newContextStack);
+    }
 }

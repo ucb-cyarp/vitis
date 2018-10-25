@@ -6,6 +6,7 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
 
 SubSystem::SubSystem() {
 
@@ -140,4 +141,13 @@ void SubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>>
             throw std::runtime_error("Subsystem moved during enabled subsystem context expansion.  This was unexpected.");
         }
     }
+}
+
+void
+SubSystem::discoverAndUpdateContexts(std::vector<Context> contextStack,
+                                     std::vector<std::shared_ptr<Mux>> &discoveredMux,
+                                     std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                     std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
+    GraphAlgs::discoverAndUpdateContexts(children, contextStack, discoveredMux, discoveredEnabledSubSystems,
+                                         discoveredGeneral);
 }

@@ -4,6 +4,8 @@
 
 #include "GraphAlgs.h"
 #include "GraphCore/NodeFactory.h"
+#include "GraphCore/EnabledSubSystem.h"
+#include "PrimitiveNodes/Mux.h"
 
 std::set<std::shared_ptr<Node>>
 GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks) {
@@ -208,4 +210,30 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
 
     nodeToMove->setParent(cursorDown);
     cursorDown->addChild(nodeToMove);
+}
+
+void GraphAlgs::discoverAndUpdateContexts(std::set<std::shared_ptr<Node>> nodesToSearch,
+                                          std::vector<Context> contextStack,
+                                          std::vector<std::shared_ptr<Mux>> &discoveredMux,
+                                          std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                          std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
+
+    for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
+        //Set the context
+        (*it)->setContext(contextStack);
+
+        //Recurse
+        if(GeneralHelper::isType<Node, Mux>(*it) != nullptr){
+            discoveredMux.push_back(std::dynamic_pointer_cast<Mux>(*it));
+        }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr){//Check this first because EnabledSubSystems are SubSystems
+            discoveredEnabledSubSystems.push_back(std::dynamic_pointer_cast<EnabledSubSystem>(*it));
+        }else if(GeneralHelper::isType<Node, SubSystem>(*it) != nullptr){
+            std::shared_ptr<SubSystem> subSystem = std::dynamic_pointer_cast<SubSystem>(*it);
+            subSystem->discoverAndUpdateContexts(contextStack, discoveredMux, discoveredEnabledSubSystems,
+                                                 discoveredGeneral);
+        }else{
+            discoveredGeneral.push_back(*it);
+        }
+    }
+
 }

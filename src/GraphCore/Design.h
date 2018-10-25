@@ -23,6 +23,7 @@ class MasterOutput;
 class MasterUnconnected;
 class Node;
 class Arc;
+class ContextRoot;
 
 //This Class
 
@@ -52,6 +53,8 @@ private:
     std::vector<std::shared_ptr<Node>> topLevelNodes;///< A vector of nodes at the top level of the design (ie. not under a subsystem)
     std::vector<std::shared_ptr<Node>> nodes; ///< A vector of nodes in the design
     std::vector<std::shared_ptr<Arc>> arcs; ///< A vector of arcs in the design
+
+    std::vector<std::shared_ptr<ContextRoot>> topLevelContextRoots; //A vector of the top level context roots for the design.  Top level includes subsystems that do not create contexts
 
 public:
     /**
@@ -230,7 +233,7 @@ public:
      *
      * Ports that are left unused are connected to the Unconnected master node
      *
-     * @param includeTerminatorsAndVis If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
+     * @param includeVisMaster If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
      *
      * @return number of nodes removed from the graph
      */
@@ -341,7 +344,8 @@ public:
 
     /**
      * @brief Emits operators using the bottom up emitter
-     * @param cFile the cFile to emit to
+     * @param cFile the cFile to emit tp
+     * @param nodesWithState nodes with state in the design
      */
     void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState);
 
@@ -421,6 +425,7 @@ public:
      * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxess
      * have been handled)
      *
+     * Also updates the topLevelContextRoots for discovered context nodes
      *
      */
     void discoverAndMarkContexts();

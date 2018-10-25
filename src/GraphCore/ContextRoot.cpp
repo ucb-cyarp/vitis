@@ -29,3 +29,7 @@ std::vector<std::shared_ptr<Node>> ContextRoot::getSubContextNodes(unsigned long
 void ContextRoot::removeSubContextNode(unsigned long subContext, std::shared_ptr<Node> node) {
     nodesInSubContexts[subContext].erase(std::remove(nodesInSubContexts[subContext].begin(), nodesInSubContexts[subContext].end(), node), nodesInSubContexts[subContext].end());
 }
+
+void ContextRoot::dummy() {
+
+}

@@ -90,5 +90,6 @@ public:
 
 };
 
+/*@}*/
 
 #endif //VITIS_REALIMAGTOCOMPLEX_H

@@ -54,6 +54,12 @@ public:
 
     void setNumSubContexts(int numSubContexts);
 
+    //TODO: Remove if another virtual method is every created
+    /**
+     * @brief Need a virtual method to allow RTTI for dynamic cast.
+     */
+    virtual void dummy();
+
 };
 
 /*@}*/

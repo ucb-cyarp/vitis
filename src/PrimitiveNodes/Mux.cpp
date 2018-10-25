@@ -6,6 +6,8 @@
 #include "GraphCore/Arc.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
+#include "GraphCore/ContextRoot.h"
 #include <iostream>
 
 Mux::Mux() : booleanSelect(false) {
@@ -327,4 +329,141 @@ std::vector<std::shared_ptr<InputPort>> Mux::getInputPortsIncludingSpecial() {
     portList.push_back(selectorPort->getSharedPointerSelectPort());
 
     return portList;
+}
+
+std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> Mux::discoverContexts() {
+    std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> nodeContexts;
+
+    //For muxes, contexts only extend from standard inputs
+    for(unsigned long i = 0; i<inputPorts.size(); i++){
+        std::shared_ptr<InputPort> inputPort = std::dynamic_pointer_cast<InputPort>(inputPorts[i]->getSharedPointer());
+
+        std::map<std::shared_ptr<Arc>, bool> marks;
+        nodeContexts[inputPort] = GraphAlgs::scopedTraceBackAndMark(inputPort, marks);
+    }
+
+    return nodeContexts;
+}
+
+void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> muxes) {
+    //Discover contexts for muxes
+    std::map<std::shared_ptr<Mux>, std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>>> muxContexts;
+//    std::map<std::shared_ptr<Mux>, std::set<std::shared_ptr<Node>>> allNodesInMuxConexts;
+    std::map<std::shared_ptr<Mux>, unsigned long> muxInContextCount;
+
+    for(unsigned long i = 0; i<muxes.size(); i++){
+        muxContexts[muxes[i]] = muxes[i]->discoverContexts();
+    }
+
+    //Set count to 0
+    //TODO: may be redundant with map initialization
+    for(unsigned long i = 0; i<muxes.size(); i++){
+        muxInContextCount[muxes[i]] = 0;
+    }
+
+    for(auto muxPair = muxContexts.begin(); muxPair != muxContexts.end(); muxPair++){
+        std::shared_ptr<Mux> mux = muxPair->first;
+        std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> portContexts = muxPair->second;
+
+        for(auto portPair = portContexts.begin(); portPair != portContexts.end(); portPair++){
+            std::set<std::shared_ptr<Node>> nodesInContext = portPair->second;
+
+            for(auto node = nodesInContext.begin(); node != nodesInContext.end(); node++){
+//                allNodesInMuxConexts[mux].insert(*node);
+
+                if(GeneralHelper::isType<Node, Mux>(*node) != nullptr){
+                    muxInContextCount[std::dynamic_pointer_cast<Mux>(*node)]++;
+                }
+            }
+        }
+    }
+
+    //Assert that the number of muxes in the map is unchanged
+    //TODO: Remove
+    if(muxInContextCount.size() != muxes.size()){
+        throw std::runtime_error("Found unexpected muxes durring mux context discovery.");
+    }
+
+    //Get an ordered list of muxes by count
+    std::vector<std::vector<std::shared_ptr<Mux>>> muxesByCount;
+
+    for(auto muxCountPair = muxInContextCount.begin(); muxCountPair != muxInContextCount.end(); muxCountPair++){
+        std::shared_ptr<Mux> mux = muxCountPair->first;
+        unsigned long count = muxCountPair->second;
+
+        while(muxesByCount.size() < (count+1)){
+            muxesByCount.push_back(std::vector<std::shared_ptr<Mux>>());
+        }
+
+        muxesByCount[count].push_back(mux);
+    }
+
+
+    //THEORY:
+    //start with muxes with 0 count
+    //For muxes with count 0, re-set the context for the nodes & set mux nodes in context arrays
+    //Set the context containers within the muxes with 0 count
+
+    //Of the nodes in each mux's context, find the nodes with count 1 and repeat
+    //  Take the context of the mux and append the appropriate context for each context created by this node
+    //  Reset (update) the context of each node in the context to this new context.  Note, because this node will have
+    //  Had it's context updated in the previous itteration, it uses its own context as the base
+
+    //TODO: Remove
+    if(muxesByCount.size() > 0){
+        if(muxesByCount[0].size()==0){
+            throw std::runtime_error("Discoverd muxes with count >0 without finding muxes of count ==0");
+        }
+    }
+
+    //PRACTICE:
+    //Iterate through list & validate difference between length of contexts
+    for(unsigned long count = 0; count < muxesByCount.size(); count++){
+        for(unsigned i = 0; i<muxesByCount[count].size(); i++){
+            std::shared_ptr<Mux> mux = muxesByCount[count][i];
+
+            std::vector<Context> contextStack = mux->getContext();
+
+            //TODO: remove
+            if(count > 0){//Do not check for level 0
+                //Check context length difference
+                //Get context this mux is within from the last entry in it's context
+                if(contextStack.size()<count){
+                    //Check for impossible case, the context stack needs to be at least as deep as the count
+                    //It can also be deeper if this mux is in an enabled subsystem
+                    throw std::runtime_error("Mux context had unexpected length");
+                }
+
+                Context parentContext = contextStack[contextStack.size()-1];
+                if(GeneralHelper::isType<ContextRoot, Mux>(parentContext.getContextRoot()) != nullptr){
+                    throw std::runtime_error("Last ContextRoot for this mux expected to be a mux");
+                }
+
+                std::shared_ptr<Mux> contextParent = std::dynamic_pointer_cast<Mux>(parentContext.getContextRoot());
+
+                if(contextStack.size() != contextParent->getContext().size() + 1){
+                    throw std::runtime_error("Unexpected difference in context stack sizes between this mux and the next mux in the hierarchy");
+                }
+            }
+
+            std::vector<std::shared_ptr<InputPort>> inputPorts = mux->getInputPorts();
+            for(unsigned long i = 0; i<inputPorts.size(); i++){
+                int portNum = inputPorts[i]->getPortNum();
+
+                std::vector<Context> newContext = contextStack;
+                newContext.push_back(Context(mux, portNum));
+
+                std::set<std::shared_ptr<Node>> nodesInContext = muxContexts[mux][inputPorts[i]];
+
+                for(auto node = nodesInContext.begin(); node != nodesInContext.end(); node++){
+                    //Set the nodes in context list for the mux
+                    (*node)->setContext(newContext);
+
+                    //set the context of the nodes in the context
+                    mux->addSubContextNode(portNum, *node);
+                }
+            }
+        }
+    }
+
 }

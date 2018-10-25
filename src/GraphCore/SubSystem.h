@@ -9,6 +9,8 @@
 #include <memory>
 #include "Node.h"
 
+class EnabledSubSystem;
+
 /**
  * \addtogroup GraphCore Graph Core
  */
@@ -106,6 +108,20 @@ public:
                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+    /**
+     * @brief Marks all the nodes under this subsystem (including at enabled subsystems and muxes), though marking them) with the given context stack.  Also finds muxes within this subsystem (and below).
+     *
+     * @note Does not recurse into enabled subsystems
+     *
+     * @param contextStack The context stack at this point.  Nodes under this subsystem
+     * @param discoveredMux a vector modified to include discovered muxes
+     * @param discoveredEnabledSubSystems a vector modified to include disc
+     * @param discoveredGeneral a vector modified to include discovered general nodes
+     */
+    void discoverAndUpdateContexts(std::vector<Context> contextStack, std::vector<std::shared_ptr<Mux>> &discoveredMux,
+                                   std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                   std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 };
 
 /*@}*/

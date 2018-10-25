@@ -26,6 +26,8 @@ private:
     //For nodes that have multiple contexts (ex. muxes), a context container is created for each context
     //The contexts are contained in a ContextFamilyContainer
 
+    //Can construct context container hierarchy by looking at the top level ContextRoot nodes and then following nodes within their contexts (finding ContextRoot nodes within their contexts)
+
 };
 
 /*@}*/

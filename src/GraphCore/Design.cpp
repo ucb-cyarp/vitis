@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <General/GeneralHelper.h>
+#include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
 
 #include "NodeFactory.h"
 #include "MasterNodes/MasterInput.h"
@@ -18,6 +19,7 @@
 #include "GraphCore/Arc.h"
 #include "GraphCore/Variable.h"
 #include "PrimitiveNodes/Constant.h"
+#include "PrimitiveNodes/Mux.h"
 
 //==== Constructors
 Design::Design() {
@@ -1770,4 +1772,35 @@ void Design::expandEnabledSubsystemContexts(){
     }
 
     addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
+}
+
+void Design::discoverAndMarkContexts() {
+    std::vector<std::shared_ptr<Mux>> discoveredMuxes;
+    std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
+    std::vector<std::shared_ptr<Node>> discoveredGeneral;
+
+    //The top level context stack has no entries
+    std::vector<Context> initialStack;
+
+    //Discover contexts at the top layer (and below non-enabled subsystems).  Also set the contexts of these top level nodes
+    std::set<std::shared_ptr<Node>> topLevelNodeSet;
+    topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
+    GraphAlgs::discoverAndUpdateContexts(topLevelNodeSet, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
+                                         discoveredGeneral);
+
+    //Add context nodes (muxes and enabled subsystems) to the topLevelContextRoots list
+    for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
+        topLevelContextRoots.push_back(discoveredMuxes[i]);
+    }
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
+        topLevelContextRoots.push_back(discoveredEnabledSubsystems[i]);
+    }
+
+    //Get and mark the Mux contexts
+    Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
+
+    //Recursivly call on the discovered enabled subsystems
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++) {
+        discoveredEnabledSubsystems[i]->discoverAndMarkContexts(initialStack);
+    }
 }

@@ -176,6 +176,27 @@ public:
     std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum) override;
 
     std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecial() override;
+
+    /**
+     * @brief Discover the context for nodes connexted to the mux
+     *
+     * @note This function does not set the context hierarchy for marked nodes or set the nodesInContext array for the mux
+     *
+     * @return A map of input ports to sets of nodes in the port's context
+     */
+    std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> discoverContexts();
+
+    /**
+     * @brief Discovers and marks Mux contexts within a specific context level
+     *
+     * For example, this function should be called on muxes within an enabled subsystem.
+     *
+     * This method discovers mux contexts, discovers the hierarchy of contexts, set the context hierarchy in nodes
+     * within the mux contexts, and sets the context node lists in the muxes
+     *
+     * @param muxes muxes at the desired level of the design
+     */
+    static void discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> muxes);
 };
 
 /*@}*/

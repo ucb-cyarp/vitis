@@ -22,6 +22,13 @@ private:
     int subContext; ///<For nodes which can have multiple contexts, specifies which context (default to 0)
 
 public:
+    /**
+     * @brief Initialize a context with a given context root pointer and sub-context number
+     * @param contextRoot
+     * @param subContext
+     */
+    Context(std::shared_ptr<ContextRoot> contextRoot, int subContext);
+
     std::shared_ptr<ContextRoot> getContextRoot() const;
     void setContextRoot(const std::shared_ptr<ContextRoot> &contextRoot);
     int getSubContext() const;

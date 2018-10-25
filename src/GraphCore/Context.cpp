@@ -5,6 +5,10 @@
 #include "Context.h"
 #include "ContextRoot.h"
 
+Context::Context(std::shared_ptr<ContextRoot> contextRoot, int subContext) : contextRoot(contextRoot), subContext(subContext){
+
+}
+
 bool Context::operator==(const Context &rhs) const {
     return contextRoot == rhs.contextRoot &&
            subContext == rhs.subContext;
