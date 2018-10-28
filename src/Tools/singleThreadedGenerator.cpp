@@ -24,6 +24,8 @@ int main(int argc, char* argv[]) {
         std::cout << "Possible SCHED:" << std::endl;
         std::cout << "    bottomUp <DEFAULT> = Bottom Up Scheduler" << std::endl;
         std::cout << "    topological = Topological Sort Scheduler" << std::endl;
+        std::cout << "    topological_context = Topological Sort Scheduler with Contexts" << std::endl;
+
 
         return 1;
     }else if(argc == 5){
@@ -73,10 +75,13 @@ int main(int argc, char* argv[]) {
     try{
         if(sched == Design::SchedType::BOTTOM_UP)
             design->emitSingleThreadedC(outputDir, designName, designName, false);
-        else if(sched == Design::SchedType::TOPOLOGICAL){
+        else if(sched == Design::SchedType::TOPOLOGICAL) {
             design->scheduleTopologicalStort(true);
             design->verifyTopologicalOrder();
             design->emitSingleThreadedC(outputDir, designName, designName, true);
+        }else if(sched == Design::SchedType::TOPOLOGICAL_CONTEXT){
+            //TODO: Impelement
+            throw std::runtime_error("Topological Context not yet implemented");
         }else{
             throw std::runtime_error("Unknown SCHED Type");
         }

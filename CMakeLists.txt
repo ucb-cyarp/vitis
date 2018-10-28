@@ -48,6 +48,8 @@ set(COMMON_SRCS
         src/GraphCore/OutputPort.h
         src/GraphCore/OrderConstraintInputPort.cpp
         src/GraphCore/OrderConstraintInputPort.h
+        src/GraphCore/OrderConstraintOutputPort.cpp
+        src/GraphCore/OrderConstraintOutputPort.h
         src/GraphCore/EnablePort.cpp
         src/GraphCore/EnablePort.h
         src/GraphCore/SelectPort.cpp
@@ -87,6 +89,8 @@ set(COMMON_SRCS
         src/GraphCore/ContextFamilyContainer.h
         src/GraphCore/ContextRoot.cpp
         src/GraphCore/ContextRoot.h
+        src/GraphCore/StateUpdate.cpp
+        src/GraphCore/StateUpdate.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
@@ -171,9 +175,6 @@ find_package(XercesC)
 include_directories(${XercesC_INCLUDE_DIRS})
 
 #==== Executables ====
-add_executable(vitis src/main.cpp)
-target_link_libraries(vitis VitisLib ${XercesC_LIBRARIES})
-
 add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
 target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES})
 

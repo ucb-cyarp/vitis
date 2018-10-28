@@ -73,7 +73,8 @@ public:
      */
     enum class SchedType{
         BOTTOM_UP, ///<The original bottom up emit.  Emits from outputs backwards
-        TOPOLOGICAL ///<A generic topological sort based scheduler
+        TOPOLOGICAL, ///<A generic topological sort based scheduler
+        TOPOLOGICAL_CONTEXT ///<A generic topological sort based scheduler with context discovery
     };
 
     /**
@@ -429,6 +430,47 @@ public:
      *
      */
     void discoverAndMarkContexts();
+
+    /**
+     * @brief Encapsulate contexts inside ContextContainers and ContextFamilyContainers for the purpose of scheduling
+     *
+     * Nodes should exist in the lowest level context in which they exist.
+     *
+     * All arcs to nodes in the context from outside are duplicated as
+     */
+    void encapsulateContexts();
+
+    /**
+     * @brief Discovers nodes with state in the design and creates state update nodes for them.
+     *
+     * The state update nodes have a ordering dependency with all of the nodes that are connected via out arcs from the
+     * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
+     * when the next state update variable is assigned).
+     *
+     * @note This function updates the context of the the state update to mirror the context of the primary node.
+     *
+     * @note It appears that inserting these nodes before context discovery could result in some nodes being erroniously
+     * left out of discoverd contexts.  For example, in mux context, nodes that are directly dependent on state will have
+     * an order constraint arc to the StateUpdate node for the particular state element.  This StateUpdate is not reachable
+     * from the mux and will therefore cause the node to not be included in the mux context even if it should be.  It
+     * is therefore reccomended to insert the state update nodes after context discovery but before scheduling
+     *
+     */
+    void createStateUpdateNodes();
+
+    /**
+     * @brief Find nodes with state in the design
+     * @return a vector of nodes in the design with state
+     */
+    std::vector<std::shared_ptr<Node>> findNodesWithState();
+
+    /**
+     * @brief Find nodes with global declarations in the design
+     * @return a vector of nodes in the design with global declarations
+     */
+    std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl();
+
+    //TODO: Validate that mux contexts do not contain state elements
 };
 
 /*@}*/

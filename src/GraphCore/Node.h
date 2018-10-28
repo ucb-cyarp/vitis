@@ -13,6 +13,7 @@ class NodeFactory;
 class SubSystem;
 class ExpandedNode;
 class GraphMLParameter;
+class StateUpdate;
 
 #include <vector>
 #include <set>
@@ -24,6 +25,7 @@ class GraphMLParameter;
 #include "InputPort.h"
 #include "OutputPort.h"
 #include "OrderConstraintInputPort.h"
+#include "OrderConstraintOutputPort.h"
 #include "Arc.h"
 #include "GraphMLParameter.h"
 #include "Variable.h"
@@ -75,7 +77,9 @@ protected:
     std::vector<std::unique_ptr<InputPort>> inputPorts; ///<The input ports of this node
     std::vector<std::unique_ptr<OutputPort>> outputPorts; ///<The output ports of this node
 
-    std::unique_ptr<OrderConstraintInputPort> orderConstraintPort; ///<Port which is the destination for arcs creating scheduling ordering constraints between nodes when the output is not directly consumed by this node
+    std::unique_ptr<OrderConstraintInputPort> orderConstraintInputPort; ///<Port which is the destination for arcs creating scheduling ordering constraints between nodes when the output is not directly consumed by this node
+    std::unique_ptr<OrderConstraintOutputPort> orderConstraintOutputPort;
+
 
     //TODO: Add Setters/Getters (check if port exists first), Update in degree, Update connected nodes, Update disconnect
 
@@ -165,6 +169,16 @@ public:
     void addOrderConstraintInArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Add a schedule ordering constraint arc to the given node, updating referenced objects in the process
+     *
+     * Adds an schedule ordering constraint arc to this node.  Removes the arc from the orig port if not NULL.
+     * Updates the given arc so that the source port is set to the specified output
+     * port of this node.  If the port object is not yet created, it will be created during the call.
+     * @param arc The arc to add
+     */
+    void addOrderConstraintOutArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
+
+    /**
      * @brief Removes the given input arc from the node. Does not change the dstPort entry in the arc.
      *
      * Will search all input ports to find the given arc
@@ -186,6 +200,13 @@ public:
      * @param arc Arc to remove
      */
     void removeOrderConstraintInArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Removes the given OrderConstraintOutArc arc from the node.  Does not change the srcPort entry in the arc.
+     *
+     * @param arc Arc to remove
+     */
+    void removeOrderConstraintOutArc(std::shared_ptr<Arc> arc);
 
     /**
      * @brief Gets a copy of the node's context stack
@@ -276,9 +297,29 @@ public:
      *
      * Disconnects all output arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
      *
+     * @note This also disconnects from the sources of OrderConstraint arcs.
+     *
      * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
      */
     std::set<std::shared_ptr<Arc>> disconnectOutputs();
+
+    /**
+     * @brief Disconnects the node from nodes it is (directly) dependent on by.
+     *
+     * Disconnects all output arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectDirectOutputs();
+
+    /**
+     * @brief Disconnects the node from nodes it is virtually dependent on.
+     *
+     * Disconnects all OrderConstraintIn arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectOrderConstraintOutArcs();
 
     /**
      * @brief Get the set of nodes connected to this node via arcs
@@ -299,13 +340,25 @@ public:
     virtual std::set<std::shared_ptr<Node>> getConnectedDirectInputNodes();
 
     /**
-     * @brief Get the set of nodes connected to the inputs of this node via arcs (direct and virtual)
+     * @brief Get the set of nodes connected to the inputs of this node via arcs (virtual)
      * @return set of nodes connected to this node via incoming arcs
      */
-    virtual std::set<std::shared_ptr<Node>> getConnectedOrderConstraintNodes();
+    virtual std::set<std::shared_ptr<Node>> getConnectedOrderConstraintInNodes();
 
     /**
-     * @brief Get the set of nodes connected to the outputs of this node via arcs
+     * @brief Get the set of nodes connected to the output of this node via arcs (virtual)
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedOrderConstraintOutNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs (direct)
+     * @return set of nodes connected to this node via outgoing arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedDirectOutputNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs (direct and virtual)
      * @return set of nodes connected to this node via outgoing arcs
      */
     virtual std::set<std::shared_ptr<Node>> getConnectedOutputNodes();
@@ -329,10 +382,22 @@ public:
     virtual unsigned long orderConstraintInDegree();
 
     /**
-     * @brief Get the out-degree of this node (number of connected output arcs)
+     * @brief Get the out-degree of this node (number of connected output arcs - direct and virtual)
      * @return out-degree of this node (number of connected output arcs)
      */
     unsigned long outDegree();
+
+    /**
+     * @brief Get the out-degree of this node (number of connected output arcs - direct)
+     * @return out-degree of this node (number of connected output arcs)
+     */
+    unsigned long directOutDegree();
+
+    /**
+     * @brief Get the out-degree of this node (number of connected input arcs - virtual)
+     * @return out-degree of this node (number of connected output arcs)
+     */
+    virtual unsigned long orderConstraintOutDegree();
 
     /**
      * @brief Connects input and output ports with no arcs to the given node
@@ -345,7 +410,7 @@ public:
     virtual std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum);
 
     /**
-     * @brief Get the out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
+     * @brief Get the out-degree of this node (number of connected output arcs - direct and vitual), ignoring arcs to nodes in the provided ignoreSet
      * @param ignoreSet a set of pointers to nodes.  Arcs to these nodes are not included in the out degree
      * @return out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
      */
@@ -649,6 +714,12 @@ public:
      * @return true if the node contains state elements, false if it does not contain state elements
      */
     virtual bool hasState();
+
+    /**
+     * @brief If this node has state, get the corresponding StateUpdate node
+     * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state
+     */
+    virtual std::shared_ptr<StateUpdate> getStateUpdateNode();
 
     /**
      * @brief Identifies if the node requires a global declaration.

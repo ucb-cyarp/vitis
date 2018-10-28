@@ -362,3 +362,27 @@ Arc::connectNodesOrderConstraint(std::shared_ptr<Node> src, int srcPortNum, std:
     return arc;
 }
 
+std::shared_ptr<Arc> Arc::connectNodesOrderConstraint(std::shared_ptr<Node> src, std::shared_ptr<Node> dst,
+                                                      DataType dataType, double sampleTime) {
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+
+    //Connect arc
+    if(src != nullptr)
+    {
+        dst->addOrderConstraintOutArcUpdatePrevUpdateArc(arc);
+    }
+
+    if(dst != nullptr)
+    {
+        dst->addOrderConstraintInArcUpdatePrevUpdateArc(arc);
+    }
+
+    return arc;
+}
+

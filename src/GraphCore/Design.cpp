@@ -21,6 +21,8 @@
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Mux.h"
 
+#include "GraphCore/StateUpdate.h"
+
 //==== Constructors
 Design::Design() {
     inputMaster = NodeFactory::createNode<MasterInput>();
@@ -731,18 +733,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << std::endl;
 
     //Find nodes with state & global decls
-    std::vector<std::shared_ptr<Node>> nodesWithState;
-    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
+    std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = findNodesWithGlobalDecl();
     unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
-
-    for(unsigned long i = 0; i<numNodes; i++) {
-        if (nodes[i]->hasState()) {
-            nodesWithState.push_back(nodes[i]);
-        }
-        if (nodes[i]->hasGlobalDecl()) {
-            nodesWithGlobalDecl.push_back(nodes[i]);
-        }
-    }
 
     headerFile << "//==== State Variable Definitions ====" << std::endl;
     //We also need to declare the state variables here as extern;
@@ -1381,6 +1374,20 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
     designCopy.nodes=nodeCopies;
 
+    //==== Set primary node pointers for any StateUpate nodes
+    for(unsigned long i = 0; i<nodeCopies.size(); i++){
+        if(GeneralHelper::isType<Node, StateUpdate>(nodeCopies[i]) != nullptr){
+            std::shared_ptr<StateUpdate> stateUpdateCopy = std::dynamic_pointer_cast<StateUpdate>(nodeCopies[i]);
+            std::shared_ptr<StateUpdate> stateUpdateOrig = std::dynamic_pointer_cast<StateUpdate>(copyToOrigNode[stateUpdateCopy]);
+
+            if(stateUpdateOrig->getPrimaryNode() != nullptr){
+                stateUpdateCopy->setPrimaryNode(origToCopyNode[stateUpdateOrig->getPrimaryNode()]);
+            }else{
+                stateUpdateCopy->setPrimaryNode(nullptr);
+            }
+        }
+    }
+
     //==== Copy arcs ====
     std::vector<std::shared_ptr<Arc>> arcCopies;
 
@@ -1733,6 +1740,8 @@ Design::SchedType Design::parseSchedTypeStr(std::string str) {
         return SchedType::BOTTOM_UP;
     }else if(str == "TOPOLOGICAL" || str == "topological"){
         return SchedType::TOPOLOGICAL;
+    }else if(str == "TOPOLOGICAL_CONTEXT" || str == "topological_context") {
+        return SchedType::TOPOLOGICAL_CONTEXT;
     }else{
         throw std::runtime_error("Unable to parse Scheduler: " + str);
     }
@@ -1741,8 +1750,10 @@ Design::SchedType Design::parseSchedTypeStr(std::string str) {
 std::string Design::schedTypeToString(Design::SchedType schedType) {
     if(schedType == SchedType::BOTTOM_UP){
         return "BOTTOM_UP";
-    }else if(schedType == SchedType::TOPOLOGICAL){
+    }else if(schedType == SchedType::TOPOLOGICAL) {
         return "TOPOLOGICAL";
+    }else if(schedType == SchedType::TOPOLOGICAL_CONTEXT){
+        return "TOPOLOGICAL_CONTEXT";
     }else{
         throw std::runtime_error("Unknown scheduler");
     }
@@ -1803,4 +1814,56 @@ void Design::discoverAndMarkContexts() {
     for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++) {
         discoveredEnabledSubsystems[i]->discoverAndMarkContexts(initialStack);
     }
+}
+
+void Design::createStateUpdateNodes() {
+    //Find nodes with state in design
+    std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
+
+    for(unsigned long i = 0; i<nodesWithState.size(); i++){
+        //Create a state update node for this node which contains state
+        std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(nodesWithState[i]->getParent());
+        stateUpdate->setName("StateUpdate-For-"+nodesWithState[i]->getName());
+        stateUpdate->setPrimaryNode(nodesWithState[i]);
+        //Set context to be the same as the primary node
+        std::vector<Context> primarayContex = nodesWithState[i]->getContext();
+        stateUpdate->setContext(primarayContex);
+        nodes.push_back(stateUpdate);
+
+        //make this node dependent on the node with state (prevents the update from ocuring until the new state has been)
+        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(nodesWithState[i], stateUpdate); //Datatype and sample time are not important, use defaults
+        arcs.push_back(orderConstraint);
+
+        //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
+        std::set<std::shared_ptr<Node>> connectedOutNodes = nodesWithState[i]->getConnectedOutputNodes();
+
+        for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
+            std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(*it, stateUpdate); //Datatype and sample time are not important, use defaults
+            arcs.push_back(orderConstraint);
+        }
+    }
+}
+
+std::vector<std::shared_ptr<Node>> Design::findNodesWithState() {
+    std::vector<std::shared_ptr<Node>> nodesWithState;
+
+    for(unsigned long i = 0; i<nodes.size(); i++) {
+        if (nodes[i]->hasState()) {
+            nodesWithState.push_back(nodes[i]);
+        }
+    }
+
+    return nodesWithState;
+}
+
+std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->hasGlobalDecl()){
+            nodesWithGlobalDecl.push_back(nodes[i]);
+        }
+    }
+
+    return nodesWithGlobalDecl;
 }

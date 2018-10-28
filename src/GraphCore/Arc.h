@@ -186,6 +186,21 @@ public:
                  DataType dataType, double sampleTime = -1);
 
     /**
+     * @brief Connects two nodes with a newly created Arc.  Src and Dst ports are  OrderConstraint ports
+     *
+     * This function adds the new arc to the OrderConstraintOutput the source node.  Adds the arc to the OrderConstraintInput port of the destination.
+     *
+     * @param src source node for Arc
+     * @param dst destination node for Arc
+     * @param dataType data type for data flowing via Arc
+     * @param sampleTime sample time for data flowing via Arc (in s)
+     * @return shared pointer to the newly created arc
+     */
+    static std::shared_ptr<Arc>
+    connectNodesOrderConstraint(std::shared_ptr<Node> src, std::shared_ptr<Node> dst,
+                                DataType dataType = DataType(), double sampleTime = -1);
+
+    /**
      * @brief Get the edge ID from a full GraphML ID path
      * @param fullPath the full GraphML ID path
      * @return local ID number

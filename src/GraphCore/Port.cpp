@@ -109,3 +109,14 @@ DataType Port::getDataType() {
 
     return type;
 }
+
+double Port::getSampleTime(){
+    //Get the orig type of the output port from the connected arcs
+    if(arcs.size() < 1){
+        throw std::runtime_error("Tried to get SampleTime for port which is unconnected");
+    }
+
+    double sampleTime = arcs.begin()->lock()->getSampleTime();
+
+    return sampleTime;
+}
