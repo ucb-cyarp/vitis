@@ -7,6 +7,7 @@
 
 
 #include <memory>
+#include <vector>
 //#include "ContextRoot.h"
 
 class ContextRoot;
