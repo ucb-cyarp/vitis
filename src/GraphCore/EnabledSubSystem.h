@@ -173,8 +173,9 @@ public:
      * have been handled)
      *
      * @param contextStack the context stack up to this node
+     * @return nodes in the context
      */
-    void discoverAndMarkContexts(std::vector<Context> contextStack);
+    std::vector<std::shared_ptr<Node>> discoverAndMarkContexts(std::vector<Context> contextStack);
 };
 
 /*@}*/

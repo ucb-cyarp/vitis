@@ -5,6 +5,10 @@
 #include "Context.h"
 #include "ContextRoot.h"
 
+Context::Context() : contextRoot(nullptr), subContext(0) {
+
+};
+
 Context::Context(std::shared_ptr<ContextRoot> contextRoot, int subContext) : contextRoot(contextRoot), subContext(subContext){
 
 }
@@ -32,4 +36,18 @@ int Context::getSubContext() const {
 
 void Context::setSubContext(int subContext) {
     Context::subContext = subContext;
+}
+
+bool Context::isEqOrSubContext(std::vector<Context> a, std::vector<Context> b){
+    if(a.size() < b.size()){
+        return false;
+    }
+
+    for(unsigned long i = 0; i<b.size(); i++){
+        if(a[i] != b[i]){
+            return false;
+        }
+    }
+
+    return true;
 }

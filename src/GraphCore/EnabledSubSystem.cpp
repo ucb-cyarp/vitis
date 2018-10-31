@@ -510,7 +510,7 @@ void EnabledSubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr
     SubSystem::extendEnabledSubsystemContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 }
 
-void EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextStack){
+std::vector<std::shared_ptr<Node>> EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextStack){
     //Add this to the context stack
     std::vector<Context> newContextStack = curContextStack;
     newContextStack.push_back(Context(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()), 0)); //The sub-context for enabled subsystems is 0
@@ -522,6 +522,11 @@ void EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextSt
     std::vector<std::shared_ptr<Node>> discoveredGeneral;
 
     discoverAndUpdateContexts(newContextStack, discoveredMuxes, discoveredEnabledSubsystems, discoveredGeneral);
+
+    std::vector<std::shared_ptr<Node>> discoveredNodes;
+    discoveredNodes.insert(discoveredNodes.end(), discoveredMuxes.begin(), discoveredMuxes.end());
+    discoveredNodes.insert(discoveredNodes.end(), discoveredEnabledSubsystems.begin(), discoveredEnabledSubsystems.end());
+    discoveredNodes.insert(discoveredNodes.end(), discoveredGeneral.begin(), discoveredGeneral.end());
 
     //Set the nodes in the context for this enabled subsystem
     for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
@@ -540,6 +545,18 @@ void EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextSt
 
     //Recursivly call on the discovered enabled subsystems
     for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
-        discoveredEnabledSubsystems[i]->discoverAndMarkContexts(newContextStack);
+        std::vector<std::shared_ptr<Node>> nestedDiscoveries = discoveredEnabledSubsystems[i]->discoverAndMarkContexts(newContextStack);
+
+        //Add nodes returned by recursive call
+        discoveredNodes.insert(discoveredNodes.end(), nestedDiscoveries.begin(), nestedDiscoveries.end());
+
+        //Add the nodes returned by the recursive call to the list of nodes within this context
+        for(unsigned long j = 0; j<nestedDiscoveries.size(); j++){
+            addSubContextNode(0, nestedDiscoveries[j]);
+        }
     }
+
+    //Return all nodes in context (including ones from recursion)
+
+    return discoveredNodes;
 }

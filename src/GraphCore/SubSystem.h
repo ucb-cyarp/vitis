@@ -37,7 +37,7 @@ protected:
     /**
      * @brief Construct SubSystem with given parent node.  Calls Node constructor.
      */
-    SubSystem(std::shared_ptr<SubSystem> parent);
+    explicit SubSystem(std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  Children are also not copied.  This node is not added to the children list of the parent.

@@ -517,6 +517,17 @@ public:
     std::vector<std::shared_ptr<OutputPort>> getOutputPorts();
 
     /**
+     * @brief Get a vector of pointers to the current output ports of the node (including the OrderConstraint port)
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @note The position in the vector does not nessisarily match the port number of the port.
+     *
+     * @return vector of aliased pointers to the current output ports of the node
+     */
+    std::vector<std::shared_ptr<OutputPort>> getOutputPortsIncludingOrderConstraint();
+
+    /**
      * @brief Get the full hierarchical path of this node in GraphML format
      *
      * A typical GraphML formatted hierarchy would be "n1::n2::n3"

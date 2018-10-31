@@ -132,6 +132,14 @@ std::vector<std::shared_ptr<OutputPort>> Node::getOutputPorts() {
     return outputPortPtrs;
 }
 
+std::vector<std::shared_ptr<OutputPort>> Node::getOutputPortsIncludingOrderConstraint() {
+    std::vector<std::shared_ptr<OutputPort>> outputPortPtrs = getOutputPorts();
+
+    outputPortPtrs.push_back(orderConstraintOutputPort->getSharedPointerOrderConstraintPort());
+
+    return outputPortPtrs;
+}
+
 std::string Node::getFullGraphMLPath() {
     std::string path = "n" + GeneralHelper::to_string(id);
 

@@ -20,6 +20,8 @@
 #include "GraphCore/Variable.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Mux.h"
+#include "ContextContainer.h"
+#include "ContextFamilyContainer.h"
 
 #include "GraphCore/StateUpdate.h"
 
@@ -697,9 +699,133 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
         }
 
     }
+}
 
+void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
 
+    cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
+    //Sort nodes by schedOrder.
+    std::vector<std::shared_ptr<Node>> orderedNodes = nodes;
+    //Add the output master to the scheduled node list
+    orderedNodes.push_back(outputMaster);
+    std::sort(orderedNodes.begin(), orderedNodes.end(), Node::lessThanSchedOrder);
+
+    std::shared_ptr<Node> zeroSchedNodeCmp = NodeFactory::createNode<MasterUnconnected>(); //Need a node to compare to
+    zeroSchedNodeCmp->setSchedOrder(0);
+
+    auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0)
+
+    //Itterate through the schedule and emit
+    for(auto it = schedIt; it != orderedNodes.end(); it++){
+
+//        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
+
+        if(*it == outputMaster) {
+            //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
+            unsigned long numOutputs = outputMaster->getInputPorts().size();
+            for (unsigned long i = 0; i < numOutputs; i++) {
+                std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
+                cFile << std::endl << "//---- Assign Output " << i << ": " << output->getName() << " ----" << std::endl;
+
+                //Get the arc connected to the output
+                std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
+
+                DataType outputDataType = outputArc->getDataType();
+
+                std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
+                int srcNodeOutputPortNum = srcOutputPort->getPortNum();
+
+                std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+                cFile << "//-- Assign Real Component --" << std::endl;
+                std::vector<std::string> cStatements_re;
+                std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false, true, true);
+                //emit the expressions
+                unsigned long numStatements_re = cStatements_re.size();
+                for (unsigned long j = 0; j < numStatements_re; j++) {
+                    cFile << cStatements_re[j] << std::endl;
+                }
+
+                //emit the assignment
+                Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
+                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+
+                //Emit Imag if Datatype is complex
+                if (outputDataType.isComplex()) {
+                    cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
+                    std::vector<std::string> cStatements_im;
+                    std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true, true, true);
+                    //emit the expressions
+                    unsigned long numStatements_im = cStatements_im.size();
+                    for (unsigned long j = 0; j < numStatements_im; j++) {
+                        cFile << cStatements_im[j] << std::endl;
+                    }
+
+                    //emit the assignment
+                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                }
+            }
+        }else if(GeneralHelper::isType<Node, StateUpdate>(*it) != nullptr){
+            std::shared_ptr<StateUpdate> stateUpdateNode = std::dynamic_pointer_cast<StateUpdate>(*it);
+            //Emit state update
+            cFile << std::endl << "//---- State Update for " << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
+
+            std::vector<std::string> stateUpdateExprs;
+            (*it)->emitCExprNextState(stateUpdateExprs);
+
+            for(unsigned long j = 0; j<stateUpdateExprs.size(); j++){
+                cFile << stateUpdateExprs[j] << std::endl;
+            }
+
+        }else if((*it)->hasState()){
+            //Call emit for state element input
+            //The state element output is treateded similarly to a constant and a variable name is always returned
+            //The output has no dependencies within the cycle
+            //The input can have dependencies
+
+            //Emit comment
+            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+
+            std::vector<std::string> nextStateExprs;
+            (*it)->emitCExprNextState(nextStateExprs);
+
+            for(unsigned long j = 0; j<nextStateExprs.size(); j++){
+                cFile << nextStateExprs[j] << std::endl;
+            }
+
+        }else{
+            //Emit standard node
+
+            //Emit comment
+            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " ----" << std::endl;
+
+            unsigned long numOutputPorts = (*it)->getOutputPorts().size();
+            //Emit each output port
+            //TODO: check for unconnected output ports and do not emit them
+            for(unsigned long i = 0; i<numOutputPorts; i++){
+                std::vector<std::string> cStatementsRe;
+                //Emit real component (force fanout)
+                (*it)->emitC(cStatementsRe, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                for(unsigned long j = 0; j<cStatementsRe.size(); j++){
+                    cFile << cStatementsRe[j] << std::endl;
+                }
+
+                if((*it)->getOutputPort(i)->getDataType().isComplex()) {
+                    //Emit imag component (force fanout)
+                    std::vector<std::string> cStatementsIm;
+                    //Emit real component (force fanout)
+                    (*it)->emitC(cStatementsIm, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                    for(unsigned long j = 0; j<cStatementsIm.size(); j++){
+                        cFile << cStatementsIm[j] << std::endl;
+                    }
+                }
+            }
+        }
+
+    }
 }
 
 void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool sched) {
@@ -1867,3 +1993,133 @@ std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
 
     return nodesWithGlobalDecl;
 }
+
+void Design::encapsulateContexts() {
+    //context expansion stops at enabled subsystem boundaries.  Therefore, we cannot have enabled subsystems nested in muxes
+    //However, we can have enabled subsystems nested in enabled subsystems, muxes nested in enabled subsystems, and muxes nested in muxes
+
+    //**** Change, do this for all context roots *****
+
+    //<Delete>Start at the top level of the hierarchy and find the nodes with context
+    //Create the appropriate ContextContainer of ContextFamilyContainer for each and create a map of node to ContextContainer
+
+    std::vector<std::shared_ptr<ContextRoot>> contextRootNodes;
+    std::vector<std::shared_ptr<Node>> nodesInContext;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(GeneralHelper::isType<Node, ContextRoot>(nodes[i]) != nullptr){
+            contextRootNodes.push_back(std::dynamic_pointer_cast<ContextRoot>(nodes[i]));
+        }
+
+        //A context root can also be in a context
+        if(nodes[i]->getContext().size() > 0){
+            nodesInContext.push_back(nodes[i]);
+        }
+    }
+
+    std::map<std::shared_ptr<ContextRoot>, std::shared_ptr<ContextFamilyContainer>> contextNodeToFamilyContainer;
+
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
+        nodes.push_back(familyContainer);
+        contextNodeToFamilyContainer[contextRootNodes[i]] = familyContainer;
+
+        //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: Fix inheritance diamond issue
+        std::vector<Context> origContext = asNode->getContext();
+        familyContainer->setContext(origContext);
+
+        //Create Context Containers inside of the context Family container;
+        int numContexts = contextRootNodes[i]->getNumSubContexts();
+
+        std::vector<std::shared_ptr<ContextContainer>> subContexts;
+
+        for(unsigned long j = 0; j<numContexts; j++){
+            std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
+            nodes.push_back(contextContainer);
+            //Add this to the container order
+            subContexts.push_back(contextContainer);
+
+            Context context = Context(contextRootNodes[i], j);
+            contextContainer->setContainerContext(context);
+            contextContainer->setContext(origContext); //We give the ContextContainer the same Context stack as the ContextFamily container, the containerContext sets the next level of the context for the nodes contained within it
+        }
+        familyContainer->setSubContextContainers(subContexts);
+    }
+
+    //Itterate through them again and set the parent based on the context.  Use the map to find the corresponding context node
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        //Get the context stack
+        std::shared_ptr<ContextRoot> asContextRoot = contextRootNodes[i];
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(asContextRoot); //TODO: Fix inheritance diamond issue
+
+        std::vector<Context> context = asNode->getContext();
+        if(context.size() > 1){
+            //This node is in a context, move it's container under the appropriate container.
+            Context innerContext = context[context.size()-1];
+
+            std::shared_ptr<ContextContainer> newParent = contextNodeToFamilyContainer[innerContext.getContextRoot()]->getSubContextContainer(innerContext.getSubContext());
+
+            std::shared_ptr<ContextFamilyContainer> toBeMoved = contextNodeToFamilyContainer[asContextRoot];
+
+            toBeMoved->setParent(newParent);
+            newParent->addChild(toBeMoved);
+        }else{
+            //This node is not in a context, its ContextFamily container should exist at the top level
+            topLevelNodes.push_back(contextNodeToFamilyContainer[contextRootNodes[i]]);
+        }
+    }
+
+    //***** Create set from all context nodes ****
+
+    //<Delete>
+    //Create a set of nodes in contexts.  Creating the set prevents redundant operations since nodes can be in multiple contexts.
+    //Itterate though the set and move the nodes into the corresponding subsystem. (add as a child)
+    //Note that context nodes in enabled subsystems are not added.  They are added by the enabled subsystem recursion
+
+
+    //Recurse into the enabled subsytems and repeat
+
+    //Create a helper function which can be called upon here and in the enabled subsystem version.  This function will take the list of nodes with context within it
+    //In the enabled subsystem version, a difference is that the enabled subsystem has nodes in its own context that may not be in mux contexts
+    //</Delete>
+
+    //Move context nodes under ContextContainers
+    for(unsigned long i = 0; i<nodesInContext.size(); i++){
+        std::shared_ptr<SubSystem> origParent = nodesInContext[i]->getParent();
+
+        if(origParent == nullptr) {
+            //If has no parent, remove from topLevelNodes
+            topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), nodesInContext[i]), topLevelNodes.end());
+
+            if(GeneralHelper::isType<Node, ContextRoot>(nodesInContext[i]) != nullptr){
+                //If is a context root, remove from top level context roots
+                std::shared_ptr<ContextRoot> toRemove = std::dynamic_pointer_cast<ContextRoot>(nodesInContext[i]);
+                contextRootNodes.erase(std::remove(contextRootNodes.begin(), contextRootNodes.end(), toRemove), contextRootNodes.end());
+            }
+        }else{
+            //Remove from orig parent
+            origParent->removeChild(nodesInContext[i]);
+        }
+
+        //Discover appropriate (sub)context container
+        std::vector<Context> contextStack = nodesInContext[i]->getContext();
+        Context innerContext = contextStack[contextStack.size()-1];
+
+        std::shared_ptr<ContextFamilyContainer> contextFamily = contextNodeToFamilyContainer[innerContext.getContextRoot()];
+        std::shared_ptr<ContextContainer> contextContainer = contextFamily->getSubContextContainer(innerContext.getSubContext());
+
+        //Set new parent to be the context container.  Also add it as a child of the context container.
+        contextContainer->addChild(nodesInContext[i]);
+        nodesInContext[i]->setParent(contextContainer);
+    }
+}
+
+//Create function to reassign all arcs to nodes within ContextContainers to be to the context itself.  This will be used for scheduling.
+
+
+//When scheduling nodes within contexts are removed from the scheduler node list to check for zero in degree.  This prevents these nodes from being scheduled outside of their context.  All arcs to these nodes are re-assigned to the ContextContainer for scheduling
+//For the scheduler, make a special case for scheduling a context container causing the scheduling algorithm to be called on the graph defined inside the context container.
+
+
+//For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

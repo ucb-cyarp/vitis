@@ -357,6 +357,12 @@ public:
     void emitSingleThreadedOpsSched(std::ofstream &cFile);
 
     /**
+     * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
+     * @param cFile the cFile to emit to
+     */
+    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile);
+
+    /**
      * @brief Emits the design as a single threaded C function (using the bottom-up method)
      *
      * @note Design expansion and validation should be run before calling this function
