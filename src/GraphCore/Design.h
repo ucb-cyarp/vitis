@@ -442,6 +442,8 @@ public:
      *
      * Nodes should exist in the lowest level context in which they exist.
      *
+     * Also moves the context roots for the ContextFamilyContainers inside the ContextFamilyContainer
+     *
      * All arcs to nodes in the context from outside are duplicated as
      */
     void encapsulateContexts();
@@ -475,6 +477,15 @@ public:
      * @return a vector of nodes in the design with global declarations
      */
     std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl();
+
+    /**
+     * @brief Find a vector of all of the nodes at the top level of the context hierarchy for the design.
+     *
+     * This includes nodes that are not in any context and the first
+     *
+     * @return
+     */
+    std::vector<std::shared_ptr<Node>> findTopContextNodes();
 
     //TODO: Validate that mux contexts do not contain state elements
 };

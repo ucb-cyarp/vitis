@@ -13,6 +13,10 @@
 #include "GraphCore/Node.h"
 #include "GraphCore/SubSystem.h"
 #include "GeneralHelper.h"
+#include "MasterNodes/MasterOutput.h"
+#include "MasterNodes/MasterInput.h"
+#include "MasterNodes/MasterUnconnected.h"
+
 
 class GraphAlgs {
 public:
@@ -92,6 +96,39 @@ public:
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral);
+
+    /**
+     * @brief Performs a destructive topological sort on a provided vector of nodes.
+     *
+     * This function will recursivly scedule ContextFamilyContainers if encountered.  If the schedule should be context
+     * aware, the contexts must first be properly discovered and encapsulated.  The ContextFamilyContainers should also
+     * be rewired before calling this function.
+     *
+     * If the schedule should not be context aware, ContextFamily containers should not be included in the design and
+     * the list of nodes to be scheduled is the complete list of node in the design.
+     *
+     * @warning This destroys the graph by removing arcs from the nodes.
+     * It is recomended to run on a copy of the graph and to back propagate the results
+     *
+     * @param nodesToSort a vector of nodes to schedule, including ContextFamilyContainers to be scheduled together if the schedule is context aware.  Should not contain nodes in lower levels of the context hierarchy.  These will be handled through recursion on ContextFamilyContainers
+     * @param arcsToDelete a vector of arcs to delete from the design,
+     * @return A vector of nodes arranged in topological order
+     */
+    static std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::vector<std::shared_ptr<Node>> nodesToSort,
+                                                                         std::vector<std::shared_ptr<Arc>> &arcsToDelete,
+                                                                         std::shared_ptr<MasterOutput> outputMaster,
+                                                                         std::shared_ptr<MasterInput> inputMaster,
+                                                                         std::shared_ptr<MasterOutput> terminatorMaster,
+                                                                         std::shared_ptr<MasterUnconnected> unconnectedMaster,
+                                                                         std::shared_ptr<MasterOutput> visMaster
+                                                                         );
+
+    /**
+     * @brief Recursively finds nodes in a hierarchy starting from a list of provided nodes.  Subsystems are searched.  ContexFamilyNodes & EnabledSubsystems are included but are not recursed into
+     * @param nodesToSearch a list of nodes to search
+     * @return a list of found nodes
+     */
+    static std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch);
 };
 
 

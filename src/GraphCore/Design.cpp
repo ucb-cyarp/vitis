@@ -1710,85 +1710,10 @@ void Design::verifyTopologicalOrder() {
 }
 
 std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
-    std::set<std::shared_ptr<Arc>> arcsToDelete;
-    std::vector<std::shared_ptr<Node>> schedule;
+    std::vector<std::shared_ptr<Arc>> arcsToDelete;
+    std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
 
-    //Find nodes with 0 in degree
-    std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        //Do not add subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
-        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr) {
-            unsigned long inDeg = nodes[i]->inDegree();
-            if (inDeg == 0) {
-                nodesWithZeroInDeg.insert(nodes[i]);
-            }
-        }
-    }
-
-    //Handle the case where the output is only connected to nodes with state (or is unconnected).  When this happens, all the arcs
-    //to the output are removed and it is its own connected component.  It will never be considered a candidate.  Add it to the
-    //list of nodes with zero in deg if this is the case.  Note that if there is at least 1 arc to a node without state, it will be
-    //considered a candidate
-    if(outputMaster->inDegree() == 0){
-        nodesWithZeroInDeg.insert(outputMaster);
-    }
-
-    //Find Candidate Nodes
-    std::set<std::shared_ptr<Node>> candidateNodes;
-    for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
-        candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
-    }
-
-    //Remove the master nodes from the candidate list as well as any nodes that are about to be removed
-    candidateNodes.erase(unconnectedMaster);
-    candidateNodes.erase(terminatorMaster);
-    candidateNodes.erase(visMaster);
-    candidateNodes.erase(inputMaster);
-//    candidateNodes.erase(outputMaster); //Actually, schedule this master
-
-    //Schedule Nodes
-    while(!nodesWithZeroInDeg.empty()){
-        //Schedule Nodes with Zero In Degree
-        //Disconnect, erase nodes, remove from candidate set (if it is included)
-        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
-            arcsToDelete.insert(arcsToRemove.begin(), arcsToRemove.end());
-            schedule.push_back(*it);
-            candidateNodes.erase(*it);
-        }
-
-        //Reset nodes with zero in degree
-        nodesWithZeroInDeg.clear();
-
-        //Find nodes with zero in degree from candidates list
-        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
-            std::shared_ptr<Node> candidateNode = *it;
-            if(candidateNode->inDegree() == 0){
-                nodesWithZeroInDeg.insert(candidateNode);
-            }
-        }
-
-        //Update candidates list
-        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            std::shared_ptr<Node> zeroInDegNode = *it;
-            std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedNodes();
-            candidateNodes.insert(newCandidates.begin(), newCandidates.end());
-        }
-
-        //Remove master nodes from candidates list
-        candidateNodes.erase(unconnectedMaster);
-        candidateNodes.erase(terminatorMaster);
-        candidateNodes.erase(visMaster);
-        candidateNodes.erase(inputMaster);
-//        candidateNodes.erase(outputMaster); //Actually, schedule this master
-
-    }
-
-    //If there are still viable candidate nodes, there was a cycle.
-    if(!candidateNodes.empty()){
-        throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
-    }
+    std::vector<std::shared_ptr<Node>> sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
 
     //Delete the arcs
     //TODO: Remove this?  May not be needed for most applications.  We are probably going to distroy the design anyway
@@ -1796,7 +1721,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
         arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
     }
 
-    return schedule;
+    return sortedNodes;
 }
 
 unsigned long Design::scheduleTopologicalStort(bool prune) {
@@ -1824,7 +1749,7 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
             arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
 
             nodesToRemove.insert(designClone.nodes[i]);
-        }else if(designClone.nodes[i]->hasState()){ //TODO: Check if this works for all nodes with state
+        }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
             //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
             std::set<std::shared_ptr<Arc>> newArcsToDelete = designClone.nodes[i]->disconnectOutputs();
             arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
@@ -2113,6 +2038,25 @@ void Design::encapsulateContexts() {
         contextContainer->addChild(nodesInContext[i]);
         nodesInContext[i]->setParent(contextContainer);
     }
+
+    //Move context roots into their ContextFamilyContainers
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: fix diamond inheritance issue
+        std::shared_ptr<SubSystem> origParent = asNode->getParent();
+
+        if(origParent != nullptr){
+            origParent->removeChild(asNode);
+        }
+
+        std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = contextNodeToFamilyContainer[contextRootNodes[i]];
+        contextFamilyContainer->addChild(asNode);
+        contextFamilyContainer->setContextRoot(contextRootNodes[i]);
+        asNode->setParent(contextFamilyContainer);
+    }
+}
+
+std::vector<std::shared_ptr<Node>> Design::findTopContextNodes() {
+    return std::vector<std::shared_ptr<Node>>();
 }
 
 //Create function to reassign all arcs to nodes within ContextContainers to be to the context itself.  This will be used for scheduling.

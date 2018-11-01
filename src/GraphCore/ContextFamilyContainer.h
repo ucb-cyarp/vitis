@@ -23,6 +23,7 @@ class ContextFamilyContainer : public SubSystem {
 
 private:
     std::vector<std::shared_ptr<ContextContainer>> subContextContainers; ///<An ordered list of context containers, one for each subcontext.  SubContextContainer should also be children
+    std::shared_ptr<ContextRoot> contextRoot; ///<The node creating this ContextFamily (should be a child after enacapsulation has completed)
 
     /**
      * @brief Default constructor.  Vector initialized using default behavior.
@@ -52,6 +53,10 @@ public:
     std::vector<std::shared_ptr<ContextContainer>> getSubContextContainers() const;
     void setSubContextContainers(const std::vector<std::shared_ptr<ContextContainer>>& subContextContainers);
 
+    std::shared_ptr<ContextRoot> getContextRoot() const;
+
+    void setContextRoot(const std::shared_ptr<ContextRoot>&contextRoot);
+
     /**
      * @brief Get a pointer to the sub-context container specified
      * @param subContext
@@ -75,9 +80,9 @@ public:
      *
      * @note This function should be called on the top level ContextFamilyContainers
      *
-     * @note This function should be called after ContextFamilyContainers and ContextContainers are properly encapsulated with their child nodes
+     * @warning This function should be called after ContextFamilyContainers and ContextContainers are properly encapsulated with their child nodes
      */
-    void rewireArcsToContextFamilyContainerAndRecurse();
+    void rewireArcsToContextFamilyContainerAndRecurse(std::vector<std::shared_ptr<Arc>> &arcs_to_delete);
 };
 
 /*@}*/
