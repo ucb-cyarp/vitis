@@ -176,6 +176,16 @@ public:
      * @return nodes in the context
      */
     std::vector<std::shared_ptr<Node>> discoverAndMarkContexts(std::vector<Context> contextStack);
+
+
+    //No variables need to be declared outside of the scope since the EnableOutputs are the gateway for all outputs of the
+    //enable subsystem.
+
+
+    //No else method is nessisary for the enable subsystem since the EnableOutputs update instantaniously when enabled and pass the state variable directly.  The state can be updated instantly because this is a latch, not a delay - nothing depends on the previous value before it is updated - all nodes depend on the calculated value (immediatly).
+        //This should be thought of more like a fanout variable that stores its value rather than the state found in a delay.
+    //When not enabled, the state variable is not updated, and value is held for dependent nodes.  No 'else' is required to pass the previous value when the susbsytem is disabled.
+
 };
 
 /*@}*/
