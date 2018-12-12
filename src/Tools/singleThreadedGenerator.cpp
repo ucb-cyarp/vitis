@@ -74,14 +74,19 @@ int main(int argc, char* argv[]) {
 
     try{
         if(sched == Design::SchedType::BOTTOM_UP)
-            design->emitSingleThreadedC(outputDir, designName, designName, false);
+            design->emitSingleThreadedC(outputDir, designName, designName, sched);
         else if(sched == Design::SchedType::TOPOLOGICAL) {
             design->scheduleTopologicalStort(true);
             design->verifyTopologicalOrder();
-            design->emitSingleThreadedC(outputDir, designName, designName, true);
+            design->emitSingleThreadedC(outputDir, designName, designName, sched);
         }else if(sched == Design::SchedType::TOPOLOGICAL_CONTEXT){
-            //TODO: Impelement
-            throw std::runtime_error("Topological Context not yet implemented");
+            design->prune(true);
+            design->createStateUpdateNodes();
+            design->expandEnabledSubsystemContexts();
+            design->discoverAndMarkContexts();
+            design->scheduleTopologicalStort(false); //Pruned before inserting state update nodes
+            design->verifyTopologicalOrder();
+            design->emitSingleThreadedC(outputDir, designName, designName, sched);
         }else{
             throw std::runtime_error("Unknown SCHED Type");
         }

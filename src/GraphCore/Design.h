@@ -372,9 +372,9 @@ public:
      * @param path path to where the output files will be generated
      * @param fileName name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
-     * @param explicitSched if true, uses the Node schedOrder parameter to control the sequence of emitted operations.  If false, uses thr bottom up synthesis approach
+     * @param schedType Schedule type
      */
-    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool explicitSched);
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, Design::SchedType schedType);
 
     /**
      * @brief Emits the benchmarking drivers for the design

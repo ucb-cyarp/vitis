@@ -971,7 +971,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
     }
 }
 
-void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool sched) {
+void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedType sched) {
     //Get the OutputType struct defn
     std::string outputTypeDefn = getCOutputStructDefn();
 
@@ -1069,10 +1069,14 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << fctnProto << "{" << std::endl;
 
     //Emit operators
-    if(sched){
+    if(sched == Design::SchedType::BOTTOM_UP){
         emitSingleThreadedOpsSched(cFile);
-    }else{
+    }else if(sched == Design::SchedType::TOPOLOGICAL){
         emitSingleThreadedOpsBottomUp(cFile, nodesWithState);
+    }else if(sched == Design::SchedType::TOPOLOGICAL_CONTEXT){
+        emitSingleThreadedOpsSchedStateUpdateContext(cFile);
+    }else{
+        throw std::runtime_error("Unknown schedule type");
     }
 
     //Emit state variable updates
@@ -1729,8 +1733,8 @@ unsigned long Design::prune(bool includeVisMaster) {
 
     std::set<std::shared_ptr<Node>> nodesWithZeroOutDeg;
     for(unsigned long i = 0; i<nodes.size(); i++){
-        //Do not remove subsystems (they will have outdeg 0)
-        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr) {
+        //Do not remove subsystems or state updates (they will have outdeg 0)
+        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr && GeneralHelper::isType<Node, StateUpdate>(nodes[i]) == nullptr ) {
             if (nodes[i]->outDegreeExclusingConnectionsTo(nodesToIgnore) == 0) {
                 nodesWithZeroOutDeg.insert(nodes[i]);
             }
@@ -1875,6 +1879,7 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
+    designClone.encapsulateContexts();
 
     unsigned long numNodesPruned=0;
     if(prune){
