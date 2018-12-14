@@ -88,6 +88,7 @@ protected:
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
     std::vector<Context> context; ///<A stack of contexts this node resides in.  The most specific context has the highest index.  Pushes onto the back of the stack and pops from the back of the stack.
+    std::shared_ptr<StateUpdate> stateUpdateNode; ///<A reference to the state update node for this delay
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -728,9 +729,34 @@ public:
 
     /**
      * @brief If this node has state, get the corresponding StateUpdate node
-     * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state
+     * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state or is a latch type (ex. EnableOutput)
      */
-    virtual std::shared_ptr<StateUpdate> getStateUpdateNode();
+    std::shared_ptr<StateUpdate> getStateUpdateNode();
+
+    /**
+     * @brief Set the state update node (useful for cloneing)
+     * @param stateUpdate StateUpdate node to set
+     */
+     void setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate);
+
+    /**
+     * @brief If this node has state, create its corresponding StateUpdate node and insert it into the graph.  Also sets
+     * the stateUpdate node entry in the node so that getStateUpdateNode will return the corresponding node.
+     *
+     * @note This function should typically be called after context discovery and context expansion.  This is because
+     * the StateUpdate generally inherits
+     *
+     * @param new_nodes a vector of nodes added to the design.  This includes the new StateUpdate node
+     * @param deleted_nodes a vector of nodes to be deleted in the design
+     * @param new_arcs a vector of new arcs added to the design
+     * @param deleted_arcs a vector of arcs to be deleted from the design
+     *
+     * @return true if the StateUpdate node was created and inserted into the graph, false if it was not
+     */
+    virtual bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                       std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Identifies if the node requires a global declaration.

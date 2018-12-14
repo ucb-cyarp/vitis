@@ -411,7 +411,11 @@ bool Node::hasState() {
 
 std::shared_ptr<StateUpdate> Node::getStateUpdateNode(){
     //default has no state
-    return nullptr;
+    return stateUpdateNode;
+}
+
+void Node::setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
+    stateUpdateNode = stateUpdate;
 }
 
 bool Node::hasGlobalDecl(){
@@ -999,4 +1003,14 @@ void Node::removeContext(Context &context) {
 
 void Node::removeContext(unsigned long i){
     context.erase(context.begin()+i);
+}
+
+bool Node::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //By default, returns false since the default assumption is that the node does not have state.
+    //Override if the node has state
+
+    return false;
 }

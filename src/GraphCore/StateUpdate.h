@@ -17,7 +17,7 @@
 /**
  * @brief A node that represents the state update for a node which contains state
  *
- * This node is unusual in that it is not typically part of a DSP design as state updates implicityally occure at the
+ * This node is unusual in that it is not typically part of a DSP design as state updates implicitally occur at the
  * next clock edge.  The state update node is used to schedule the state update when the data flow graph's execution
  * is serialized.  The state update can occur once its output has been used by all destination nodes.
  *

@@ -327,6 +327,11 @@ void Design::addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes
     //Add new nodes first, then delete old ones
     for(auto node = new_nodes.begin(); node != new_nodes.end(); node++){
         nodes.push_back(*node);
+
+        //If node has no parent, add it to the list of top level nodes (matches the check for deleted nodes to remove top level nodes)
+        if((*node)->getParent() == nullptr){
+            topLevelNodes.push_back(*node);
+        }
     }
 
     for(auto node = deleted_nodes.begin(); node != deleted_nodes.end(); node++){
@@ -1647,9 +1652,46 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
     designCopy.nodes=nodeCopies;
 
-    //==== Set primary node pointers for any StateUpate nodes
+    //==== Set StateUpdate nodes and contexts for any node, primary node pointers for any StateUpdate nodes, and context node vectors for ContextRoots
     for(unsigned long i = 0; i<nodeCopies.size(); i++){
+        //General Nodes
+        //Copy context stack
+        std::shared_ptr<Node> origNode = copyToOrigNode[nodeCopies[i]];
+        std::vector<Context> origContext = origNode->getContext();
+        std::vector<Context> newContext;
+        for(unsigned long j = 0; j<origContext.size(); j++){
+            std::shared_ptr<ContextRoot> origContextRoot = origContext[j].getContextRoot();
+            std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(origContextRoot);
+            if(origContextRootAsNode){
+                std::shared_ptr<Node> newContextRoot = origToCopyNode[origContextRootAsNode];
+
+                //TODO: Refactor ContextRoot inheritance
+                std::shared_ptr<ContextRoot> newContextRootAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(newContextRoot);
+                if(newContextRoot){
+                    newContext.push_back(Context(newContextRootAsContextRoot, origContext[j].getSubContext()));
+                }else{
+                    throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a context root");
+                }
+            }else{
+                throw std::runtime_error("ContextRoot encountered which is not a Node during Graph Copy");
+            }
+        }
+        nodeCopies[i]->setContext(newContext);
+
+        //Copy StateUpdate (if not null)
+        if(origNode->getStateUpdateNode() != nullptr){
+            std::shared_ptr<Node> stateUpdateNode = origToCopyNode[origNode->getStateUpdateNode()];
+            std::shared_ptr<StateUpdate> stateUpdateNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(stateUpdateNode);
+
+            if(stateUpdateNodeAsStateUpdate) {
+                nodeCopies[i]->setStateUpdateNode(stateUpdateNodeAsStateUpdate);
+            }else{
+                throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a StateUpdate");
+            }
+        }
+
         if(GeneralHelper::isType<Node, StateUpdate>(nodeCopies[i]) != nullptr){
+            //StateUpdates
             std::shared_ptr<StateUpdate> stateUpdateCopy = std::dynamic_pointer_cast<StateUpdate>(nodeCopies[i]);
             std::shared_ptr<StateUpdate> stateUpdateOrig = std::dynamic_pointer_cast<StateUpdate>(copyToOrigNode[stateUpdateCopy]);
 
@@ -1658,6 +1700,30 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
             }else{
                 stateUpdateCopy->setPrimaryNode(nullptr);
             }
+        }
+
+        if(GeneralHelper::isType<Node, ContextRoot>(nodeCopies[i]) != nullptr){
+            //ContextRoots
+            std::shared_ptr<ContextRoot> nodeCopyAsContextRoot = std::dynamic_pointer_cast<ContextRoot>(nodeCopies[i]); //Don't think you can cross cast with a static cast TODO: check
+
+            //TODO: Refactor ContextRoot inheritance
+            std::shared_ptr<ContextRoot> origNodeAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(origNode);
+
+            if(origNodeAsContextRoot){
+                int numSubContexts = nodeCopyAsContextRoot->getNumSubContexts();
+                nodeCopyAsContextRoot->setNumSubContexts(numSubContexts);
+
+                for(int j = 0; j<numSubContexts; j++){
+                    std::vector<std::shared_ptr<Node>> origContextNodes = origNodeAsContextRoot->getSubContextNodes(j);
+
+                    for(unsigned long k = 0; k<origContextNodes.size(); k++){
+                        nodeCopyAsContextRoot->addSubContextNode(j, origToCopyNode[origContextNodes[k]]);
+                    }
+                }
+            }else{
+                throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a ContextRoot");
+            }
+
         }
     }
 
@@ -2020,26 +2086,14 @@ void Design::createStateUpdateNodes() {
     std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
 
     for(unsigned long i = 0; i<nodesWithState.size(); i++){
-        //Create a state update node for this node which contains state
-        std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(nodesWithState[i]->getParent());
-        stateUpdate->setName("StateUpdate-For-"+nodesWithState[i]->getName());
-        stateUpdate->setPrimaryNode(nodesWithState[i]);
-        //Set context to be the same as the primary node
-        std::vector<Context> primarayContex = nodesWithState[i]->getContext();
-        stateUpdate->setContext(primarayContex);
-        nodes.push_back(stateUpdate);
+        std::vector<std::shared_ptr<Node>> newNodes;
+        std::vector<std::shared_ptr<Node>> deletedNodes;
+        std::vector<std::shared_ptr<Arc>> newArcs;
+        std::vector<std::shared_ptr<Arc>> deletedArcs;
 
-        //make this node dependent on the node with state (prevents the update from ocuring until the new state has been)
-        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(nodesWithState[i], stateUpdate); //Datatype and sample time are not important, use defaults
-        arcs.push_back(orderConstraint);
+        nodesWithState[i]->createStateUpdateNode(newNodes, deletedNodes, newArcs, deletedArcs);
 
-        //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
-        std::set<std::shared_ptr<Node>> connectedOutNodes = nodesWithState[i]->getConnectedOutputNodes();
-
-        for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
-            std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(*it, stateUpdate); //Datatype and sample time are not important, use defaults
-            arcs.push_back(orderConstraint);
-        }
+        addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
     }
 }
 

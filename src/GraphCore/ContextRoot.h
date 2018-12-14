@@ -23,7 +23,7 @@
  */
 class ContextRoot {
 private:
-    std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context
+    std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
     int numSubContexts = 0;///<The number of sub-contexts created by this node
 
 public:
@@ -38,7 +38,7 @@ public:
     void addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node);
 
     /**
-     * @brief Gets a vector of nodes in the specified sub-context vector
+     * @brief Gets a vector of nodes in the specified sub-context (but not in sub-contexts)
      * @param subContext the sub-context to get the list of nodes for
      * @return a copy of the sub-context nodes vector
      */

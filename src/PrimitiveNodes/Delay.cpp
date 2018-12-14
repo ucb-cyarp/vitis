@@ -277,3 +277,38 @@ Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(par
 std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Delay>(parent, this);
 }
+
+bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                  std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                  std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    //Create a state update node for this delay
+    std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
+    stateUpdate->setName("StateUpdate-For-"+getName());
+    stateUpdate->setPrimaryNode(getSharedPointer());
+    stateUpdateNode = stateUpdate; //Set the state update node pointer in this node
+    //Set context to be the same as the primary node
+    std::vector<Context> primarayContex = getContext();
+    stateUpdate->setContext(primarayContex);
+
+    //Add node to the lowest level context (if such a context exists
+    if(!primarayContex.empty()){
+        Context specificContext = primarayContex[primarayContex.size()-1];
+        specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+    }
+
+    new_nodes.push_back(stateUpdate);
+
+    //make this node dependent on the Delay block (prevents the update from occuring until the new state has been calculated for the delay -> this occurs when the delay is scheduled)
+    std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(getSharedPointer(), stateUpdate); //Datatype and sample time are not important, use defaults
+    new_arcs.push_back(orderConstraint);
+
+    //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
+    std::set<std::shared_ptr<Node>> connectedOutNodes = getConnectedOutputNodes();
+
+    for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
+        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(*it, stateUpdate); //Datatype and sample time are not important, use defaults
+        new_arcs.push_back(orderConstraint);
+    }
+}
