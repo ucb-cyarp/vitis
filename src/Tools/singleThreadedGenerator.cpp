@@ -84,6 +84,7 @@ int main(int argc, char* argv[]) {
             design->createStateUpdateNodes();
             design->expandEnabledSubsystemContexts();
             design->discoverAndMarkContexts();
+            design->orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
             design->scheduleTopologicalStort(false); //Pruned before inserting state update nodes
             design->verifyTopologicalOrder();
             design->emitSingleThreadedC(outputDir, designName, designName, sched);

@@ -488,6 +488,13 @@ public:
     std::vector<std::shared_ptr<Node>> findTopContextNodes();
 
     //TODO: Validate that mux contexts do not contain state elements
+
+    /**
+     * @brief OrderConstraint Nodes with Zero Inputs in EnabledSubsystems (and nested within) in Design
+     *
+     * @note Apply this after expanding enabled sybsystem contexts
+     */
+    void orderConstrainZeroInputNodes();
 };
 
 /*@}*/

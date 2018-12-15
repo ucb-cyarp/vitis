@@ -151,3 +151,30 @@ SubSystem::discoverAndUpdateContexts(std::vector<Context> contextStack,
     GraphAlgs::discoverAndUpdateContexts(children, contextStack, discoveredMux, discoveredEnabledSubSystems,
                                          discoveredGeneral);
 }
+
+void SubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                             std::vector<std::shared_ptr<Node>> &new_nodes,
+                                             std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                             std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    for(auto child = children.begin(); child != children.end(); child++){
+        std::shared_ptr<SubSystem> childAsSubsystem = GeneralHelper::isType<Node, SubSystem>(*child);
+
+        if(childAsSubsystem){
+            childAsSubsystem->orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        }else{
+            if((*child)->inDegree() == 0){
+                //This child (which is not a subsystem), has 0 indegree
+                //Create order constraint arcs
+                for(unsigned long i = 0; i<predecessorNodes.size(); i++){
+                    if(predecessorNodes[i] != *child){
+                        std::shared_ptr<Arc> constraintArc = Arc::connectNodesOrderConstraint(predecessorNodes[i], *child);
+                        new_arcs.push_back(constraintArc);
+                    }
+                }
+            }
+        }
+    }
+
+}

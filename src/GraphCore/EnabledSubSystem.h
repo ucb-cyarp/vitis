@@ -177,6 +177,13 @@ public:
      */
     std::vector<std::shared_ptr<Node>> discoverAndMarkContexts(std::vector<Context> contextStack);
 
+    void orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                      std::vector<std::shared_ptr<Node>> &new_nodes,
+                                      std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                      std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                      std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
+
+    //==== Implement Context Root Functions ====
 
     //No variables need to be declared outside of the scope since the EnableOutputs are the gateway for all outputs of the
     //enable subsystem.

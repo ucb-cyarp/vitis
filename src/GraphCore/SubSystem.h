@@ -122,6 +122,25 @@ public:
     void discoverAndUpdateContexts(std::vector<Context> contextStack, std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                    std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                    std::vector<std::shared_ptr<Node>> &discoveredGeneral);
+
+    /**
+     * @brief Order Constrains Zero Input Nodes Within the Subsystems to be scheduled ater all the nodes in the predecessorNodes list
+     *
+     * This function is called recursivly into each subsystem
+     *
+     * Is overwritten by EnabledSubsystem to add its own enable driver nodes to the list of predecessor Nodes
+     *
+     * @param predecessorNodes The list of predecessor nodes from which to add order constraint arcs to
+     * @param new_nodes
+     * @param deleted_nodes
+     * @param new_arcs
+     * @param deleted_arcs
+     */
+    virtual void orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
 /*@}*/

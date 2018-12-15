@@ -560,3 +560,15 @@ std::vector<std::shared_ptr<Node>> EnabledSubSystem::discoverAndMarkContexts(std
 
     return discoveredNodes;
 }
+
+void EnabledSubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    //Add this enabled subsystem's enable driver to the list of predecessor nodes
+    predecessorNodes.push_back(getEnableSrc()->getParent());
+
+    //Continue with normal orderConstraint logic
+    SubSystem::orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}

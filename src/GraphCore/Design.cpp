@@ -2261,6 +2261,26 @@ std::vector<std::shared_ptr<Node>> Design::findTopContextNodes() {
     return std::vector<std::shared_ptr<Node>>();
 }
 
+void Design::orderConstrainZeroInputNodes(){
+
+    std::vector<std::shared_ptr<Node>> predecessorNodes;
+    std::vector<std::shared_ptr<Node>> new_nodes;
+    std::vector<std::shared_ptr<Node>> deleted_nodes;
+    std::vector<std::shared_ptr<Arc>> new_arcs;
+    std::vector<std::shared_ptr<Arc>> deleted_arcs;
+
+    //Call the recursive function on any subsystem at the top level
+    for(unsigned long i = 0; i<topLevelNodes.size(); i++){
+        std::shared_ptr<SubSystem> nodeAsSubSystem = GeneralHelper::isType<Node, SubSystem>(topLevelNodes[i]);
+
+        if(nodeAsSubSystem){
+            nodeAsSubSystem->orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        }
+    }
+
+    addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
 //Create function to reassign all arcs to nodes within ContextContainers to be to the context itself.  This will be used for scheduling.
 
 
