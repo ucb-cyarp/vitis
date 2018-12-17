@@ -572,3 +572,54 @@ void EnabledSubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<
     //Continue with normal orderConstraint logic
     SubSystem::orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 }
+
+std::vector<Variable> EnabledSubSystem::getCContextVars(){
+    //Do not need any additional context vars
+
+    return std::vector<Variable>();
+}
+
+bool EnabledSubSystem::requiresContiguousContextEmits(){
+    return false;
+}
+
+void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int subContextNumber){
+    if(subContextNumber != 0){
+        throw std::runtime_error("Enabled Subsystem Only Has 1 Context, Tried to Open Context " + GeneralHelper::to_string(subContextNumber));
+    }
+
+    std::shared_ptr<OutputPort> enableDriverPort = getEnableSrc();
+    std::string enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, enableDriverPort->getPortNum());
+
+    std::string cExpr = "if(" + enableDriverExpr + "){";
+
+    cStatementQueue.push_back(cExpr);
+}
+
+void EnabledSubSystem::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextOpen functions
+    emitCContextOpenFirst(cStatementQueue, subContextNumber);
+}
+
+void EnabledSubSystem::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextOpen functions
+    emitCContextOpenFirst(cStatementQueue, subContextNumber);
+}
+
+void EnabledSubSystem::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int subContextNumber){
+    if(subContextNumber != 0){
+        throw std::runtime_error("Enabled Subsystem Only Has 1 Context, Tried to Close Context " + GeneralHelper::to_string(subContextNumber));
+    }
+
+    cStatementQueue.push_back("}");
+}
+
+void EnabledSubSystem::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextClose functions
+    emitCContextCloseFirst(cStatementQueue, subContextNumber);
+}
+
+void EnabledSubSystem::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextClose functions
+    emitCContextCloseFirst(cStatementQueue, subContextNumber);
+}

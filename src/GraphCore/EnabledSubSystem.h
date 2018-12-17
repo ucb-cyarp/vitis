@@ -149,7 +149,7 @@ public:
 
 
     /**
-     * @brief Expands the enabled system context of theis node, then extends the context of decendent enabled subsystem
+     * @brief Expands the enabled system context of this node, then extends the context of decendent enabled subsystem
      */
     void extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
                                        std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -185,13 +185,36 @@ public:
 
     //==== Implement Context Root Functions ====
 
-    //No variables need to be declared outside of the scope since the EnableOutputs are the gateway for all outputs of the
-    //enable subsystem.
+    //No additional variables need to be declared outside of the scope since the EnableOutputs are the gateway for all
+    //outputs of the enable subsystem.
+
+    std::vector<Variable> getCContextVars() override;
+
+    bool requiresContiguousContextEmits() override;
+
+    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+
+    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+
+    //However, the EnableOutputs variables must be declared before the context is emitted.  It is important to recall
+    // that enabled outputs are transparent latched and therefore contain a state variables that must be declared such
+    // that their value persists between itterations of the design.  These declarations will be made when the getCStateVars
+    // function is called.
+
+
 
 
     //No else method is nessisary for the enable subsystem since the EnableOutputs update instantaniously when enabled and pass the state variable directly.  The state can be updated instantly because this is a latch, not a delay - nothing depends on the previous value before it is updated - all nodes depend on the calculated value (immediatly).
         //This should be thought of more like a fanout variable that stores its value rather than the state found in a delay.
     //When not enabled, the state variable is not updated, and value is held for dependent nodes.  No 'else' is required to pass the previous value when the susbsytem is disabled.
+
+
+
+
 
 };
 
