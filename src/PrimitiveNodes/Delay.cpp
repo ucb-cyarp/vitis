@@ -173,7 +173,6 @@ std::vector<Variable> Delay::getCStateVars() {
 
         //TODO: Extend to support vectors (must declare 2D array for state)
 
-
         std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
         Variable var = Variable(varName, stateType, initCondition);
         cStateVar = var;

@@ -59,6 +59,10 @@ xercesc::DOMElement *EnableOutput::emitGraphML(xercesc::DOMDocument *doc, xerces
 
 std::set<GraphMLParameter> EnableOutput::graphMLParameters() {
     std::set<GraphMLParameter> parameters = EnableNode::graphMLParameters();
+
+    parameters.insert(GraphMLParameter("InitialCondition", "string", true));
+
+    return parameters;
 }
 
 std::string EnableOutput::labelStr() {
@@ -99,7 +103,7 @@ void EnableOutput::validate() {
     }
 }
 
-EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig), stateVar(orig->stateVar)) { }
+EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig), stateVar(orig->stateVar) { }
 //EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig), stateVar(orig->stateVar), nextStateVar(orig->nextStateVar) { }
 
 std::shared_ptr<Node> EnableOutput::shallowClone(std::shared_ptr<SubSystem> parent) {
@@ -151,6 +155,8 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     std::shared_ptr<Arc> newArc = Arc::connectNodes(stateUpdate->getOutputPortCreateIfNot(0), origDestPort, origDataType, origSampleTime);
 
     new_arcs.push_back(newArc);
+
+    return true;
 }
 
 CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){

@@ -15,6 +15,8 @@
 #include "GraphCore/Design.h"
 #include "GraphCore/SubSystem.h"
 #include "GraphMLDialect.h"
+//#include "GraphCore/EnableOutput.h"
+class EnableOutput;
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
@@ -119,7 +121,7 @@ private:
      * @param dialect The dialect of the GraphML file being imported
      * @return A pointer to the newly created Standard node
      */
-    static std::shared_ptr<EnableOuput> importEnableOutputNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+    static std::shared_ptr<EnableOutput> importEnableOutputNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     /**
      * @brief Imports a VectorFan (or VectorFanIn or VectorFanOut) GraphML block

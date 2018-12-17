@@ -138,14 +138,6 @@ public:
      */
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
 
-    //TODO:
-    //Emit C returns the value in the variable (updates immediatly), and passes its state variable name
-        //This should really be though of as persistant fanout (that is declared as a global) rather than as state
-        //The dependencies on enableOutputs will force the value to be calculated before it is used.  The previous value should never be used in the case where the subsystem is enabled (there are no update dependencies)
-        //However, if the subsystem is not enabled, the un-updated/previous/stored value should be used.
-            //Because the output of this is delayed by 1 cycle, there is no need to schedule the state update - it can occur instantantanously
-
-
     //==== Getters & Setters ====
     Variable getStateVar() const;
     void setStateVar(const Variable &stateVar);

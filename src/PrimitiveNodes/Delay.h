@@ -123,12 +123,6 @@ public:
      *        a temporary variable is not
      *   - Each node dependent on the output of the delay (order constraint only)
      *
-     * The input to the
-     * @param new_nodes
-     * @param deleted_nodes
-     * @param new_arcs
-     * @param deleted_arcs
-     * @return
      */
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
