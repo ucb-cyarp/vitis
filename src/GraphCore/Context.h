@@ -46,6 +46,12 @@ public:
     bool operator==(const Context &rhs) const;
     bool operator!=(const Context &rhs) const;
 
+    //Comparison operators are so that set's of contexts can be created
+    bool operator<(const Context &rhs) const;
+    bool operator>(const Context &rhs) const;
+    bool operator<=(const Context &rhs) const;
+    bool operator>=(const Context &rhs) const;
+
     /**
      * @brief Check if context stack a is equal to or a subcontext of context stack b
      *
