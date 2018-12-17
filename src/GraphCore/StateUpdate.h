@@ -30,9 +30,12 @@
  * for the context.  This makes the emitter simpler.  It also allows it to handle the case when contexts may be
  * interleaved.
  *
- * This node does not supply many methods and replys on the primary node to supply the appropriate methods
+ * This node does not supply many methods and relys on the primary node to supply the appropriate methods
  *
- * This node also reports that it does not contain state to avoid any recursive creation of
+ * This node also reports that it does not contain state to avoid any recursive creation of StateUpdates
+ *
+ * Note:  This node can contain inputs and output ports.  When this occurs, it simply passes the value through.  This
+ * is useful in the case of transparent latching when the state is updated immediatly
  *
  */
 class StateUpdate : public Node {
@@ -99,6 +102,14 @@ public:
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
      */
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
+
+    /**
+     * @brief Emits the C Statement for the StateUpdate
+     *
+     * The StateUpdate only passes values through.  In fact, this node often does not contain any input or output ports.
+     * One case when it does is when
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
 };
 
 /*@}*/

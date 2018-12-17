@@ -56,3 +56,21 @@ StateUpdate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNo
 bool StateUpdate::canExpand() {
     return false;
 }
+
+CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
+    //TODO: Implement Vector Support
+    if(getInputPort(outputPortNum)->getDataType().getWidth()>1 || getInputPort(outputPortNum)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - StateUpdate Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    //Get the expressions for each input
+    std::string inputExpr;
+
+    std::shared_ptr<OutputPort> srcOutputPort = getInputPort(outputPortNum)->getSrcOutputPort();
+    int srcOutputPortNum = srcOutputPort->getPortNum();
+    std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+    inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+
+    return CExpr(inputExpr, false);
+}

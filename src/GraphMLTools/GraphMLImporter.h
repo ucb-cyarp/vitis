@@ -107,6 +107,21 @@ private:
     static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     /**
+     * @brief Imports a EnableOutput GraphML block
+     *
+     * @note This method does not add the new node to either the design or the name/node map.
+     * This is because this method is used when importing both standard nodes and expanded nodes.
+     * The orig node of the expanded node should not be added to the node list
+     *
+     * @param id The id of the node
+     * @param dataKeyValueMap The map of key/value pairs for node parameters
+     * @param parent The parent Node object for the current position in the DOM
+     * @param dialect The dialect of the GraphML file being imported
+     * @return A pointer to the newly created Standard node
+     */
+    static std::shared_ptr<EnableOuput> importEnableOutputNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    /**
      * @brief Imports a VectorFan (or VectorFanIn or VectorFanOut) GraphML block
      *
      * @param id The id of the node
