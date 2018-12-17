@@ -291,6 +291,9 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Si
         %Changing block type from 'S-Function'
         node.simulinkBlockType = 'DataTypePropagation';
         
+elseif strcmp(node.simulinkBlockType, 'Outport' )
+    node.dialogPropertiesNumeric('InitialOutput') = GetParamEval(simulink_block_handle, 'InitialOutput');
+        
 %TODO: More Blocks
 end
     
