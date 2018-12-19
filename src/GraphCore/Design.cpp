@@ -2097,6 +2097,22 @@ void Design::createStateUpdateNodes() {
     }
 }
 
+void Design::createContextVariableUpdateNodes() {
+    //Find nodes with state in design
+    std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
+
+    for(unsigned long i = 0; i<contextRoots.size(); i++){
+        std::vector<std::shared_ptr<Node>> newNodes;
+        std::vector<std::shared_ptr<Node>> deletedNodes;
+        std::vector<std::shared_ptr<Arc>> newArcs;
+        std::vector<std::shared_ptr<Arc>> deletedArcs;
+
+        contextRoots[i]->createContextVariableUpdateNodes(newNodes, deletedNodes, newArcs, deletedArcs);
+
+        addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
+    }
+}
+
 std::vector<std::shared_ptr<Node>> Design::findNodesWithState() {
     std::vector<std::shared_ptr<Node>> nodesWithState;
 

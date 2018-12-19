@@ -34,6 +34,14 @@ void StateUpdate::validate() {
     if(!primaryNode->hasState()){
         throw std::runtime_error("A StateUpdate node has a primary node which does not have state");
     }
+
+    if(inputPorts.size() > 1){
+        throw std::runtime_error("StateUpdate can have either 0 or 1 input ports");
+    }
+
+    if(inputPorts.size() != outputPorts.size()){
+        throw std::runtime_error("StateUpdate must have an equal number of input and output ports");
+    }
 }
 
 std::shared_ptr<Node> StateUpdate::shallowClone(std::shared_ptr<SubSystem> parent) {

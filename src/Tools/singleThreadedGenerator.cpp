@@ -82,6 +82,7 @@ int main(int argc, char* argv[]) {
         }else if(sched == Design::SchedType::TOPOLOGICAL_CONTEXT){
             design->prune(true);
             design->createStateUpdateNodes();
+            design->createContextVariableUpdateNodes();
             design->expandEnabledSubsystemContexts();
             design->discoverAndMarkContexts();
             design->orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚

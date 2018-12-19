@@ -310,4 +310,6 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
         std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(*it, stateUpdate); //Datatype and sample time are not important, use defaults
         new_arcs.push_back(orderConstraint);
     }
+
+    return true;
 }

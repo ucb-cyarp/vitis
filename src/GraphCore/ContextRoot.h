@@ -10,6 +10,7 @@
 
 #include "Node.h"
 #include "Variable.h"
+#include "ContextVariableUpdate.h"
 
 //class Node;
 
@@ -25,6 +26,7 @@ class ContextRoot {
 private:
     std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
     int numSubContexts = 0;///<The number of sub-contexts created by this node
+    std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
 
 public:
     /**
@@ -55,6 +57,13 @@ public:
 
     void setNumSubContexts(int numSubContexts);
 
+    std::vector<std::shared_ptr<ContextVariableUpdate>> getContextVariableUpdateNodes() const;
+
+    void setContextVariableUpdateNodes(
+            const std::vector<std::shared_ptr<ContextVariableUpdate>> &contextVariableUpdateNodes);
+
+    void addContextVariableUpdateNode(std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode);
+
     //==== Emit Functions ====
 
     /**
@@ -72,6 +81,33 @@ public:
      * @return True if the subContexts need to be emitted in a single contiguous block, false otherwise
      */
     virtual bool requiresContiguousContextEmits() = 0;
+
+    /**
+     * @brief Get the specified Context Variable
+     * @param contextVarIndex the index of the context variable
+     * @return the specified Context Variable
+     */
+    virtual Variable getCContextVar(int contextVarIndex) = 0;
+
+    /**
+     * @brief Create the corresponding ContextVariableUpdate nodes and insert them into the graph.
+     *
+     * @note This function should typically be called after context discovery and context expansion.  This is because
+     * the StateUpdate generally inherits
+     *
+     * @param new_nodes a vector of nodes added to the design.  This includes the new ContextVariableUpdate nodes
+     * @param deleted_nodes a vector of nodes to be deleted in the design
+     * @param new_arcs a vector of new arcs added to the design
+     * @param deleted_arcs a vector of arcs to be deleted from the design
+     * @param setContext if true, sets the context of the created ContextVariableUpdate nodes, otherwise does not
+     *
+     * @return true if the ContextVariableUpdate nodes were created and inserted into the graph, false if not
+     */
+    virtual bool createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                  std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                  std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                  bool setContext = false);
 
     /**
      * @brief Emits the statement to open a context.  This function should be called the first time a context in this family is emitted (ie. when an 'if' or 'switch' statement is used)

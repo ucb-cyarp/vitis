@@ -467,6 +467,16 @@ public:
     void createStateUpdateNodes();
 
     /**
+     * @brief Discovers contextRoots in the design and creates ContextVariableUpdate update nodes for them.
+     *
+     * The state update nodes have a ordering dependency with all of the nodes that are connected via out arcs from the
+     * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
+     * when the next state update variable is assigned).
+     *
+     */
+    void createContextVariableUpdateNodes();
+
+    /**
      * @brief Find nodes with state in the design
      * @return a vector of nodes in the design with state
      */
@@ -486,6 +496,12 @@ public:
      * @return
      */
     std::vector<std::shared_ptr<Node>> findTopContextNodes();
+
+    /**
+     * @brief Find nodes with state in the design
+     * @return a vector of nodes in the design with state
+     */
+    std::vector<std::shared_ptr<ContextRoot>> findContextRoots();
 
     //TODO: Validate that mux contexts do not contain state elements
 

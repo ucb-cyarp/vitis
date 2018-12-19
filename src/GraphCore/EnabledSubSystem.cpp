@@ -579,6 +579,11 @@ std::vector<Variable> EnabledSubSystem::getCContextVars(){
     return std::vector<Variable>();
 }
 
+Variable EnabledSubSystem::getCContextVar(int contextVarIndex) {
+    //Do not need any additional context vars
+    return Variable();
+}
+
 bool EnabledSubSystem::requiresContiguousContextEmits(){
     return false;
 }

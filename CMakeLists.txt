@@ -89,6 +89,8 @@ set(COMMON_SRCS
         src/GraphCore/ContextFamilyContainer.h
         src/GraphCore/ContextRoot.cpp
         src/GraphCore/ContextRoot.h
+        src/GraphCore/ContextVariableUpdate.cpp
+        src/GraphCore/ContextVariableUpdate.h
         src/GraphCore/StateUpdate.cpp
         src/GraphCore/StateUpdate.h
         src/MasterNodes/MasterNode.cpp

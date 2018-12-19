@@ -189,6 +189,7 @@ public:
     //outputs of the enable subsystem.
 
     std::vector<Variable> getCContextVars() override;
+    Variable getCContextVar(int contextVarIndex) override;
 
     bool requiresContiguousContextEmits() override;
 

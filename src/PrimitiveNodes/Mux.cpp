@@ -8,6 +8,7 @@
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
 #include "GraphCore/ContextRoot.h"
+#include "GraphCore/ContextVariableUpdate.h"
 #include <iostream>
 
 Mux::Mux() : booleanSelect(false) {
@@ -466,4 +467,52 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
         }
     }
 
+}
+
+bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                           std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                           bool setContext) {
+    std::shared_ptr<Mux> sharedPtrToThis =  std::dynamic_pointer_cast<Mux>(getSharedPointer());
+
+    //Create a Update node for each input
+    for(unsigned long i = 0; i<inputPorts.size(); i++) {
+        int subContextNumber = inputPorts[i]->getPortNum();
+
+        std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode = NodeFactory::createNode<ContextVariableUpdate>(
+                getParent());
+        contextVariableUpdateNode->setName("ContextVariableUpdate-For-" + getName() + "-Input" + GeneralHelper::to_string(subContextNumber));
+        contextVariableUpdateNode->setContextRoot(sharedPtrToThis);
+        addContextVariableUpdateNode(contextVariableUpdateNode);
+        contextVariableUpdateNode->setContextVarIndex(0); //There is only 1 output per mux, set the variable to it
+        new_nodes.push_back(contextVariableUpdateNode);
+
+        if (setContext) {
+            //Set context to be in a subcontext of this node
+            std::vector<Context> contextStack = getContext();
+            contextStack.push_back(Context(sharedPtrToThis, subContextNumber));
+            contextVariableUpdateNode->setContext(contextStack);
+
+            //Add node to this node's context set
+            addSubContextNode(subContextNumber, contextVariableUpdateNode);
+        }
+
+        //Rewire
+        std::shared_ptr<Arc> origArc = *(inputPorts[i]->getArcs().begin());
+        DataType origDataType = origArc->getDataType();
+        double origSampleTime = origArc->getSampleTime();
+        std::shared_ptr<InputPort> origDst = origArc->getDstPort();
+
+        origArc->setDstPortUpdateNewUpdatePrev(contextVariableUpdateNode->getInputPortCreateIfNot(0)); //Rewire to input 0 on the update node
+        std::shared_ptr<Arc> newArc = Arc::connectNodes(contextVariableUpdateNode, 0, origDst->getParent(), origDst->getPortNum(), origDataType, origSampleTime);
+
+        new_arcs.push_back(newArc);
+    }
+
+    if(inputPorts.size()>0){
+        return true;
+    }
+
+    return false;
 }

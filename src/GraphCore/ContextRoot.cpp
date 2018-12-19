@@ -29,3 +29,26 @@ std::vector<std::shared_ptr<Node>> ContextRoot::getSubContextNodes(unsigned long
 void ContextRoot::removeSubContextNode(unsigned long subContext, std::shared_ptr<Node> node) {
     nodesInSubContexts[subContext].erase(std::remove(nodesInSubContexts[subContext].begin(), nodesInSubContexts[subContext].end(), node), nodesInSubContexts[subContext].end());
 }
+
+std::vector<std::shared_ptr<ContextVariableUpdate>> ContextRoot::getContextVariableUpdateNodes() const {
+    return contextVariableUpdateNodes;
+}
+
+void ContextRoot::setContextVariableUpdateNodes(
+        const std::vector<std::shared_ptr<ContextVariableUpdate>> &contextVariableUpdateNodes) {
+    ContextRoot::contextVariableUpdateNodes = contextVariableUpdateNodes;
+}
+
+bool ContextRoot::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                   std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                   bool setContext) {
+    //By default, does nothing
+
+    return false;
+}
+
+void ContextRoot::addContextVariableUpdateNode(std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode){
+    contextVariableUpdateNodes.push_back(contextVariableUpdateNode);
+}
