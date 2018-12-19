@@ -4,6 +4,9 @@
 
 #include "ContextVariableUpdate.h"
 #include "General/GeneralHelper.h"
+#include "SubSystem.h"
+#include "ContextRoot.h"
+#include "NodeFactory.h"
 
 ContextVariableUpdate::ContextVariableUpdate() : contextRoot(nullptr) {
 

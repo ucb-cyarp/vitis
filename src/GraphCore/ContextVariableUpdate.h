@@ -6,10 +6,15 @@
 #define VITIS_CONTEXTVARIABLEUPDATE_H
 
 #include "Node.h"
-#include "SubSystem.h"
-#include "ContextRoot.h"
-#include "NodeFactory.h"
+//#include "SubSystem.h"
+//#include "ContextRoot.h"
+//#include "NodeFactory.h"
 #include <memory>
+
+//Forward Decl
+class SubSystem;
+class ContextRoot;
+class ContextRoot;
 
 /**
 * \addtogroup GraphCore Graph Core

@@ -11,12 +11,15 @@
 #include <string>
 #include "GraphCore/InputPort.h"
 #include "GraphCore/Node.h"
-#include "GraphCore/SubSystem.h"
+//#include "GraphCore/SubSystem.h"
 #include "GeneralHelper.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterUnconnected.h"
 
+//Forward Declare
+class EnabledSubSystem;
+class EnabledNode;
 
 class GraphAlgs {
 public:
