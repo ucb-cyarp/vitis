@@ -29,7 +29,9 @@ Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
 Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent) { }
 
 void Node::init() {
-    //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports
+    //Init the order constraint ports.  It is ok for them to have no connected arcs
+    orderConstraintInputPort = std::unique_ptr<OrderConstraintInputPort>(new OrderConstraintInputPort(this));
+    orderConstraintOutputPort = std::unique_ptr<OrderConstraintOutputPort>(new OrderConstraintOutputPort(this));
 }
 
 void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
