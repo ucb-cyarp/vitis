@@ -111,3 +111,13 @@ std::string GeneralHelper::replaceAll(std::string src, char orig, char repl){
 
     return replaced;
 }
+
+bool GeneralHelper::isWhiteSpace(std::string str){
+    for(unsigned long i = 0; i<str.size(); i++){
+        if(!isblank(str[i])){
+            return false;
+        }
+    }
+
+    return true;
+}

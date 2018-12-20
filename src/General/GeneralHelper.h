@@ -154,6 +154,13 @@ public:
     static unsigned long twoPow(unsigned long exp);
 
     static std::string replaceAll(std::string src, char orig, char repl);
+
+    /**
+     * @brief Return true if string is only whitespace, otherwise return false
+     * @param str string to check
+     * @return true if string is only whitespace, otherwise return false
+     */
+    static bool isWhiteSpace(std::string str);
 };
 
 /*@}*/

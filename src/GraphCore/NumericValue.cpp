@@ -320,127 +320,127 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
         //Increment start for next round
         startPos = tokenEnd + 2; //2 to get over the ','
 
-        //Match regex
-        std::smatch matches;
+        //Check for only whitespace
+        if(GeneralHelper::isWhiteSpace(subStr)){
+            //Do not add a whitespace element to the vector
+        }else {
+            //Match regex
+            std::smatch matches;
 
-        if(complex) {
-            bool complexStdFormMatched = std::regex_match(subStr, matches, complexStdFormRegex);
+            if (complex) {
+                bool complexStdFormMatched = std::regex_match(subStr, matches, complexStdFormRegex);
 
-            if (complexStdFormMatched) {
-                if(fractional){
-                    double realComponent = std::stod(matches[1].str());
-                    bool complexNeg = matches[2].str() == "-";
-                    double imagComponent = std::stod(matches[3].str());
-                    if(complexNeg){
-                        imagComponent*=-1;
-                    }
-
-                    val.complexDouble = std::complex<double>(realComponent, imagComponent);
-                }
-                else{
-                    int realComponent = std::stoi(matches[1].str());
-                    bool complexNeg = matches[2].str() == "-";
-                    int imagComponent = std::stoi(matches[3].str());
-                    if(complexNeg){
-                        imagComponent*=-1;
-                    }
-
-                    val.realInt = realComponent;
-                    val.imagInt = imagComponent;
-                }
-
-            }
-            else{
-                matches = std::smatch();
-                bool complexNoRealMatched = std::regex_match(subStr, matches, complexNoRealRegex);
-
-                if(complexNoRealMatched){
-                    if(fractional){
-                        double realComponent = 0;
-                        double imagComponent = std::stod(matches[1].str());
+                if (complexStdFormMatched) {
+                    if (fractional) {
+                        double realComponent = std::stod(matches[1].str());
+                        bool complexNeg = matches[2].str() == "-";
+                        double imagComponent = std::stod(matches[3].str());
+                        if (complexNeg) {
+                            imagComponent *= -1;
+                        }
 
                         val.complexDouble = std::complex<double>(realComponent, imagComponent);
-                    }else{
-                        int realComponent = 0;
-                        int imagComponent = std::stoi(matches[1].str());
+                    } else {
+                        int realComponent = std::stoi(matches[1].str());
+                        bool complexNeg = matches[2].str() == "-";
+                        int imagComponent = std::stoi(matches[3].str());
+                        if (complexNeg) {
+                            imagComponent *= -1;
+                        }
 
                         val.realInt = realComponent;
                         val.imagInt = imagComponent;
                     }
-                }
-                else{
-                    matches = std::smatch();
-                    bool realMatched = std::regex_match(subStr, matches, realRegex);
 
-                    if(realMatched){
-                        if(fractional){
-                            double realComponent = std::stod(matches[1].str());
-                            double imagComponent = 0;
+                } else {
+                    matches = std::smatch();
+                    bool complexNoRealMatched = std::regex_match(subStr, matches, complexNoRealRegex);
+
+                    if (complexNoRealMatched) {
+                        if (fractional) {
+                            double realComponent = 0;
+                            double imagComponent = std::stod(matches[1].str());
 
                             val.complexDouble = std::complex<double>(realComponent, imagComponent);
-                        }else{
-                            int realComponent = std::stoi(matches[1].str());
-                            int imagComponent = 0;
+                        } else {
+                            int realComponent = 0;
+                            int imagComponent = std::stoi(matches[1].str());
 
                             val.realInt = realComponent;
                             val.imagInt = imagComponent;
                         }
-                    }else{
+                    } else {
                         matches = std::smatch();
-                        bool complexNonStdFormMatched = std::regex_match(subStr, matches, complexNonStdFormRegex);
+                        bool realMatched = std::regex_match(subStr, matches, realRegex);
 
-                        if(complexNonStdFormMatched){
-                            if(fractional){
-                                double imagComponent = std::stod(matches[1].str());
-                                bool realNegative = matches[2].str() == "-";
-                                double realComponent = std::stod(matches[3].str());
-                                if(realNegative){
-                                    realComponent *= -1;
-                                }
+                        if (realMatched) {
+                            if (fractional) {
+                                double realComponent = std::stod(matches[1].str());
+                                double imagComponent = 0;
 
                                 val.complexDouble = std::complex<double>(realComponent, imagComponent);
-                            }
-                            else{
-                                int imagComponent = std::stoi(matches[1].str());
-                                bool realNegative = matches[2].str() == "-";
-                                int realComponent = std::stoi(matches[3].str());
-                                if(realNegative){
-                                    realComponent *= -1;
-                                }
+                            } else {
+                                int realComponent = std::stoi(matches[1].str());
+                                int imagComponent = 0;
 
                                 val.realInt = realComponent;
                                 val.imagInt = imagComponent;
                             }
-                        }else{
-                            throw std::runtime_error("Error parsing complex literal: " + subStr);
+                        } else {
+                            matches = std::smatch();
+                            bool complexNonStdFormMatched = std::regex_match(subStr, matches, complexNonStdFormRegex);
+
+                            if (complexNonStdFormMatched) {
+                                if (fractional) {
+                                    double imagComponent = std::stod(matches[1].str());
+                                    bool realNegative = matches[2].str() == "-";
+                                    double realComponent = std::stod(matches[3].str());
+                                    if (realNegative) {
+                                        realComponent *= -1;
+                                    }
+
+                                    val.complexDouble = std::complex<double>(realComponent, imagComponent);
+                                } else {
+                                    int imagComponent = std::stoi(matches[1].str());
+                                    bool realNegative = matches[2].str() == "-";
+                                    int realComponent = std::stoi(matches[3].str());
+                                    if (realNegative) {
+                                        realComponent *= -1;
+                                    }
+
+                                    val.realInt = realComponent;
+                                    val.imagInt = imagComponent;
+                                }
+                            } else {
+                                throw std::runtime_error("Error parsing complex literal: " + subStr);
+                            }
                         }
                     }
                 }
-            }
-        }else{
-            matches = std::smatch();
-            bool realMatched = std::regex_match(subStr, matches, realRegex);
+            } else {
+                matches = std::smatch();
+                bool realMatched = std::regex_match(subStr, matches, realRegex);
 
-            if(realMatched){
-                if(fractional){
-                    double realComponent = std::stod(matches[1].str());
-                    double imagComponent = 0;
+                if (realMatched) {
+                    if (fractional) {
+                        double realComponent = std::stod(matches[1].str());
+                        double imagComponent = 0;
 
-                    val.complexDouble = std::complex<double>(realComponent, imagComponent);
-                }else{
-                    int realComponent = std::stoi(matches[1].str());
-                    int imagComponent = 0;
+                        val.complexDouble = std::complex<double>(realComponent, imagComponent);
+                    } else {
+                        int realComponent = std::stoi(matches[1].str());
+                        int imagComponent = 0;
 
-                    val.realInt = realComponent;
-                    val.imagInt = imagComponent;
+                        val.realInt = realComponent;
+                        val.imagInt = imagComponent;
+                    }
+                } else {
+                    throw std::runtime_error("Error parsing real literal: \"" + subStr + "\"");
                 }
             }
-            else{
-                throw std::runtime_error("Error parsing real literal: \"" + subStr + "\"");
-            }
-        }
 
-        rtnVal.push_back(val);
+            rtnVal.push_back(val);
+        }
     }
 
     return rtnVal;

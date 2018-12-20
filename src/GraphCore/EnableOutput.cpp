@@ -8,6 +8,7 @@
 #include "NodeFactory.h"
 #include "StateUpdate.h"
 #include "General/GeneralHelper.h"
+#include <iostream>
 
 EnableOutput::EnableOutput() {
 
@@ -31,14 +32,20 @@ std::shared_ptr<EnableOutput> EnableOutput::createFromGraphML(int id, std::strin
         //Vitis Names -- InitialCondition
         initialConditionStr = dataKeyValueMap.at("InitialCondition");
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        //Simulink Names -- Numeric.InitialCondition
-        initialConditionStr = dataKeyValueMap.at("Numeric.InitialCondition");
+        //Simulink Names -- Numeric.InitialOutput
+        initialConditionStr = dataKeyValueMap.at("Numeric.InitialOutput");
     } else
     {
         throw std::runtime_error("Unsupported Dialect when parsing XML - EnableOutput");
     }
 
     std::vector<NumericValue> initialConds = NumericValue::parseXMLString(initialConditionStr);
+
+    if(initialConds.empty()){
+        initialConds.push_back(NumericValue());
+
+        std::cerr << "Warning: Enabled Output " << newNode->getFullyQualifiedName(true) << " Did not Specify an Initial Value ... Assuming Default: " << initialConds[0] << std::endl;
+    }
 
     newNode->setInitCondition(initialConds);
 
