@@ -189,6 +189,9 @@
 	<key id="Numeric.InitialCondition" for="node" attr.name="Numeric.InitialCondition" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="Numeric.InitialOutput" for="node" attr.name="Numeric.InitialOutput" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="Numeric.SampleTime" for="node" attr.name="Numeric.SampleTime" attr.type="string">
 		<default>""</default>
 	</key>
@@ -567,7 +570,8 @@ Function: Sin</data>
 					<data key="block_function">Outport</data>
 					<data key="block_label">Out1
 ID: n8::n18
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
@@ -593,6 +597,7 @@ Function: Outport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+					<data key="Numeric.InitialOutput">[]</data>
 				</node>
 			</graph>
 		</node>
