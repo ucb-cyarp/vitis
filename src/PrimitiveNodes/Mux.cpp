@@ -145,7 +145,7 @@ bool Mux::hasInternalFanout(int inputPort, bool imag) {
     return true;
 }
 
-CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Fix once compile goes through
     throw std::runtime_error("Need to Re-Emplement Mux C-Emit to be Scheduler Aware");
 
@@ -453,7 +453,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
     return false;
 }
 
-CExpr Mux::emitCExprBottomUp(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr Mux::emitCExprBottomUp(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
 
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
@@ -464,7 +464,7 @@ CExpr Mux::emitCExprBottomUp(std::vector<std::string> &cStatementQueue, int outp
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
 
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, selectSrcOutputPortNum, false);
+    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
 
     //Get the expressions for each input
     std::vector<std::string> inputExprs;
@@ -475,7 +475,7 @@ CExpr Mux::emitCExprBottomUp(std::vector<std::string> &cStatementQueue, int outp
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag));
     }
 
     //Declare output tmp var
@@ -581,7 +581,7 @@ Variable Mux::getCContextVar(int contextVarIndex) {
     return muxContextOutputVar;
 }
 
-void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) {
+void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
     }
@@ -589,7 +589,7 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int s
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, selectSrcOutputPortNum, false);
+    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
@@ -644,7 +644,7 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int s
 
 }
 
-void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int subContextNumber) {
+void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
     }
@@ -652,7 +652,7 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int sub
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, selectSrcOutputPortNum, false);
+    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
@@ -674,7 +674,7 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int sub
     }
 }
 
-void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int subContextNumber) {
+void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
     }
@@ -682,7 +682,7 @@ void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int su
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, selectSrcOutputPortNum, false);
+    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
@@ -698,7 +698,7 @@ void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int su
     }
 }
 
-void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) {
+void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
         //If/Else style
@@ -713,7 +713,7 @@ void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int 
     }
 }
 
-void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int subContextNumber) {
+void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
         //If/Else style
@@ -728,7 +728,7 @@ void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int su
     }
 }
 
-void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, int subContextNumber) {
+void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
         //If/Else style

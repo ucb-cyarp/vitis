@@ -99,15 +99,15 @@ public:
 
     void validate() override;
 
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
     bool hasState() override;
 
     std::vector<Variable> getCStateVars() override;
 
-    void emitCExprNextState(std::vector<std::string> &cStatementQueue) override;
+    void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
 
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 

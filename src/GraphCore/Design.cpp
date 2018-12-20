@@ -529,13 +529,13 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState){
+void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState, SchedParams::SchedType schedType){
     //Emit compute next states
     cFile << std::endl << "//==== Compute Next States ====" << std::endl;
     unsigned long numNodesWithState = nodesWithState.size();
     for(unsigned long i = 0; i<numNodesWithState; i++){
         std::vector<std::string> nextStateExprs;
-        nodesWithState[i]->emitCExprNextState(nextStateExprs);
+        nodesWithState[i]->emitCExprNextState(nextStateExprs, schedType);
         cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
 
         unsigned long numNextStateExprs = nextStateExprs.size();
@@ -563,7 +563,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
 
         cFile << "//-- Compute Real Component --" << std::endl;
         std::vector<std::string> cStatements_re;
-        std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false);
+        std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false);
         //emit the expressions
         unsigned long numStatements_re = cStatements_re.size();
         for(unsigned long j = 0; j<numStatements_re; j++){
@@ -578,7 +578,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
         if(outputDataType.isComplex()){
             cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
             std::vector<std::string> cStatements_im;
-            std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true);
+            std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true);
             //emit the expressions
             unsigned long numStatements_im = cStatements_im.size();
             for(unsigned long j = 0; j<numStatements_im; j++){
@@ -591,7 +591,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
     }
 }
 
-void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
+void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::SchedType schedType){
 
     cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
@@ -630,7 +630,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
-                std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false, true, true);
+                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for(unsigned long j = 0; j<numStatements_re; j++){
@@ -645,7 +645,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
                 if(outputDataType.isComplex()){
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
-                    std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true, true, true);
+                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for(unsigned long j = 0; j<numStatements_im; j++){
@@ -666,7 +666,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
 
             std::vector<std::string> nextStateExprs;
-            (*it)->emitCExprNextState(nextStateExprs);
+            (*it)->emitCExprNextState(nextStateExprs, schedType);
 
             for(unsigned long j = 0; j<nextStateExprs.size(); j++){
                 cFile << nextStateExprs[j] << std::endl;
@@ -684,7 +684,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
             for(unsigned long i = 0; i<numOutputPorts; i++){
                 std::vector<std::string> cStatementsRe;
                 //Emit real component (force fanout)
-                (*it)->emitC(cStatementsRe, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                (*it)->emitC(cStatementsRe, schedType, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
                 for(unsigned long j = 0; j<cStatementsRe.size(); j++){
                     cFile << cStatementsRe[j] << std::endl;
@@ -694,7 +694,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
                     //Emit imag component (force fanout)
                     std::vector<std::string> cStatementsIm;
                     //Emit real component (force fanout)
-                    (*it)->emitC(cStatementsIm, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                    (*it)->emitC(cStatementsIm, schedType, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
                     for(unsigned long j = 0; j<cStatementsIm.size(); j++){
                         cFile << cStatementsIm[j] << std::endl;
@@ -706,7 +706,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
     }
 }
 
-void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
+void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType){
 
     cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
@@ -757,7 +757,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
 
                     if(contextFirst.size() - 1 < ind || contextFirst[ind]){
                         //This context was created with a call to first
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
                     }
 
                     //Remove this level of the contextFirst stack because the family was exited
@@ -773,11 +773,11 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
                     //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context closes up to that point
                     //could be either a first, mid, or last
                     if(contextFirst[ind]) { //contextFirst is guarenteed to exist because this level existed in the last emitted context
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
                     }else if(subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >= lastEmittedContext[ind].getContextRoot()->getNumSubContexts()-1 ){
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
                     }else{
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
                     }
 
                     if(lastEmittedContext[ind].getContextRoot() == nodeContext[ind].getContextRoot()){
@@ -814,7 +814,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
                     }
 
                     //Emit context
-                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, nodeContext[i].getSubContext());
+                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
 
                     //push back onto contextFirst
                     contextFirst.push_back(true);
@@ -835,14 +835,14 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
                         }
 
                         //Emit context
-                        nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, nodeContext[i].getSubContext());
+                        nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
 
                         contextFirst[i] = true;
                     }else{
                         if(subContextEmittedCount[nodeContext[i].getContextRoot()] >= nodeContext[i].getContextRoot()->getNumSubContexts()-1){ //Check if this is the last in the context family
-                            nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, nodeContext[i].getSubContext());
+                            nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType, nodeContext[i].getSubContext());
                         }else{
-                            nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, nodeContext[i].getSubContext());
+                            nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType, nodeContext[i].getSubContext());
                         }
 
                         contextFirst[i] = false;
@@ -888,7 +888,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
-                std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false, true, true);
+                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for (unsigned long j = 0; j < numStatements_re; j++) {
@@ -903,7 +903,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
                 if (outputDataType.isComplex()) {
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
-                    std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true, true, true);
+                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for (unsigned long j = 0; j < numStatements_im; j++) {
@@ -920,7 +920,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
             cFile << std::endl << "//---- State Update for " << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
 
             std::vector<std::string> stateUpdateExprs;
-            (*it)->emitCExprNextState(stateUpdateExprs);
+            (*it)->emitCExprNextState(stateUpdateExprs, schedType);
 
             for(unsigned long j = 0; j<stateUpdateExprs.size(); j++){
                 cFile << stateUpdateExprs[j] << std::endl;
@@ -936,7 +936,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
 
             std::vector<std::string> nextStateExprs;
-            (*it)->emitCExprNextState(nextStateExprs);
+            (*it)->emitCExprNextState(nextStateExprs, schedType);
 
             for(unsigned long j = 0; j<nextStateExprs.size(); j++){
                 cFile << nextStateExprs[j] << std::endl;
@@ -954,7 +954,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
             for(unsigned long i = 0; i<numOutputPorts; i++){
                 std::vector<std::string> cStatementsRe;
                 //Emit real component (force fanout)
-                (*it)->emitC(cStatementsRe, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                (*it)->emitC(cStatementsRe, schedType, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
                 for(unsigned long j = 0; j<cStatementsRe.size(); j++){
                     cFile << cStatementsRe[j] << std::endl;
@@ -964,7 +964,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
                     //Emit imag component (force fanout)
                     std::vector<std::string> cStatementsIm;
                     //Emit real component (force fanout)
-                    (*it)->emitC(cStatementsIm, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                    (*it)->emitC(cStatementsIm, schedType, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
                     for(unsigned long j = 0; j<cStatementsIm.size(); j++){
                         cFile << cStatementsIm[j] << std::endl;
@@ -1075,11 +1075,11 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     //Emit operators
     if(sched == SchedParams::SchedType::BOTTOM_UP){
-        emitSingleThreadedOpsSched(cFile);
+        emitSingleThreadedOpsSched(cFile, sched);
     }else if(sched == SchedParams::SchedType::TOPOLOGICAL){
-        emitSingleThreadedOpsBottomUp(cFile, nodesWithState);
+        emitSingleThreadedOpsBottomUp(cFile, nodesWithState, sched);
     }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
-        emitSingleThreadedOpsSchedStateUpdateContext(cFile);
+        emitSingleThreadedOpsSchedStateUpdateContext(cFile, sched);
     }else{
         throw std::runtime_error("Unknown schedule type");
     }
@@ -1088,7 +1088,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << std::endl << "//==== Update State Vars ====" << std::endl;
     for(unsigned long i = 0; i<nodesWithState.size(); i++){
         std::vector<std::string> stateUpdateExprs;
-        nodesWithState[i]->emitCStateUpdate(stateUpdateExprs);
+        nodesWithState[i]->emitCStateUpdate(stateUpdateExprs, sched);
 
         unsigned long numStateUpdateExprs = stateUpdateExprs.size();
         for(unsigned long j = 0; j<numStateUpdateExprs; j++){

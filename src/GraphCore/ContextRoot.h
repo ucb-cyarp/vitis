@@ -112,44 +112,50 @@ public:
     /**
      * @brief Emits the statement to open a context.  This function should be called the first time a context in this family is emitted (ie. when an 'if' or 'switch' statement is used)
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) = 0;
+    virtual void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
 
     /**
      * @brief Emits the statement to open a context.  This function should be called subsequent times contexts in this family are emitted (ie. when an 'else if' statement is used)
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int subContextNumber) = 0;
+    virtual void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
 
     /**
      * @brief Emits the statement to open a context.  This function should be called when the last context in this family is emitted (ie. when an 'else' or 'default' statement is used)
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int subContextNumber) = 0;
+    virtual void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
 
     /**
      * @brief Emits the statement to close a context.  This function should be called the first time a context in this family is closed (ie. when an 'if' or 'switch' statement is used)
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) = 0;
+    virtual void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
 
     /**
      * @brief Emits the statement to close a context.  This function should be called subsequent times contexts in this family are closed (ie. when an 'else if' statement is used)
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int subContextNumber) = 0;
+    virtual void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
 
     /**
      * @brief Emits the statement to open a context.  This function should be called when the last context in this family is emitted (ie. when an 'else' or 'default' statement is used)
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, int subContextNumber) = 0;
+    virtual void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
 
 };
 

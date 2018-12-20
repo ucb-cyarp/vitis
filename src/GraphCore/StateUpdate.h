@@ -101,7 +101,7 @@ public:
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
      */
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
 
     /**
      * @brief Emits the C Statement for the StateUpdate
@@ -109,7 +109,7 @@ public:
      * The StateUpdate only passes values through.  In fact, this node often does not contain any input or output ports.
      * One case when it does is when
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 };
 
 /*@}*/

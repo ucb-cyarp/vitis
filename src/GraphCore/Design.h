@@ -325,20 +325,23 @@ public:
      * @brief Emits operators using the bottom up emitter
      * @param cFile the cFile to emit tp
      * @param nodesWithState nodes with state in the design
+     * @param schedType the specific scheduler used
      */
-    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState);
+    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits operators using the schedule emitter
      * @param cFile the cFile to emit to
+     * @param nodesWithState nodes with state in the design
      */
-    void emitSingleThreadedOpsSched(std::ofstream &cFile);
+    void emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
      * @param cFile the cFile to emit to
+     * @param nodesWithState nodes with state in the design
      */
-    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile);
+    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits the design as a single threaded C function (using the bottom-up method)

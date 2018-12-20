@@ -177,7 +177,7 @@ void LogicalOperator::validate() {
     }
 }
 
-CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
@@ -192,7 +192,7 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, int 
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag));
     }
 
     std::string expr = "";

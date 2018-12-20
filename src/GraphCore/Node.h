@@ -31,6 +31,7 @@ class StateUpdate;
 #include "Variable.h"
 #include "CExpr.h"
 #include "Context.h"
+#include "SchedParams.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -655,13 +656,16 @@ public:
      * Fanout can also be forced which results in temporary variable creation
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param outputPortNum the output port for which the C++ code should be generated for
      * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
      * @param checkFanout if true, checks if the output is used in a fanout.  If false, no check is performed
      * @param forceFanout if true, a temporary variable is always create, if false the value of checkFanout dictates whether or not a temporary variable is created
      * @return a string containing the C code for calculating the result of the output port
      */
-    virtual std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false, bool checkFanout = true, bool forceFanout = false);
+    virtual std::string
+    emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag = false,
+              bool checkFanout = true, bool forceFanout = false);
 
 protected:
     /**
@@ -673,11 +677,13 @@ protected:
      * @note @ref emitC should be called from outside the class instead of this function.  @ref emitC automatically handles fanout while this function does not
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param outputPortNum the output port for which the C++ code should be generated for
      * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
      * @return a string containing the C expression for calculating the result of the output port
      */
-    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
+    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                            bool imag = false);
 
 public:
 
@@ -796,8 +802,9 @@ public:
      *
      * @warning This function is separated from the @ref emitCExpr function in order to break emit cycles
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      */
-    virtual void emitCExprNextState(std::vector<std::string> &cStatementQueue);
+    virtual void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits the C code to update the state varibles of this node.
@@ -805,8 +812,9 @@ public:
      * This code should be called at the end of the emit for the given function.
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      */
-    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue);
+    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType);
 
     /**
      * @brief Get a human readable description of the node

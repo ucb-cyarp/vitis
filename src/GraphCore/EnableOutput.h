@@ -115,7 +115,7 @@ public:
      *
      * This function simply returns the name of the state variable
      */
-    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
     /**
      * @brief Get a list of State Variables
@@ -136,7 +136,7 @@ public:
     /**
      * @brief Sets the latch (state) from the calculated input
      */
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
 
     //==== Getters & Setters ====
     Variable getStateVar() const;

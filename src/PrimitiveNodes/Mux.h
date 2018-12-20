@@ -171,7 +171,7 @@ public:
      * statement, emit with contexts and context wrappers is required.  In this case, this function will not be called
      * as the output assignment will occur during the context emit.
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
     /**
      * @brief Version of emitCExpr for the bottom up scheduler.
@@ -181,11 +181,12 @@ public:
      * This should be used when context emit is not used.
      *
      * @param cStatementQueue the queue of C statements (modified durring the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param outputPortNum the output port for which the C expression is being generated
      * @param imag if true, generate the imagionary component of the output, otherwise generate the real component
      * @return the C expression for the output
      */
-    CExpr emitCExprBottomUp(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag);
+    CExpr emitCExprBottomUp(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag);
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
@@ -236,13 +237,13 @@ public:
 
     Variable getCContextVar(int contextVarIndex) override;
 
-    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
-    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
-    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
 
-    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
-    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
-    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
 };
 
 /*@}*/

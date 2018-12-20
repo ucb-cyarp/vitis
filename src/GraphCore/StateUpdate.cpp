@@ -48,8 +48,8 @@ std::shared_ptr<Node> StateUpdate::shallowClone(std::shared_ptr<SubSystem> paren
     return NodeFactory::shallowCloneNode<StateUpdate>(parent, this);
 }
 
-void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
-    primaryNode->emitCStateUpdate(cStatementQueue);
+void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+    primaryNode->emitCStateUpdate(cStatementQueue, schedType);
 }
 
 std::set<GraphMLParameter> StateUpdate::graphMLParameters() {
@@ -65,7 +65,7 @@ bool StateUpdate::canExpand() {
     return false;
 }
 
-CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
+CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(outputPortNum)->getDataType().getWidth()>1 || getInputPort(outputPortNum)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - StateUpdate Support for Vector Types has Not Yet Been Implemented");
@@ -78,7 +78,7 @@ CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, int outp
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-    inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+    inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     return CExpr(inputExpr, false);
 }

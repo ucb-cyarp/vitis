@@ -73,7 +73,7 @@ std::shared_ptr<Node> ContextVariableUpdate::shallowClone(std::shared_ptr<SubSys
     return NodeFactory::shallowCloneNode<ContextVariableUpdate>(parent, this);
 }
 
-CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     DataType inputDataType = getInputPort(0)->getDataType();
     std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
     int srcOutPortNum = srcPort->getPortNum();
@@ -83,7 +83,7 @@ CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue
     Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
 
     //Emit the upstream
-    std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutPortNum, imag);
+    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
     //Assign the expr to a temporary variable
 

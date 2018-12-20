@@ -75,7 +75,7 @@ void RealImagToComplex::validate() {
     }
 }
 
-CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     std::shared_ptr<OutputPort> srcOutputPort;
     int srcOutputPortNum;
     std::shared_ptr<Node> srcNode;
@@ -92,7 +92,7 @@ CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, in
         srcNode = srcOutputPort->getParent();
     }
 
-    std::string emitStr = srcNode->emitC(cStatementQueue, srcOutputPortNum, false); //The input was validated to be real
+    std::string emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false); //The input was validated to be real
 
     return CExpr(emitStr, false);
 }

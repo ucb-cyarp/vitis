@@ -20,7 +20,7 @@ std::string MasterInput::getCInputName(int portNum) {
 //    return emitCExpr(cStatementQueue, outputPortNum, imag).getExpr();
 //}
 
-CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Get a Dummy Variable Object So We can use its formatter
     Variable var;
     var.setName(getCInputName(outputPortNum));

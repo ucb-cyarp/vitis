@@ -110,7 +110,8 @@ public:
      * @note Masking can be (is) omitted (in the case of the output having the same type as the first input) if the total number of bits is a standard CPU type.
      *
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
 };
 
 /*@}*/

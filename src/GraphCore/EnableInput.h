@@ -78,7 +78,7 @@ public:
      * The EnableInput only passes values through.  It's presence in the graph is primarily to provide an ordering
      * constraint for any node inside the enabled subsystem on the enable driver.
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
 };
 

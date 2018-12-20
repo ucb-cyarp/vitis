@@ -440,7 +440,7 @@ std::string LUT::getGlobalDecl(){
     return tableDecl;
 }
 
-CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
+CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Emit the index calculation
     std::string indexName = name+"_n"+GeneralHelper::to_string(id)+"_index";
     Variable indexVariable = Variable(indexName, DataType()); //The correct type will be set durring index calculation.  Type is not required for de-reference
@@ -462,7 +462,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-        std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
 
         //If the Input Datatype is a floating point type, calculating the index takes the form:

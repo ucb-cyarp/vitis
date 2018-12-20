@@ -166,7 +166,7 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     return true;
 }
 
-CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
+CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - EnableOutput Support for Vector Types has Not Yet Been Implemented");
@@ -206,18 +206,18 @@ CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, int out
 //    }
 //}
 
-void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
+void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     DataType inputDataType = getInputPort(0)->getDataType();
     std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
     int srcOutPortNum = srcPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, srcOutPortNum, false);
+    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
     std::string inputExprIm;
 
     if(inputDataType.isComplex()){
-        inputExprIm = srcNode->emitC(cStatementQueue, srcOutPortNum, true);
+        inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
     }
 
     //TODO: Implement Vector Support

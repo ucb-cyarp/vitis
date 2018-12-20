@@ -107,7 +107,7 @@ void Constant::validate() {
     }
 }
 
-CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Get the datatype of the output port
     std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
     DataType outputType = outputPort->getDataType();
@@ -156,11 +156,12 @@ CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, int outputP
     return CExpr(expr, false);
 }
 
-std::string Constant::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag, bool checkFanout,
-                            bool forceFanout) {
+std::string
+Constant::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
+                bool checkFanout, bool forceFanout) {
     //TODO: should forced fanout be allowed - ie. should it be made possible for the user to mandate that constants be stored in temps
     //Run the parent emitC routien except do not check for fanout.
-    return Node::emitC(cStatementQueue, outputPortNum, imag, false, false);
+    return Node::emitC(cStatementQueue, schedType, outputPortNum, imag, false, false);
 }
 
 Constant::Constant(std::shared_ptr<SubSystem> parent, Constant* orig) : PrimitiveNode(parent, orig), value(orig->value) {

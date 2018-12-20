@@ -295,7 +295,8 @@ std::shared_ptr<SubSystem> Node::getParent() {
 }
 
 std::string
-Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag, bool checkFanout, bool forceFanout) {
+Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
+            bool checkFanout, bool forceFanout) {
     std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
 
     //Check if it has already been emitted
@@ -347,7 +348,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
         if(fanout){
             //Get Expr Before Declaring/assigning so that items higher on the statement stack (prerequites) are enqueued first
             //Makes the temp var declaration more local to where it is assigned
-            CExpr cExpr = emitCExpr(cStatementQueue, outputPortNum, imag);
+            CExpr cExpr = emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
 
             if(!cExpr.isOutputVariable()) {
                 //An expression was returned, not a variable name ... create one
@@ -386,21 +387,19 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
             }
         }else{
             //If not fanout, return expression
-            return emitCExpr(cStatementQueue, outputPortNum, imag).getExpr();
+            return emitCExpr(cStatementQueue, schedType, outputPortNum, imag).getExpr();
         }
     }
 }
 
-CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort, bool imag) {
-    //TODO: Make abstract
-
+CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPort, bool imag) {
     //For now, the default behavior is to return an error message stating that the emitCExpr has not yet been implemented for this node.
     throw std::runtime_error("emitCExpr not yet implemented for node: \n" + labelStr());
 
     return CExpr();
 }
 
-void Node::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
+void Node::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     //Default is to do nothing (since default is to have no state)
 }
 
@@ -436,7 +435,7 @@ std::vector<Variable> Node::getCStateVars() {
     return std::vector<Variable>();
 }
 
-void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
+void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     //Default behavior is no action (since default is to have no state)
 }
 

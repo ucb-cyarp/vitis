@@ -183,7 +183,7 @@ std::vector<Variable> Delay::getCStateVars() {
     }
 }
 
-CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented");
@@ -196,7 +196,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
         std::shared_ptr<Node> srcNode = srcPort->getParent();
 
         //Emit the upstream
-        std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutPortNum, imag);
+        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
         return CExpr(inputExpr, false);
     }else {
@@ -210,7 +210,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
     }
 }
 
-void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
+void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     //TODO: Implement Vector Support (Need 2D state)
     if(delayValue == 0){
         return; //No state to update
@@ -237,21 +237,21 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
         }
     }
 
-    Node::emitCStateUpdate(cStatementQueue);
+    Node::emitCStateUpdate(cStatementQueue, schedType);
 }
 
-void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
+void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     DataType inputDataType = getInputPort(0)->getDataType();
     std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
     int srcOutPortNum = srcPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, srcOutPortNum, false);
+    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
     std::string inputExprIm;
 
     if(inputDataType.isComplex()){
-        inputExprIm = srcNode->emitC(cStatementQueue, srcOutPortNum, true);
+        inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
     }
 
     //Assign the expr to a special variable defined here (before the state update)

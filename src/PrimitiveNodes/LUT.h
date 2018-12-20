@@ -161,7 +161,8 @@ public:
      *
      * This code references the constant arrays declared as globals
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
 
     bool hasInternalFanout(int inputPort, bool imag) override;
 

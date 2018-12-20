@@ -71,7 +71,7 @@ std::shared_ptr<Node> EnableInput::shallowClone(std::shared_ptr<SubSystem> paren
     return NodeFactory::shallowCloneNode<EnableInput>(parent, this);
 }
 
-CExpr EnableInput::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr EnableInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(outputPortNum)->getDataType().getWidth()>1 || getInputPort(outputPortNum)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - EnableInput Support for Vector Types has Not Yet Been Implemented");
@@ -84,7 +84,7 @@ CExpr EnableInput::emitCExpr(std::vector<std::string> &cStatementQueue, int outp
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-    inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+    inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     return CExpr(inputExpr, false);
 
