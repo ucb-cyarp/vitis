@@ -41,6 +41,13 @@ public:
      * @return string representation of the SchedType
      */
     static std::string schedTypeToString(SchedType schedType);
+
+    /**
+     * @brief Determine if the given scheduling scheme is context aware
+     * @param schedType the schedule type to check
+     * @return true if the schedType is context aware, false if otherwise
+     */
+    static bool isContextAware(SchedType schedType);
 };
 
 /*@}*/

@@ -147,12 +147,10 @@ bool Mux::hasInternalFanout(int inputPort, bool imag) {
 
 CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     CExpr expr;
-    if(schedType == SchedParams::SchedType::BOTTOM_UP || schedType == SchedParams::SchedType::TOPOLOGICAL){
+    if(SchedParams::isContextAware(schedType)){
         expr = emitCExprNoContext(cStatementQueue, schedType, outputPortNum, imag);
-    }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+    }else {
         expr = emitCExprContext(cStatementQueue, schedType, outputPortNum, imag);
-    }else{
-        throw std::runtime_error("C Emit Error - Mux Support for Given Scheduler Not Implemented");
     }
 
     return expr;

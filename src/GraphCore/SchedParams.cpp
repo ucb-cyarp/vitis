@@ -28,3 +28,15 @@ std::string SchedParams::schedTypeToString(SchedParams::SchedType schedType) {
         throw std::runtime_error("Unknown scheduler");
     }
 }
+
+bool SchedParams::isContextAware(SchedParams::SchedType schedType){
+    if(schedType == SchedType::BOTTOM_UP || schedType == SchedType::TOPOLOGICAL){
+        return false;
+    }else if(schedType == SchedType::TOPOLOGICAL_CONTEXT){
+        return true;
+    }else{
+        throw std::runtime_error("Unknown scheduler");
+    }
+
+    return false;
+}
