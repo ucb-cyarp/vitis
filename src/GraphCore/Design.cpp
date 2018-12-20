@@ -543,6 +543,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         expandEnabledSubsystemContexts();
         discoverAndMarkContexts();
         orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
+        encapsulateContexts();
         scheduleTopologicalStort(false); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
         emitSingleThreadedC(outputDir, designName, designName, schedType);
@@ -1884,6 +1885,7 @@ unsigned long Design::prune(bool includeVisMaster) {
     //Delete nodes and arcs from design
     for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
         std::shared_ptr<Node> nodeToDelete = *it;
+        std::cout << "Pruned Node: " << nodeToDelete->getFullyQualifiedName(true) << std::endl;
         nodes.erase(std::remove(nodes.begin(), nodes.end(), nodeToDelete), nodes.end());
     }
 
@@ -1967,7 +1969,6 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
-    designClone.encapsulateContexts();
 
     unsigned long numNodesPruned=0;
     if(prune){
