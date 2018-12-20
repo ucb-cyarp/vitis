@@ -73,25 +73,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
 
     try{
-        if(sched == SchedParams::SchedType::BOTTOM_UP)
-            design->emitSingleThreadedC(outputDir, designName, designName, sched);
-        else if(sched == SchedParams::SchedType::TOPOLOGICAL) {
-            design->scheduleTopologicalStort(true);
-            design->verifyTopologicalOrder();
-            design->emitSingleThreadedC(outputDir, designName, designName, sched);
-        }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
-            design->prune(true);
-            design->createStateUpdateNodes();
-            design->createContextVariableUpdateNodes();
-            design->expandEnabledSubsystemContexts();
-            design->discoverAndMarkContexts();
-            design->orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
-            design->scheduleTopologicalStort(false); //Pruned before inserting state update nodes
-            design->verifyTopologicalOrder();
-            design->emitSingleThreadedC(outputDir, designName, designName, sched);
-        }else{
-            throw std::runtime_error("Unknown SCHED Type");
-        }
+        design->generateSingleThreadedC(sched);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

@@ -322,6 +322,15 @@ public:
     std::string getCOutputStructDefn();
 
     /**
+     * @brief Generates a Single Threaded Version of the Design as a C program
+     *
+     * Depending on the scheduler specified, this function will prune, schedule, and emit
+     *
+     * @param schedType the type of scheduler to use when generating the C program
+     */
+    void generateSingleThreadedC(SchedParams::SchedType schedType);
+
+    /**
      * @brief Emits operators using the bottom up emitter
      * @param cFile the cFile to emit tp
      * @param nodesWithState nodes with state in the design
