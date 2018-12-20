@@ -46,6 +46,8 @@ class Mux : public PrimitiveNode, public ContextRoot{
 private:
     std::unique_ptr<SelectPort> selectorPort;///< The port which determines the mux selection
     bool booleanSelect; ///< If true, the mux uses the simulink convention of the top (first) port being true and the bottom port being false
+    bool useSwitch; ///< If true, the mux uses a switch statement rather than an if/else statement (when tthe selector is not a bool).  This forces contexts to be contiguous
+    Variable muxContextOutputVar; ///< The context output variable
 
     //==== Constructors ====
     /**
@@ -103,6 +105,14 @@ public:
     bool isBooleanSelect() const;
 
     void setBooleanSelect(bool booleanSelect);
+
+    bool isUseSwitch() const;
+
+    void setUseSwitch(bool useSwitch);
+
+    Variable getMuxContextOutputVar() const;
+
+    void setMuxContextOutputVar(const Variable &muxContextOutputVar);
 
     //==== Factories ====
     /**
@@ -163,6 +173,20 @@ public:
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
 
+    /**
+     * @brief Version of emitCExpr for the bottom up scheduler.
+     *
+     * Gets the statement of each input port and creates a if/else or switch block.
+     *
+     * This should be used when context emit is not used.
+     *
+     * @param cStatementQueue the queue of C statements (modified durring the call to this function
+     * @param outputPortNum the output port for which the C expression is being generated
+     * @param imag if true, generate the imagionary component of the output, otherwise generate the real component
+     * @return the C expression for the output
+     */
+    CExpr emitCExprBottomUp(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag);
+
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     void cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc, std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) override;
@@ -199,13 +223,26 @@ public:
     static void discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> muxes);
 
     //TODO: Update Mux Emit for Scheduled vs Bottom Up
-    //TODO: ContextRoot functions
 
-    virtual bool createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                  std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                  std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                                  bool setContext) override;
+    bool createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                          bool setContext) override;
+
+    std::vector<Variable> getCContextVars() override;
+
+    bool requiresContiguousContextEmits() override;
+
+    Variable getCContextVar(int contextVarIndex) override;
+
+    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+
+    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
+    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, int subContextNumber) override;
 };
 
 /*@}*/

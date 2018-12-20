@@ -489,15 +489,6 @@ public:
     std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl();
 
     /**
-     * @brief Find a vector of all of the nodes at the top level of the context hierarchy for the design.
-     *
-     * This includes nodes that are not in any context and the first
-     *
-     * @return
-     */
-    std::vector<std::shared_ptr<Node>> findTopContextNodes();
-
-    /**
      * @brief Find nodes with state in the design
      * @return a vector of nodes in the design with state
      */

@@ -2273,10 +2273,6 @@ void Design::encapsulateContexts() {
     }
 }
 
-std::vector<std::shared_ptr<Node>> Design::findTopContextNodes() {
-    return std::vector<std::shared_ptr<Node>>();
-}
-
 void Design::orderConstrainZeroInputNodes(){
 
     std::vector<std::shared_ptr<Node>> predecessorNodes;
@@ -2295,6 +2291,20 @@ void Design::orderConstrainZeroInputNodes(){
     }
 
     addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
+    std::vector<std::shared_ptr<ContextRoot>> contextRoots;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        std::shared_ptr<ContextRoot> nodeAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
+
+        if(nodeAsContextRoot){
+            contextRoots.push_back(nodeAsContextRoot);
+        }
+    }
+
+    return contextRoots;
 }
 
 //Create function to reassign all arcs to nodes within ContextContainers to be to the context itself.  This will be used for scheduling.
