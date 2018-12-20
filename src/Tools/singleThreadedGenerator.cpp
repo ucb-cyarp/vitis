@@ -12,7 +12,7 @@
 #include "GraphMLTools/GraphMLDialect.h"
 
 int main(int argc, char* argv[]) {
-    SchedParams::SchedType sched = SchedParams::SchedType::BOTTOM_UP;
+    SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
 
     if(argc < 4  || argc > 5)
     {
@@ -22,9 +22,9 @@ int main(int argc, char* argv[]) {
         std::cout << "    singleThreadedGenerator inputfile.graphml outputDir designName <SCHED>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible SCHED:" << std::endl;
-        std::cout << "    bottomUp <DEFAULT> = Bottom Up Scheduler" << std::endl;
-        std::cout << "    topological = Topological Sort Scheduler" << std::endl;
-        std::cout << "    topological_context = Topological Sort Scheduler with Contexts" << std::endl;
+        std::cout << "    bottomUp = Bottom Up Scheduler (Does not Support EnabledSubsystems)" << std::endl;
+        std::cout << "    topological = Topological Sort Scheduler (Does not Support EnabledSubsystems)" << std::endl;
+        std::cout << "    topological_context <DEFAULT> = Topological Sort Scheduler with Contexts" << std::endl;
 
 
         return 1;
