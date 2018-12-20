@@ -1097,9 +1097,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     //Emit operators
     if(sched == SchedParams::SchedType::BOTTOM_UP){
-        emitSingleThreadedOpsSched(cFile, sched);
-    }else if(sched == SchedParams::SchedType::TOPOLOGICAL){
         emitSingleThreadedOpsBottomUp(cFile, nodesWithState, sched);
+    }else if(sched == SchedParams::SchedType::TOPOLOGICAL){
+        emitSingleThreadedOpsSched(cFile, sched);
     }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         emitSingleThreadedOpsSchedStateUpdateContext(cFile, sched);
     }else{
