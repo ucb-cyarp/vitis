@@ -146,9 +146,16 @@ bool Mux::hasInternalFanout(int inputPort, bool imag) {
 }
 
 CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-    //TODO: Fix once compile goes through
-    throw std::runtime_error("Need to Re-Emplement Mux C-Emit to be Scheduler Aware");
+    CExpr expr;
+    if(schedType == SchedParams::SchedType::BOTTOM_UP || schedType == SchedParams::SchedType::TOPOLOGICAL){
+        expr = emitCExprNoContext(cStatementQueue, schedType, outputPortNum, imag);
+    }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+        expr = emitCExprContext(cStatementQueue, schedType, outputPortNum, imag);
+    }else{
+        throw std::runtime_error("C Emit Error - Mux Support for Given Scheduler Not Implemented");
+    }
 
+    return expr;
 }
 
 Mux::Mux(std::shared_ptr<SubSystem> parent, Mux* orig) : PrimitiveNode(parent, orig), booleanSelect(orig->booleanSelect), useSwitch(orig->useSwitch), muxContextOutputVar(orig->muxContextOutputVar){
@@ -453,7 +460,15 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
     return false;
 }
 
-CExpr Mux::emitCExprBottomUp(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
+CExpr Mux::emitCExprContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag){
+    if(getOutputPort(0)->getDataType().getWidth()>1){
+        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+    }
+
+    return CExpr(muxContextOutputVar.getCVarName(imag), true); //This is a variable
+}
+
+CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
 
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");

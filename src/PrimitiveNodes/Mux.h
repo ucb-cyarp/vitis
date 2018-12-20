@@ -186,7 +186,22 @@ public:
      * @param imag if true, generate the imagionary component of the output, otherwise generate the real component
      * @return the C expression for the output
      */
-    CExpr emitCExprBottomUp(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag);
+    CExpr emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag);
+
+    /**
+     * @brief Version of emitCExpr for the contextual schedulers.
+     *
+     * Simply returns the context variable.
+     *
+     * This should be used when context emit is used.
+     *
+     * @param cStatementQueue the queue of C statements (modified durring the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
+     * @param outputPortNum the output port for which the C expression is being generated
+     * @param imag if true, generate the imagionary component of the output, otherwise generate the real component
+     * @return the C expression for the output
+     */
+    CExpr emitCExprContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag);
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
