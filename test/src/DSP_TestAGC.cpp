@@ -59,108 +59,108 @@ TEST(DSP_TestAGC, SimulinkImportExport_CrashOnly) {
     remove(vitisFile.c_str());
 }
 
-////Test to check that AGC can be emitted to C (without crashing).  No other check other than crashing is checked
-//TEST(DSP_TestAGC, SimulinkGenCBottomUp_CrashOnly) {
-//    std::string outputDir = ".";
-//    std::string designName = "agc";
-//
-//    std::string mainHFileLoc = outputDir + "/" + designName + ".h";
-//    std::string mainCFileLoc = outputDir + "/" + designName + ".c";
-//
-//    std::string benchmarkHFileLoc = outputDir + "/" + designName + "_benchmark_kernel.h";
-//    std::string benchmarkCFileLoc = outputDir + "/" + designName + "_benchmark_kernel.cpp";
-//    std::string benchmarkDriverCFileLoc = outputDir + "/" + designName + "_benchmark_driver.cpp";
-//    std::string benchmarkMakefileLoc = outputDir + "/Makefile_" + designName + "_const";
-//    std::string benchmarkMakefileNoPCMLoc = outputDir + "/Makefile_noPCM_" + designName + "_const";
-//
-//    std::string memBenchmarkHFileLoc = outputDir + "/" + designName + "_benchmark_kernel_mem.h";
-//    std::string memBenchmarkCFileLoc = outputDir + "/" + designName + "_benchmark_kernel_mem.cpp";
-//    std::string memBenchmarkDriverCFileLoc = outputDir + "/" + designName + "_benchmark_driver_mem.cpp";
-//    std::string memBenchmarkMakefileLoc = outputDir + "/Makefile_" + designName + "_mem";
-//    std::string memBenchmarkMakefileNoPCMLoc = outputDir + "/Makefile_noPCM_" + designName + "_mem";
-//
-//
-//    //Cleanup Prev Run
-//    remove(mainHFileLoc.c_str());
-//    remove(mainCFileLoc.c_str());
-//
-//    remove(benchmarkHFileLoc.c_str());
-//    remove(benchmarkCFileLoc.c_str());
-//    remove(benchmarkDriverCFileLoc.c_str());
-//    remove(benchmarkMakefileLoc.c_str());
-//    remove(benchmarkMakefileNoPCMLoc.c_str());
-//
-//    remove(memBenchmarkHFileLoc.c_str());
-//    remove(memBenchmarkCFileLoc.c_str());
-//    remove(memBenchmarkDriverCFileLoc.c_str());
-//    remove(memBenchmarkMakefileLoc.c_str());
-//    remove(memBenchmarkMakefileNoPCMLoc.c_str());
-//
-//    //==== Import Simulink File ====
-//    std::string simulinkFile = "./stimulus/simulink/dsp/agc.graphml";
-//    std::unique_ptr<Design> design;
-//    {
-//        SCOPED_TRACE("Importing Simulink File");
-//        design = GraphMLImporter::importGraphML(simulinkFile, GraphMLDialect::SIMULINK_EXPORT);
-//    }
-//
-//    //Expand the design to primitives
-//    {
-//        SCOPED_TRACE("Expanding to Primitives");
-//        design->expandToPrimitive();
-//    }
-//
-//    //Assign node and arc IDs (needed for expanded nodes)
-//    design->assignNodeIDs();
-//    design->assignArcIDs();
-//
-//    //Print Scheduler
-//    SchedParams::SchedType sched = SchedParams::SchedType::BOTTOM_UP;
-//
-//    std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
-//
-//    //Emit C
-//    std::cout << "Emitting C File: " << mainHFileLoc << std::endl;
-//    std::cout << "Emitting C File: " << mainCFileLoc << std::endl;
-//
-//    {
-//        SCOPED_TRACE("Emitting C");
-//        design->generateSingleThreadedC(outputDir, designName, sched);
-//    }
-//
-//    std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
-//    std::cout << "Emitting CPP File: " << benchmarkCFileLoc << std::endl;
-//    std::cout << "Emitting CPP File: " << benchmarkDriverCFileLoc << std::endl;
-//    std::cout << "Emitting Makefile: " << benchmarkMakefileLoc << std::endl;
-//    std::cout << "Emitting Makefile: " << benchmarkMakefileNoPCMLoc << std::endl;
-//
-//    std::cout << "Emitting CPP File: " << memBenchmarkHFileLoc << std::endl;
-//    std::cout << "Emitting CPP File: " << memBenchmarkCFileLoc << std::endl;
-//    std::cout << "Emitting CPP File: " << memBenchmarkDriverCFileLoc << std::endl;
-//    std::cout << "Emitting Makefile: " << memBenchmarkMakefileLoc << std::endl;
-//    std::cout << "Emitting Makefile: " << memBenchmarkMakefileNoPCMLoc << std::endl;
-//
-//    {
-//        SCOPED_TRACE("Emitting Benchmarks");
-//        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
-//    }
-//
-//    //Cleanup and Erase Exported Files
-//    remove(mainHFileLoc.c_str());
-//    remove(mainCFileLoc.c_str());
-//
-//    remove(benchmarkHFileLoc.c_str());
-//    remove(benchmarkCFileLoc.c_str());
-//    remove(benchmarkDriverCFileLoc.c_str());
-//    remove(benchmarkMakefileLoc.c_str());
-//    remove(benchmarkMakefileNoPCMLoc.c_str());
-//
-//    remove(memBenchmarkHFileLoc.c_str());
-//    remove(memBenchmarkCFileLoc.c_str());
-//    remove(memBenchmarkDriverCFileLoc.c_str());
-//    remove(memBenchmarkMakefileLoc.c_str());
-//    remove(memBenchmarkMakefileNoPCMLoc.c_str());
-//}
+//Test to check that AGC can be emitted to C (without crashing).  No other check other than crashing is checked
+TEST(DSP_TestAGC, SimulinkGenCBottomUp_CrashOnly) {
+    std::string outputDir = ".";
+    std::string designName = "agc";
+
+    std::string mainHFileLoc = outputDir + "/" + designName + ".h";
+    std::string mainCFileLoc = outputDir + "/" + designName + ".c";
+
+    std::string benchmarkHFileLoc = outputDir + "/" + designName + "_benchmark_kernel.h";
+    std::string benchmarkCFileLoc = outputDir + "/" + designName + "_benchmark_kernel.cpp";
+    std::string benchmarkDriverCFileLoc = outputDir + "/" + designName + "_benchmark_driver.cpp";
+    std::string benchmarkMakefileLoc = outputDir + "/Makefile_" + designName + "_const";
+    std::string benchmarkMakefileNoPCMLoc = outputDir + "/Makefile_noPCM_" + designName + "_const";
+
+    std::string memBenchmarkHFileLoc = outputDir + "/" + designName + "_benchmark_kernel_mem.h";
+    std::string memBenchmarkCFileLoc = outputDir + "/" + designName + "_benchmark_kernel_mem.cpp";
+    std::string memBenchmarkDriverCFileLoc = outputDir + "/" + designName + "_benchmark_driver_mem.cpp";
+    std::string memBenchmarkMakefileLoc = outputDir + "/Makefile_" + designName + "_mem";
+    std::string memBenchmarkMakefileNoPCMLoc = outputDir + "/Makefile_noPCM_" + designName + "_mem";
+
+
+    //Cleanup Prev Run
+    remove(mainHFileLoc.c_str());
+    remove(mainCFileLoc.c_str());
+
+    remove(benchmarkHFileLoc.c_str());
+    remove(benchmarkCFileLoc.c_str());
+    remove(benchmarkDriverCFileLoc.c_str());
+    remove(benchmarkMakefileLoc.c_str());
+    remove(benchmarkMakefileNoPCMLoc.c_str());
+
+    remove(memBenchmarkHFileLoc.c_str());
+    remove(memBenchmarkCFileLoc.c_str());
+    remove(memBenchmarkDriverCFileLoc.c_str());
+    remove(memBenchmarkMakefileLoc.c_str());
+    remove(memBenchmarkMakefileNoPCMLoc.c_str());
+
+    //==== Import Simulink File ====
+    std::string simulinkFile = "./stimulus/simulink/dsp/agc.graphml";
+    std::unique_ptr<Design> design;
+    {
+        SCOPED_TRACE("Importing Simulink File");
+        design = GraphMLImporter::importGraphML(simulinkFile, GraphMLDialect::SIMULINK_EXPORT);
+    }
+
+    //Expand the design to primitives
+    {
+        SCOPED_TRACE("Expanding to Primitives");
+        design->expandToPrimitive();
+    }
+
+    //Assign node and arc IDs (needed for expanded nodes)
+    design->assignNodeIDs();
+    design->assignArcIDs();
+
+    //Print Scheduler
+    SchedParams::SchedType sched = SchedParams::SchedType::BOTTOM_UP;
+
+    std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
+
+    //Emit C
+    std::cout << "Emitting C File: " << mainHFileLoc << std::endl;
+    std::cout << "Emitting C File: " << mainCFileLoc << std::endl;
+
+    {
+        SCOPED_TRACE("Emitting C");
+        design->generateSingleThreadedC(outputDir, designName, sched);
+    }
+
+    std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
+    std::cout << "Emitting CPP File: " << benchmarkCFileLoc << std::endl;
+    std::cout << "Emitting CPP File: " << benchmarkDriverCFileLoc << std::endl;
+    std::cout << "Emitting Makefile: " << benchmarkMakefileLoc << std::endl;
+    std::cout << "Emitting Makefile: " << benchmarkMakefileNoPCMLoc << std::endl;
+
+    std::cout << "Emitting CPP File: " << memBenchmarkHFileLoc << std::endl;
+    std::cout << "Emitting CPP File: " << memBenchmarkCFileLoc << std::endl;
+    std::cout << "Emitting CPP File: " << memBenchmarkDriverCFileLoc << std::endl;
+    std::cout << "Emitting Makefile: " << memBenchmarkMakefileLoc << std::endl;
+    std::cout << "Emitting Makefile: " << memBenchmarkMakefileNoPCMLoc << std::endl;
+
+    {
+        SCOPED_TRACE("Emitting Benchmarks");
+        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
+    }
+
+    //Cleanup and Erase Exported Files
+    remove(mainHFileLoc.c_str());
+    remove(mainCFileLoc.c_str());
+
+    remove(benchmarkHFileLoc.c_str());
+    remove(benchmarkCFileLoc.c_str());
+    remove(benchmarkDriverCFileLoc.c_str());
+    remove(benchmarkMakefileLoc.c_str());
+    remove(benchmarkMakefileNoPCMLoc.c_str());
+
+    remove(memBenchmarkHFileLoc.c_str());
+    remove(memBenchmarkCFileLoc.c_str());
+    remove(memBenchmarkDriverCFileLoc.c_str());
+    remove(memBenchmarkMakefileLoc.c_str());
+    remove(memBenchmarkMakefileNoPCMLoc.c_str());
+}
 
 //Test to check that AGC can be emitted to C (without crashing).  No other check other than crashing is checked
 TEST(DSP_TestAGC, SimulinkGenCTopological_CrashOnly) {
