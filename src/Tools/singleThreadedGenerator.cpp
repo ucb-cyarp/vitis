@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
 
     try{
-        design->generateSingleThreadedC(sched);
+        design->generateSingleThreadedC(outputDir, designName, sched);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

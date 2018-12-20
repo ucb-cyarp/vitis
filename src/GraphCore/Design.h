@@ -326,9 +326,11 @@ public:
      *
      * Depending on the scheduler specified, this function will prune, schedule, and emit
      *
+     * @param outputDir the output directory for the C files
+     * @param designName the design name to be used as the C file names
      * @param schedType the type of scheduler to use when generating the C program
      */
-    void generateSingleThreadedC(SchedParams::SchedType schedType);
+    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits operators using the bottom up emitter
