@@ -12,7 +12,7 @@
 #include "GraphMLTools/GraphMLDialect.h"
 
 int main(int argc, char* argv[]) {
-    Design::SchedType sched = Design::SchedType::BOTTOM_UP;
+    SchedParams::SchedType sched = SchedParams::SchedType::BOTTOM_UP;
 
     if(argc < 4  || argc > 5)
     {
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }else if(argc == 5){
         try{
-            Design::SchedType parsedSched = Design::parseSchedTypeStr(argv[4]);
+            SchedParams::SchedType parsedSched = SchedParams::parseSchedTypeStr(argv[4]);
             sched = parsedSched;
         }catch(std::runtime_error e){
             throw std::runtime_error("Unknown Scheduler, Possible SCHED: bottomUp, topological");
@@ -66,20 +66,20 @@ int main(int argc, char* argv[]) {
     design->assignArcIDs();
 
     //Print Scheduler
-    std::cout << "SCHED: " << Design::schedTypeToString(sched) << std::endl;
+    std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
 
     //Emit C
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
     std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
 
     try{
-        if(sched == Design::SchedType::BOTTOM_UP)
+        if(sched == SchedParams::SchedType::BOTTOM_UP)
             design->emitSingleThreadedC(outputDir, designName, designName, sched);
-        else if(sched == Design::SchedType::TOPOLOGICAL) {
+        else if(sched == SchedParams::SchedType::TOPOLOGICAL) {
             design->scheduleTopologicalStort(true);
             design->verifyTopologicalOrder();
             design->emitSingleThreadedC(outputDir, designName, designName, sched);
-        }else if(sched == Design::SchedType::TOPOLOGICAL_CONTEXT){
+        }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
             design->prune(true);
             design->createStateUpdateNodes();
             design->createContextVariableUpdateNodes();

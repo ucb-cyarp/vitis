@@ -13,6 +13,7 @@
 #include "GraphMLParameter.h"
 #include "General/GeneralHelper.h"
 #include "Variable.h"
+#include "SchedParams.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -67,29 +68,6 @@ public:
     void addNode(std::shared_ptr<Node> node);
     void addTopLevelNode(std::shared_ptr<Node> node);
     void addArc(std::shared_ptr<Arc> arc);
-
-    /**
-     * @brief Represents the types of schedulers supported
-     */
-    enum class SchedType{
-        BOTTOM_UP, ///<The original bottom up emit.  Emits from outputs backwards
-        TOPOLOGICAL, ///<A generic topological sort based scheduler
-        TOPOLOGICAL_CONTEXT ///<A generic topological sort based scheduler with context discovery
-    };
-
-    /**
-     * @brief Parse a scheduler type
-     * @param str the string to parse
-     * @return The equivalent SchedType
-     */
-    static SchedType parseSchedTypeStr(std::string str);
-
-    /**
-     * @brief Get a string representation of the SchedType
-     * @param schedType the SchedType to get a string of
-     * @return string representation of the SchedType
-     */
-    static std::string schedTypeToString(SchedType schedType);
 
     /**
      * @brief Re-number node IDs
@@ -374,7 +352,7 @@ public:
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
      */
-    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, Design::SchedType schedType);
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits the benchmarking drivers for the design

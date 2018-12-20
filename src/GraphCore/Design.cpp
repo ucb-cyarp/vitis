@@ -976,7 +976,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile){
     }
 }
 
-void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedType sched) {
+void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched) {
     //Get the OutputType struct defn
     std::string outputTypeDefn = getCOutputStructDefn();
 
@@ -1074,11 +1074,11 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << fctnProto << "{" << std::endl;
 
     //Emit operators
-    if(sched == Design::SchedType::BOTTOM_UP){
+    if(sched == SchedParams::SchedType::BOTTOM_UP){
         emitSingleThreadedOpsSched(cFile);
-    }else if(sched == Design::SchedType::TOPOLOGICAL){
+    }else if(sched == SchedParams::SchedType::TOPOLOGICAL){
         emitSingleThreadedOpsBottomUp(cFile, nodesWithState);
-    }else if(sched == Design::SchedType::TOPOLOGICAL_CONTEXT){
+    }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         emitSingleThreadedOpsSchedStateUpdateContext(cFile);
     }else{
         throw std::runtime_error("Unknown schedule type");
@@ -1998,30 +1998,6 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
 //    }
 
     return numNodesPruned;
-}
-
-Design::SchedType Design::parseSchedTypeStr(std::string str) {
-    if(str == "BOTTOM_UP" || str == "bottomUp" || str == "bottomup"){
-        return SchedType::BOTTOM_UP;
-    }else if(str == "TOPOLOGICAL" || str == "topological"){
-        return SchedType::TOPOLOGICAL;
-    }else if(str == "TOPOLOGICAL_CONTEXT" || str == "topological_context") {
-        return SchedType::TOPOLOGICAL_CONTEXT;
-    }else{
-        throw std::runtime_error("Unable to parse Scheduler: " + str);
-    }
-}
-
-std::string Design::schedTypeToString(Design::SchedType schedType) {
-    if(schedType == SchedType::BOTTOM_UP){
-        return "BOTTOM_UP";
-    }else if(schedType == SchedType::TOPOLOGICAL) {
-        return "TOPOLOGICAL";
-    }else if(schedType == SchedType::TOPOLOGICAL_CONTEXT){
-        return "TOPOLOGICAL_CONTEXT";
-    }else{
-        throw std::runtime_error("Unknown scheduler");
-    }
 }
 
 void Design::expandEnabledSubsystemContexts(){

@@ -38,6 +38,8 @@ set(COMMON_SRCS
         src/General/FixedPointHelpers.h
         src/General/GraphAlgs.cpp
         src/General/GraphAlgs.h
+        src/GraphCore/SchedParams.cpp
+        src/GraphCore/SchedParams.h
         src/GraphCore/Node.cpp
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
