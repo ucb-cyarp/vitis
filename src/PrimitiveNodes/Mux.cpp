@@ -148,9 +148,9 @@ bool Mux::hasInternalFanout(int inputPort, bool imag) {
 CExpr Mux::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     CExpr expr;
     if(SchedParams::isContextAware(schedType)){
-        expr = emitCExprNoContext(cStatementQueue, schedType, outputPortNum, imag);
-    }else {
         expr = emitCExprContext(cStatementQueue, schedType, outputPortNum, imag);
+    }else {
+        expr = emitCExprNoContext(cStatementQueue, schedType, outputPortNum, imag);
     }
 
     return expr;
