@@ -2006,7 +2006,12 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
     }
 
     for(auto it = nodesToRemove.begin(); it != nodesToRemove.end(); it++){
+        if((*it)->getParent()){
+            (*it)->getParent()->removeChild(*it);
+        }
+
         designClone.nodes.erase(std::remove(designClone.nodes.begin(), designClone.nodes.end(), *it), designClone.nodes.end());
+        designClone.topLevelNodes.erase(std::remove(designClone.topLevelNodes.begin(), designClone.topLevelNodes.end(), *it), designClone.topLevelNodes.end());
     }
     for(auto it = arcsToDelete.begin(); it != arcsToDelete.end(); it++){
         designClone.arcs.erase(std::remove(designClone.arcs.begin(), designClone.arcs.end(), *it), designClone.arcs.end());
