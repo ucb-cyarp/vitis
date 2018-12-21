@@ -544,6 +544,11 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         discoverAndMarkContexts();
         orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
         encapsulateContexts();
+
+        //We have added nodes and arcs.  Assign them IDs
+        assignNodeIDs();
+        assignArcIDs();
+
         scheduleTopologicalStort(false); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
         emitSingleThreadedC(outputDir, designName, designName, schedType);
@@ -1885,7 +1890,7 @@ unsigned long Design::prune(bool includeVisMaster) {
     //Delete nodes and arcs from design
     for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
         std::shared_ptr<Node> nodeToDelete = *it;
-        std::cout << "Pruned Node: " << nodeToDelete->getFullyQualifiedName(true) << std::endl;
+        std::cout << "Pruned Node: " << nodeToDelete->getFullyQualifiedName(true) << " [ID: " << nodeToDelete->getId() << "]" << std::endl;
         nodes.erase(std::remove(nodes.begin(), nodes.end(), nodeToDelete), nodes.end());
     }
 
@@ -1937,7 +1942,7 @@ void Design::verifyTopologicalOrder() {
                 if(dstNode->getSchedOrder() != -1){
                     //Dst node is scheduled
                     if(srcNode->getSchedOrder() >= dstNode->getSchedOrder()){
-                        throw std::runtime_error("Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() + ")[" + GeneralHelper::to_string(srcNode->getSchedOrder()) + "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() + ")[" + GeneralHelper::to_string(dstNode->getSchedOrder()) +"]");
+                        throw std::runtime_error("Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() + ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " + GeneralHelper::to_string(srcNode->getId()) + "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() + ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) +", ID: " + GeneralHelper::to_string(dstNode->getId()) + "]");
                     }
                 }
                 //Dst node unscheduled is OK
