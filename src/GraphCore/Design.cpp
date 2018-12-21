@@ -332,6 +332,11 @@ void Design::addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes
     }
 
     for(auto node = deleted_nodes.begin(); node != deleted_nodes.end(); node++){
+        //Remove the node from it's parent's children list (if it has a parent) -> this is important when the graph is traversed hierarchically)
+        if((*node)->getParent()){
+            (*node)->getParent()->removeChild(*node);
+        }
+
         //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
         for(auto candidate = nodes.begin(); candidate != nodes.end(); ){//Will handle iteration in body since erase returns next iterator pos
             if((*candidate) == (*node)){
@@ -1888,7 +1893,12 @@ unsigned long Design::prune(bool includeVisMaster) {
     for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
         std::shared_ptr<Node> nodeToDelete = *it;
         std::cout << "Pruned Node: " << nodeToDelete->getFullyQualifiedName(true) << " [ID: " << nodeToDelete->getId() << "]" << std::endl;
+        //Remove the node from it's parent's children list (if it has a parent) -> this is important when the graph is traversed hierarchically)
+        if(nodeToDelete->getParent()){
+            nodeToDelete->getParent()->removeChild(nodeToDelete);
+        }
         nodes.erase(std::remove(nodes.begin(), nodes.end(), nodeToDelete), nodes.end());
+        topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), nodeToDelete), topLevelNodes.end()); //Also remove from top lvl node (if applicable)
     }
 
     for(auto it = arcsDeleted.begin(); it != arcsDeleted.end(); it++){
@@ -1999,7 +2009,7 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
         designClone.nodes.erase(std::remove(designClone.nodes.begin(), designClone.nodes.end(), *it), designClone.nodes.end());
     }
     for(auto it = arcsToDelete.begin(); it != arcsToDelete.end(); it++){
-        arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
+        designClone.arcs.erase(std::remove(designClone.arcs.begin(), designClone.arcs.end(), *it), designClone.arcs.end());
     }
 
     //==== Topological Sort (Destructive) ====
