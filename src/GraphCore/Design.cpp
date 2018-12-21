@@ -295,9 +295,6 @@ bool Design::expand() {
     for(auto node = nodes.begin(); node != nodes.end(); node++){
         std::shared_ptr<ExpandedNode> expandedPtr = (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
         if(expandedPtr != nullptr){
-            if(expandedPtr->getParent() == nullptr){ //We need to check the expanded Ptr instead of the origional node ptr because the parent of expanded nodes are set to null (they become the orig node of the expanded node container)
-                addTopLevelNode(expandedPtr);
-            }
             expanded = true;
         }
     }
