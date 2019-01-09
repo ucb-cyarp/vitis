@@ -375,7 +375,7 @@ std::shared_ptr<Arc> Arc::connectNodesOrderConstraint(std::shared_ptr<Node> src,
     //Connect arc
     if(src != nullptr)
     {
-        dst->addOrderConstraintOutArcUpdatePrevUpdateArc(arc);
+        src->addOrderConstraintOutArcUpdatePrevUpdateArc(arc);
     }
 
     if(dst != nullptr)

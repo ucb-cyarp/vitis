@@ -299,10 +299,6 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
 
     new_nodes.push_back(stateUpdate);
 
-    //make this node dependent on the Delay block (prevents the update from occuring until the new state has been calculated for the delay -> this occurs when the delay is scheduled)
-    std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(getSharedPointer(), stateUpdate); //Datatype and sample time are not important, use defaults
-    new_arcs.push_back(orderConstraint);
-
     //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
     std::set<std::shared_ptr<Node>> connectedOutNodes = getConnectedOutputNodes();
 
@@ -310,6 +306,11 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
         std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(*it, stateUpdate); //Datatype and sample time are not important, use defaults
         new_arcs.push_back(orderConstraint);
     }
+
+    //make this node dependent on the Delay block (prevents the update from occuring until the new state has been calculated for the delay -> this occurs when the delay is scheduled)
+    //Do this after adding the dependencies on the output nodes to avoid creating a false loop
+    std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(getSharedPointer(), stateUpdate); //Datatype and sample time are not important, use defaults
+    new_arcs.push_back(orderConstraint);
 
     return true;
 }
