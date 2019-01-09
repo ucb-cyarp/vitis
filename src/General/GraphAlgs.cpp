@@ -10,6 +10,8 @@
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
 
+#include <iostream>
+
 std::set<std::shared_ptr<Node>>
 GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks) {
     std::set<std::shared_ptr<Node>> contextNodes;

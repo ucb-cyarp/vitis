@@ -185,6 +185,8 @@ public:
 
     //==== Implement Context Root Functions ====
 
+    int getNumSubContexts() const override;
+
     //No additional variables need to be declared outside of the scope since the EnableOutputs are the gateway for all
     //outputs of the enable subsystem.
 

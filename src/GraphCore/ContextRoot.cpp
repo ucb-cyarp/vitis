@@ -5,14 +5,6 @@
 #include "ContextRoot.h"
 #include <algorithm>
 
-int ContextRoot::getNumSubContexts() const {
-    return numSubContexts;
-}
-
-void ContextRoot::setNumSubContexts(int numSubContexts) {
-    ContextRoot::numSubContexts = numSubContexts;
-}
-
 void ContextRoot::addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node) {
     //Create sub-vectors if needed
     while(nodesInSubContexts.size() < (subContext+1)){

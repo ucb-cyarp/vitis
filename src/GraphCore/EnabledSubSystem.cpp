@@ -628,3 +628,9 @@ void EnabledSubSystem::emitCContextCloseLast(std::vector<std::string> &cStatemen
     //For EnabledSubsystems, there is no distinction between the different ContextClose functions
     emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber);
 }
+
+int EnabledSubSystem::getNumSubContexts() const{
+    return 1; //There is only 1 context in an enabled subsystem
+
+    //You could technically say there is an empty second context for the case that the subsystem is not taken
+};

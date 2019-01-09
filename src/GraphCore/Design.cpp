@@ -1741,7 +1741,6 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
             if(origNodeAsContextRoot){
                 int numSubContexts = nodeCopyAsContextRoot->getNumSubContexts();
-                nodeCopyAsContextRoot->setNumSubContexts(numSubContexts);
 
                 for(int j = 0; j<numSubContexts; j++){
                     std::vector<std::shared_ptr<Node>> origContextNodes = origNodeAsContextRoot->getSubContextNodes(j);
@@ -1982,10 +1981,14 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
 
+    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
     unsigned long numNodesPruned=0;
     if(prune){
         numNodesPruned = designClone.prune(true);
+        std::cerr << "Nodes Pruned: " << numNodesPruned << std::endl;
     }
+
+    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
 
     //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
     std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
@@ -2157,11 +2160,10 @@ void Design::encapsulateContexts() {
     //context expansion stops at enabled subsystem boundaries.  Therefore, we cannot have enabled subsystems nested in muxes
     //However, we can have enabled subsystems nested in enabled subsystems, muxes nested in enabled subsystems, and muxes nested in muxes
 
-    //**** Change, do this for all context roots *****
+    //**** <Change>Do this for all context roots</Change> *****
+    //<Delete>Start at the top level of the hierarchy and find the nodes with context</Delete>
 
-    //<Delete>Start at the top level of the hierarchy and find the nodes with context
-    //Create the appropriate ContextContainer of ContextFamilyContainer for each and create a map of node to ContextContainer
-
+    //Create the appropriate ContextContainer of ContextFamilyContainer for each and create a map of nodes to ContextContainer
     std::vector<std::shared_ptr<ContextRoot>> contextRootNodes;
     std::vector<std::shared_ptr<Node>> nodesInContext;
 
@@ -2217,7 +2219,8 @@ void Design::encapsulateContexts() {
             //This node is in a context, move it's container under the appropriate container.
             Context innerContext = context[context.size()-1];
 
-            std::shared_ptr<ContextContainer> newParent = contextNodeToFamilyContainer[innerContext.getContextRoot()]->getSubContextContainer(innerContext.getSubContext());
+            std::shared_ptr<ContextFamilyContainer> familyContainer = contextNodeToFamilyContainer[innerContext.getContextRoot()];
+            std::shared_ptr<ContextContainer> newParent = familyContainer->getSubContextContainer(innerContext.getSubContext());
 
             std::shared_ptr<ContextFamilyContainer> toBeMoved = contextNodeToFamilyContainer[asContextRoot];
 

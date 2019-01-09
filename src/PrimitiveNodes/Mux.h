@@ -238,6 +238,8 @@ public:
      */
     static void discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> muxes);
 
+    int getNumSubContexts() const override;
+
     //TODO: Update Mux Emit for Scheduled vs Bottom Up
 
     bool createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,

@@ -25,7 +25,6 @@
 class ContextRoot {
 private:
     std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
-    int numSubContexts = 0;///<The number of sub-contexts created by this node
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
 
 public:
@@ -53,9 +52,11 @@ public:
      */
     void removeSubContextNode(unsigned long subContext, std::shared_ptr<Node> node);
 
-    int getNumSubContexts() const;
-
-    void setNumSubContexts(int numSubContexts);
+    /**
+     * @brief Get the number of subcontexts created by this node
+     * @return
+     */
+    virtual int getNumSubContexts() const = 0;
 
     std::vector<std::shared_ptr<ContextVariableUpdate>> getContextVariableUpdateNodes() const;
 

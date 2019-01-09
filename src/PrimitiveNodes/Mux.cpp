@@ -291,7 +291,7 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
     //Discover contexts for muxes
     std::map<std::shared_ptr<Mux>, std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>>> muxContexts;
 //    std::map<std::shared_ptr<Mux>, std::set<std::shared_ptr<Node>>> allNodesInMuxConexts;
-    std::map<std::shared_ptr<Mux>, unsigned long> muxInContextCount;
+    std::map<std::shared_ptr<Mux>, unsigned long> muxInContextCount; //The number of mux contexts the given mux is in
 
     for(unsigned long i = 0; i<muxes.size(); i++){
         muxContexts[muxes[i]] = muxes[i]->discoverContexts();
@@ -303,6 +303,7 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
         muxInContextCount[muxes[i]] = 0;
     }
 
+    //Count the number of times muxes appear in contexts.  Derives the number of contexts a particular mux is in
     for(auto muxPair = muxContexts.begin(); muxPair != muxContexts.end(); muxPair++){
         std::shared_ptr<Mux> mux = muxPair->first;
         std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> portContexts = muxPair->second;
@@ -377,8 +378,8 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
                 }
 
                 Context parentContext = contextStack[contextStack.size()-1];
-                if(GeneralHelper::isType<ContextRoot, Mux>(parentContext.getContextRoot()) != nullptr){
-                    throw std::runtime_error("Last ContextRoot for this mux expected to be a mux");
+                if(GeneralHelper::isType<ContextRoot, Mux>(parentContext.getContextRoot()) == nullptr){
+                    throw std::runtime_error("Last ContextRoot for this mux expected to be a mux"); //For a count >0, this mux should be within another mux's context
                 }
 
                 std::shared_ptr<Mux> contextParent = std::dynamic_pointer_cast<Mux>(parentContext.getContextRoot());
@@ -754,4 +755,9 @@ void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, Sched
 
         //There is no close for a switch block
     }
+}
+
+int Mux::getNumSubContexts() const{
+    //The number of contexts is the number of inputs ports (not including the select port)
+    return inputPorts.size();
 }
