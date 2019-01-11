@@ -2243,7 +2243,7 @@ void Design::encapsulateContexts() {
         std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(asContextRoot); //TODO: Fix inheritance diamond issue
 
         std::vector<Context> context = asNode->getContext();
-        if(context.size() > 1){
+        if(context.size() > 0){
             //This node is in a context, move it's container under the appropriate container.
             Context innerContext = context[context.size()-1];
 
@@ -2304,7 +2304,7 @@ void Design::encapsulateContexts() {
         nodesInContext[i]->setParent(contextContainer);
     }
 
-    //Move context roots into their ContextFamilyContainers
+    //Move context roots into their ContextFamilyContainers.  Note, the ContextStack of the ContextRootNode does not include its own context
     for(unsigned long i = 0; i<contextRootNodes.size(); i++){
         std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: fix diamond inheritance issue
         std::shared_ptr<SubSystem> origParent = asNode->getParent();
