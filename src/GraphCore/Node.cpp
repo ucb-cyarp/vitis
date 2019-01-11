@@ -948,7 +948,7 @@ unsigned long Node::orderConstraintOutDegree() {
     return count;
 }
 
-std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintPort() {
+std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintInputPort() {
     if(!orderConstraintInputPort) {
         return std::shared_ptr<OrderConstraintInputPort>(nullptr);
     }
@@ -956,12 +956,28 @@ std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintPort() {
     return orderConstraintInputPort->getSharedPointerOrderConstraintPort();
 }
 
-std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintPortCreateIfNot() {
+std::shared_ptr<OrderConstraintOutputPort> Node::getOrderConstraintOutputPort() {
+    if(!orderConstraintOutputPort) {
+        return std::shared_ptr<OrderConstraintOutputPort>(nullptr);
+    }
+
+    return orderConstraintOutputPort->getSharedPointerOrderConstraintPort();
+}
+
+std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintInputPortCreateIfNot() {
     if(!orderConstraintInputPort) {
         orderConstraintInputPort = std::unique_ptr<OrderConstraintInputPort>(new OrderConstraintInputPort(this));
     }
 
     return orderConstraintInputPort->getSharedPointerOrderConstraintPort();
+}
+
+std::shared_ptr<OrderConstraintOutputPort> Node::getOrderConstraintOutputPortCreateIfNot() {
+    if(!orderConstraintOutputPort) {
+        orderConstraintOutputPort = std::unique_ptr<OrderConstraintOutputPort>(new OrderConstraintOutputPort(this));
+    }
+
+    return orderConstraintOutputPort->getSharedPointerOrderConstraintPort();
 }
 
 std::vector<std::shared_ptr<InputPort>> Node::getInputPortsIncludingSpecial() {

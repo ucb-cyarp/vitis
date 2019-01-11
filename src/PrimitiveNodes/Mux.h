@@ -217,6 +217,8 @@ public:
 
     std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecial() override;
 
+    std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() override;
+
     /**
      * @brief Discover the context for nodes connexted to the mux
      *

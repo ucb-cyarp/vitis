@@ -761,3 +761,15 @@ int Mux::getNumSubContexts() const{
     //The number of contexts is the number of inputs ports (not including the select port)
     return inputPorts.size();
 }
+
+std::vector<std::shared_ptr<Arc>> Mux::getContextDecisionDriver() {
+    std::vector<std::shared_ptr<Arc>> arcs;
+
+    std::set<std::shared_ptr<Arc>> selectorPortArcs = selectorPort->getArcs();
+
+    if(!selectorPortArcs.empty()) {
+        arcs.push_back(*(selectorPortArcs.begin()));
+    }
+
+    return arcs;
+}

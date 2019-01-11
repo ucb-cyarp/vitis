@@ -44,3 +44,11 @@ bool ContextRoot::createContextVariableUpdateNodes(std::vector<std::shared_ptr<N
 void ContextRoot::addContextVariableUpdateNode(std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode){
     contextVariableUpdateNodes.push_back(contextVariableUpdateNode);
 }
+
+std::shared_ptr<ContextFamilyContainer> ContextRoot::getContextFamilyContainer() const {
+    return contextFamilyContainer;
+}
+
+void ContextRoot::setContextFamilyContainer(const std::shared_ptr<ContextFamilyContainer> &contextFamilyContainer) {
+    ContextRoot::contextFamilyContainer = contextFamilyContainer;
+}

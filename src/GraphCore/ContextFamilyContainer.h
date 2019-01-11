@@ -67,6 +67,9 @@ public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
     void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
 
+    std::set<GraphMLParameter> graphMLParameters() override;
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
     /**
      * @brief For nodes within this context family which are connected to nodes outside of the context family, the arcs are re-wired to terminate/origionate at the ContextFamilyContainer
      *

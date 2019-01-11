@@ -39,3 +39,18 @@ ContextContainer::ContextContainer(std::shared_ptr<SubSystem> parent, ContextCon
 std::shared_ptr<Node> ContextContainer::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<ContextContainer>(parent, this);
 }
+
+std::set<GraphMLParameter> ContextContainer::graphMLParameters() {
+    std::set<GraphMLParameter> parameters;
+    return parameters;
+}
+
+xercesc::DOMElement *
+ContextContainer::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    //Create Node
+    xercesc::DOMElement* thisNode = SubSystem::emitGraphML(doc, graphNode, false);
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "ContextContainer");
+
+    return thisNode;
+}

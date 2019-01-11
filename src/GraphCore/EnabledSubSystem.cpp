@@ -633,4 +633,24 @@ int EnabledSubSystem::getNumSubContexts() const{
     return 1; //There is only 1 context in an enabled subsystem
 
     //You could technically say there is an empty second context for the case that the subsystem is not taken
+}
+
+std::vector<std::shared_ptr<Arc>> EnabledSubSystem::getContextDecisionDriver() {
+    std::vector<std::shared_ptr<Arc>> driverArcs;
+
+    for(unsigned long i = 0; i<enabledInputs.size(); i++) {
+        std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[i]->getEnablePort()->getArcs();
+        if (enableArcs.size() != 0) {
+            driverArcs.push_back(*(enableArcs.begin()));
+        }
+    }
+
+    for(unsigned long i = 0; i<enabledOutputs.size(); i++) {
+        std::set<std::shared_ptr<Arc>> enableArcs = enabledOutputs[i]->getEnablePort()->getArcs();
+        if (enableArcs.size() != 0) {
+            driverArcs.push_back(*(enableArcs.begin()));
+        }
+    }
+
+    return driverArcs;
 };

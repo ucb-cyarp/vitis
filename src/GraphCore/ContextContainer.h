@@ -61,6 +61,9 @@ public:
 
     void setContainerContext(const Context &context);
 
+    std::set<GraphMLParameter> graphMLParameters() override;
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+
     /**
      * @brief Find the set of state nodes within this context (but not in nested contexts_)
      * @return the set of state nodes within this context

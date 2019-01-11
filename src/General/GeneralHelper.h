@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 #include <sstream>
+#include <algorithm>
 
 /**
  * \addtogroup General General Helper Classes
@@ -161,6 +162,21 @@ public:
      * @return true if string is only whitespace, otherwise return false
      */
     static bool isWhiteSpace(std::string str);
+
+
+    /**
+     * @brief Remove all of the values from toRemove from orig
+     * @tparam origT type of the original container - must be an STL container
+     * @tparam removeT type of the container which contains the elements to remove - must be an STL container
+     * @param orig the container to remove from
+     * @param toRemove the container of elements to remove
+     */
+    template<typename origT, typename removeT>
+    static void removeAll(origT &orig, removeT &toRemove){
+        for(auto removeIt = toRemove.begin(); removeIt != toRemove.end(); removeIt++){
+            orig.erase(std::remove(orig.begin(), orig.end(), *removeIt));
+        }
+    }
 };
 
 /*@}*/

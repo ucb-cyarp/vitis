@@ -53,12 +53,28 @@ void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue, Sc
 }
 
 std::set<GraphMLParameter> StateUpdate::graphMLParameters() {
-    return Node::graphMLParameters();
+    std::set<GraphMLParameter> parameters;
+
+    parameters.insert(GraphMLParameter("PrimaryNode", "string", true));
+
+    return parameters;
 }
 
 xercesc::DOMElement *
 StateUpdate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
-    throw std::runtime_error("XML Emit for StateUpdate not yet implemented");
+    //Create Node
+    xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
+
+    //Add Parameters / Attributes to Node
+    if(include_block_node_type) {
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+    }
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "StateUpdate");
+
+    GraphMLHelper::addDataNode(doc, thisNode, "PrimaryNode", primaryNode->getFullGraphMLPath());
+
+    return thisNode;
 }
 
 bool StateUpdate::canExpand() {

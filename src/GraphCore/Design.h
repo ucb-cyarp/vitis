@@ -221,9 +221,10 @@ public:
     /**
      * @brief Schedule the nodes using topological sort.
      * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
+     * @param rewireContexts if true, arcs between a node outside a context to a node inside a context are rewired to the context itself (for scheduling, the origional is left untouched).  If false, no rewiring operation is made for scheduling
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(bool prune);
+    unsigned long scheduleTopologicalStort(bool prune, bool rewireContexts);
 
     /**
      * @brief Topological sort the current graph.
@@ -432,11 +433,9 @@ public:
     /**
      * @brief Encapsulate contexts inside ContextContainers and ContextFamilyContainers for the purpose of scheduling
      *
-     * Nodes should exist in the lowest level context in which they exist.
+     * Nodes should exist in the lowest level context they are a member of.
      *
      * Also moves the context roots for the ContextFamilyContainers inside the ContextFamilyContainer
-     *
-     * All arcs to nodes in the context from outside are duplicated as
      */
     void encapsulateContexts();
 
@@ -481,8 +480,8 @@ public:
     std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl();
 
     /**
-     * @brief Find nodes with state in the design
-     * @return a vector of nodes in the design with state
+     * @brief Find ContextRoots in the design
+     * @return a vector of ContexRoots in the design
      */
     std::vector<std::shared_ptr<ContextRoot>> findContextRoots();
 
@@ -494,6 +493,37 @@ public:
      * @note Apply this after expanding enabled sybsystem contexts
      */
     void orderConstrainZeroInputNodes();
+
+    /**
+     * @brief "Rewires" arcs that go between nodes in different contexts to be between contexts themselves (used primarily for scheduling)
+     *
+     * Goes through the array of the arcs in a design and rewires arcs that are between a nodes in different contexts.
+     *
+     * If the src node is at or above the dst node in the context hierarchy, then the src is not rewired. (Equiv to: dst node is at or below the src node -> src not rewired)
+     * If the dst node is at or above the src node in the context hierarchy, then the dst is not rewired. (Equiv to: src node is at or below the dst node -> dst not rewired)
+     *
+     * Putting it another way
+     * If the src node is either below the dst node node in the hierarchy or outside the dst node's hierarchy stack, then the src is rewired.
+     * If the dst node is either below the src node node in the hierarchy or outside the dst node's hierarchy stack, then the dst is rewired.
+     *
+     * When rewiring the src, it is set to 1 context below the lowest common context of the src and dst on the src side.
+     * When rewiring the dst, it is set to 1 context below the lowest common context of the src and dst on the dst side.
+     *
+     * Arcs that are the drivers of the contextRoot are also "rewired".  Note that there may be multiple driver arcs for
+     * a context (ex. enabled subsystems have an arc to each EnabledInput and EnabledOutput).  In this case, there may
+     * be a single rewired arc for several original arcs.  In this case, the same ptr to the rewired arc will be returned
+     * for each of the corresponding original arcs.
+     *
+     * @note This function does not actually rewire existing arcs but creates a new arcs representing how the given
+     * arcs should be rewired.  The two returned vectors have a 1-1 relationship between an arc to be rewired and an arc
+     * representing the result of that rewiring.  To rewire, simply disconnect the arcs from the origArcs vector.  The
+     * arcs returned in contextArcs are already added to the design.
+     *
+     * Alternativly, the origArcs can be kept and used in the scheduler.  This may be helpful when deciding on whether
+     * or not a context should be scheduled in the next iteration of the scheduler
+     *
+     */
+    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::shared_ptr<Arc>> &contextArcs);
 };
 
 /*@}*/

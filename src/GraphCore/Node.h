@@ -435,7 +435,16 @@ public:
      *
      * @return aliased shared pointer to input port or nullptr
      */
-    std::shared_ptr<OrderConstraintInputPort> getOrderConstraintPort();
+    std::shared_ptr<OrderConstraintInputPort> getOrderConstraintInputPort();
+
+    /**
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists a null pointer is returned.
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to input port or nullptr
+     */
+    std::shared_ptr<OrderConstraintOutputPort> getOrderConstraintOutputPort();
 
     /**
      * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists a null pointer is returned.
@@ -464,7 +473,16 @@ public:
      *
      * @return aliased shared pointer to input port
      */
-    std::shared_ptr<OrderConstraintInputPort> getOrderConstraintPortCreateIfNot();
+    std::shared_ptr<OrderConstraintInputPort> getOrderConstraintInputPortCreateIfNot();
+
+    /**
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to input port
+     */
+    std::shared_ptr<OrderConstraintOutputPort> getOrderConstraintOutputPortCreateIfNot();
 
     /**
      * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists, create one

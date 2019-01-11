@@ -188,3 +188,18 @@ void ContextFamilyContainer::rewireArcsToContextFamilyContainerAndRecurse(std::v
         }
     }
 }
+
+std::set<GraphMLParameter> ContextFamilyContainer::graphMLParameters() {
+    std::set<GraphMLParameter> parameters;
+    return parameters;
+}
+
+xercesc::DOMElement *
+ContextFamilyContainer::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
+    //Create Node
+    xercesc::DOMElement* thisNode = SubSystem::emitGraphML(doc, graphNode, false);
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "ContextFamilyContainer");
+
+    return thisNode;
+}

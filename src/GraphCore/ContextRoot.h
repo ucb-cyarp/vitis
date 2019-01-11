@@ -11,8 +11,11 @@
 #include "Node.h"
 #include "Variable.h"
 #include "ContextVariableUpdate.h"
+//#include "ContextFamilyContainer.h"
 
 //class Node;
+
+class ContextFamilyContainer;
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -26,6 +29,7 @@ class ContextRoot {
 private:
     std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
+    std::shared_ptr<ContextFamilyContainer> contextFamilyContainer; ///<The corresponding context family container (if it exists) for this ContextRoot
 
 public:
     /**
@@ -64,6 +68,15 @@ public:
             const std::vector<std::shared_ptr<ContextVariableUpdate>> &contextVariableUpdateNodes);
 
     void addContextVariableUpdateNode(std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode);
+
+    /**
+     * @brief Gets the arc(s) that drive the decision for the context
+     * @return a vector of arcs that drive the decision for the context
+     */
+    virtual std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() = 0;
+
+    std::shared_ptr<ContextFamilyContainer> getContextFamilyContainer() const;
+    void setContextFamilyContainer(const std::shared_ptr<ContextFamilyContainer> &contextFamilyContainer);
 
     //==== Emit Functions ====
 

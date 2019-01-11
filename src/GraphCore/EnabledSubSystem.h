@@ -187,6 +187,8 @@ public:
 
     int getNumSubContexts() const override;
 
+    std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() override;
+
     //No additional variables need to be declared outside of the scope since the EnableOutputs are the gateway for all
     //outputs of the enable subsystem.
 

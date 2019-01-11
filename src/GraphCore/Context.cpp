@@ -71,3 +71,19 @@ bool Context::operator<=(const Context &rhs) const {
 bool Context::operator>=(const Context &rhs) const {
     return !(*this < rhs);
 }
+
+long Context::findMostSpecificCommonContext(std::vector<Context> &a, std::vector<Context> &b) {
+    unsigned long maxInd = std::min(a.size(), b.size());
+
+    long commonIndex;
+
+    for(commonIndex = 0; commonIndex<maxInd; commonIndex++){
+        if(a[commonIndex] != b[commonIndex]){
+            break; //do not increment
+        }
+    }
+
+    //Common index is off by 1 - will be 1 larger than what it should be.
+
+    return commonIndex-1;
+}

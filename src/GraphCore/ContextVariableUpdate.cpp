@@ -37,12 +37,33 @@ void ContextVariableUpdate::setContextVarIndex(int contextVarIndex) {
 }
 
 std::set<GraphMLParameter> ContextVariableUpdate::graphMLParameters() {
-    return Node::graphMLParameters();
+    std::set<GraphMLParameter> parameters;
+
+    parameters.insert(GraphMLParameter("ContextRoot", "string", true));
+
+    return parameters;
 }
 
 xercesc::DOMElement *
 ContextVariableUpdate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
-    throw std::runtime_error("XML Emit for ContextVariableUpdate not yet implemented");
+    //Create Node
+    xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
+
+    //Add Parameters / Attributes to Node
+    if(include_block_node_type) {
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+    }
+
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "StateUpdate");
+
+    std::shared_ptr<Node> asNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot); //ContextRoot should also be node TODO: fix diamond inherit
+    if(asNode == nullptr){
+        throw std::runtime_error("Could not cast ContextRoot as Node");
+    }
+
+    GraphMLHelper::addDataNode(doc, thisNode, "ContextRoot", asNode->getFullGraphMLPath());
+
+    return thisNode;
 }
 
 bool ContextVariableUpdate::canExpand() {
