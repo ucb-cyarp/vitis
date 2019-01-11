@@ -4,7 +4,7 @@
 
 ### Status:
 
-CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6rTxi6J46pKtZ6&branch=master "CI Build Status")](https://travis-ci.com/cyarp/vitis)
+CI Status (master Branch): [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6rTxi6J46pKtZ6&branch=master "CI Build Status")](https://travis-ci.com/cyarp/vitis)
 
 ### Dependencies:
 - [CMake](https://cmake.org): Build Tool
@@ -13,6 +13,8 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
 - gcc or clang: C++ Compiler
 - lcov (if using GCC): Coverage Report Generator
 - llvm-profdata, llvm-cov (if using clang): Coverage Report Generator
+- doxygen: Documentation Generator
+- graphviz: Diagrams in Documentation (Used by Doxygen)
 
 ### Installation:
 - Clone git repository
@@ -21,44 +23,69 @@ CI Status: [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6r
     - GCC Version 4.9 and Clang Version 3 Required Due to C++11 Regex Support
         - Tested with GCC 5 and Clang 3.8
 
-    - Ubuntu
+#### Dependencies:
+##### Ubuntu
     
-        ```
-        sudo apt-get install build-essential
-        sudo apt-get install cmake
-        sudo apt-get install libxerces-c-dev
-        ```
+```
+sudo apt-get install build-essential
+sudo apt-get install cmake
+sudo apt-get install libxerces-c-dev
+sudo apt-get install graphviz
+sudo apt-get install doxygen
+```
 
-    - Mac:
-        - Install xcode
-        - Install Brew
-        - Install Dependencies from Brew:
+##### Mac:
+- Install xcode
+- Install Brew
+- Install Dependencies from Brew:
 
-            ```
-            brew install cmake
-            brew install xerces-c
-            ```
+```
+brew install cmake
+brew install xerces-c
+brew install graphviz
+brew install doxygen
+```
     
-- Build
+#### Build:
 
-    ```
-    cd vitis
-    mkdir build
-    cd build
-    cmake ..
-    make
-    ```
-    
-- Test
+```
+cd vitis
+mkdir build
+cd build
+cmake ..
+make
+```
 
-    ```
-    make test ARGS="-V"
-    ```
+Executables will be built in the vitis/build directory
     
-- Code Coverage
+### Test:
 
-    ```
-    make coverage
-    ```
+```
+make test ARGS="-V"
+```
+
+A test report will be written to stdout,
     
-    Coverage report will be copied to vitis/covReport.
+### Code Coverage:
+
+```
+make coverage
+```
+    
+Coverage report will be copied to vitis/covReport.
+    
+### Docs:
+
+```
+make docs
+```
+    
+Alternatively, run doxygen in the vitis directory
+
+```
+cd vitis
+doxygen
+```
+    
+Documentation will be copied into vitis/docs
+    

@@ -191,6 +191,16 @@ target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
 target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
 
+#==== Doxygen ====
+#See https://cmake.org/cmake/help/v3.9/module/FindDoxygen.html
+find_package(Doxygen
+        REQUIRED dot)
+
+#Not using doxygen_add_docs since we already have a Doxyfile
+add_custom_target(docs
+        ${DOXYGEN_EXECUTABLE}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 #==== Google Test ====
 set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file
 enable_testing()
