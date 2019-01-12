@@ -403,6 +403,11 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
 
     //If there are still viable candidate nodes, there was a cycle.
     if(!candidateNodes.empty()){
+        std::cerr << "Topological Sort: Cycle Encountered.  Candidate Nodes: " << candidateNodes.size() << std::endl;
+        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
+            std::shared_ptr<Node> candidateNode = *it;
+            std::cerr << candidateNode->getFullyQualifiedName(false) << std::endl;
+        }
         throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
     }
 

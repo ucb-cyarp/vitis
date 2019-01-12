@@ -895,6 +895,12 @@ public:
      */
     static bool lessThanSchedOrder(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
 
+    /**
+     * @brief Copy port names from another node.  If the ports in copyFrom do not exist in this node, they are created
+     * @param copyFrom The node to copy port names from
+     */
+    void copyPortNames(std::shared_ptr<Node> copyFrom);
+
 };
 
 /*@}*/

@@ -24,6 +24,10 @@ protected:
      * @brief Default constructor.  Calls default constructor of supercass.
      */
     MasterUnconnected();
+    MasterUnconnected(std::shared_ptr<SubSystem> parent, MasterNode* orig);
+
+public:
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

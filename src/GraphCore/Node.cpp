@@ -1031,3 +1031,24 @@ bool Node::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
 
     return false;
 }
+
+void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
+    std::vector<std::shared_ptr<InputPort>> origInputPorts = copyFrom->getInputPorts();
+
+    for(unsigned long i = 0; i<origInputPorts.size(); i++){
+        int portNum = origInputPorts[i]->getPortNum();
+        std::string name = origInputPorts[i]->getName();
+
+        std::shared_ptr<InputPort> port = getInputPortCreateIfNot(portNum);
+        port->setName(name);
+    }
+
+    std::vector<std::shared_ptr<OutputPort>> origOutputPorts = copyFrom->getOutputPorts();
+    for(unsigned long i = 0; i<origOutputPorts.size(); i++){
+        int portNum = origOutputPorts[i]->getPortNum();
+        std::string name = origOutputPorts[i]->getName();
+
+        std::shared_ptr<OutputPort> port = getOutputPortCreateIfNot(portNum);
+        port->setName(name);
+    }
+}

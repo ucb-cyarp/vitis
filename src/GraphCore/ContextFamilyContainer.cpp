@@ -23,7 +23,7 @@ ContextFamilyContainer::ContextFamilyContainer(std::shared_ptr<SubSystem> parent
 
 }
 
-ContextFamilyContainer::ContextFamilyContainer(std::shared_ptr<SubSystem> parent, ContextFamilyContainer *orig) {
+ContextFamilyContainer::ContextFamilyContainer(std::shared_ptr<SubSystem> parent, ContextFamilyContainer *orig) : SubSystem(parent, orig){
 
 }
 

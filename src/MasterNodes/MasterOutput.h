@@ -25,6 +25,7 @@ protected:
      * @brief Default constructor.  Calls default constructor of supercass.
      */
     MasterOutput();
+    MasterOutput(std::shared_ptr<SubSystem> parent, MasterNode* orig);
 
 public:
     /**
@@ -38,6 +39,8 @@ public:
      * @return a string with the C name for the specified output port
      */
     std::string getCOutputName(int portNum);
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
 /*@}*/

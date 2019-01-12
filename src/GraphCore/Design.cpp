@@ -1658,11 +1658,16 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     Design designCopy;
 
     //==== Create new master nodes and add them to the node copies list and maps ====
-    designCopy.inputMaster = NodeFactory::createNode<MasterInput>();
-    designCopy.outputMaster = NodeFactory::createNode<MasterOutput>();
-    designCopy.visMaster = NodeFactory::createNode<MasterOutput>();
-    designCopy.unconnectedMaster = NodeFactory::createNode<MasterUnconnected>();
-    designCopy.terminatorMaster = NodeFactory::createNode<MasterOutput>();
+    designCopy.inputMaster = std::dynamic_pointer_cast<MasterInput>(inputMaster->shallowClone(nullptr));
+    designCopy.inputMaster->copyPortNames(inputMaster);
+    designCopy.outputMaster = std::dynamic_pointer_cast<MasterOutput>(outputMaster->shallowClone(nullptr));
+    designCopy.outputMaster->copyPortNames(outputMaster);
+    designCopy.visMaster = std::dynamic_pointer_cast<MasterOutput>(visMaster->shallowClone(nullptr));
+    designCopy.visMaster->copyPortNames(visMaster);
+    designCopy.unconnectedMaster = std::dynamic_pointer_cast<MasterUnconnected>(unconnectedMaster->shallowClone(nullptr));
+    designCopy.unconnectedMaster->copyPortNames(unconnectedMaster);
+    designCopy.terminatorMaster = std::dynamic_pointer_cast<MasterOutput>(terminatorMaster->shallowClone(nullptr));
+    designCopy.terminatorMaster->copyPortNames(terminatorMaster);
 
     origToCopyNode[inputMaster] = designCopy.inputMaster;
     origToCopyNode[outputMaster] = designCopy.outputMaster;
@@ -1686,6 +1691,17 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     }
 
     designCopy.nodes=nodeCopies;
+
+//    //Copy the node list in the same order
+//    std::vector<std::shared_ptr<Node>> nodeCopiesOrdered;
+//    for(unsigned long i = 0; i<nodes.size(); i++){
+//        if(origToCopyNode.find(nodes[i]) == origToCopyNode.end()){
+//            throw std::runtime_error("While cloning design, found an node that has no clone");
+//        }
+//
+//        nodeCopiesOrdered.push_back(origToCopyNode[nodes[i]]);
+//    }
+//    designCopy.nodes=nodeCopiesOrdered;
 
     //==== Set StateUpdate nodes and contexts for any node, primary node pointers for any StateUpdate nodes, and context node vectors for ContextRoots
     for(unsigned long i = 0; i<nodeCopies.size(); i++){
@@ -1734,6 +1750,30 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 stateUpdateCopy->setPrimaryNode(origToCopyNode[stateUpdateOrig->getPrimaryNode()]);
             }else{
                 stateUpdateCopy->setPrimaryNode(nullptr);
+            }
+        }
+
+        if(GeneralHelper::isType<Node, ContextVariableUpdate>(nodeCopies[i]) != nullptr){
+            //ContextVariableUpdate
+            std::shared_ptr<ContextVariableUpdate> contextVariableUpdateCopy = std::dynamic_pointer_cast<ContextVariableUpdate>(nodeCopies[i]);
+            std::shared_ptr<ContextVariableUpdate> contextVariableUpdateOrig = std::dynamic_pointer_cast<ContextVariableUpdate>(copyToOrigNode[contextVariableUpdateCopy]);
+
+            if(contextVariableUpdateOrig->getContextRoot() != nullptr){
+                //Fix diamond inheritance
+                std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextVariableUpdateOrig->getContextRoot());
+                if(origContextRootAsNode == nullptr){
+                    throw std::runtime_error("When cloning ContextVariableUpdate, could not cast a ContextRoot to a Node");
+                }
+                std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
+
+                std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
+                if(copyContextRoot == nullptr){
+                    throw std::runtime_error("When cloning ContextVariableUpdate, could not cast a Node to a ContextRoot");
+                }
+
+                contextVariableUpdateCopy->setContextRoot(copyContextRoot);
+            }else{
+                contextVariableUpdateCopy->setContextRoot(nullptr);
             }
         }
 
@@ -1787,6 +1827,18 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     terminatorMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
 
     designCopy.arcs = arcCopies;
+
+//    //Copy the arc list in the same order
+//    std::vector<std::shared_ptr<Arc>> arcCopiesOrdered;
+//    for(unsigned long i = 0; i<arcs.size(); i++){
+//        if(origToCopyArc.find(arcs[i]) == origToCopyArc.end()){
+//            throw std::runtime_error("While cloning design, found an arc that has no clone");
+//        }
+//
+//        arcCopiesOrdered.push_back(origToCopyArc[arcs[i]]);
+//    }
+//
+//    designCopy.arcs = arcCopiesOrdered;
 
     //Copy topLevelNode entries
     for(unsigned long i = 0; i<numTopLevelNodes; i++){
@@ -1995,6 +2047,8 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
 
+    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_clone.graphml", designClone);
+
     std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
     unsigned long numNodesPruned=0;
     if(prune){
@@ -2046,6 +2100,8 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
         std::vector<std::shared_ptr<Arc>> emptyArcVector;
         designClone.addRemoveNodesAndArcs(emptyNodeVector, emptyNodeVector, newArcs, origArcs);
     }
+
+    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_post.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
     std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive();
@@ -2209,7 +2265,7 @@ void Design::encapsulateContexts() {
         std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
         std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: Fix inheritance diamond issue
 
-        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getName());
+        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true));
         nodes.push_back(familyContainer);
         contextRootNodes[i]->setContextFamilyContainer(familyContainer);
 
@@ -2224,7 +2280,7 @@ void Design::encapsulateContexts() {
 
         for(unsigned long j = 0; j<numContexts; j++){
             std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
-            contextContainer->setName("ContextContainer_For_"+asNode->getName()+"_Subcontext_"+GeneralHelper::to_string(j));
+            contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true)+"_Subcontext_"+GeneralHelper::to_string(j));
             nodes.push_back(contextContainer);
             //Add this to the container order
             subContexts.push_back(contextContainer);
