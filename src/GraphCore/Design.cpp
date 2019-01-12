@@ -1808,6 +1808,33 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
             }
 
         }
+
+        if(GeneralHelper::isType<Node, ContextFamilyContainer>(nodeCopies[i]) != nullptr){
+            //ContextFamilyContainer
+            std::shared_ptr<ContextFamilyContainer> contextFamilyContainerCopy = std::dynamic_pointer_cast<ContextFamilyContainer>(nodeCopies[i]);
+            std::shared_ptr<ContextFamilyContainer> contextFamilyContainerOrig = std::dynamic_pointer_cast<ContextFamilyContainer>(copyToOrigNode[contextFamilyContainerCopy]);
+
+            //translate the ContextRoot pointer
+            if(contextFamilyContainerOrig->getContextRoot() != nullptr){
+                //Fix diamond inheritance
+                std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextFamilyContainerOrig->getContextRoot());
+                if(origContextRootAsNode == nullptr){
+                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a ContextRoot to a Node");
+                }
+                std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
+
+                std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
+                if(copyContextRoot == nullptr){
+                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a Node to a ContextRoot");
+                }
+
+                contextFamilyContainerCopy->setContextRoot(copyContextRoot);
+            }else{
+                contextFamilyContainerCopy->setContextRoot(nullptr);
+            }
+
+            //subContextContainers are handled in the clone method
+        }
     }
 
     //==== Copy arcs ====
@@ -1826,19 +1853,19 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     unconnectedMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
     terminatorMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
 
-    designCopy.arcs = arcCopies;
+//    designCopy.arcs = arcCopies;
 
-//    //Copy the arc list in the same order
-//    std::vector<std::shared_ptr<Arc>> arcCopiesOrdered;
-//    for(unsigned long i = 0; i<arcs.size(); i++){
-//        if(origToCopyArc.find(arcs[i]) == origToCopyArc.end()){
-//            throw std::runtime_error("While cloning design, found an arc that has no clone");
-//        }
-//
-//        arcCopiesOrdered.push_back(origToCopyArc[arcs[i]]);
-//    }
-//
-//    designCopy.arcs = arcCopiesOrdered;
+    //Copy the arc list in the same order
+    std::vector<std::shared_ptr<Arc>> arcCopiesOrdered;
+    for(unsigned long i = 0; i<arcs.size(); i++){
+        if(origToCopyArc.find(arcs[i]) == origToCopyArc.end()){
+            throw std::runtime_error("While cloning design, found an arc that has no clone");
+        }
+
+        arcCopiesOrdered.push_back(origToCopyArc[arcs[i]]);
+    }
+
+    designCopy.arcs = arcCopiesOrdered;
 
     //Copy topLevelNode entries
     for(unsigned long i = 0; i<numTopLevelNodes; i++){
@@ -2089,19 +2116,26 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
     }
 
     //Rewire the remaining arcs in the designClone
+    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_b4Rewire.graphml", designClone);
     if(rewireContexts){
         std::vector<std::shared_ptr<Arc>> origArcs;
         std::vector<std::shared_ptr<Arc>> newArcs;
 
         designClone.rewireArcsToContexts(origArcs, newArcs);
 
-        //Remove the orig arcs for scheduling
+        std::cout << "Rewired " << newArcs.size() << " Arcs" << std::endl;
+
+        //Dicsonnect and Remove the orig arcs for scheduling
         std::vector<std::shared_ptr<Node>> emptyNodeVector;
         std::vector<std::shared_ptr<Arc>> emptyArcVector;
+        for(unsigned long i = 0; i<origArcs.size(); i++){
+            origArcs[i]->disconnect();
+        }
         designClone.addRemoveNodesAndArcs(emptyNodeVector, emptyNodeVector, newArcs, origArcs);
+        designClone.assignArcIDs();
     }
 
-    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_post.graphml", designClone);
+    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_postRewire.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
     std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive();
@@ -2483,7 +2517,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                 std::shared_ptr<ContextRoot> newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
                 //TODO: fix diamond inheritcance
 
-                srcPort = std::dynamic_pointer_cast<Node>(newSrcAsContextRoot)->getOrderConstraintOutputPort();
+                srcPort = newSrcAsContextRoot->getContextFamilyContainer()->getOrderConstraintOutputPort();
             }else{
                 srcPort = candidateArcs[i]->getSrcPort();
             }
@@ -2497,7 +2531,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                 std::shared_ptr<ContextRoot> newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
                 //TODO: fix diamond inheritcance
 
-                dstPort = std::dynamic_pointer_cast<Node>(newDstAsContextRoot)->getOrderConstraintInputPort();
+                dstPort = newDstAsContextRoot->getContextFamilyContainer()->getOrderConstraintInputPort();
             }else{
                 dstPort = candidateArcs[i]->getDstPort();
             }

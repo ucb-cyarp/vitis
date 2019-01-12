@@ -386,3 +386,7 @@ std::shared_ptr<Arc> Arc::connectNodesOrderConstraint(std::shared_ptr<Node> src,
     return arc;
 }
 
+void Arc::disconnect(){
+    setDstPortUpdateNewUpdatePrev(nullptr);
+    setSrcPortUpdateNewUpdatePrev(nullptr);
+}

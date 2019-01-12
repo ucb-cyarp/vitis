@@ -406,7 +406,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
         std::cerr << "Topological Sort: Cycle Encountered.  Candidate Nodes: " << candidateNodes.size() << std::endl;
         for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
-            std::cerr << candidateNode->getFullyQualifiedName(false) << std::endl;
+            std::cerr << candidateNode->getFullyQualifiedName(false) << " InDeg: " << candidateNode->inDegree() <<std::endl;
         }
         throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
     }

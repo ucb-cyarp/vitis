@@ -294,6 +294,11 @@ public:
      */
     void shallowCopyPrameters(Arc* orig);
 
+    /**
+     * @brief Disconnects this arc from the nodes it is currently connected to
+     */
+    void disconnect();
+
 
     DataType getDataType() const;
     void setDataType(const DataType &dataType);
