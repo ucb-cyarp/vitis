@@ -56,6 +56,8 @@ addons:
     - clang-3.8
     - gcc-5
     - g++-5
+    - graphviz
+    - doxygen
 
 script:
   - echo $CXX; echo $CC
