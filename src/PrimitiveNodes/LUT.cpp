@@ -195,7 +195,7 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         }
 
         //Check if interp method is set to CLIP and the "RemoveProtectionInput" checkbox is set to "on"
-        if(extrapMethod == ExtrapMethod::CLIP && dataKeyValueMap.at("InterpMethod") == "on"){
+        if(extrapMethod == ExtrapMethod::CLIP && dataKeyValueMap.at("RemoveProtectionInput") == "on"){
             extrapMethod = ExtrapMethod::NO_CHECK;
         }
 
@@ -374,7 +374,7 @@ void LUT::validate() {
 std::string LUT::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: LUT\nInterpMethod:" + interpMethodToString(interpMethod) + "\nExtrapMethod: " + extrapMethodToString(extrapMethod) + "\nSearchMethod: " + searchMethodToString(searchMethod)+ "\nTable: " + NumericValue::toString(tableData);
+    label += "\nFunction: LUT\nInterpMethod:" + interpMethodToString(interpMethod) + "\nExtrapMethod: " + extrapMethodToString(extrapMethod) + "\nSearchMethod: " + searchMethodToString(searchMethod) + "\nTable: " + NumericValue::toString(tableData);
 
     unsigned long dimension = breakpoints.size();
     for(unsigned long i = 1; i<=dimension; i++){
