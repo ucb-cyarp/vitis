@@ -2036,24 +2036,36 @@ void Design::verifyTopologicalOrder() {
         //If so, do not check the ordering
         std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
 
-        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr && !(srcNode->hasState())){ //Note that the outputs of nodes with state are considered constants
+        //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
+        //Otherwise the outputs of nodes with state are considered constants
+        std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
+        std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
+        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
+                (!srcNode->hasState() || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
             //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
             //The srcNode can only be -1 if the destination is also -1
-            if(srcNode->getSchedOrder() == -1){
+            if (srcNode->getSchedOrder() == -1) {
                 //Src node is unscheduled
-                if(dstNode->getSchedOrder() != -1){
+                if (dstNode->getSchedOrder() != -1) {
                     //dst node is scheduled
-                    throw std::runtime_error("Topological Order Validation: Src Node is Unscheduled but Dst Node is Scheduled");
+                    throw std::runtime_error(
+                            "Topological Order Validation: Src Node is Unscheduled but Dst Node is Scheduled");
                 }
                 //otherwise, there is no error here as both nodes are unscheduled
-            }else{
+            } else {
                 //Src node is scheduled
-                if(dstNode->getSchedOrder() != -1){
+                if (dstNode->getSchedOrder() != -1) {
                     //Dst node is scheduled
-                    if(srcNode->getSchedOrder() >= dstNode->getSchedOrder()){
-                        throw std::runtime_error("Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() + ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " + GeneralHelper::to_string(srcNode->getId()) + "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() + ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) +", ID: " + GeneralHelper::to_string(dstNode->getId()) + "]");
+                    if (srcNode->getSchedOrder() >= dstNode->getSchedOrder()) {
+                        throw std::runtime_error(
+                                "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                                ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                                GeneralHelper::to_string(srcNode->getId()) +
+                                "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() +
+                                ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
+                                GeneralHelper::to_string(dstNode->getId()) + "]");
                     }
                 }
                 //Dst node unscheduled is OK
