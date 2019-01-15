@@ -965,7 +965,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
             cFile << std::endl << "//---- State Update for " << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
 
             std::vector<std::string> stateUpdateExprs;
-            (*it)->emitCExprNextState(stateUpdateExprs, schedType);
+            (*it)->emitCStateUpdate(stateUpdateExprs, schedType);
 
             for(unsigned long j = 0; j<stateUpdateExprs.size(); j++){
                 cFile << stateUpdateExprs[j] << std::endl;
@@ -1131,15 +1131,17 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         throw std::runtime_error("Unknown schedule type");
     }
 
-    //Emit state variable updates
-    cFile << std::endl << "//==== Update State Vars ====" << std::endl;
-    for(unsigned long i = 0; i<nodesWithState.size(); i++){
-        std::vector<std::string> stateUpdateExprs;
-        nodesWithState[i]->emitCStateUpdate(stateUpdateExprs, sched);
+    //Emit state variable updates (only if state update nodes are not included)
+    if(sched != SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+        cFile << std::endl << "//==== Update State Vars ====" << std::endl;
+        for(unsigned long i = 0; i<nodesWithState.size(); i++){
+            std::vector<std::string> stateUpdateExprs;
+            nodesWithState[i]->emitCStateUpdate(stateUpdateExprs, sched);
 
-        unsigned long numStateUpdateExprs = stateUpdateExprs.size();
-        for(unsigned long j = 0; j<numStateUpdateExprs; j++){
-            cFile << stateUpdateExprs[j] << std::endl;
+            unsigned long numStateUpdateExprs = stateUpdateExprs.size();
+            for(unsigned long j = 0; j<numStateUpdateExprs; j++){
+                cFile << stateUpdateExprs[j] << std::endl;
+            }
         }
     }
 
@@ -2126,8 +2128,17 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
             nodesToRemove.insert(designClone.nodes[i]);
         }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
             //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
-            std::set<std::shared_ptr<Arc>> newArcsToDelete = designClone.nodes[i]->disconnectOutputs();
-            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+            //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed
+
+            std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
+            for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                std::shared_ptr<StateUpdate> dstAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>((*it)->getDstPort()->getParent());
+                if(dstAsStateUpdate == nullptr || (dstAsStateUpdate != nullptr && dstAsStateUpdate->getPrimaryNode() != (*it)->getSrcPort()->getParent())){
+                    (*it)->disconnect();
+                    arcsToDelete.insert(*it);
+                }
+                //Else, this is a State node connected to its StateUpdate node and should not be removed
+            }
         }
     }
 

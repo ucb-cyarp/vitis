@@ -548,6 +548,24 @@ public:
     std::vector<std::shared_ptr<OutputPort>> getOutputPortsIncludingOrderConstraint();
 
     /**
+     * @brief Get a list of direct output arcs connected to this node (not order constraint arcs)
+     * @return list of direct output arcs (not order constraint arcs)
+     */
+    std::set<std::shared_ptr<Arc>> getDirectOutputArcs();
+
+    /**
+     * @brief Get a list of order constraint output arcs connected to this node
+     * @return list of order constraint output arcs
+     */
+    std::set<std::shared_ptr<Arc>> getOrderConstraintOutputArcs();
+
+    /**
+     * @brief Get a list of  output arcs (direct and order constraint) connected to this node
+     * @return list of direct output arcs
+     */
+    std::set<std::shared_ptr<Arc>> getOutputArcs();
+
+    /**
      * @brief Get the full hierarchical path of this node in GraphML format
      *
      * A typical GraphML formatted hierarchy would be "n1::n2::n3"

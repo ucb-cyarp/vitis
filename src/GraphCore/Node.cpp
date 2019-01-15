@@ -774,9 +774,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectDirectInputs() {
         //Disconnect each of the arcs from both ends
         //We can do this without disturbing the port the set since the set here is a copy of the port set
         for(auto it = inputArcs.begin(); it != inputArcs.end(); it++){
-            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
-            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
-            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+            (*it)->disconnect();
 
             //Add this arc to the list of arcs removed
             disconnectedArcs.insert(*it);
@@ -809,9 +807,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectDirectOutputs() {
         //Disconnect each of the arcs from both ends
         //We can do this without disturbing the port the set since the set here is a copy of the port set
         for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
-            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
-            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
-            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+            (*it)->disconnect();
 
             //Add this arc to the list of arcs removed
             disconnectedArcs.insert(*it);
@@ -867,9 +863,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectOrderConstraintInArcs() {
         //Disconnect each of the arcs from both ends
         //We can do this without disturbing the port the set since the set here is a copy of the port set
         for (auto it = constraintArcs.begin(); it != constraintArcs.end(); it++) {
-            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
-            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
-            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+            (*it)->disconnect();
 
             //Add this arc to the list of arcs removed
             disconnectedArcs.insert(*it);
@@ -889,9 +883,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectOrderConstraintOutArcs() {
         //Disconnect each of the arcs from both ends
         //We can do this without disturbing the port the set since the set here is a copy of the port set
         for (auto it = constraintArcs.begin(); it != constraintArcs.end(); it++) {
-            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
-            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
-            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+            (*it)->disconnect();
 
             //Add this arc to the list of arcs removed
             disconnectedArcs.insert(*it);
@@ -1056,4 +1048,35 @@ void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
         std::shared_ptr<OutputPort> port = getOutputPortCreateIfNot(portNum);
         port->setName(name);
     }
+}
+
+std::set<std::shared_ptr<Arc>> Node::getDirectOutputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs;
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = outputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
+        arcs.insert(outputArcs.begin(), outputArcs.end());
+
+    }
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getOrderConstraintOutputArcs(){
+    //Get a copy of the arc set for this port
+    std::set<std::shared_ptr<Arc>> arcs = orderConstraintOutputPort->getArcs();
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs = getDirectOutputArcs();
+
+    std::set<std::shared_ptr<Arc>> moreArcs = getOrderConstraintOutputArcs();
+    arcs.insert(moreArcs.begin(), moreArcs.end());
+
+    return arcs;
 }
