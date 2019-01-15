@@ -803,6 +803,10 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
                     if(contextFirst.size() - 1 < ind || contextFirst[ind]){
                         //This context was created with a call to first
                         lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }else if(subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >= lastEmittedContext[ind].getContextRoot()->getNumSubContexts()-1 ){
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }else{
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
                     }
 
                     //Remove this level of the contextFirst stack because the family was exited
@@ -913,7 +917,6 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
             cFile << contextStatements[i];
         }
 
-
         if(*it == outputMaster) {
             //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
             unsigned long numOutputs = outputMaster->getInputPorts().size();
@@ -946,7 +949,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 
                 //Emit Imag if Datatype is complex
                 if (outputDataType.isComplex()) {
-                    cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
+                    cFile << std::endl <<  "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
                     std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
                     //emit the expressions
@@ -1017,6 +1020,8 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
                 }
             }
         }
+
+        lastEmittedContext = nodeContext;
 
     }
 }

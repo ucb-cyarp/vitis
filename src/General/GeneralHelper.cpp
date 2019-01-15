@@ -121,3 +121,13 @@ bool GeneralHelper::isWhiteSpace(std::string str){
 
     return true;
 }
+
+std::string GeneralHelper::repString(std::string str, unsigned long reps) {
+    std::string repeatedStr = "";
+
+    for(unsigned long i = 0; i<reps; i++){
+        repeatedStr+=str;
+    }
+
+    return repeatedStr;
+}

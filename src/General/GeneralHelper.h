@@ -177,6 +177,14 @@ public:
             orig.erase(std::remove(orig.begin(), orig.end(), *removeIt));
         }
     }
+
+    /**
+     * @brief Repeat a given string a given number of times
+     * @param str string to repeat
+     * @param reps the number of times to repeat
+     * @return str repeated reps times.
+     */
+    static std::string repString(std::string str, unsigned long reps);
 };
 
 /*@}*/
