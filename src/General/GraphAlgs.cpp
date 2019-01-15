@@ -293,7 +293,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //to the output are removed and it is its own connected component.  It will never be considered a candidate.  Add it to the
     //list of nodes with zero in deg if this is the case.  Note that if there is at least 1 arc to a node without state, it will be
     //considered a candidate
-    if(outputMaster->inDegree() == 0){
+    if(std::find(nodesToSort.begin(), nodesToSort.end(), outputMaster) != nodesToSort.end() && outputMaster->inDegree() == 0){
         nodesWithZeroInDeg.insert(outputMaster);
     }
 
@@ -301,7 +301,13 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     std::set<std::shared_ptr<Node>> candidateNodes;
     for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
         std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
-        candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
+
+        //Check if the nodes are in the nodesToSort list before inserting
+        for(auto possibleCandidate = moreCandidates.begin(); possibleCandidate != moreCandidates.end(); possibleCandidate++){
+            if(std::find(nodesToSort.begin(), nodesToSort.end(), *possibleCandidate) != nodesToSort.end()) {
+                candidateNodes.insert(*possibleCandidate);
+            }
+        }
     }
 
     //Remove the master nodes from the candidate list as well as any nodes that are about to be removed
@@ -317,6 +323,8 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
         //Disconnect, erase nodes, remove from candidate set (if it is included)
         for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
             //Disconnect the node
+
+//            std::cerr << "Sched: " << (*it)->getFullyQualifiedName(true) << std::endl;
             std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
             arcsToDelete.insert(arcsToDelete.end(), arcsToRemove.begin(), arcsToRemove.end());
 
@@ -333,7 +341,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                     std::vector<std::shared_ptr<Node>> childrenVector;
                     childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
-                    std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(childrenVector, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
+                    std::vector<std::shared_ptr<Node>> nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+
+                    std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(nextLvlNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
                     //Add to schedule
                     schedule.insert(schedule.end(), subSched.begin(), subSched.end());
                 }
@@ -349,15 +359,16 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                     nodesToSched.push_back(std::dynamic_pointer_cast<Mux>(contextRoot)); //TODO: fix diamond inheritance issue
                 }else if(GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr){
                     //Add the subsystem and EnableNodes
+                    //This should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
                     std::shared_ptr<EnabledSubSystem> asEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(contextRoot); //TODO: fix diamond inheritance issue
                     nodesToSched.push_back(asEnabledSubsystem);
-
-                    //Add EnableInputs and EnableOutputs
-                    std::vector<std::shared_ptr<EnableInput>> enableInputs = asEnabledSubsystem->getEnableInputs();
-                    nodesToSched.insert(nodesToSched.end(), enableInputs.begin(), enableInputs.end());
-
-                    std::vector<std::shared_ptr<EnableOutput>> enableOutputs = asEnabledSubsystem->getEnableOutputs();
-                    nodesToSched.insert(nodesToSched.end(), enableOutputs.begin(), enableOutputs.end());
+//
+//                    //Add EnableInputs and EnableOutputs
+//                    std::vector<std::shared_ptr<EnableInput>> enableInputs = asEnabledSubsystem->getEnableInputs();
+//                    nodesToSched.insert(nodesToSched.end(), enableInputs.begin(), enableInputs.end());
+//
+//                    std::vector<std::shared_ptr<EnableOutput>> enableOutputs = asEnabledSubsystem->getEnableOutputs();
+//                    nodesToSched.insert(nodesToSched.end(), enableOutputs.begin(), enableOutputs.end());
                 }else{
                     throw std::runtime_error("When scheduling, a context root was encountered which is not yet implemented");
                 }
@@ -389,7 +400,14 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
         for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
             std::shared_ptr<Node> zeroInDegNode = *it;
             std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedNodes();
-            candidateNodes.insert(newCandidates.begin(), newCandidates.end());
+
+            //Check if the nodes are in the nodesToSort list before inserting
+            for(auto possibleCandidate = newCandidates.begin(); possibleCandidate != newCandidates.end(); possibleCandidate++){
+                if(std::find(nodesToSort.begin(), nodesToSort.end(), *possibleCandidate) != nodesToSort.end()) {
+                    candidateNodes.insert(*possibleCandidate);
+                }
+            }
+
         }
 
         //Remove master nodes from candidates list
@@ -406,7 +424,11 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
         std::cerr << "Topological Sort: Cycle Encountered.  Candidate Nodes: " << candidateNodes.size() << std::endl;
         for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
-            std::cerr << candidateNode->getFullyQualifiedName(false) << " InDeg: " << candidateNode->inDegree() <<std::endl;
+            std::cerr << candidateNode->getFullyQualifiedName(false) << " ID: " << candidateNode->getId() << " InDeg: " << candidateNode->inDegree() <<std::endl;
+            std::set<std::shared_ptr<Node>> connectedInputNodes = candidateNode->getConnectedInputNodes();
+            for(auto conntectedInputNode = connectedInputNodes.begin(); conntectedInputNode != connectedInputNodes.end(); conntectedInputNode++){
+                std::cerr << "\tConntected to " << (*conntectedInputNode)->getFullyQualifiedName(false) << " ID: " << (*conntectedInputNode)->getId() << " InDeg: " << (*conntectedInputNode)->inDegree() <<std::endl;
+            }
         }
         throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
     }

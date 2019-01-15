@@ -183,6 +183,8 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("block_node_type", "string", true));
     parameters.insert(GraphMLParameter("block_function", "string", true));
     parameters.insert(GraphMLParameter("block_label", "string", true));
+    parameters.insert(GraphMLParameter("block_partition_num", "int", true));
+    parameters.insert(GraphMLParameter("block_sched_order", "int", true));
 
     //Add the static entries for arcs
     parameters.insert(GraphMLParameter("arc_src_port", "int", false));
@@ -539,6 +541,12 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
         scheduleTopologicalStort(true, false);
         verifyTopologicalOrder();
+
+        //Export GraphML (for debugging)
+        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
+
+
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
@@ -553,11 +561,13 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         assignNodeIDs();
         assignArcIDs();
 
-        //Export GraphML (for debugging)
-        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
-
         scheduleTopologicalStort(false, true); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
+
+        //Export GraphML (for debugging)
+        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
+
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else{
         throw std::runtime_error("Unknown SCHED Type");
@@ -1019,6 +1029,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     std::string fctnProto = "void " + designName + "(" + fctnProtoArgs + ")";
 
+    std::cout << "Emitting C File: " << path << "/" << designName << ".h" << std::endl;
     //#### Emit .h file ####
     std::ofstream headerFile;
     headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
@@ -1071,6 +1082,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     headerFile.close();
 
+    std::cout << "Emitting C File: " << path << "/" << designName << ".c" << std::endl;
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
@@ -2053,6 +2065,12 @@ void Design::verifyTopologicalOrder() {
 std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
     std::vector<std::shared_ptr<Arc>> arcsToDelete;
     std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
+    topLevelContextNodes.push_back(outputMaster);
+
+//    std::cerr << "Top Lvl Nodes to Sched:" << std::endl;
+//    for(unsigned long i = 0; i<topLevelContextNodes.size(); i++){
+//        std::cerr << topLevelContextNodes[i]->getFullyQualifiedName(true) << std::endl;
+//    }
 
     std::vector<std::shared_ptr<Node>> sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
 
@@ -2074,16 +2092,14 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
 
-    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_clone.graphml", designClone);
-
-    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
+//    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
     unsigned long numNodesPruned=0;
     if(prune){
         numNodesPruned = designClone.prune(true);
         std::cerr << "Nodes Pruned: " << numNodesPruned << std::endl;
     }
 
-    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
+//    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
 
     //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
     std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
@@ -2116,14 +2132,11 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
     }
 
     //Rewire the remaining arcs in the designClone
-    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_b4Rewire.graphml", designClone);
     if(rewireContexts){
         std::vector<std::shared_ptr<Arc>> origArcs;
         std::vector<std::shared_ptr<Arc>> newArcs;
 
         designClone.rewireArcsToContexts(origArcs, newArcs);
-
-        std::cout << "Rewired " << newArcs.size() << " Arcs" << std::endl;
 
         //Dicsonnect and Remove the orig arcs for scheduling
         std::vector<std::shared_ptr<Node>> emptyNodeVector;
@@ -2134,8 +2147,6 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
         designClone.addRemoveNodesAndArcs(emptyNodeVector, emptyNodeVector, newArcs, origArcs);
         designClone.assignArcIDs();
     }
-
-    GraphMLExporter::exportGraphML("./cOut/agc_scheduleGraph_postRewire.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
     std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive();
@@ -2299,7 +2310,7 @@ void Design::encapsulateContexts() {
         std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
         std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: Fix inheritance diamond issue
 
-        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true));
+        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::"));
         nodes.push_back(familyContainer);
         contextRootNodes[i]->setContextFamilyContainer(familyContainer);
 
@@ -2314,7 +2325,7 @@ void Design::encapsulateContexts() {
 
         for(unsigned long j = 0; j<numContexts; j++){
             std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
-            contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true)+"_Subcontext_"+GeneralHelper::to_string(j));
+            contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Subcontext_"+GeneralHelper::to_string(j));
             nodes.push_back(contextContainer);
             //Add this to the container order
             subContexts.push_back(contextContainer);
@@ -2446,18 +2457,19 @@ std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
 
 void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                                   std::vector<std::shared_ptr<Arc>> &contextArcs) {
-    //First, let's rewire the context root drivers
+    //First, let's rewire the ContextRoot driver arcs
     std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
-    std::set<std::shared_ptr<Arc>> driverOrigArcs, driverRewiredArcs;
+    std::set<std::shared_ptr<Arc>> contextRootOrigArcs, contextRootRewiredArcs;
 
     for(unsigned long i = 0; i<contextRoots.size(); i++){
+        //Rewire Drivers
         std::vector<std::shared_ptr<Arc>> driverArcs = contextRoots[i]->getContextDecisionDriver();
 
         std::map<std::shared_ptr<OutputPort>, std::shared_ptr<Arc>> srcPortToNewArc; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
             origArcs.push_back(driverArcs[j]);
-            driverOrigArcs.insert(driverArcs[j]);
+            contextRootOrigArcs.insert(driverArcs[j]);
 
             //Check if the driver src has been encountered before
             std::shared_ptr<OutputPort> driverSrc = driverArcs[j]->getSrcPort();
@@ -2468,21 +2480,21 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
             }else{
                 //Create a new rewiredArc
                 rewiredArc = Arc::connectNodesOrderConstraint(driverSrc->getParent(), driverSrc->getPortNum(), contextRoots[i]->getContextFamilyContainer(), driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
-                //Add to the map and the set of driverRewiredArcs
+                //Add to the map and the set of contextRootRewiredArcs
                 srcPortToNewArc[driverSrc] = rewiredArc;
-                driverRewiredArcs.insert(rewiredArc);
+                contextRootRewiredArcs.insert(rewiredArc);
             }
 
             contextArcs.push_back(rewiredArc);
         }
     }
 
-    //Create a copy of the arc list and remove the orig driver arcs
+    //Create a copy of the arc list and remove the orig ContextRoot arcs
     std::vector<std::shared_ptr<Arc>> candidateArcs = arcs;
-    GeneralHelper::removeAll(candidateArcs, driverOrigArcs);
+    GeneralHelper::removeAll(candidateArcs, contextRootOrigArcs);
 
-    //Add the driverRewiredArcs to the design (we do not need to rewire these again so they are not included in the candidate arcs)
-    for(auto rewiredIt = driverRewiredArcs.begin(); rewiredIt != driverRewiredArcs.end(); rewiredIt++){
+    //Add the contextRootRewiredArcs to the design (we do not need to rewire these again so they are not included in the candidate arcs)
+    for(auto rewiredIt = contextRootRewiredArcs.begin(); rewiredIt != contextRootRewiredArcs.end(); rewiredIt++){
         arcs.push_back(*rewiredIt);
     }
 
@@ -2490,6 +2502,18 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
         std::vector<Context> srcContext = candidateArcs[i]->getSrcPort()->getParent()->getContext();
         std::vector<Context> dstContext = candidateArcs[i]->getDstPort()->getParent()->getContext();
+
+        //ContextRoots are not within their own contexts.  However, we need to make sure the inputs and output
+        //arcs to the ContextRoots are elevated to the ContextFamily container for that ContextRoot as if it were in its
+        //own subcontext.  We will therefore check for context roots and temporarily insert a dummy context entry
+        std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArcs[i]->getSrcPort()->getParent());
+        if(srcAsContextRoot){
+            srcContext.push_back(Context(srcAsContextRoot, -1));
+        }
+        std::shared_ptr<ContextRoot> dstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArcs[i]->getDstPort()->getParent());
+        if(dstAsContextRoot){
+            dstContext.push_back(Context(dstAsContextRoot, -1));
+        }
 
         bool rewireSrc = false;
         bool rewireDst = false;
@@ -2536,11 +2560,25 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                 dstPort = candidateArcs[i]->getDstPort();
             }
 
-            std::shared_ptr<Arc> rewiredArc = Arc::connectNodes(srcPort, dstPort, candidateArcs[i]->getDataType(), candidateArcs[i]->getSampleTime());
+            //Handle the special case when going between subcontexts under the same ContextFamilyContainer.  This should
+            //only occur when the dst is the context root for the ContextFamilyContainer.  In this case, do not rewire
+            if(srcPort->getParent() == dstPort->getParent()){
+                std::shared_ptr<ContextRoot> origDstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArcs[i]->getDstPort()->getParent());
+                if(origDstAsContextRoot == nullptr){
+                    throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
+                }
 
-            //Add the orig and rewired arcs to the vectors to return
-            origArcs.push_back(candidateArcs[i]);
-            contextArcs.push_back(rewiredArc);
+                if(origDstAsContextRoot->getContextFamilyContainer() != dstPort->getParent()){
+                    throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
+                }
+            }else {
+                std::shared_ptr<Arc> rewiredArc = Arc::connectNodes(srcPort, dstPort, candidateArcs[i]->getDataType(),
+                                                                    candidateArcs[i]->getSampleTime());
+
+                //Add the orig and rewired arcs to the vectors to return
+                origArcs.push_back(candidateArcs[i]);
+                contextArcs.push_back(rewiredArc);
+            }
         }
     }
 }

@@ -53,6 +53,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+//    std::cerr << "Top Lvl Nodes: " << design->getTopLevelNodes().size() << std::endl;
+
     //Expand the design to primitives
     try{
         design->expandToPrimitive();
@@ -60,6 +62,8 @@ int main(int argc, char* argv[]) {
         std::cerr << e.what() << std::endl;
         return 1;
     }
+
+//    std::cerr << "Top Lvl Nodes: " << design->getTopLevelNodes().size() << std::endl;
 
     //Assign node and arc IDs (needed for expanded nodes)
     design->assignNodeIDs();
@@ -69,9 +73,6 @@ int main(int argc, char* argv[]) {
     std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
 
     //Emit C
-    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
-    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
-
     try{
         design->generateSingleThreadedC(outputDir, designName, sched);
     }catch(std::exception& e) {

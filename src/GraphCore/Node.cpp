@@ -216,6 +216,9 @@ xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc:
         GraphMLHelper::addDataNode(doc, nodeElement, "block_label", label);
     }
 
+    GraphMLHelper::addDataNode(doc, nodeElement, "block_partition_num", GeneralHelper::to_string(partitionNum));
+    GraphMLHelper::addDataNode(doc, nodeElement, "block_sched_order", GeneralHelper::to_string(schedOrder));
+
     //Add to graph node
     graphNode->appendChild(nodeElement);
 
@@ -230,6 +233,8 @@ std::string Node::labelStr() {
     }
 
     label +=  "ID: " + getFullGraphMLPath();
+    label +=  "\nPartition: " + GeneralHelper::to_string(partitionNum);
+    label +=  "\nSched: " + GeneralHelper::to_string(schedOrder);
 
     return label;
 }
@@ -269,7 +274,7 @@ std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &n
     return nullptr;
 }
 
-std::string Node::getFullyQualifiedName(bool sanitize) {
+std::string Node::getFullyQualifiedName(bool sanitize, std::string delim) {
     std::string fullName;
 
     if(sanitize) {
@@ -286,7 +291,7 @@ std::string Node::getFullyQualifiedName(bool sanitize) {
             componentName = GeneralHelper::replaceAll(componentName, '\n', ' ');
         }
 
-        fullName = componentName + "/" + fullName;
+        fullName = componentName + delim + fullName;
     }
 
     return fullName;
