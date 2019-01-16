@@ -751,6 +751,7 @@ ID: n5
 Type: Master</data>
 			<data key="named_input_ports">0</data>
 			<data key="named_output_ports">0</data>
+			<data key="MaskVariables.tout">[0; 0.2; 0.4; 0.6; 0.8; 0.84806; 0.84806; 1; 1.2; 1.4; 1.6; 1.8; 2; 2.2; 2.2935; 2.2935; 2.4; 2.6; 2.8; 3; 3.2; 3.4; 3.6; 3.8; 4; 4.2; 4.4; 4.6; 4.8; 5; 5.2; 5.4; 5.6; 5.8; 6; 6.2; 6.4; 6.6; 6.8; 7; 7.1312; 7.1312; 7.2; 7.4; 7.6; 7.8; 8; 8.2; 8.4; 8.5767; 8.5767; 8.6; 8.8; 9; 9.2; 9.4; 9.6; 9.8; 10]</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">1-D Lookup
