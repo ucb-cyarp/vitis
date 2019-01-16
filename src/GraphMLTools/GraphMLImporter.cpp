@@ -508,7 +508,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Add node to design
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
-            design.addTopLevelNode(newNode);
+            throw std::runtime_error("Special Input Node cannot be at the top level");
         }
         //Add to map
         nodeMap[fullNodeID]=newNode;
@@ -527,7 +527,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Add node to design
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
-            design.addTopLevelNode(newNode);
+            throw std::runtime_error("Special Output Node cannot be at the top level");
         }
         //Add to map
         nodeMap[fullNodeID]=newNode;

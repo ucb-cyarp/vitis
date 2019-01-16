@@ -303,7 +303,11 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
     std::set<std::shared_ptr<Node>> connectedOutNodes = getConnectedOutputNodes();
 
     for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
-        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(*it, stateUpdate); //Datatype and sample time are not important, use defaults
+        std::shared_ptr<Node> connectedOutNode = *it;
+        if(connectedOutNode == nullptr){
+            throw std::runtime_error("Encountered Arc with Null Dst when Wiring State Update");
+        }
+        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(connectedOutNode, stateUpdate); //Datatype and sample time are not important, use defaults
         new_arcs.push_back(orderConstraint);
     }
 

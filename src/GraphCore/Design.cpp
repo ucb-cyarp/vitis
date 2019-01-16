@@ -550,9 +550,9 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
-        createStateUpdateNodes();
         createContextVariableUpdateNodes();
         expandEnabledSubsystemContexts();
+        createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
         discoverAndMarkContexts();
         orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
         encapsulateContexts();
@@ -2528,17 +2528,18 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
-        std::vector<Context> srcContext = candidateArcs[i]->getSrcPort()->getParent()->getContext();
-        std::vector<Context> dstContext = candidateArcs[i]->getDstPort()->getParent()->getContext();
+        std::shared_ptr<Arc> candidateArc = candidateArcs[i];
+        std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
+        std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
 
         //ContextRoots are not within their own contexts.  However, we need to make sure the inputs and output
         //arcs to the ContextRoots are elevated to the ContextFamily container for that ContextRoot as if it were in its
         //own subcontext.  We will therefore check for context roots and temporarily insert a dummy context entry
-        std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArcs[i]->getSrcPort()->getParent());
+        std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getSrcPort()->getParent());
         if(srcAsContextRoot){
             srcContext.push_back(Context(srcAsContextRoot, -1));
         }
-        std::shared_ptr<ContextRoot> dstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArcs[i]->getDstPort()->getParent());
+        std::shared_ptr<ContextRoot> dstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getDstPort()->getParent());
         if(dstAsContextRoot){
             dstContext.push_back(Context(dstAsContextRoot, -1));
         }
@@ -2571,7 +2572,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
                 srcPort = newSrcAsContextRoot->getContextFamilyContainer()->getOrderConstraintOutputPort();
             }else{
-                srcPort = candidateArcs[i]->getSrcPort();
+                srcPort = candidateArc->getSrcPort();
             }
 
             if(rewireDst){
@@ -2585,13 +2586,13 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
                 dstPort = newDstAsContextRoot->getContextFamilyContainer()->getOrderConstraintInputPort();
             }else{
-                dstPort = candidateArcs[i]->getDstPort();
+                dstPort = candidateArc->getDstPort();
             }
 
             //Handle the special case when going between subcontexts under the same ContextFamilyContainer.  This should
             //only occur when the dst is the context root for the ContextFamilyContainer.  In this case, do not rewire
             if(srcPort->getParent() == dstPort->getParent()){
-                std::shared_ptr<ContextRoot> origDstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArcs[i]->getDstPort()->getParent());
+                std::shared_ptr<ContextRoot> origDstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getDstPort()->getParent());
                 if(origDstAsContextRoot == nullptr){
                     throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
                 }
@@ -2600,11 +2601,11 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                     throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
                 }
             }else {
-                std::shared_ptr<Arc> rewiredArc = Arc::connectNodes(srcPort, dstPort, candidateArcs[i]->getDataType(),
-                                                                    candidateArcs[i]->getSampleTime());
+                std::shared_ptr<Arc> rewiredArc = Arc::connectNodes(srcPort, dstPort, candidateArc->getDataType(),
+                                                                    candidateArc->getSampleTime());
 
                 //Add the orig and rewired arcs to the vectors to return
-                origArcs.push_back(candidateArcs[i]);
+                origArcs.push_back(candidateArc);
                 contextArcs.push_back(rewiredArc);
             }
         }
