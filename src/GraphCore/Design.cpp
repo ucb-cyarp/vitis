@@ -886,7 +886,8 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
                         //Emit context
                         nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
 
-                        contextFirst[i] = true;
+                        //This is a new family, push back
+                        contextFirst.push_back(true);
                     }else{
                         if(subContextEmittedCount[nodeContext[i].getContextRoot()] >= nodeContext[i].getContextRoot()->getNumSubContexts()-1){ //Check if this is the last in the context family
                             nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType, nodeContext[i].getSubContext());
@@ -894,6 +895,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
                             nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType, nodeContext[i].getSubContext());
                         }
 
+                        //Contexts are in the same family
                         contextFirst[i] = false;
                     }
 
