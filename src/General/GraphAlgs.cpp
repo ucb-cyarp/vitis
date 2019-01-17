@@ -280,8 +280,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //Find nodes with 0 in degree at this context level (and not in nested contexts)
     std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
     for(unsigned long i = 0; i<nodesToSort.size(); i++){
-        //Do not add subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
-        if(GeneralHelper::isType<Node, SubSystem>(nodesToSort[i]) == nullptr) {
+        //Do not add general subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
+        //However, do add ContextFamilyContainers as they are a special case of a subsystem that should be scheduled.
+        if(GeneralHelper::isType<Node, SubSystem>(nodesToSort[i]) == nullptr || GeneralHelper::isType<Node, ContextFamilyContainer>(nodesToSort[i]) != nullptr) {
             unsigned long inDeg = nodesToSort[i]->inDegree();
             if (inDeg == 0) {
                 nodesWithZeroInDeg.insert(nodesToSort[i]);
@@ -300,7 +301,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //Find Candidate Nodes
     std::set<std::shared_ptr<Node>> candidateNodes;
     for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
+        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedOutputNodes();
 
         //Check if the nodes are in the nodesToSort list before inserting
         for(auto possibleCandidate = moreCandidates.begin(); possibleCandidate != moreCandidates.end(); possibleCandidate++){
@@ -399,7 +400,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
         //Update candidates list
         for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
             std::shared_ptr<Node> zeroInDegNode = *it;
-            std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedNodes();
+            std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedOutputNodes();
 
             //Check if the nodes are in the nodesToSort list before inserting
             for(auto possibleCandidate = newCandidates.begin(); possibleCandidate != newCandidates.end(); possibleCandidate++){
