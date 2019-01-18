@@ -242,7 +242,7 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, S
         //Perform the cast
         //TODO: Implement Fixed Point Support
 
-        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + ")" ;
+        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + "))" ;
         return CExpr(outputExpr, false);
     }
 }
