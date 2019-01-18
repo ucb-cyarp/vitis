@@ -46,7 +46,7 @@ unsigned long GeneralHelper::numIntegerBits(double num, bool forceSigned) {
     double numBits;
 
     if(num>0){
-        //If positive, need to add 1 before taking log base 2
+        //Need to add 1 before taking log base 2
         numBits = std::ceil(std::log2(working + 1));
 
         if(forceSigned){
@@ -56,6 +56,7 @@ unsigned long GeneralHelper::numIntegerBits(double num, bool forceSigned) {
     }else{
         //If negative, do not add a +1 before taking log base 1 but do add a 1 to the result (it is forced to be signed)
         numBits = std::ceil(std::log2(-working))+1;
+        numBits = numBits > 2 ? numBits : 2; //For signed, need a min width of 2
     }
 
     //cast to an unsigned long
