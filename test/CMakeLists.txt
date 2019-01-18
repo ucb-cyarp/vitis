@@ -53,6 +53,7 @@ add_executable(testRunner
         src/EnabledSubsystemDesignValidator.h
         src/DSP_TestAGC.cpp
         src/TestEnabledSubsys.cpp
+        src/DSP_TestFastRxBaseband.cpp
         )
 
 target_link_libraries(testRunner gtest_main VitisLib ${XercesC_LIBRARIES})
