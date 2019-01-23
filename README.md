@@ -4,7 +4,7 @@
 
 ### Status:
 
-CI Status (master Branch): [![Build Status](https://travis-ci.com/cyarp/vitis.svg?token=3DFsVQ6rTxi6J46pKtZ6&branch=master "CI Build Status")](https://travis-ci.com/cyarp/vitis)
+CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/vitis.svg?token=3DFsVQ6rTxi6J46pKtZ6&branch=master)](https://travis-ci.com/ucb-cyarp/vitis)
 
 ### Dependencies:
 - [CMake](https://cmake.org): Build Tool
