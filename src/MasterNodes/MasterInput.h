@@ -26,6 +26,7 @@ protected:
      * @brief Default constructor.  Calls default constructor of supercass.
      */
     MasterInput();
+    MasterInput(std::shared_ptr<SubSystem> parent, MasterNode* orig);
 
 public:
     /**
@@ -49,7 +50,10 @@ public:
     /**
      * @brief Emits the name of the input argument for the given input port
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
+
+    std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 

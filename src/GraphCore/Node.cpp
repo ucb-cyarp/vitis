@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <algorithm>
 
 #include "SubSystem.h"
 #include "Port.h"
@@ -13,6 +14,7 @@
 #include "InputPort.h"
 #include "OutputPort.h"
 #include "NodeFactory.h"
+#include "Context.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
@@ -27,7 +29,9 @@ Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
 Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent) { }
 
 void Node::init() {
-    //Nothing required for this case since ports are the only thing that require this and generic nodes are initialized with no ports
+    //Init the order constraint ports.  It is ok for them to have no connected arcs
+    orderConstraintInputPort = std::unique_ptr<OrderConstraintInputPort>(new OrderConstraintInputPort(this));
+    orderConstraintOutputPort = std::unique_ptr<OrderConstraintOutputPort>(new OrderConstraintOutputPort(this));
 }
 
 void Node::addInArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc) {
@@ -130,6 +134,14 @@ std::vector<std::shared_ptr<OutputPort>> Node::getOutputPorts() {
     return outputPortPtrs;
 }
 
+std::vector<std::shared_ptr<OutputPort>> Node::getOutputPortsIncludingOrderConstraint() {
+    std::vector<std::shared_ptr<OutputPort>> outputPortPtrs = getOutputPorts();
+
+    outputPortPtrs.push_back(orderConstraintOutputPort->getSharedPointerOrderConstraintPort());
+
+    return outputPortPtrs;
+}
+
 std::string Node::getFullGraphMLPath() {
     std::string path = "n" + GeneralHelper::to_string(id);
 
@@ -204,6 +216,9 @@ xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc:
         GraphMLHelper::addDataNode(doc, nodeElement, "block_label", label);
     }
 
+    GraphMLHelper::addDataNode(doc, nodeElement, "block_partition_num", GeneralHelper::to_string(partitionNum));
+    GraphMLHelper::addDataNode(doc, nodeElement, "block_sched_order", GeneralHelper::to_string(schedOrder));
+
     //Add to graph node
     graphNode->appendChild(nodeElement);
 
@@ -218,6 +233,8 @@ std::string Node::labelStr() {
     }
 
     label +=  "ID: " + getFullGraphMLPath();
+    label +=  "\nPartition: " + GeneralHelper::to_string(partitionNum);
+    label +=  "\nSched: " + GeneralHelper::to_string(schedOrder);
 
     return label;
 }
@@ -230,6 +247,14 @@ void Node::validate() {
 
     for(auto port = outputPorts.begin(); port != outputPorts.end(); port++){
         (*port)->validate();
+    }
+
+    if(orderConstraintInputPort){
+        orderConstraintInputPort->validate();
+    }
+
+    if(orderConstraintOutputPort){
+        orderConstraintOutputPort->validate();
     }
 }
 
@@ -249,7 +274,7 @@ std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &n
     return nullptr;
 }
 
-std::string Node::getFullyQualifiedName(bool sanitize) {
+std::string Node::getFullyQualifiedName(bool sanitize, std::string delim) {
     std::string fullName;
 
     if(sanitize) {
@@ -266,7 +291,7 @@ std::string Node::getFullyQualifiedName(bool sanitize) {
             componentName = GeneralHelper::replaceAll(componentName, '\n', ' ');
         }
 
-        fullName = componentName + "/" + fullName;
+        fullName = componentName + delim + fullName;
     }
 
     return fullName;
@@ -277,7 +302,8 @@ std::shared_ptr<SubSystem> Node::getParent() {
 }
 
 std::string
-Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag, bool checkFanout, bool forceFanout) {
+Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
+            bool checkFanout, bool forceFanout) {
     std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
 
     //Check if it has already been emitted
@@ -329,7 +355,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
         if(fanout){
             //Get Expr Before Declaring/assigning so that items higher on the statement stack (prerequites) are enqueued first
             //Makes the temp var declaration more local to where it is assigned
-            CExpr cExpr = emitCExpr(cStatementQueue, outputPortNum, imag);
+            CExpr cExpr = emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
 
             if(!cExpr.isOutputVariable()) {
                 //An expression was returned, not a variable name ... create one
@@ -368,27 +394,34 @@ Node::emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool i
             }
         }else{
             //If not fanout, return expression
-            return emitCExpr(cStatementQueue, outputPortNum, imag).getExpr();
+            return emitCExpr(cStatementQueue, schedType, outputPortNum, imag).getExpr();
         }
     }
 }
 
-CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort, bool imag) {
-    //TODO: Make abstract
-
+CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPort, bool imag) {
     //For now, the default behavior is to return an error message stating that the emitCExpr has not yet been implemented for this node.
     throw std::runtime_error("emitCExpr not yet implemented for node: \n" + labelStr());
 
     return CExpr();
 }
 
-void Node::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
+void Node::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     //Default is to do nothing (since default is to have no state)
 }
 
 bool Node::hasState() {
     //Default is to return false
     return false;
+}
+
+std::shared_ptr<StateUpdate> Node::getStateUpdateNode(){
+    //default has no state
+    return stateUpdateNode;
+}
+
+void Node::setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
+    stateUpdateNode = stateUpdate;
 }
 
 bool Node::hasGlobalDecl(){
@@ -409,7 +442,7 @@ std::vector<Variable> Node::getCStateVars() {
     return std::vector<Variable>();
 }
 
-void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue){
+void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     //Default behavior is no action (since default is to have no state)
 }
 
@@ -442,17 +475,17 @@ void Node::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
                           std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &origToCopyArc,
                           std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> &copyToOrigArc) {
 
-    //Itterate throught input ports
+    std::shared_ptr<Node> clonedDstNode = origToCopyNode[shared_from_this()];
+
+    if(clonedDstNode == nullptr){
+        throw std::runtime_error("Attempting to Clone Arc when Dst Node has Not Been Cloned");
+    }
+
+    //Iterate through input ports
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
         std::set<std::shared_ptr<Arc>> portArcs = inputPorts[i]->getArcs();
         int inputPortNum = inputPorts[i]->getPortNum();
-
-        std::shared_ptr<Node> clonedDstNode = origToCopyNode[shared_from_this()];
-
-        if(clonedDstNode == nullptr){
-            exit(0);
-        }
 
         //Itterate through the arcs and duplicate
         for(auto arcIt = portArcs.begin(); arcIt != portArcs.end(); arcIt++){
@@ -477,6 +510,36 @@ void Node::cloneInputArcs(std::vector<std::shared_ptr<Arc>> &arcCopies,
 
     }
 
+    //Iterate through arcs into OrderConstraintPort
+    if(orderConstraintInputPort){
+        std::set<std::shared_ptr<Arc>> portArcs = orderConstraintInputPort->getArcs();
+
+        for(auto arcIt = portArcs.begin(); arcIt != portArcs.end(); arcIt++){
+            std::shared_ptr<Arc> origArc = (*arcIt);
+            //Get Src Output Port Number and Src Node (as of now, all arcs origionate at an output port)
+            std::shared_ptr<OutputPort> srcPort = origArc->getSrcPort();
+
+            std::shared_ptr<Node> origSrcNode = srcPort->getParent();
+            std::shared_ptr<Node> clonedSrcNode = origToCopyNode[origSrcNode];
+
+            std::shared_ptr<Arc> clonedArc;
+            if(GeneralHelper::isType<OutputPort, OrderConstraintOutputPort>(srcPort) == nullptr) { //The output port is a real port
+                int srcPortNumber = srcPort->getPortNum();
+
+                //Create the Cloned Arc
+                clonedArc = Arc::connectNodesOrderConstraint(clonedSrcNode, srcPortNumber, clonedDstNode, (*arcIt)->getDataType()); //This creates a new arc and connects them to the referenced node ports.
+            }else{ //The output port is an order constraint port
+                clonedArc = Arc::connectNodesOrderConstraint(clonedSrcNode, clonedDstNode, (*arcIt)->getDataType()); //This creates a new arc and connects them to the referenced node ports.
+            }
+
+            clonedArc->shallowCopyPrameters(origArc.get());
+
+            //Add to arc list and maps
+            arcCopies.push_back(clonedArc);
+            origToCopyArc[origArc] = clonedArc;
+            copyToOrigArc[clonedArc] = origArc;
+        }
+    }
 }
 
 std::set<std::shared_ptr<Arc>> Node::disconnectNode() {
@@ -499,6 +562,17 @@ std::set<std::shared_ptr<Node>> Node::getConnectedNodes() {
 }
 
 std::set<std::shared_ptr<Node>> Node::getConnectedInputNodes(){
+    //Get directly connected input nodes
+    std::set<std::shared_ptr<Node>> connectedNodes = getConnectedDirectInputNodes();
+
+    //Get order constrained (virtually connected) input nodes
+    std::set<std::shared_ptr<Node>> moreConnectedNodes = getConnectedOrderConstraintInNodes();
+    connectedNodes.insert(moreConnectedNodes.begin(), moreConnectedNodes.end());
+
+    return connectedNodes;
+}
+
+std::set<std::shared_ptr<Node>> Node::getConnectedDirectInputNodes() {
     std::set<std::shared_ptr<Node>> connectedNodes;
 
     //Iterate through the input ports/arcs
@@ -515,7 +589,7 @@ std::set<std::shared_ptr<Node>> Node::getConnectedInputNodes(){
     return connectedNodes;
 }
 
-std::set<std::shared_ptr<Node>> Node::getConnectedOutputNodes(){
+std::set<std::shared_ptr<Node>> Node::getConnectedDirectOutputNodes(){
     std::set<std::shared_ptr<Node>> connectedNodes;
 
     //Iterate through the output ports/arcs
@@ -532,7 +606,26 @@ std::set<std::shared_ptr<Node>> Node::getConnectedOutputNodes(){
     return connectedNodes;
 }
 
+std::set<std::shared_ptr<Node>> Node::getConnectedOutputNodes(){
+    //Get directly connected input nodes
+    std::set<std::shared_ptr<Node>> connectedNodes = getConnectedDirectOutputNodes();
+
+    //Get order constrained (virtually connected) input nodes
+    std::set<std::shared_ptr<Node>> moreConnectedNodes = getConnectedOrderConstraintOutNodes();
+    connectedNodes.insert(moreConnectedNodes.begin(), moreConnectedNodes.end());
+
+    return connectedNodes;
+}
+
 unsigned long Node::inDegree(){
+    unsigned long count = directInDegree();
+
+    count += orderConstraintInDegree();
+
+    return count;
+}
+
+unsigned long Node::directInDegree() {
     unsigned long count = 0;
 
     //Iterate through the input ports/arcs
@@ -544,7 +637,7 @@ unsigned long Node::inDegree(){
     return count;
 }
 
-unsigned long Node::outDegree() {
+unsigned long Node::directOutDegree() {
     unsigned long count = 0;
 
     //Iterate through the output ports/arcs
@@ -552,6 +645,14 @@ unsigned long Node::outDegree() {
     for(unsigned long i = 0; i<numOutputPorts; i++){
         count += outputPorts[i]->getArcs().size(); //Get the number of arcs connected to this port
     }
+
+    return count;
+}
+
+unsigned long Node::outDegree(){
+    unsigned long count = directOutDegree();
+
+    count += orderConstraintOutDegree();
 
     return count;
 }
@@ -574,6 +675,20 @@ unsigned long Node::outDegreeExclusingConnectionsTo(std::set<std::shared_ptr<Nod
                 //If the dst node is not in the ignore set, include it in the count
                 count++;
             }
+        }
+    }
+
+    //Get a copy of the arc set for this port's order constraint output
+    std::set<std::shared_ptr<Arc>> outputArcs = orderConstraintOutputPort->getArcs();
+
+    for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+        std::shared_ptr<Arc> arc = *it;
+        std::shared_ptr<Port> dstPort = arc->getDstPort();
+        std::shared_ptr<Node> connectedNode = dstPort->getParent(); //The connected node for output arcs is the dst node.
+
+        if(ignoreSet.find(connectedNode) == ignoreSet.end()){
+            //If the dst node is not in the ignore set, include it in the count
+            count++;
         }
     }
 
@@ -637,6 +752,17 @@ void Node::setSchedOrder(int schedOrder) {
 }
 
 std::set<std::shared_ptr<Arc>> Node::disconnectInputs() {
+    //Disconnect the direct inputs
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = disconnectDirectInputs();
+
+    //Disconnect the OrderConstraintIn arcs
+    std::set<std::shared_ptr<Arc>> moreDisconnectedArcs = disconnectOrderConstraintInArcs();
+    disconnectedArcs.insert(moreDisconnectedArcs.begin(), moreDisconnectedArcs.end());
+
+    return  disconnectedArcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::disconnectDirectInputs() {
     std::set<std::shared_ptr<Arc>> disconnectedArcs;
 
     //Iterate through the input ports/arcs
@@ -648,19 +774,28 @@ std::set<std::shared_ptr<Arc>> Node::disconnectInputs() {
         //Disconnect each of the arcs from both ends
         //We can do this without disturbing the port the set since the set here is a copy of the port set
         for(auto it = inputArcs.begin(); it != inputArcs.end(); it++){
-            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
-            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
-            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+            (*it)->disconnect();
 
             //Add this arc to the list of arcs removed
             disconnectedArcs.insert(*it);
         }
     }
 
-    return  disconnectedArcs;
+    return disconnectedArcs;
 }
 
 std::set<std::shared_ptr<Arc>> Node::disconnectOutputs() {
+    //Disconnect the direct outputs
+    std::set<std::shared_ptr<Arc>> disconnectedArcs = disconnectDirectOutputs();
+
+    //Disconnect the OrderConstraintOut arcs
+    std::set<std::shared_ptr<Arc>> moreDisconnectedArcs = disconnectOrderConstraintOutArcs();
+    disconnectedArcs.insert(moreDisconnectedArcs.begin(), moreDisconnectedArcs.end());
+
+    return  disconnectedArcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::disconnectDirectOutputs() {
     std::set<std::shared_ptr<Arc>> disconnectedArcs;
 
     //Iterate through the output ports/arcs
@@ -672,9 +807,7 @@ std::set<std::shared_ptr<Arc>> Node::disconnectOutputs() {
         //Disconnect each of the arcs from both ends
         //We can do this without disturbing the port the set since the set here is a copy of the port set
         for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
-            //These functions update the previous endpoints of the arc (ie. removes the arc from them)
-            (*it)->setDstPortUpdateNewUpdatePrev(nullptr);
-            (*it)->setSrcPortUpdateNewUpdatePrev(nullptr);
+            (*it)->disconnect();
 
             //Add this arc to the list of arcs removed
             disconnectedArcs.insert(*it);
@@ -686,4 +819,264 @@ std::set<std::shared_ptr<Arc>> Node::disconnectOutputs() {
 
 bool Node::lessThanSchedOrder(std::shared_ptr<Node> a, std::shared_ptr<Node> b){
     return a->schedOrder < b->schedOrder;
+}
+
+void Node::addOrderConstraintInArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
+    if(!orderConstraintInputPort){
+        //Order Constraint Port not yet created ... create it
+        orderConstraintInputPort = std::unique_ptr<OrderConstraintInputPort>(new OrderConstraintInputPort(this));
+    }
+
+    //Set the dst port of the arc, updating the previous port and this one
+    arc->setDstPortUpdateNewUpdatePrev(orderConstraintInputPort->getSharedPointerInputPort());
+}
+
+void Node::addOrderConstraintOutArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc) {
+    if(!orderConstraintOutputPort){
+        //Order Constraint Port not yet created ... create it
+        orderConstraintOutputPort = std::unique_ptr<OrderConstraintOutputPort>(new OrderConstraintOutputPort(this));
+    }
+
+    //Set the dst port of the arc, updating the previous port and this one
+    arc->setSrcPortUpdateNewUpdatePrev(orderConstraintOutputPort->getSharedPointerOutputPort());
+}
+
+void Node::removeOrderConstraintInArc(std::shared_ptr<Arc> arc) {
+    if(orderConstraintInputPort) {
+        orderConstraintInputPort->removeArc(arc);
+    }
+}
+
+void Node::removeOrderConstraintOutArc(std::shared_ptr<Arc> arc) {
+    if(orderConstraintOutputPort) {
+        orderConstraintOutputPort->removeArc(arc);
+    }
+}
+
+std::set<std::shared_ptr<Arc>> Node::disconnectOrderConstraintInArcs() {
+    std::set<std::shared_ptr<Arc>> disconnectedArcs;
+
+    if(orderConstraintInputPort) {
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> constraintArcs = orderConstraintInputPort->getArcs();
+
+        //Disconnect each of the arcs from both ends
+        //We can do this without disturbing the port the set since the set here is a copy of the port set
+        for (auto it = constraintArcs.begin(); it != constraintArcs.end(); it++) {
+            (*it)->disconnect();
+
+            //Add this arc to the list of arcs removed
+            disconnectedArcs.insert(*it);
+        }
+    }
+
+    return disconnectedArcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::disconnectOrderConstraintOutArcs() {
+    std::set<std::shared_ptr<Arc>> disconnectedArcs;
+
+    if(orderConstraintOutputPort) {
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> constraintArcs = orderConstraintOutputPort->getArcs();
+
+        //Disconnect each of the arcs from both ends
+        //We can do this without disturbing the port the set since the set here is a copy of the port set
+        for (auto it = constraintArcs.begin(); it != constraintArcs.end(); it++) {
+            (*it)->disconnect();
+
+            //Add this arc to the list of arcs removed
+            disconnectedArcs.insert(*it);
+        }
+    }
+
+    return disconnectedArcs;
+}
+
+std::set<std::shared_ptr<Node>> Node::getConnectedOrderConstraintInNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes;
+
+    if (orderConstraintInputPort){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> constraintArcs = orderConstraintInputPort->getArcs();
+
+        for (auto it = constraintArcs.begin(); it != constraintArcs.end(); it++) {
+            connectedNodes.insert(
+                    (*it)->getSrcPort()->getParent()); //The node connected to the input arc is the src node of the arc
+        }
+    }
+
+    return connectedNodes;
+}
+
+std::set<std::shared_ptr<Node>> Node::getConnectedOrderConstraintOutNodes() {
+    std::set<std::shared_ptr<Node>> connectedNodes;
+
+    if (orderConstraintOutputPort){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> constraintArcs = orderConstraintOutputPort->getArcs();
+
+        for (auto it = constraintArcs.begin(); it != constraintArcs.end(); it++) {
+            connectedNodes.insert(
+                    (*it)->getDstPort()->getParent()); //The node connected to the output arc is the dst node of the arc
+        }
+    }
+
+    return connectedNodes;
+}
+
+unsigned long Node::orderConstraintInDegree() {
+    unsigned long count = 0;
+
+    if(orderConstraintInputPort) {
+        count = orderConstraintInputPort->getArcs().size(); //Get the number of arcs connected to this port
+    }
+
+    return count;
+}
+
+unsigned long Node::orderConstraintOutDegree() {
+    unsigned long count = 0;
+
+    if(orderConstraintOutputPort) {
+        count = orderConstraintOutputPort->getArcs().size(); //Get the number of arcs connected to this port
+    }
+
+    return count;
+}
+
+std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintInputPort() {
+    if(!orderConstraintInputPort) {
+        return std::shared_ptr<OrderConstraintInputPort>(nullptr);
+    }
+
+    return orderConstraintInputPort->getSharedPointerOrderConstraintPort();
+}
+
+std::shared_ptr<OrderConstraintOutputPort> Node::getOrderConstraintOutputPort() {
+    if(!orderConstraintOutputPort) {
+        return std::shared_ptr<OrderConstraintOutputPort>(nullptr);
+    }
+
+    return orderConstraintOutputPort->getSharedPointerOrderConstraintPort();
+}
+
+std::shared_ptr<OrderConstraintInputPort> Node::getOrderConstraintInputPortCreateIfNot() {
+    if(!orderConstraintInputPort) {
+        orderConstraintInputPort = std::unique_ptr<OrderConstraintInputPort>(new OrderConstraintInputPort(this));
+    }
+
+    return orderConstraintInputPort->getSharedPointerOrderConstraintPort();
+}
+
+std::shared_ptr<OrderConstraintOutputPort> Node::getOrderConstraintOutputPortCreateIfNot() {
+    if(!orderConstraintOutputPort) {
+        orderConstraintOutputPort = std::unique_ptr<OrderConstraintOutputPort>(new OrderConstraintOutputPort(this));
+    }
+
+    return orderConstraintOutputPort->getSharedPointerOrderConstraintPort();
+}
+
+std::vector<std::shared_ptr<InputPort>> Node::getInputPortsIncludingSpecial() {
+    //By default, just return the standard input ports
+    return getInputPorts();
+}
+
+
+std::vector<std::shared_ptr<InputPort>> Node::getInputPortsIncludingSpecialAndOrderConstraint(){
+    std::vector<std::shared_ptr<InputPort>> inputPortList = getInputPortsIncludingSpecial();
+
+    inputPortList.push_back(orderConstraintInputPort->getSharedPointerOrderConstraintPort());
+
+    return inputPortList;
+}
+
+std::vector<Context> Node::getContext() const {
+    return context;
+}
+
+void Node::setContext(std::vector<Context> &context) {
+    Node::context = context;
+}
+
+Context Node::getContext(unsigned long i) const {
+    return context[i];
+}
+
+void Node::setContext(unsigned long i, Context &context) {
+    Node::context[i] = context;
+}
+
+void Node::pushBackContext(Context &context) {
+    Node::context.push_back(context);
+}
+
+void Node::removeContext(Context &context) {
+    Node::context.erase(std::remove(Node::context.begin(), Node::context.end(), context), Node::context.end());
+}
+
+void Node::removeContext(unsigned long i){
+    context.erase(context.begin()+i);
+}
+
+bool Node::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //By default, returns false since the default assumption is that the node does not have state.
+    //Override if the node has state
+
+    return false;
+}
+
+void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
+    std::vector<std::shared_ptr<InputPort>> origInputPorts = copyFrom->getInputPorts();
+
+    for(unsigned long i = 0; i<origInputPorts.size(); i++){
+        int portNum = origInputPorts[i]->getPortNum();
+        std::string name = origInputPorts[i]->getName();
+
+        std::shared_ptr<InputPort> port = getInputPortCreateIfNot(portNum);
+        port->setName(name);
+    }
+
+    std::vector<std::shared_ptr<OutputPort>> origOutputPorts = copyFrom->getOutputPorts();
+    for(unsigned long i = 0; i<origOutputPorts.size(); i++){
+        int portNum = origOutputPorts[i]->getPortNum();
+        std::string name = origOutputPorts[i]->getName();
+
+        std::shared_ptr<OutputPort> port = getOutputPortCreateIfNot(portNum);
+        port->setName(name);
+    }
+}
+
+std::set<std::shared_ptr<Arc>> Node::getDirectOutputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs;
+
+    //Iterate through the output ports/arcs
+    unsigned long numOutputPorts = outputPorts.size();
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[i]->getArcs();
+        arcs.insert(outputArcs.begin(), outputArcs.end());
+
+    }
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getOrderConstraintOutputArcs(){
+    //Get a copy of the arc set for this port
+    std::set<std::shared_ptr<Arc>> arcs = orderConstraintOutputPort->getArcs();
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs = getDirectOutputArcs();
+
+    std::set<std::shared_ptr<Arc>> moreArcs = getOrderConstraintOutputArcs();
+    arcs.insert(moreArcs.begin(), moreArcs.end());
+
+    return arcs;
 }

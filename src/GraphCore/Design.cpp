@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <General/GeneralHelper.h>
+#include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
 
 #include "NodeFactory.h"
 #include "MasterNodes/MasterInput.h"
@@ -18,6 +19,13 @@
 #include "GraphCore/Arc.h"
 #include "GraphCore/Variable.h"
 #include "PrimitiveNodes/Constant.h"
+#include "PrimitiveNodes/Mux.h"
+#include "ContextContainer.h"
+#include "ContextFamilyContainer.h"
+
+#include "GraphCore/StateUpdate.h"
+
+#include "GraphMLTools/GraphMLExporter.h"
 
 //==== Constructors
 Design::Design() {
@@ -175,6 +183,8 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("block_node_type", "string", true));
     parameters.insert(GraphMLParameter("block_function", "string", true));
     parameters.insert(GraphMLParameter("block_label", "string", true));
+    parameters.insert(GraphMLParameter("block_partition_num", "int", true));
+    parameters.insert(GraphMLParameter("block_sched_order", "int", true));
 
     //Add the static entries for arcs
     parameters.insert(GraphMLParameter("arc_src_port", "int", false));
@@ -289,19 +299,48 @@ bool Design::expand() {
     for(auto node = nodes.begin(); node != nodes.end(); node++){
         std::shared_ptr<ExpandedNode> expandedPtr = (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
         if(expandedPtr != nullptr){
-            if(expandedPtr->getParent() == nullptr){ //We need to check the expanded Ptr instead of the origional node ptr because the parent of expanded nodes are set to null (they become the orig node of the expanded node container)
-                addTopLevelNode(expandedPtr);
-            }
             expanded = true;
         }
     }
 
-    //Add new nodes first, then delete old ones
-    for(auto node = newNodes.begin(); node != newNodes.end(); node++){
-        nodes.push_back(*node);
+    addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
+
+    return expanded;
+}
+
+bool Design::expandToPrimitive() {
+    bool expanded = false;
+
+    bool done = false;
+    while(!done){
+        bool localExpanded = expand();
+        expanded |= localExpanded;
+        done = !localExpanded;
     }
 
-    for(auto node = deletedNodes.begin(); node != deletedNodes.end(); node++){
+    return expanded;
+}
+
+void Design::addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                           std::vector<std::shared_ptr<Arc>> &new_arcs,
+                           std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //Add new nodes first, then delete old ones
+    for(auto node = new_nodes.begin(); node != new_nodes.end(); node++){
+        nodes.push_back(*node);
+
+        //If node has no parent, add it to the list of top level nodes (matches the check for deleted nodes to remove top level nodes)
+        if((*node)->getParent() == nullptr){
+            topLevelNodes.push_back(*node);
+        }
+    }
+
+    for(auto node = deleted_nodes.begin(); node != deleted_nodes.end(); node++){
+        //Remove the node from it's parent's children list (if it has a parent) -> this is important when the graph is traversed hierarchically)
+        if((*node)->getParent()){
+            (*node)->getParent()->removeChild(*node);
+        }
+
         //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
         for(auto candidate = nodes.begin(); candidate != nodes.end(); ){//Will handle iteration in body since erase returns next iterator pos
             if((*candidate) == (*node)){
@@ -322,11 +361,11 @@ bool Design::expand() {
     }
 
     //Add new arcs first, then delete old ones
-    for(auto arc = newArcs.begin(); arc != newArcs.end(); arc++){
+    for(auto arc = new_arcs.begin(); arc != new_arcs.end(); arc++){
         arcs.push_back(*arc);
     }
 
-    for(auto arc = deletedArcs.begin(); arc != deletedArcs.end(); arc++){
+    for(auto arc = deleted_arcs.begin(); arc != deleted_arcs.end(); arc++){
         //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
         for(auto candidate = arcs.begin(); candidate != arcs.end(); ){//Will handle iteration in body since erase returns next iterator pos
             if((*candidate) == (*arc)){
@@ -336,21 +375,6 @@ bool Design::expand() {
             }
         }
     }
-
-    return expanded;
-}
-
-bool Design::expandToPrimitive() {
-    bool expanded = false;
-
-    bool done = false;
-    while(!done){
-        bool localExpanded = expand();
-        expanded |= localExpanded;
-        done = !localExpanded;
-    }
-
-    return expanded;
 }
 
 std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePath) {
@@ -511,13 +535,56 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState){
+void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType){
+    if(schedType == SchedParams::SchedType::BOTTOM_UP)
+        emitSingleThreadedC(outputDir, designName, designName, schedType);
+    else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
+        scheduleTopologicalStort(true, false);
+        verifyTopologicalOrder();
+
+        //Export GraphML (for debugging)
+        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
+
+
+        emitSingleThreadedC(outputDir, designName, designName, schedType);
+    }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+        prune(true);
+        expandEnabledSubsystemContexts();
+        createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
+        createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
+        discoverAndMarkContexts();
+        //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
+        //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
+        //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
+        //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
+
+        encapsulateContexts();
+
+        //We have added nodes and arcs.  Assign them IDs
+        assignNodeIDs();
+        assignArcIDs();
+
+        scheduleTopologicalStort(false, true); //Pruned before inserting state update nodes
+        verifyTopologicalOrder();
+
+        //Export GraphML (for debugging)
+        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
+
+        emitSingleThreadedC(outputDir, designName, designName, schedType);
+    }else{
+        throw std::runtime_error("Unknown SCHED Type");
+    }
+}
+
+void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState, SchedParams::SchedType schedType){
     //Emit compute next states
     cFile << std::endl << "//==== Compute Next States ====" << std::endl;
     unsigned long numNodesWithState = nodesWithState.size();
     for(unsigned long i = 0; i<numNodesWithState; i++){
         std::vector<std::string> nextStateExprs;
-        nodesWithState[i]->emitCExprNextState(nextStateExprs);
+        nodesWithState[i]->emitCExprNextState(nextStateExprs, schedType);
         cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
 
         unsigned long numNextStateExprs = nextStateExprs.size();
@@ -545,7 +612,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
 
         cFile << "//-- Compute Real Component --" << std::endl;
         std::vector<std::string> cStatements_re;
-        std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false);
+        std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false);
         //emit the expressions
         unsigned long numStatements_re = cStatements_re.size();
         for(unsigned long j = 0; j<numStatements_re; j++){
@@ -560,7 +627,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
         if(outputDataType.isComplex()){
             cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
             std::vector<std::string> cStatements_im;
-            std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true);
+            std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true);
             //emit the expressions
             unsigned long numStatements_im = cStatements_im.size();
             for(unsigned long j = 0; j<numStatements_im; j++){
@@ -573,7 +640,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
     }
 }
 
-void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
+void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::SchedType schedType){
 
     cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
@@ -612,7 +679,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
-                std::string expr_re = srcNode->emitC(cStatements_re, srcNodeOutputPortNum, false, true, true);
+                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for(unsigned long j = 0; j<numStatements_re; j++){
@@ -627,7 +694,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
                 if(outputDataType.isComplex()){
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
-                    std::string expr_im = srcNode->emitC(cStatements_im, srcNodeOutputPortNum, true, true, true);
+                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for(unsigned long j = 0; j<numStatements_im; j++){
@@ -648,7 +715,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
 
             std::vector<std::string> nextStateExprs;
-            (*it)->emitCExprNextState(nextStateExprs);
+            (*it)->emitCExprNextState(nextStateExprs, schedType);
 
             for(unsigned long j = 0; j<nextStateExprs.size(); j++){
                 cFile << nextStateExprs[j] << std::endl;
@@ -666,7 +733,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
             for(unsigned long i = 0; i<numOutputPorts; i++){
                 std::vector<std::string> cStatementsRe;
                 //Emit real component (force fanout)
-                (*it)->emitC(cStatementsRe, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                (*it)->emitC(cStatementsRe, schedType, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
                 for(unsigned long j = 0; j<cStatementsRe.size(); j++){
                     cFile << cStatementsRe[j] << std::endl;
@@ -676,7 +743,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
                     //Emit imag component (force fanout)
                     std::vector<std::string> cStatementsIm;
                     //Emit real component (force fanout)
-                    (*it)->emitC(cStatementsIm, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                    (*it)->emitC(cStatementsIm, schedType, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
                     for(unsigned long j = 0; j<cStatementsIm.size(); j++){
                         cFile << cStatementsIm[j] << std::endl;
@@ -686,12 +753,286 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile){
         }
 
     }
-
-
-
 }
 
-void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool sched) {
+void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType){
+
+    cFile << std::endl << "//==== Compute Operators ====" << std::endl;
+
+    //Sort nodes by schedOrder.
+    std::vector<std::shared_ptr<Node>> orderedNodes = nodes;
+    //Add the output master to the scheduled node list
+    orderedNodes.push_back(outputMaster);
+    std::sort(orderedNodes.begin(), orderedNodes.end(), Node::lessThanSchedOrder);
+
+    std::shared_ptr<Node> zeroSchedNodeCmp = NodeFactory::createNode<MasterUnconnected>(); //Need a node to compare to
+    zeroSchedNodeCmp->setSchedOrder(0);
+
+    auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0)
+
+    //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
+    std::vector<Context> lastEmittedContext;
+
+    //True if the context that was emitted was opened with the 'first' method
+    std::vector<bool> contextFirst;
+
+    //Keep a set of contexts that have been emitted (and exited).  For now, we do not allow re-entry into an already emitted sub context.
+    std::set<Context> alreadyEmittedSubContexts;
+
+    //Keep a count of how many subContexts of a contextRoot have been emitted, allows if/else if/else statements to not be contiguous
+    std::map<std::shared_ptr<ContextRoot>, int> subContextEmittedCount;
+
+    //Itterate through the schedule and emit
+    for(auto it = schedIt; it != orderedNodes.end(); it++){
+
+//        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
+
+        //Check if the context has changed
+        std::vector<Context> nodeContext = (*it)->getContext();
+
+        std::vector<std::string> contextStatements;
+
+        if(nodeContext != lastEmittedContext) {
+
+            //Check if previous context(s) should be closed (run up the stack until the contexts are the same - we can do this because contexts are in a strict hierarchy [ie. tree])
+            for(unsigned long i = 0; i<lastEmittedContext.size(); i++){
+                unsigned long ind = lastEmittedContext.size()-1-i;
+
+                if(ind >= nodeContext.size()){
+                    //The new context is less deep than this.  Therefore, we should close this context
+                    if(subContextEmittedCount.find(lastEmittedContext[ind].getContextRoot()) == subContextEmittedCount.end()){
+                        subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] = 0;
+                    }
+
+                    if(contextFirst.size() - 1 < ind || contextFirst[ind]){
+                        //This context was created with a call to first
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }else if(subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >= lastEmittedContext[ind].getContextRoot()->getNumSubContexts()-1 ){
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }else{
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }
+
+                    //Remove this level of the contextFirst stack because the family was exited
+                    contextFirst.pop_back();
+
+                    //Add that context to the exited context set
+                    alreadyEmittedSubContexts.insert(lastEmittedContext[ind]);
+
+                    //Increment emitted count by 1
+                    subContextEmittedCount[lastEmittedContext[ind].getContextRoot()]++;
+
+                }else if(lastEmittedContext[ind] != nodeContext[ind]){
+                    //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context closes up to that point
+                    //could be either a first, mid, or last
+                    if(contextFirst[ind]) { //contextFirst is guarenteed to exist because this level existed in the last emitted context
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }else if(subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >= lastEmittedContext[ind].getContextRoot()->getNumSubContexts()-1 ){
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }else{
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                    }
+
+                    if(lastEmittedContext[ind].getContextRoot() == nodeContext[ind].getContextRoot()){
+                        //In this case, the next context is in the same family, set the contextFirst to false and do not remove it
+                        contextFirst[ind] = false;
+                    }else{
+                        //In this case, the context family is being left, remove the contextFirst entry for the family
+                        contextFirst.pop_back();
+                    }
+
+                    //Add that context to the exited context set
+                    alreadyEmittedSubContexts.insert(lastEmittedContext[ind]);
+
+                    //Increment emitted count by 1
+                    subContextEmittedCount[lastEmittedContext[ind].getContextRoot()]++;
+                }else{
+                    break; //We found the point root of both the old and new contexts, we can stop here
+                }
+            }
+
+            //If new context(s) have been entered, emit the conditionals (run down the stack to find the root of both, then emit the context entries)
+            for(unsigned long i = 0; i<nodeContext.size(); i++){
+                if(i>=lastEmittedContext.size()){
+                    //This context level is new, it must be the first time it has been entered
+
+                    //Declare vars
+                    std::vector<Variable> contextVars = nodeContext[i].getContextRoot()->getCContextVars();
+                    for(unsigned long j = 0; j<contextVars.size(); j++) {
+                        contextStatements.push_back(contextVars[j].getCVarDecl(false, true, false, true) + ";\n");
+
+                        if (contextVars[j].getDataType().isComplex()) {
+                            contextStatements.push_back(contextVars[j].getCVarDecl(true, true, false, true) + ";\n");
+                        }
+                    }
+
+                    //Emit context
+                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
+
+                    //push back onto contextFirst
+                    contextFirst.push_back(true);
+                }else if(lastEmittedContext[i] != nodeContext[i]){  //Because contexts must be purely hierarchical, new context is only entered if the context at this level is different from the previously emitted context.
+                    //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context opens after that
+                    //This context level already existed, could either be an first, mid, or last
+
+                    //Check if the previous context had the same root.  If so, this is the first
+                    if(lastEmittedContext[i].getContextRoot() != nodeContext[i].getContextRoot()){
+                        //Emit context vars
+                        std::vector<Variable> contextVars = nodeContext[i].getContextRoot()->getCContextVars();
+                        for(unsigned long j = 0; j<contextVars.size(); j++) {
+                            contextStatements.push_back(contextVars[j].getCVarDecl(false, true, false, true) + ";\n");
+
+                            if (contextVars[j].getDataType().isComplex()) {
+                                contextStatements.push_back(contextVars[j].getCVarDecl(true, true, false, true) + ";\n");
+                            }
+                        }
+
+                        //Emit context
+                        nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
+
+                        //This is a new family, push back
+                        contextFirst.push_back(true);
+                    }else{
+                        if(subContextEmittedCount[nodeContext[i].getContextRoot()] >= nodeContext[i].getContextRoot()->getNumSubContexts()-1){ //Check if this is the last in the context family
+                            nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType, nodeContext[i].getSubContext());
+                        }else{
+                            nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType, nodeContext[i].getSubContext());
+                        }
+
+                        //Contexts are in the same family
+                        contextFirst[i] = false;
+                    }
+
+                }
+                //Else, we have not yet found where the context stacks diverge (if they in fact do) --> continue
+            }
+
+                //Check to see if this is the first, last, or other conditional being emitted (if there is only 1 context, default to first call)
+                    //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
+                        //Check the count
+                    //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
+
+            //If the first time, call the context preparation function (ie. for declaring outputs outside of context)
+
+            //Set contextFirst to true (add it to the stack) if this was the first context, false otherwise
+
+            //Emit proper conditional
+        }
+
+        for(unsigned long i = 0; i<contextStatements.size(); i++){
+            cFile << contextStatements[i];
+        }
+
+        if(*it == outputMaster) {
+            //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
+            unsigned long numOutputs = outputMaster->getInputPorts().size();
+            for (unsigned long i = 0; i < numOutputs; i++) {
+                std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
+                cFile << std::endl << "//---- Assign Output " << i << ": " << output->getName() << " ----" << std::endl;
+
+                //Get the arc connected to the output
+                std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
+
+                DataType outputDataType = outputArc->getDataType();
+
+                std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
+                int srcNodeOutputPortNum = srcOutputPort->getPortNum();
+
+                std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+
+                cFile << "//-- Assign Real Component --" << std::endl;
+                std::vector<std::string> cStatements_re;
+                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
+                //emit the expressions
+                unsigned long numStatements_re = cStatements_re.size();
+                for (unsigned long j = 0; j < numStatements_re; j++) {
+                    cFile << cStatements_re[j] << std::endl;
+                }
+
+                //emit the assignment
+                Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
+                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+
+                //Emit Imag if Datatype is complex
+                if (outputDataType.isComplex()) {
+                    cFile << std::endl <<  "//-- Assign Imag Component --" << std::endl;
+                    std::vector<std::string> cStatements_im;
+                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
+                    //emit the expressions
+                    unsigned long numStatements_im = cStatements_im.size();
+                    for (unsigned long j = 0; j < numStatements_im; j++) {
+                        cFile << cStatements_im[j] << std::endl;
+                    }
+
+                    //emit the assignment
+                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                }
+            }
+        }else if(GeneralHelper::isType<Node, StateUpdate>(*it) != nullptr){
+            std::shared_ptr<StateUpdate> stateUpdateNode = std::dynamic_pointer_cast<StateUpdate>(*it);
+            //Emit state update
+            cFile << std::endl << "//---- State Update for " << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
+
+            std::vector<std::string> stateUpdateExprs;
+            (*it)->emitCStateUpdate(stateUpdateExprs, schedType);
+
+            for(unsigned long j = 0; j<stateUpdateExprs.size(); j++){
+                cFile << stateUpdateExprs[j] << std::endl;
+            }
+
+        }else if((*it)->hasState()){
+            //Call emit for state element input
+            //The state element output is treateded similarly to a constant and a variable name is always returned
+            //The output has no dependencies within the cycle
+            //The input can have dependencies
+
+            //Emit comment
+            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+
+            std::vector<std::string> nextStateExprs;
+            (*it)->emitCExprNextState(nextStateExprs, schedType);
+
+            for(unsigned long j = 0; j<nextStateExprs.size(); j++){
+                cFile << nextStateExprs[j] << std::endl;
+            }
+
+        }else{
+            //Emit standard node
+
+            //Emit comment
+            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " ----" << std::endl;
+
+            unsigned long numOutputPorts = (*it)->getOutputPorts().size();
+            //Emit each output port
+            //TODO: check for unconnected output ports and do not emit them
+            for(unsigned long i = 0; i<numOutputPorts; i++){
+                std::vector<std::string> cStatementsRe;
+                //Emit real component (force fanout)
+                (*it)->emitC(cStatementsRe, schedType, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                for(unsigned long j = 0; j<cStatementsRe.size(); j++){
+                    cFile << cStatementsRe[j] << std::endl;
+                }
+
+                if((*it)->getOutputPort(i)->getDataType().isComplex()) {
+                    //Emit imag component (force fanout)
+                    std::vector<std::string> cStatementsIm;
+                    //Emit real component (force fanout)
+                    (*it)->emitC(cStatementsIm, schedType, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                    for(unsigned long j = 0; j<cStatementsIm.size(); j++){
+                        cFile << cStatementsIm[j] << std::endl;
+                    }
+                }
+            }
+        }
+
+        lastEmittedContext = nodeContext;
+
+    }
+}
+
+void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched) {
     //Get the OutputType struct defn
     std::string outputTypeDefn = getCOutputStructDefn();
 
@@ -699,6 +1040,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     std::string fctnProto = "void " + designName + "(" + fctnProtoArgs + ")";
 
+    std::cout << "Emitting C File: " << path << "/" << designName << ".h" << std::endl;
     //#### Emit .h file ####
     std::ofstream headerFile;
     headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
@@ -722,18 +1064,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << std::endl;
 
     //Find nodes with state & global decls
-    std::vector<std::shared_ptr<Node>> nodesWithState;
-    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
+    std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = findNodesWithGlobalDecl();
     unsigned long numNodes = nodes.size(); //Iterate through all un-pruned nodes in the design since this is a single threaded emit
-
-    for(unsigned long i = 0; i<numNodes; i++) {
-        if (nodes[i]->hasState()) {
-            nodesWithState.push_back(nodes[i]);
-        }
-        if (nodes[i]->hasGlobalDecl()) {
-            nodesWithGlobalDecl.push_back(nodes[i]);
-        }
-    }
 
     headerFile << "//==== State Variable Definitions ====" << std::endl;
     //We also need to declare the state variables here as extern;
@@ -760,6 +1093,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     headerFile.close();
 
+    std::cout << "Emitting C File: " << path << "/" << designName << ".c" << std::endl;
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
@@ -798,21 +1132,27 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << fctnProto << "{" << std::endl;
 
     //Emit operators
-    if(sched){
-        emitSingleThreadedOpsSched(cFile);
+    if(sched == SchedParams::SchedType::BOTTOM_UP){
+        emitSingleThreadedOpsBottomUp(cFile, nodesWithState, sched);
+    }else if(sched == SchedParams::SchedType::TOPOLOGICAL){
+        emitSingleThreadedOpsSched(cFile, sched);
+    }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+        emitSingleThreadedOpsSchedStateUpdateContext(cFile, sched);
     }else{
-        emitSingleThreadedOpsBottomUp(cFile, nodesWithState);
+        throw std::runtime_error("Unknown schedule type");
     }
 
-    //Emit state variable updates
-    cFile << std::endl << "//==== Update State Vars ====" << std::endl;
-    for(unsigned long i = 0; i<nodesWithState.size(); i++){
-        std::vector<std::string> stateUpdateExprs;
-        nodesWithState[i]->emitCStateUpdate(stateUpdateExprs);
+    //Emit state variable updates (only if state update nodes are not included)
+    if(sched != SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+        cFile << std::endl << "//==== Update State Vars ====" << std::endl;
+        for(unsigned long i = 0; i<nodesWithState.size(); i++){
+            std::vector<std::string> stateUpdateExprs;
+            nodesWithState[i]->emitCStateUpdate(stateUpdateExprs, sched);
 
-        unsigned long numStateUpdateExprs = stateUpdateExprs.size();
-        for(unsigned long j = 0; j<numStateUpdateExprs; j++){
-            cFile << stateUpdateExprs[j] << std::endl;
+            unsigned long numStateUpdateExprs = stateUpdateExprs.size();
+            for(unsigned long j = 0; j<numStateUpdateExprs; j++){
+                cFile << stateUpdateExprs[j] << std::endl;
+            }
         }
     }
 
@@ -1343,11 +1683,16 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     Design designCopy;
 
     //==== Create new master nodes and add them to the node copies list and maps ====
-    designCopy.inputMaster = NodeFactory::createNode<MasterInput>();
-    designCopy.outputMaster = NodeFactory::createNode<MasterOutput>();
-    designCopy.visMaster = NodeFactory::createNode<MasterOutput>();
-    designCopy.unconnectedMaster = NodeFactory::createNode<MasterUnconnected>();
-    designCopy.terminatorMaster = NodeFactory::createNode<MasterOutput>();
+    designCopy.inputMaster = std::dynamic_pointer_cast<MasterInput>(inputMaster->shallowClone(nullptr));
+    designCopy.inputMaster->copyPortNames(inputMaster);
+    designCopy.outputMaster = std::dynamic_pointer_cast<MasterOutput>(outputMaster->shallowClone(nullptr));
+    designCopy.outputMaster->copyPortNames(outputMaster);
+    designCopy.visMaster = std::dynamic_pointer_cast<MasterOutput>(visMaster->shallowClone(nullptr));
+    designCopy.visMaster->copyPortNames(visMaster);
+    designCopy.unconnectedMaster = std::dynamic_pointer_cast<MasterUnconnected>(unconnectedMaster->shallowClone(nullptr));
+    designCopy.unconnectedMaster->copyPortNames(unconnectedMaster);
+    designCopy.terminatorMaster = std::dynamic_pointer_cast<MasterOutput>(terminatorMaster->shallowClone(nullptr));
+    designCopy.terminatorMaster->copyPortNames(terminatorMaster);
 
     origToCopyNode[inputMaster] = designCopy.inputMaster;
     origToCopyNode[outputMaster] = designCopy.outputMaster;
@@ -1372,6 +1717,151 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
     designCopy.nodes=nodeCopies;
 
+//    //Copy the node list in the same order
+//    std::vector<std::shared_ptr<Node>> nodeCopiesOrdered;
+//    for(unsigned long i = 0; i<nodes.size(); i++){
+//        if(origToCopyNode.find(nodes[i]) == origToCopyNode.end()){
+//            throw std::runtime_error("While cloning design, found an node that has no clone");
+//        }
+//
+//        nodeCopiesOrdered.push_back(origToCopyNode[nodes[i]]);
+//    }
+//    designCopy.nodes=nodeCopiesOrdered;
+
+    //==== Set StateUpdate nodes and contexts for any node, primary node pointers for any StateUpdate nodes, and context node vectors for ContextRoots
+    for(unsigned long i = 0; i<nodeCopies.size(); i++){
+        //General Nodes
+        //Copy context stack
+        std::shared_ptr<Node> origNode = copyToOrigNode[nodeCopies[i]];
+        std::vector<Context> origContext = origNode->getContext();
+        std::vector<Context> newContext;
+        for(unsigned long j = 0; j<origContext.size(); j++){
+            std::shared_ptr<ContextRoot> origContextRoot = origContext[j].getContextRoot();
+            std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(origContextRoot);
+            if(origContextRootAsNode){
+                std::shared_ptr<Node> newContextRoot = origToCopyNode[origContextRootAsNode];
+
+                //TODO: Refactor ContextRoot inheritance
+                std::shared_ptr<ContextRoot> newContextRootAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(newContextRoot);
+                if(newContextRoot){
+                    newContext.push_back(Context(newContextRootAsContextRoot, origContext[j].getSubContext()));
+                }else{
+                    throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a context root");
+                }
+            }else{
+                throw std::runtime_error("ContextRoot encountered which is not a Node during Graph Copy");
+            }
+        }
+        nodeCopies[i]->setContext(newContext);
+
+        //Copy StateUpdate (if not null)
+        if(origNode->getStateUpdateNode() != nullptr){
+            std::shared_ptr<Node> stateUpdateNode = origToCopyNode[origNode->getStateUpdateNode()];
+            std::shared_ptr<StateUpdate> stateUpdateNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(stateUpdateNode);
+
+            if(stateUpdateNodeAsStateUpdate) {
+                nodeCopies[i]->setStateUpdateNode(stateUpdateNodeAsStateUpdate);
+            }else{
+                throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a StateUpdate");
+            }
+        }
+
+        if(GeneralHelper::isType<Node, StateUpdate>(nodeCopies[i]) != nullptr){
+            //StateUpdates
+            std::shared_ptr<StateUpdate> stateUpdateCopy = std::dynamic_pointer_cast<StateUpdate>(nodeCopies[i]);
+            std::shared_ptr<StateUpdate> stateUpdateOrig = std::dynamic_pointer_cast<StateUpdate>(copyToOrigNode[stateUpdateCopy]);
+
+            if(stateUpdateOrig->getPrimaryNode() != nullptr){
+                stateUpdateCopy->setPrimaryNode(origToCopyNode[stateUpdateOrig->getPrimaryNode()]);
+            }else{
+                stateUpdateCopy->setPrimaryNode(nullptr);
+            }
+        }
+
+        if(GeneralHelper::isType<Node, ContextVariableUpdate>(nodeCopies[i]) != nullptr){
+            //ContextVariableUpdate
+            std::shared_ptr<ContextVariableUpdate> contextVariableUpdateCopy = std::dynamic_pointer_cast<ContextVariableUpdate>(nodeCopies[i]);
+            std::shared_ptr<ContextVariableUpdate> contextVariableUpdateOrig = std::dynamic_pointer_cast<ContextVariableUpdate>(copyToOrigNode[contextVariableUpdateCopy]);
+
+            if(contextVariableUpdateOrig->getContextRoot() != nullptr){
+                //Fix diamond inheritance
+                std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextVariableUpdateOrig->getContextRoot());
+                if(origContextRootAsNode == nullptr){
+                    throw std::runtime_error("When cloning ContextVariableUpdate, could not cast a ContextRoot to a Node");
+                }
+                std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
+
+                std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
+                if(copyContextRoot == nullptr){
+                    throw std::runtime_error("When cloning ContextVariableUpdate, could not cast a Node to a ContextRoot");
+                }
+
+                contextVariableUpdateCopy->setContextRoot(copyContextRoot);
+            }else{
+                contextVariableUpdateCopy->setContextRoot(nullptr);
+            }
+        }
+
+        if(GeneralHelper::isType<Node, ContextRoot>(nodeCopies[i]) != nullptr){
+            //ContextRoots
+            std::shared_ptr<ContextRoot> nodeCopyAsContextRoot = std::dynamic_pointer_cast<ContextRoot>(nodeCopies[i]); //Don't think you can cross cast with a static cast TODO: check
+
+            //TODO: Refactor ContextRoot inheritance
+            std::shared_ptr<ContextRoot> origNodeAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(origNode);
+
+            if(origNodeAsContextRoot){
+
+                //Copy ContextFamilyContainer Pointer
+                std::shared_ptr<ContextFamilyContainer> origContextFamilyContainer = origNodeAsContextRoot->getContextFamilyContainer();
+                if(origContextFamilyContainer){
+                    std::shared_ptr<Node> copyContextFamilyContainerAsNode = origToCopyNode[origContextFamilyContainer];
+                    std::shared_ptr<ContextFamilyContainer> copyContextFamilyContainer = GeneralHelper::isType<Node, ContextFamilyContainer>(copyContextFamilyContainerAsNode);
+                    nodeCopyAsContextRoot->setContextFamilyContainer(copyContextFamilyContainer);
+                }
+
+                //Copy SubContextNodes
+                int numSubContexts = nodeCopyAsContextRoot->getNumSubContexts();
+                for(int j = 0; j<numSubContexts; j++){
+                    std::vector<std::shared_ptr<Node>> origContextNodes = origNodeAsContextRoot->getSubContextNodes(j);
+
+                    for(unsigned long k = 0; k<origContextNodes.size(); k++){
+                        nodeCopyAsContextRoot->addSubContextNode(j, origToCopyNode[origContextNodes[k]]);
+                    }
+                }
+            }else{
+                throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a ContextRoot");
+            }
+
+        }
+
+        if(GeneralHelper::isType<Node, ContextFamilyContainer>(nodeCopies[i]) != nullptr){
+            //ContextFamilyContainer
+            std::shared_ptr<ContextFamilyContainer> contextFamilyContainerCopy = std::dynamic_pointer_cast<ContextFamilyContainer>(nodeCopies[i]);
+            std::shared_ptr<ContextFamilyContainer> contextFamilyContainerOrig = std::dynamic_pointer_cast<ContextFamilyContainer>(copyToOrigNode[contextFamilyContainerCopy]);
+
+            //translate the ContextRoot pointer
+            if(contextFamilyContainerOrig->getContextRoot() != nullptr){
+                //Fix diamond inheritance
+                std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextFamilyContainerOrig->getContextRoot());
+                if(origContextRootAsNode == nullptr){
+                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a ContextRoot to a Node");
+                }
+                std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
+
+                std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
+                if(copyContextRoot == nullptr){
+                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a Node to a ContextRoot");
+                }
+
+                contextFamilyContainerCopy->setContextRoot(copyContextRoot);
+            }else{
+                contextFamilyContainerCopy->setContextRoot(nullptr);
+            }
+
+            //subContextContainers are handled in the clone method
+        }
+    }
+
     //==== Copy arcs ====
     std::vector<std::shared_ptr<Arc>> arcCopies;
 
@@ -1388,7 +1878,19 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     unconnectedMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
     terminatorMaster->cloneInputArcs(arcCopies, origToCopyNode, origToCopyArc, copyToOrigArc);
 
-    designCopy.arcs = arcCopies;
+//    designCopy.arcs = arcCopies;
+
+    //Copy the arc list in the same order
+    std::vector<std::shared_ptr<Arc>> arcCopiesOrdered;
+    for(unsigned long i = 0; i<arcs.size(); i++){
+        if(origToCopyArc.find(arcs[i]) == origToCopyArc.end()){
+            throw std::runtime_error("While cloning design, found an arc that has no clone");
+        }
+
+        arcCopiesOrdered.push_back(origToCopyArc[arcs[i]]);
+    }
+
+    designCopy.arcs = arcCopiesOrdered;
 
     //Copy topLevelNode entries
     for(unsigned long i = 0; i<numTopLevelNodes; i++){
@@ -1444,8 +1946,8 @@ unsigned long Design::prune(bool includeVisMaster) {
 
     std::set<std::shared_ptr<Node>> nodesWithZeroOutDeg;
     for(unsigned long i = 0; i<nodes.size(); i++){
-        //Do not remove subsystems (they will have outdeg 0)
-        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr) {
+        //Do not remove subsystems or state updates (they will have outdeg 0)
+        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr && GeneralHelper::isType<Node, StateUpdate>(nodes[i]) == nullptr ) {
             if (nodes[i]->outDegreeExclusingConnectionsTo(nodesToIgnore) == 0) {
                 nodesWithZeroOutDeg.insert(nodes[i]);
             }
@@ -1507,7 +2009,13 @@ unsigned long Design::prune(bool includeVisMaster) {
     //Delete nodes and arcs from design
     for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
         std::shared_ptr<Node> nodeToDelete = *it;
+        std::cout << "Pruned Node: " << nodeToDelete->getFullyQualifiedName(true) << " [ID: " << nodeToDelete->getId() << "]" << std::endl;
+        //Remove the node from it's parent's children list (if it has a parent) -> this is important when the graph is traversed hierarchically)
+        if(nodeToDelete->getParent()){
+            nodeToDelete->getParent()->removeChild(nodeToDelete);
+        }
         nodes.erase(std::remove(nodes.begin(), nodes.end(), nodeToDelete), nodes.end());
+        topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), nodeToDelete), topLevelNodes.end()); //Also remove from top lvl node (if applicable)
     }
 
     for(auto it = arcsDeleted.begin(); it != arcsDeleted.end(); it++){
@@ -1541,24 +2049,36 @@ void Design::verifyTopologicalOrder() {
         //If so, do not check the ordering
         std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
 
-        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr && !(srcNode->hasState())){ //Note that the outputs of nodes with state are considered constants
+        //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
+        //Otherwise the outputs of nodes with state are considered constants
+        std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
+        std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
+        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
+                (!srcNode->hasState() || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
             //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
             //The srcNode can only be -1 if the destination is also -1
-            if(srcNode->getSchedOrder() == -1){
+            if (srcNode->getSchedOrder() == -1) {
                 //Src node is unscheduled
-                if(dstNode->getSchedOrder() != -1){
+                if (dstNode->getSchedOrder() != -1) {
                     //dst node is scheduled
-                    throw std::runtime_error("Topological Order Validation: Src Node is Unscheduled but Dst Node is Scheduled");
+                    throw std::runtime_error(
+                            "Topological Order Validation: Src Node is Unscheduled but Dst Node is Scheduled");
                 }
                 //otherwise, there is no error here as both nodes are unscheduled
-            }else{
+            } else {
                 //Src node is scheduled
-                if(dstNode->getSchedOrder() != -1){
+                if (dstNode->getSchedOrder() != -1) {
                     //Dst node is scheduled
-                    if(srcNode->getSchedOrder() >= dstNode->getSchedOrder()){
-                        throw std::runtime_error("Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() + ")[" + GeneralHelper::to_string(srcNode->getSchedOrder()) + "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() + ")[" + GeneralHelper::to_string(dstNode->getSchedOrder()) +"]");
+                    if (srcNode->getSchedOrder() >= dstNode->getSchedOrder()) {
+                        throw std::runtime_error(
+                                "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                                ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                                GeneralHelper::to_string(srcNode->getId()) +
+                                "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() +
+                                ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
+                                GeneralHelper::to_string(dstNode->getId()) + "]");
                     }
                 }
                 //Dst node unscheduled is OK
@@ -1568,85 +2088,16 @@ void Design::verifyTopologicalOrder() {
 }
 
 std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
-    std::set<std::shared_ptr<Arc>> arcsToDelete;
-    std::vector<std::shared_ptr<Node>> schedule;
+    std::vector<std::shared_ptr<Arc>> arcsToDelete;
+    std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
+    topLevelContextNodes.push_back(outputMaster);
 
-    //Find nodes with 0 in degree
-    std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        //Do not add subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
-        if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr) {
-            unsigned long inDeg = nodes[i]->inDegree();
-            if (inDeg == 0) {
-                nodesWithZeroInDeg.insert(nodes[i]);
-            }
-        }
-    }
+//    std::cerr << "Top Lvl Nodes to Sched:" << std::endl;
+//    for(unsigned long i = 0; i<topLevelContextNodes.size(); i++){
+//        std::cerr << topLevelContextNodes[i]->getFullyQualifiedName(true) << std::endl;
+//    }
 
-    //Handle the case where the output is only connected to nodes with state (or is unconnected).  When this happens, all the arcs
-    //to the output are removed and it is its own connected component.  It will never be considered a candidate.  Add it to the
-    //list of nodes with zero in deg if this is the case.  Note that if there is at least 1 arc to a node without state, it will be
-    //considered a candidate
-    if(outputMaster->inDegree() == 0){
-        nodesWithZeroInDeg.insert(outputMaster);
-    }
-
-    //Find Candidate Nodes
-    std::set<std::shared_ptr<Node>> candidateNodes;
-    for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
-        candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
-    }
-
-    //Remove the master nodes from the candidate list as well as any nodes that are about to be removed
-    candidateNodes.erase(unconnectedMaster);
-    candidateNodes.erase(terminatorMaster);
-    candidateNodes.erase(visMaster);
-    candidateNodes.erase(inputMaster);
-//    candidateNodes.erase(outputMaster); //Actually, schedule this master
-
-    //Schedule Nodes
-    while(!nodesWithZeroInDeg.empty()){
-        //Schedule Nodes with Zero In Degree
-        //Disconnect, erase nodes, remove from candidate set (if it is included)
-        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
-            arcsToDelete.insert(arcsToRemove.begin(), arcsToRemove.end());
-            schedule.push_back(*it);
-            candidateNodes.erase(*it);
-        }
-
-        //Reset nodes with zero in degree
-        nodesWithZeroInDeg.clear();
-
-        //Find nodes with zero in degree from candidates list
-        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
-            std::shared_ptr<Node> candidateNode = *it;
-            if(candidateNode->inDegree() == 0){
-                nodesWithZeroInDeg.insert(candidateNode);
-            }
-        }
-
-        //Update candidates list
-        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            std::shared_ptr<Node> zeroInDegNode = *it;
-            std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedNodes();
-            candidateNodes.insert(newCandidates.begin(), newCandidates.end());
-        }
-
-        //Remove master nodes from candidates list
-        candidateNodes.erase(unconnectedMaster);
-        candidateNodes.erase(terminatorMaster);
-        candidateNodes.erase(visMaster);
-        candidateNodes.erase(inputMaster);
-//        candidateNodes.erase(outputMaster); //Actually, schedule this master
-
-    }
-
-    //If there are still viable candidate nodes, there was a cycle.
-    if(!candidateNodes.empty()){
-        throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
-    }
+    std::vector<std::shared_ptr<Node>> sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
 
     //Delete the arcs
     //TODO: Remove this?  May not be needed for most applications.  We are probably going to distroy the design anyway
@@ -1654,10 +2105,10 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
         arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
     }
 
-    return schedule;
+    return sortedNodes;
 }
 
-unsigned long Design::scheduleTopologicalStort(bool prune) {
+unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -1666,10 +2117,14 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
 
+//    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
     unsigned long numNodesPruned=0;
     if(prune){
         numNodesPruned = designClone.prune(true);
+        std::cerr << "Nodes Pruned: " << numNodesPruned << std::endl;
     }
+
+//    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
 
     //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
     std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
@@ -1682,18 +2137,49 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
             arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
 
             nodesToRemove.insert(designClone.nodes[i]);
-        }else if(designClone.nodes[i]->hasState()){ //TODO: Check if this works for all nodes with state
+        }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
             //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
-            std::set<std::shared_ptr<Arc>> newArcsToDelete = designClone.nodes[i]->disconnectOutputs();
-            arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
+            //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed
+
+            std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
+            for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                std::shared_ptr<StateUpdate> dstAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>((*it)->getDstPort()->getParent());
+                if(dstAsStateUpdate == nullptr || (dstAsStateUpdate != nullptr && dstAsStateUpdate->getPrimaryNode() != (*it)->getSrcPort()->getParent())){
+                    (*it)->disconnect();
+                    arcsToDelete.insert(*it);
+                }
+                //Else, this is a State node connected to its StateUpdate node and should not be removed
+            }
         }
     }
 
     for(auto it = nodesToRemove.begin(); it != nodesToRemove.end(); it++){
+        if((*it)->getParent()){
+            (*it)->getParent()->removeChild(*it);
+        }
+
         designClone.nodes.erase(std::remove(designClone.nodes.begin(), designClone.nodes.end(), *it), designClone.nodes.end());
+        designClone.topLevelNodes.erase(std::remove(designClone.topLevelNodes.begin(), designClone.topLevelNodes.end(), *it), designClone.topLevelNodes.end());
     }
     for(auto it = arcsToDelete.begin(); it != arcsToDelete.end(); it++){
-        arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
+        designClone.arcs.erase(std::remove(designClone.arcs.begin(), designClone.arcs.end(), *it), designClone.arcs.end());
+    }
+
+    //Rewire the remaining arcs in the designClone
+    if(rewireContexts){
+        std::vector<std::shared_ptr<Arc>> origArcs;
+        std::vector<std::shared_ptr<Arc>> newArcs;
+
+        designClone.rewireArcsToContexts(origArcs, newArcs);
+
+        //Dicsonnect and Remove the orig arcs for scheduling
+        std::vector<std::shared_ptr<Node>> emptyNodeVector;
+        std::vector<std::shared_ptr<Arc>> emptyArcVector;
+        for(unsigned long i = 0; i<origArcs.size(); i++){
+            origArcs[i]->disconnect();
+        }
+        designClone.addRemoveNodesAndArcs(emptyNodeVector, emptyNodeVector, newArcs, origArcs);
+        designClone.assignArcIDs();
     }
 
     //==== Topological Sort (Destructive) ====
@@ -1719,22 +2205,424 @@ unsigned long Design::scheduleTopologicalStort(bool prune) {
     return numNodesPruned;
 }
 
-Design::SchedType Design::parseSchedTypeStr(std::string str) {
-    if(str == "BOTTOM_UP" || str == "bottomUp" || str == "bottomup"){
-        return SchedType::BOTTOM_UP;
-    }else if(str == "TOPOLOGICAL" || str == "topological"){
-        return SchedType::TOPOLOGICAL;
-    }else{
-        throw std::runtime_error("Unable to parse Scheduler: " + str);
+void Design::expandEnabledSubsystemContexts(){
+    std::vector<std::shared_ptr<Node>> newNodes;
+    std::vector<std::shared_ptr<Node>> deletedNodes;
+    std::vector<std::shared_ptr<Arc>> newArcs;
+    std::vector<std::shared_ptr<Arc>> deletedArcs;
+
+    std::vector<std::shared_ptr<SubSystem>> childSubsystems;
+    for(auto topLvlNode = topLevelNodes.begin(); topLvlNode != topLevelNodes.end(); topLvlNode++){
+        if(GeneralHelper::isType<Node, SubSystem>(*topLvlNode) != nullptr){
+            childSubsystems.push_back(std::dynamic_pointer_cast<SubSystem>(*topLvlNode));
+        }
+    }
+
+    for(unsigned long i = 0; i<childSubsystems.size(); i++){
+        //Adding a condition to check if the subsystem still has this node as parent.
+        //TODO: remove condition if subsystems are never moved
+        if(childSubsystems[i]->getParent() == nullptr){ //We are at the top level
+            childSubsystems[i]->extendEnabledSubsystemContext(newNodes, deletedNodes, newArcs, deletedArcs);
+        }else{
+            throw std::runtime_error("Subsystem moved during enabled subsystem context expansion.  This was unexpected.");
+        }
+    }
+
+    addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
+}
+
+void Design::discoverAndMarkContexts() {
+    std::vector<std::shared_ptr<Mux>> discoveredMuxes;
+    std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
+    std::vector<std::shared_ptr<Node>> discoveredGeneral;
+
+    //The top level context stack has no entries
+    std::vector<Context> initialStack;
+
+    //Discover contexts at the top layer (and below non-enabled subsystems).  Also set the contexts of these top level nodes
+    std::set<std::shared_ptr<Node>> topLevelNodeSet;
+    topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
+    GraphAlgs::discoverAndUpdateContexts(topLevelNodeSet, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
+                                         discoveredGeneral);
+
+    //Add context nodes (muxes and enabled subsystems) to the topLevelContextRoots list
+    for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
+        topLevelContextRoots.push_back(discoveredMuxes[i]);
+    }
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
+        topLevelContextRoots.push_back(discoveredEnabledSubsystems[i]);
+    }
+
+    //Get and mark the Mux contexts
+    Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
+
+    //Recursivly call on the discovered enabled subsystems
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++) {
+        discoveredEnabledSubsystems[i]->discoverAndMarkContexts(initialStack);
     }
 }
 
-std::string Design::schedTypeToString(Design::SchedType schedType) {
-    if(schedType == SchedType::BOTTOM_UP){
-        return "BOTTOM_UP";
-    }else if(schedType == SchedType::TOPOLOGICAL){
-        return "TOPOLOGICAL";
-    }else{
-        throw std::runtime_error("Unknown scheduler");
+void Design::createStateUpdateNodes() {
+    //Find nodes with state in design
+    std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
+
+    for(unsigned long i = 0; i<nodesWithState.size(); i++){
+        std::vector<std::shared_ptr<Node>> newNodes;
+        std::vector<std::shared_ptr<Node>> deletedNodes;
+        std::vector<std::shared_ptr<Arc>> newArcs;
+        std::vector<std::shared_ptr<Arc>> deletedArcs;
+
+        nodesWithState[i]->createStateUpdateNode(newNodes, deletedNodes, newArcs, deletedArcs);
+
+        addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
     }
 }
+
+void Design::createContextVariableUpdateNodes() {
+    //Find nodes with state in design
+    std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
+
+    for(unsigned long i = 0; i<contextRoots.size(); i++){
+        std::vector<std::shared_ptr<Node>> newNodes;
+        std::vector<std::shared_ptr<Node>> deletedNodes;
+        std::vector<std::shared_ptr<Arc>> newArcs;
+        std::vector<std::shared_ptr<Arc>> deletedArcs;
+
+        contextRoots[i]->createContextVariableUpdateNodes(newNodes, deletedNodes, newArcs, deletedArcs);
+
+        addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
+    }
+}
+
+std::vector<std::shared_ptr<Node>> Design::findNodesWithState() {
+    std::vector<std::shared_ptr<Node>> nodesWithState;
+
+    for(unsigned long i = 0; i<nodes.size(); i++) {
+        if (nodes[i]->hasState()) {
+            nodesWithState.push_back(nodes[i]);
+        }
+    }
+
+    return nodesWithState;
+}
+
+std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->hasGlobalDecl()){
+            nodesWithGlobalDecl.push_back(nodes[i]);
+        }
+    }
+
+    return nodesWithGlobalDecl;
+}
+
+void Design::encapsulateContexts() {
+    //context expansion stops at enabled subsystem boundaries.  Therefore, we cannot have enabled subsystems nested in muxes
+    //However, we can have enabled subsystems nested in enabled subsystems, muxes nested in enabled subsystems, and muxes nested in muxes
+
+    //**** <Change>Do this for all context roots</Change> *****
+    //<Delete>Start at the top level of the hierarchy and find the nodes with context</Delete>
+
+    //Create the appropriate ContextContainer of ContextFamilyContainer for each and create a map of nodes to ContextContainer
+    std::vector<std::shared_ptr<ContextRoot>> contextRootNodes;
+    std::vector<std::shared_ptr<Node>> nodesInContext;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(GeneralHelper::isType<Node, ContextRoot>(nodes[i]) != nullptr){
+            contextRootNodes.push_back(std::dynamic_pointer_cast<ContextRoot>(nodes[i]));
+        }
+
+        //A context root can also be in a context
+        if(nodes[i]->getContext().size() > 0){
+            nodesInContext.push_back(nodes[i]);
+        }
+    }
+
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: Fix inheritance diamond issue
+
+        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::"));
+        nodes.push_back(familyContainer);
+        contextRootNodes[i]->setContextFamilyContainer(familyContainer);
+
+        //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
+        std::vector<Context> origContext = asNode->getContext();
+        familyContainer->setContext(origContext);
+
+        //Create Context Containers inside of the context Family container;
+        int numContexts = contextRootNodes[i]->getNumSubContexts();
+
+        std::vector<std::shared_ptr<ContextContainer>> subContexts;
+
+        for(unsigned long j = 0; j<numContexts; j++){
+            std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
+            contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Subcontext_"+GeneralHelper::to_string(j));
+            nodes.push_back(contextContainer);
+            //Add this to the container order
+            subContexts.push_back(contextContainer);
+
+            Context context = Context(contextRootNodes[i], j);
+            contextContainer->setContainerContext(context);
+            contextContainer->setContext(origContext); //We give the ContextContainer the same Context stack as the ContextFamily container, the containerContext sets the next level of the context for the nodes contained within it
+        }
+        familyContainer->setSubContextContainers(subContexts);
+    }
+
+    //Itterate through them again and set the parent based on the context.  Use the map to find the corresponding context node
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        //Get the context stack
+        std::shared_ptr<ContextRoot> asContextRoot = contextRootNodes[i];
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(asContextRoot); //TODO: Fix inheritance diamond issue
+
+        std::vector<Context> context = asNode->getContext();
+        if(context.size() > 0){
+            //This node is in a context, move it's container under the appropriate container.
+            Context innerContext = context[context.size()-1];
+
+            std::shared_ptr<ContextFamilyContainer> familyContainer = innerContext.getContextRoot()->getContextFamilyContainer();
+            std::shared_ptr<ContextContainer> newParent = familyContainer->getSubContextContainer(innerContext.getSubContext());
+
+            std::shared_ptr<ContextFamilyContainer> toBeMoved = asContextRoot->getContextFamilyContainer();
+
+            toBeMoved->setParent(newParent);
+            newParent->addChild(toBeMoved);
+        }else{
+            //This node is not in a context, its ContextFamily container should exist at the top level
+            topLevelNodes.push_back(contextRootNodes[i]->getContextFamilyContainer());
+        }
+    }
+
+    //***** Create set from all context nodes ****
+
+    //<Delete>
+    //Create a set of nodes in contexts.  Creating the set prevents redundant operations since nodes can be in multiple contexts.
+    //Itterate though the set and move the nodes into the corresponding subsystem. (add as a child)
+    //Note that context nodes in enabled subsystems are not added.  They are added by the enabled subsystem recursion
+
+
+    //Recurse into the enabled subsytems and repeat
+
+    //Create a helper function which can be called upon here and in the enabled subsystem version.  This function will take the list of nodes with context within it
+    //In the enabled subsystem version, a difference is that the enabled subsystem has nodes in its own context that may not be in mux contexts
+    //</Delete>
+
+    //Move context nodes under ContextContainers
+    for(unsigned long i = 0; i<nodesInContext.size(); i++){
+        std::shared_ptr<SubSystem> origParent = nodesInContext[i]->getParent();
+
+        if(origParent == nullptr) {
+            //If has no parent, remove from topLevelNodes
+            topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), nodesInContext[i]), topLevelNodes.end());
+
+            if(GeneralHelper::isType<Node, ContextRoot>(nodesInContext[i]) != nullptr){
+                //If is a context root, remove from top level context roots
+                std::shared_ptr<ContextRoot> toRemove = std::dynamic_pointer_cast<ContextRoot>(nodesInContext[i]);
+                contextRootNodes.erase(std::remove(contextRootNodes.begin(), contextRootNodes.end(), toRemove), contextRootNodes.end());
+            }
+        }else{
+            //Remove from orig parent
+            origParent->removeChild(nodesInContext[i]);
+        }
+
+        //Discover appropriate (sub)context container
+        std::vector<Context> contextStack = nodesInContext[i]->getContext();
+        Context innerContext = contextStack[contextStack.size()-1];
+
+        std::shared_ptr<ContextFamilyContainer> contextFamily = innerContext.getContextRoot()->getContextFamilyContainer();
+        std::shared_ptr<ContextContainer> contextContainer = contextFamily->getSubContextContainer(innerContext.getSubContext());
+
+        //Set new parent to be the context container.  Also add it as a child of the context container.
+        contextContainer->addChild(nodesInContext[i]);
+        nodesInContext[i]->setParent(contextContainer);
+    }
+
+    //Move context roots into their ContextFamilyContainers.  Note, the ContextStack of the ContextRootNode does not include its own context
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: fix diamond inheritance issue
+        std::shared_ptr<SubSystem> origParent = asNode->getParent();
+
+        if(origParent != nullptr){
+            origParent->removeChild(asNode);
+        }
+
+        std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = contextRootNodes[i]->getContextFamilyContainer();
+        contextFamilyContainer->addChild(asNode);
+        contextFamilyContainer->setContextRoot(contextRootNodes[i]);
+        asNode->setParent(contextFamilyContainer);
+    }
+}
+
+void Design::orderConstrainZeroInputNodes(){
+
+    std::vector<std::shared_ptr<Node>> predecessorNodes;
+    std::vector<std::shared_ptr<Node>> new_nodes;
+    std::vector<std::shared_ptr<Node>> deleted_nodes;
+    std::vector<std::shared_ptr<Arc>> new_arcs;
+    std::vector<std::shared_ptr<Arc>> deleted_arcs;
+
+    //Call the recursive function on any subsystem at the top level
+    for(unsigned long i = 0; i<topLevelNodes.size(); i++){
+        std::shared_ptr<SubSystem> nodeAsSubSystem = GeneralHelper::isType<Node, SubSystem>(topLevelNodes[i]);
+
+        if(nodeAsSubSystem){
+            nodeAsSubSystem->orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        }
+    }
+
+    addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
+    std::vector<std::shared_ptr<ContextRoot>> contextRoots;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        std::shared_ptr<ContextRoot> nodeAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
+
+        if(nodeAsContextRoot){
+            contextRoots.push_back(nodeAsContextRoot);
+        }
+    }
+
+    return contextRoots;
+}
+
+void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
+                                  std::vector<std::shared_ptr<Arc>> &contextArcs) {
+    //First, let's rewire the ContextRoot driver arcs
+    std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
+    std::set<std::shared_ptr<Arc>> contextRootOrigArcs, contextRootRewiredArcs;
+
+    for(unsigned long i = 0; i<contextRoots.size(); i++){
+        //Rewire Drivers
+        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoots[i]->getContextDecisionDriver();
+
+        std::map<std::shared_ptr<OutputPort>, std::shared_ptr<Arc>> srcPortToNewArc; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.
+
+        for(unsigned long j = 0; j<driverArcs.size(); j++){
+            origArcs.push_back(driverArcs[j]);
+            contextRootOrigArcs.insert(driverArcs[j]);
+
+            //Check if the driver src has been encountered before
+            std::shared_ptr<OutputPort> driverSrc = driverArcs[j]->getSrcPort();
+
+            std::shared_ptr<Arc> rewiredArc;
+            if(srcPortToNewArc.find(driverSrc) != srcPortToNewArc.end()){
+                rewiredArc = srcPortToNewArc[driverSrc];
+            }else{
+                //Create a new rewiredArc
+                rewiredArc = Arc::connectNodesOrderConstraint(driverSrc->getParent(), driverSrc->getPortNum(), contextRoots[i]->getContextFamilyContainer(), driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
+                //Add to the map and the set of contextRootRewiredArcs
+                srcPortToNewArc[driverSrc] = rewiredArc;
+                contextRootRewiredArcs.insert(rewiredArc);
+            }
+
+            contextArcs.push_back(rewiredArc);
+        }
+    }
+
+    //Create a copy of the arc list and remove the orig ContextRoot arcs
+    std::vector<std::shared_ptr<Arc>> candidateArcs = arcs;
+    GeneralHelper::removeAll(candidateArcs, contextRootOrigArcs);
+
+    //Add the contextRootRewiredArcs to the design (we do not need to rewire these again so they are not included in the candidate arcs)
+    for(auto rewiredIt = contextRootRewiredArcs.begin(); rewiredIt != contextRootRewiredArcs.end(); rewiredIt++){
+        arcs.push_back(*rewiredIt);
+    }
+
+    //Run through the remaining arcs and check if they should be rewired.
+    for(unsigned long i = 0; i<candidateArcs.size(); i++){
+        std::shared_ptr<Arc> candidateArc = candidateArcs[i];
+        std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
+        std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
+
+        //ContextRoots are not within their own contexts.  However, we need to make sure the inputs and output
+        //arcs to the ContextRoots are elevated to the ContextFamily container for that ContextRoot as if it were in its
+        //own subcontext.  We will therefore check for context roots and temporarily insert a dummy context entry
+        std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getSrcPort()->getParent());
+        if(srcAsContextRoot){
+            srcContext.push_back(Context(srcAsContextRoot, -1));
+        }
+        std::shared_ptr<ContextRoot> dstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getDstPort()->getParent());
+        if(dstAsContextRoot){
+            dstContext.push_back(Context(dstAsContextRoot, -1));
+        }
+
+        bool rewireSrc = false;
+        bool rewireDst = false;
+
+        //Check if the src should be rewired
+        if(!Context::isEqOrSubContext(dstContext, srcContext)){
+            rewireSrc = true;
+        }
+
+        //Check if the dst should be rewired
+        if(!Context::isEqOrSubContext(srcContext, dstContext)){
+            rewireDst = true;
+        }
+
+        if(rewireSrc || rewireDst){
+            std::shared_ptr<OutputPort> srcPort;
+            std::shared_ptr<InputPort> dstPort;
+
+            if(rewireSrc){
+                long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+                if(commonContextInd+1 > srcContext.size()){
+                    throw std::runtime_error("When rewiring context arc, got unexpected result for new src");
+                }
+
+                std::shared_ptr<ContextRoot> newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
+                //TODO: fix diamond inheritcance
+
+                srcPort = newSrcAsContextRoot->getContextFamilyContainer()->getOrderConstraintOutputPort();
+            }else{
+                srcPort = candidateArc->getSrcPort();
+            }
+
+            if(rewireDst){
+                long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+                if(commonContextInd+1 > dstContext.size()){
+                    throw std::runtime_error("When rewiring context arc, got unexpected result for new dst");
+                }
+
+                std::shared_ptr<ContextRoot> newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
+                //TODO: fix diamond inheritcance
+
+                dstPort = newDstAsContextRoot->getContextFamilyContainer()->getOrderConstraintInputPort();
+            }else{
+                dstPort = candidateArc->getDstPort();
+            }
+
+            //Handle the special case when going between subcontexts under the same ContextFamilyContainer.  This should
+            //only occur when the dst is the context root for the ContextFamilyContainer.  In this case, do not rewire
+            if(srcPort->getParent() == dstPort->getParent()){
+                std::shared_ptr<ContextRoot> origDstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getDstPort()->getParent());
+                if(origDstAsContextRoot == nullptr){
+                    throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
+                }
+
+                if(origDstAsContextRoot->getContextFamilyContainer() != dstPort->getParent()){
+                    throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
+                }
+            }else {
+                std::shared_ptr<Arc> rewiredArc = Arc::connectNodes(srcPort, dstPort, candidateArc->getDataType(),
+                                                                    candidateArc->getSampleTime());
+
+                //Add the orig and rewired arcs to the vectors to return
+                origArcs.push_back(candidateArc);
+                contextArcs.push_back(rewiredArc);
+            }
+        }
+    }
+}
+
+//Create function to reassign all arcs to nodes within ContextContainers to be to the context itself.  This will be used for scheduling.
+
+
+//When scheduling nodes within contexts are removed from the scheduler node list to check for zero in degree.  This prevents these nodes from being scheduled outside of their context.  All arcs to these nodes are re-assigned to the ContextContainer for scheduling
+//For the scheduler, make a special case for scheduling a context container causing the scheduling algorithm to be called on the graph defined inside the context container.
+
+
+//For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

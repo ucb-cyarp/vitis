@@ -24,7 +24,8 @@
 class Product : public PrimitiveNode{
     friend NodeFactory;
 private:
-    std::vector<bool> inputOp; ///<An array of *, / to indicate the operation on the input.  * = Multiply (Numerator), / = Divide (Denominator)
+    std::vector<bool> inputOp; ///<An array of *, / to indicate the operation on the input.  * (true) = Multiply (Numerator), / (false) = Divide (Denominator)
+    bool emittedBefore; ///<Tracks if this multiply has been emitted before (used in emit)
 
     //==== Constructors ====
     /**
@@ -56,6 +57,41 @@ private:
      * @param orig The origional node from which a shallow copy is being made
      */
     Product(std::shared_ptr<SubSystem> parent, Product* orig);
+
+    /**
+     * @brief Generates multiply and divide expressions for 2 numbers, a and b
+     *
+     * Can compute a*b, a/b depending on mult.
+     *
+     * a is considered real if a_im is an empty string, otherwise it is considered complex
+     * b is considered real if b_im is an empty string, otherwise it is considered complex
+     *
+     * Can compute:
+     * | Complexity  | Input             | Result                                           |
+     * |-------------|-------------------|--------------------------------------------------|
+     * | Real * Real | a*b               | ab                                               |
+     * | Real / Real | a/b               | a/b                                              |
+     * | Real * Cplx | (a)(b + ci)       | ab + (ac)i                                       |
+     * | Cplx * Real | (a + bi)(c)       | ac + (bc)i                                       |
+     * | Real / Cplx | a/(b + ci)        | ab/(b^2 + c^2) - (ac/(b^2 + c^2))i               |
+     * | Cplx / Real | (a + bi)/c        | a/c + {b/c}i                                     |
+     * | Cplx * Cplx | (a + bi)(c + di)  | ac - bd + (ad + bc)i                             |
+     * | Cplx / Cplx | (a + bi)/(c + di) | (ac + bd)/(c^2 + d^2) + ((bc - ad)/(c^2 + d^2))i |
+     *
+     * @warning If performing complex division, make sure to emit result_norm_expr before result_re and result_im
+     *
+     * @param a_re real component of a
+     * @param a_im imag component of a
+     * @param b_re real component of b
+     * @param b_im imag component of b
+     * @param mult if true: compute a*b, if false: compute a/b
+     * @param result_norm_name the name used for the result_norm_expr (if applicable)
+     * @param result_norm_type the datatype to be used for the result_norm_expr (if applicable)
+     * @param result_norm_expr if the operation is complex division, this is the statement for normalization, otherwise, it is ""
+     * @param result_re real component of result
+     * @param result_im imag component of result
+     */
+    static void generateMultExprs(const std::string &a_re, const std::string &a_im, const std::string &b_re, const std::string &b_im, bool mult, const std::string &result_norm_name, DataType result_norm_type, std::string &result_norm_expr, std::string &result_re, std::string &result_im);
 
 public:
     //====Getters/Setters====
@@ -90,6 +126,8 @@ public:
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
+    bool hasInternalFanout(int inputPort, bool imag) override;
+
     /**
      * @brief Emits a C expression for the product
      *
@@ -110,7 +148,8 @@ public:
      * @note Masking can be (is) omitted (in the case of the output having the same type as the first input) if the total number of bits is a standard CPU type.
      *
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
 };
 
 /*@}*/

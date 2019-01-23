@@ -145,6 +145,24 @@ Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Nod
 }
 
 std::shared_ptr<Arc>
+Arc::connectNodes(std::shared_ptr<OutputPort> srcPort, std::shared_ptr<InputPort> dstPort,
+                  DataType dataType, double sampleTime){
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+
+    //Connect arc
+    arc->setSrcPortUpdateNewUpdatePrev(srcPort);
+    arc->setDstPortUpdateNewUpdatePrev(dstPort);
+
+    return arc;
+}
+
+std::shared_ptr<Arc>
 Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<EnableNode> dst, DataType dataType,
                   double sampleTime) {
     //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
@@ -161,6 +179,29 @@ Arc::connectNodes(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Ena
     {
         src->addOutArcUpdatePrevUpdateArc(srcPortNum, arc);
     }
+
+    if(dst != nullptr)
+    {
+        dst->setEnableArcUpdatePrevUpdateArc(arc);
+    }
+
+    return arc;
+}
+
+std::shared_ptr<Arc>
+Arc::connectNodes(std::shared_ptr<OutputPort> srcPort, std::shared_ptr<EnableNode> dst,
+        DataType dataType, double sampleTime){
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+    arc->weakSelf = arc; //Store reference to self as weak ptr
+
+    //Connect arc
+    arc->setSrcPortUpdateNewUpdatePrev(srcPort);
 
     if(dst != nullptr)
     {
@@ -295,3 +336,57 @@ void Arc::shallowCopyPrameters(Arc *orig) {
     //do not copy weakSelf as this is set when connecting the nodes
 }
 
+std::shared_ptr<Arc>
+Arc::connectNodesOrderConstraint(std::shared_ptr<Node> src, int srcPortNum, std::shared_ptr<Node> dst,
+                                 DataType dataType, double sampleTime) {
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+    arc->weakSelf = arc; //Store reference to self as weak ptr
+
+    //Connect arc
+    if(src != nullptr)
+    {
+        src->addOutArcUpdatePrevUpdateArc(srcPortNum, arc);
+    }
+
+    if(dst != nullptr)
+    {
+        dst->addOrderConstraintInArcUpdatePrevUpdateArc(arc);
+    }
+
+    return arc;
+}
+
+std::shared_ptr<Arc> Arc::connectNodesOrderConstraint(std::shared_ptr<Node> src, std::shared_ptr<Node> dst,
+                                                      DataType dataType, double sampleTime) {
+    //Going to leverage setters & getters to take advantage of logic of adding the arc to the ports of the nodes
+    //Since shared_from_this is required for these functions, a blank arc is created first.
+    std::shared_ptr<Arc> arc = std::shared_ptr<Arc>(new Arc());
+
+    //Set params of arc
+    arc->setDataType(dataType);
+    arc->setSampleTime(sampleTime);
+
+    //Connect arc
+    if(src != nullptr)
+    {
+        src->addOrderConstraintOutArcUpdatePrevUpdateArc(arc);
+    }
+
+    if(dst != nullptr)
+    {
+        dst->addOrderConstraintInArcUpdatePrevUpdateArc(arc);
+    }
+
+    return arc;
+}
+
+void Arc::disconnect(){
+    setDstPortUpdateNewUpdatePrev(nullptr);
+    setSrcPortUpdateNewUpdatePrev(nullptr);
+}

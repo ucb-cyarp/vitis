@@ -17,6 +17,13 @@
  *
  * If not enabled, the downstream logic from this node is not executed in the given clock cycle and the previous state
  * is held.  If enabled, the downstream logic from this node is allowed to execute as usual and state is updated.
+ *
+ * Note: While the enable input does not need to be explically scheduled (it simply passes through the upstream result)
+ * it is useful for providing ordering constraints for the scheduler for any node inside the enabled subsystem.
+ *
+ * If there is a need to remove EnableInput nodes, it is important to create an ordering dependency between the enable
+ * driver and the nodes that directly depend on the
+ *
  */
 class EnableInput : public EnableNode {
 friend class NodeFactory;
@@ -64,6 +71,15 @@ public:
     void validate() override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    /**
+     * @brief Emits the C Statement for the EnableInput
+     *
+     * The EnableInput only passes values through.  It's presence in the graph is primarily to provide an ordering
+     * constraint for any node inside the enabled subsystem on the enable driver.
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
+
 };
 
 /*@}*/

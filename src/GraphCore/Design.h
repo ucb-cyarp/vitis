@@ -13,6 +13,7 @@
 #include "GraphMLParameter.h"
 #include "General/GeneralHelper.h"
 #include "Variable.h"
+#include "SchedParams.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -23,6 +24,7 @@ class MasterOutput;
 class MasterUnconnected;
 class Node;
 class Arc;
+class ContextRoot;
 
 //This Class
 
@@ -53,6 +55,8 @@ private:
     std::vector<std::shared_ptr<Node>> nodes; ///< A vector of nodes in the design
     std::vector<std::shared_ptr<Arc>> arcs; ///< A vector of arcs in the design
 
+    std::vector<std::shared_ptr<ContextRoot>> topLevelContextRoots; //A vector of the top level context roots for the design.  Top level includes subsystems that do not create contexts
+
 public:
     /**
      * @brief Constructs a design object, creating master nodes in the process.
@@ -64,28 +68,6 @@ public:
     void addNode(std::shared_ptr<Node> node);
     void addTopLevelNode(std::shared_ptr<Node> node);
     void addArc(std::shared_ptr<Arc> arc);
-
-    /**
-     * @brief Represents the types of schedulers supported
-     */
-    enum class SchedType{
-        BOTTOM_UP, ///<The original bottom up emit.  Emits from outputs backwards
-        TOPOLOGICAL ///<A generic topological sort based scheduler
-    };
-
-    /**
-     * @brief Parse a scheduler type
-     * @param str the string to parse
-     * @return The equivalent SchedType
-     */
-    static SchedType parseSchedTypeStr(std::string str);
-
-    /**
-     * @brief Get a string representation of the SchedType
-     * @param schedType the SchedType to get a string of
-     * @return string representation of the SchedType
-     */
-    static std::string schedTypeToString(SchedType schedType);
 
     /**
      * @brief Re-number node IDs
@@ -131,6 +113,24 @@ public:
      * @return set of GraphML parameters for this design
      */
     std::set<GraphMLParameter> graphMLParameters();
+
+    /**
+     * @brief This utility functions adds/removes nodes and arcs supplied in arrays
+     *
+     * New nodes are added before old nodes are deleted
+     * New nodes with parent set to nullptr are added as top level nodes
+     *
+     * New arcs are added before old arcs are deleted
+     *
+     * @param new_nodes vector of nodes to add to the design
+     * @param deleted_nodes vector of nodes to remove from the design
+     * @param new_arcs vector of arcs to add to the design
+     * @param deleted_arcs vector of arcs to remove from the design
+     */
+    void addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                               std::vector<std::shared_ptr<Arc>> &new_arcs,
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Check if any of the nodes in the design can be expanded
@@ -212,7 +212,7 @@ public:
      *
      * Ports that are left unused are connected to the Unconnected master node
      *
-     * @param includeTerminatorsAndVis If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
+     * @param includeVisMaster If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
      *
      * @return number of nodes removed from the graph
      */
@@ -221,9 +221,10 @@ public:
     /**
      * @brief Schedule the nodes using topological sort.
      * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
+     * @param rewireContexts if true, arcs between a node outside a context to a node inside a context are rewired to the context itself (for scheduling, the origional is left untouched).  If false, no rewiring operation is made for scheduling
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(bool prune);
+    unsigned long scheduleTopologicalStort(bool prune, bool rewireContexts);
 
     /**
      * @brief Topological sort the current graph.
@@ -322,16 +323,37 @@ public:
     std::string getCOutputStructDefn();
 
     /**
-     * @brief Emits operators using the bottom up emitter
-     * @param cFile the cFile to emit to
+     * @brief Generates a Single Threaded Version of the Design as a C program
+     *
+     * Depending on the scheduler specified, this function will prune, schedule, and emit
+     *
+     * @param outputDir the output directory for the C files
+     * @param designName the design name to be used as the C file names
+     * @param schedType the type of scheduler to use when generating the C program
      */
-    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState);
+    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType);
+
+    /**
+     * @brief Emits operators using the bottom up emitter
+     * @param cFile the cFile to emit tp
+     * @param nodesWithState nodes with state in the design
+     * @param schedType the specific scheduler used
+     */
+    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits operators using the schedule emitter
      * @param cFile the cFile to emit to
+     * @param nodesWithState nodes with state in the design
      */
-    void emitSingleThreadedOpsSched(std::ofstream &cFile);
+    void emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::SchedType schedType);
+
+    /**
+     * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
+     * @param cFile the cFile to emit to
+     * @param nodesWithState nodes with state in the design
+     */
+    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits the design as a single threaded C function (using the bottom-up method)
@@ -343,9 +365,9 @@ public:
      * @param path path to where the output files will be generated
      * @param fileName name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
-     * @param explicitSched if true, uses the Node schedOrder parameter to control the sequence of emitted operations.  If false, uses thr bottom up synthesis approach
+     * @param schedType Schedule type
      */
-    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, bool explicitSched);
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits the benchmarking drivers for the design
@@ -379,6 +401,129 @@ public:
      * @param designName The name of the design (used as the function name)
      */
     void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName);
+
+    /**
+     * @brief Expands the enabled subsystems in the design to include combinational logic at the inputs and outputs of enabled subsystems
+     *
+     * Note that expansion occurs hierarchically starting with the highest level and expanding any enabled subsystem within
+     */
+    void expandEnabledSubsystemContexts();
+
+    /**
+     * @brief Discover and mark contexts for nodes in the design.
+     *
+     * Propogates enabled subsystem contexts to its nodes (and recursively to nested enabled subsystems.
+     *
+     * Finds mux contexts under the top level and under each enabled subsystem
+     *     Muxes are searched within the top level and within any subsystem.
+     *
+     *     Once all the Muxes within the top level (or within the level of the enabled subsystem are discovered)
+     *     their contexts are found.  For each mux, we sum up the number of contexts which contain that given mux.
+     *     Hierarchy is discovered by tracing decending layers of the hierarchy tree based on the number of contexts
+     *     a mux is in.
+     *
+     * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxess
+     * have been handled)
+     *
+     * Also updates the topLevelContextRoots for discovered context nodes
+     *
+     */
+    void discoverAndMarkContexts();
+
+    /**
+     * @brief Encapsulate contexts inside ContextContainers and ContextFamilyContainers for the purpose of scheduling
+     *
+     * Nodes should exist in the lowest level context they are a member of.
+     *
+     * Also moves the context roots for the ContextFamilyContainers inside the ContextFamilyContainer
+     */
+    void encapsulateContexts();
+
+    /**
+     * @brief Discovers nodes with state in the design and creates state update nodes for them.
+     *
+     * The state update nodes have a ordering dependency with all of the nodes that are connected via out arcs from the
+     * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
+     * when the next state update variable is assigned).
+     *
+     * @note This function updates the context of the the state update to mirror the context of the primary node.
+     *
+     * @note It appears that inserting these nodes before context discovery could result in some nodes being erroniously
+     * left out of discoverd contexts.  For example, in mux context, nodes that are directly dependent on state will have
+     * an order constraint arc to the StateUpdate node for the particular state element.  This StateUpdate is not reachable
+     * from the mux and will therefore cause the node to not be included in the mux context even if it should be.  It
+     * is therefore reccomended to insert the state update nodes after context discovery but before scheduling
+     *
+     */
+    void createStateUpdateNodes();
+
+    /**
+     * @brief Discovers contextRoots in the design and creates ContextVariableUpdate update nodes for them.
+     *
+     * The state update nodes have a ordering dependency with all of the nodes that are connected via out arcs from the
+     * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
+     * when the next state update variable is assigned).
+     *
+     */
+    void createContextVariableUpdateNodes();
+
+    /**
+     * @brief Find nodes with state in the design
+     * @return a vector of nodes in the design with state
+     */
+    std::vector<std::shared_ptr<Node>> findNodesWithState();
+
+    /**
+     * @brief Find nodes with global declarations in the design
+     * @return a vector of nodes in the design with global declarations
+     */
+    std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl();
+
+    /**
+     * @brief Find ContextRoots in the design
+     * @return a vector of ContexRoots in the design
+     */
+    std::vector<std::shared_ptr<ContextRoot>> findContextRoots();
+
+    //TODO: Validate that mux contexts do not contain state elements
+
+    /**
+     * @brief OrderConstraint Nodes with Zero Inputs in EnabledSubsystems (and nested within) in Design
+     *
+     * @note Apply this after expanding enabled sybsystem contexts
+     */
+    void orderConstrainZeroInputNodes();
+
+    /**
+     * @brief "Rewires" arcs that go between nodes in different contexts to be between contexts themselves (used primarily for scheduling)
+     *
+     * Goes through the array of the arcs in a design and rewires arcs that are between a nodes in different contexts.
+     *
+     * If the src node is at or above the dst node in the context hierarchy, then the src is not rewired. (Equiv to: dst node is at or below the src node -> src not rewired)
+     * If the dst node is at or above the src node in the context hierarchy, then the dst is not rewired. (Equiv to: src node is at or below the dst node -> dst not rewired)
+     *
+     * Putting it another way
+     * If the src node is either below the dst node node in the hierarchy or outside the dst node's hierarchy stack, then the src is rewired.
+     * If the dst node is either below the src node node in the hierarchy or outside the dst node's hierarchy stack, then the dst is rewired.
+     *
+     * When rewiring the src, it is set to 1 context below the lowest common context of the src and dst on the src side.
+     * When rewiring the dst, it is set to 1 context below the lowest common context of the src and dst on the dst side.
+     *
+     * Arcs that are the drivers of the contextRoot are also "rewired".  Note that there may be multiple driver arcs for
+     * a context (ex. enabled subsystems have an arc to each EnabledInput and EnabledOutput).  In this case, there may
+     * be a single rewired arc for several original arcs.  In this case, the same ptr to the rewired arc will be returned
+     * for each of the corresponding original arcs.
+     *
+     * @note This function does not actually rewire existing arcs but creates a new arcs representing how the given
+     * arcs should be rewired.  The two returned vectors have a 1-1 relationship between an arc to be rewired and an arc
+     * representing the result of that rewiring.  To rewire, simply disconnect the arcs from the origArcs vector.  The
+     * arcs returned in contextArcs are already added to the design.
+     *
+     * Alternativly, the origArcs can be kept and used in the scheduler.  This may be helpful when deciding on whether
+     * or not a context should be scheduled in the next iteration of the scheduler
+     *
+     */
+    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::shared_ptr<Arc>> &contextArcs);
 };
 
 /*@}*/

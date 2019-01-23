@@ -148,7 +148,7 @@ void Compare::validate() {
     }
 }
 
-CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1 || getInputPort(1)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Compare Support for Vector Types has Not Yet Been Implemented");
@@ -163,7 +163,7 @@ CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPo
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-        inputExprs.push_back(srcNode->emitC(cStatementQueue, srcOutputPortNum, imag));
+        inputExprs.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag));
     }
 
     //Will rely on automatic type promoition in C when performing comparisions unless fixed point type

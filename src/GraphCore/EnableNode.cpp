@@ -144,3 +144,13 @@ EnableNode::connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, st
 
     return newArcs;
 }
+
+std::vector<std::shared_ptr<InputPort>> EnableNode::getInputPortsIncludingSpecial() {
+    //Get standard input ports
+    std::vector<std::shared_ptr<InputPort>> portList = Node::getInputPortsIncludingSpecial();
+
+    //Add enable port
+    portList.push_back(enablePort->getSharedPointerEnablePort());
+
+    return portList;
+}

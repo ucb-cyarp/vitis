@@ -66,16 +66,16 @@ void RealImagToComplex::validate() {
         throw std::runtime_error("Validation Failed - RealImagToComplex - Output Port Must Be Complex");
     }
 
-    if(!(getInputPort(0)->getDataType().isComplex())){
+    if(getInputPort(0)->getDataType().isComplex()){
         throw std::runtime_error("Validation Failed - RealImagToComplex - Input Port 0 Must Be Real");
     }
 
-    if(!(getInputPort(1)->getDataType().isComplex())){
+    if(getInputPort(1)->getDataType().isComplex()){
         throw std::runtime_error("Validation Failed - RealImagToComplex - Input Port 1 Must Be Real");
     }
 }
 
-CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     std::shared_ptr<OutputPort> srcOutputPort;
     int srcOutputPortNum;
     std::shared_ptr<Node> srcNode;
@@ -92,7 +92,7 @@ CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, in
         srcNode = srcOutputPort->getParent();
     }
 
-    std::string emitStr = srcNode->emitC(cStatementQueue, srcOutputPortNum, false); //The input was validated to be real
+    std::string emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false); //The input was validated to be real
 
     return CExpr(emitStr, false);
 }

@@ -9,6 +9,8 @@
 #include <memory>
 #include "Node.h"
 
+class EnabledSubSystem;
+
 /**
  * \addtogroup GraphCore Graph Core
  */
@@ -35,7 +37,7 @@ protected:
     /**
      * @brief Construct SubSystem with given parent node.  Calls Node constructor.
      */
-    SubSystem(std::shared_ptr<SubSystem> parent);
+    explicit SubSystem(std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  Children are also not copied.  This node is not added to the children list of the parent.
@@ -92,6 +94,53 @@ public:
 
     void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
 
+    /**
+     * @brief Extends the context of enabled subsystems contained within this subsystem.
+     *
+     * Extends hierarchically, starting at this level
+     *
+     * @param new_nodes A vector which will be filled with the new nodes created during expansion
+     * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
+     * @param new_arcs A vector which will be filled with the new arcs created during expansion
+     * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     */
+    virtual void extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                               std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+    /**
+     * @brief Marks all the nodes under this subsystem (including at enabled subsystems and muxes), though marking them) with the given context stack.  Also finds muxes within this subsystem (and below).
+     *
+     * @note Does not recurse into enabled subsystems
+     *
+     * @param contextStack The context stack at this point.  Nodes under this subsystem
+     * @param discoveredMux a vector modified to include discovered muxes
+     * @param discoveredEnabledSubSystems a vector modified to include disc
+     * @param discoveredGeneral a vector modified to include discovered general nodes
+     */
+    void discoverAndUpdateContexts(std::vector<Context> contextStack, std::vector<std::shared_ptr<Mux>> &discoveredMux,
+                                   std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                   std::vector<std::shared_ptr<Node>> &discoveredGeneral);
+
+    /**
+     * @brief Order Constrains Zero Input Nodes Within the Subsystems to be scheduled ater all the nodes in the predecessorNodes list
+     *
+     * This function is called recursivly into each subsystem
+     *
+     * Is overwritten by EnabledSubsystem to add its own enable driver nodes to the list of predecessor Nodes
+     *
+     * @param predecessorNodes The list of predecessor nodes from which to add order constraint arcs to
+     * @param new_nodes
+     * @param deleted_nodes
+     * @param new_arcs
+     * @param deleted_arcs
+     */
+    virtual void orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
 /*@}*/

@@ -71,9 +71,9 @@ void DataTypeDuplicate::validate() {
 
 }
 
-CExpr DataTypeDuplicate::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr DataTypeDuplicate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     throw std::runtime_error("Emit Failed - DataTypeDuplicate - Attempted to Emit \"Constraint Only\" Block With No Outputs");
-    return Node::emitCExpr(cStatementQueue, outputPortNum, imag);
+    return Node::emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
 }
 
 DataTypeDuplicate::DataTypeDuplicate(std::shared_ptr<SubSystem> parent, DataTypeDuplicate* orig) : PrimitiveNode(parent, orig){

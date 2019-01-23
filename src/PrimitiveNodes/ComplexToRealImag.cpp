@@ -76,7 +76,7 @@ void ComplexToRealImag::validate() {
 
 }
 
-CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //We can ignore imag since we validated that the outputs are both real
 
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
@@ -87,11 +87,11 @@ CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, in
 
     if(outputPortNum == 0) {
         //Output Port 0 Is Real
-        emitStr = srcNode->emitC(cStatementQueue, srcOutputPortNum, false);
+        emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false);
 
     }else{ //if(outputPortNum == 1){ --Already validated the number of output ports is 2
         //Output Port 1 Is Imag
-        emitStr = srcNode->emitC(cStatementQueue, srcOutputPortNum, true);
+        emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true);
     }
 
     return CExpr(emitStr, false);

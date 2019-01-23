@@ -173,7 +173,6 @@ std::vector<Variable> Delay::getCStateVars() {
 
         //TODO: Extend to support vectors (must declare 2D array for state)
 
-
         std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
         Variable var = Variable(varName, stateType, initCondition);
         cStateVar = var;
@@ -184,7 +183,7 @@ std::vector<Variable> Delay::getCStateVars() {
     }
 }
 
-CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented");
@@ -197,7 +196,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
         std::shared_ptr<Node> srcNode = srcPort->getParent();
 
         //Emit the upstream
-        std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutPortNum, imag);
+        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
         return CExpr(inputExpr, false);
     }else {
@@ -211,7 +210,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPort
     }
 }
 
-void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
+void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     //TODO: Implement Vector Support (Need 2D state)
     if(delayValue == 0){
         return; //No state to update
@@ -238,21 +237,21 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue) {
         }
     }
 
-    Node::emitCStateUpdate(cStatementQueue);
+    Node::emitCStateUpdate(cStatementQueue, schedType);
 }
 
-void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue) {
+void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
     DataType inputDataType = getInputPort(0)->getDataType();
     std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
     int srcOutPortNum = srcPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, srcOutPortNum, false);
+    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
     std::string inputExprIm;
 
     if(inputDataType.isComplex()){
-        inputExprIm = srcNode->emitC(cStatementQueue, srcOutPortNum, true);
+        inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
     }
 
     //Assign the expr to a special variable defined here (before the state update)
@@ -276,4 +275,46 @@ Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(par
 
 std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Delay>(parent, this);
+}
+
+bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                  std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                  std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    //Create a state update node for this delay
+    std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
+    stateUpdate->setName("StateUpdate-For-"+getName());
+    stateUpdate->setPrimaryNode(getSharedPointer());
+    stateUpdateNode = stateUpdate; //Set the state update node pointer in this node
+    //Set context to be the same as the primary node
+    std::vector<Context> primarayContex = getContext();
+    stateUpdate->setContext(primarayContex);
+
+    //Add node to the lowest level context (if such a context exists
+    if(!primarayContex.empty()){
+        Context specificContext = primarayContex[primarayContex.size()-1];
+        specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+    }
+
+    new_nodes.push_back(stateUpdate);
+
+    //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
+    std::set<std::shared_ptr<Node>> connectedOutNodes = getConnectedOutputNodes();
+
+    for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
+        std::shared_ptr<Node> connectedOutNode = *it;
+        if(connectedOutNode == nullptr){
+            throw std::runtime_error("Encountered Arc with Null Dst when Wiring State Update");
+        }
+        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(connectedOutNode, stateUpdate); //Datatype and sample time are not important, use defaults
+        new_arcs.push_back(orderConstraint);
+    }
+
+    //make this node dependent on the Delay block (prevents the update from occuring until the new state has been calculated for the delay -> this occurs when the delay is scheduled)
+    //Do this after adding the dependencies on the output nodes to avoid creating a false loop
+    std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(getSharedPointer(), stateUpdate); //Datatype and sample time are not important, use defaults
+    new_arcs.push_back(orderConstraint);
+
+    return true;
 }

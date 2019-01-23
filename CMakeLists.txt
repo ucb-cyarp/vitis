@@ -36,6 +36,10 @@ set(COMMON_SRCS
         src/General/GeneralHelper.h
         src/General/FixedPointHelpers.cpp
         src/General/FixedPointHelpers.h
+        src/General/GraphAlgs.cpp
+        src/General/GraphAlgs.h
+        src/GraphCore/SchedParams.cpp
+        src/GraphCore/SchedParams.h
         src/GraphCore/Node.cpp
         src/GraphCore/Node.h
         src/GraphCore/Port.cpp
@@ -44,6 +48,10 @@ set(COMMON_SRCS
         src/GraphCore/InputPort.h
         src/GraphCore/OutputPort.cpp
         src/GraphCore/OutputPort.h
+        src/GraphCore/OrderConstraintInputPort.cpp
+        src/GraphCore/OrderConstraintInputPort.h
+        src/GraphCore/OrderConstraintOutputPort.cpp
+        src/GraphCore/OrderConstraintOutputPort.h
         src/GraphCore/EnablePort.cpp
         src/GraphCore/EnablePort.h
         src/GraphCore/SelectPort.cpp
@@ -75,6 +83,18 @@ set(COMMON_SRCS
         src/GraphCore/Variable.h
         src/GraphCore/CExpr.cpp
         src/GraphCore/CExpr.h
+        src/GraphCore/Context.cpp
+        src/GraphCore/Context.h
+        src/GraphCore/ContextContainer.cpp
+        src/GraphCore/ContextContainer.h
+        src/GraphCore/ContextFamilyContainer.cpp
+        src/GraphCore/ContextFamilyContainer.h
+        src/GraphCore/ContextRoot.cpp
+        src/GraphCore/ContextRoot.h
+        src/GraphCore/ContextVariableUpdate.cpp
+        src/GraphCore/ContextVariableUpdate.h
+        src/GraphCore/StateUpdate.cpp
+        src/GraphCore/StateUpdate.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
@@ -159,9 +179,6 @@ find_package(XercesC)
 include_directories(${XercesC_INCLUDE_DIRS})
 
 #==== Executables ====
-add_executable(vitis src/main.cpp)
-target_link_libraries(vitis VitisLib ${XercesC_LIBRARIES})
-
 add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
 target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES})
 
@@ -173,6 +190,16 @@ target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
 target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+
+#==== Doxygen ====
+#See https://cmake.org/cmake/help/v3.9/module/FindDoxygen.html
+find_package(Doxygen
+        REQUIRED dot)
+
+#Not using doxygen_add_docs since we already have a Doxyfile
+add_custom_target(docs
+        ${DOXYGEN_EXECUTABLE}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 #==== Google Test ====
 set(BASE_SRC_DIR "../src") #This is the base src directory from the perspective of the test cmake file

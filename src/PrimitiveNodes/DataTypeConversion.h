@@ -117,7 +117,8 @@ public:
      *
      * If no type conversion is required (input and target types are the same), no type conversion logic is returned.
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
 
 };
 

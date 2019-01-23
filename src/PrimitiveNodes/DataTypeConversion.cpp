@@ -205,7 +205,7 @@ void DataTypeConversion::validate() {
     }
 }
 
-CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
@@ -221,7 +221,7 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, i
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-    std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     //Type Conversion logic
     DataType tgtType;
@@ -242,7 +242,7 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, i
         //Perform the cast
         //TODO: Implement Fixed Point Support
 
-        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + ")" ;
+        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + "))" ;
         return CExpr(outputExpr, false);
     }
 }

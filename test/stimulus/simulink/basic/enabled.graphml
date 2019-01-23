@@ -204,6 +204,9 @@
 	<key id="Numeric.InitialCondition" for="node" attr.name="Numeric.InitialCondition" attr.type="string">
 		<default>""</default>
 	</key>
+	<key id="Numeric.InitialOutput" for="node" attr.name="Numeric.InitialOutput" attr.type="string">
+		<default>""</default>
+	</key>
 	<key id="Numeric.SampleTime" for="node" attr.name="Numeric.SampleTime" attr.type="string">
 		<default>""</default>
 	</key>
@@ -480,6 +483,7 @@ ID: n5
 Type: Master</data>
 			<data key="named_input_ports">0</data>
 			<data key="named_output_ports">0</data>
+			<data key="MaskVariables.tout">[0; 0.2; 0.4; 0.6; 0.8; 0.84806; 0.84806; 1; 1.2; 1.4; 1.6; 1.8; 2; 2.2; 2.2935; 2.2935; 2.4; 2.6; 2.8; 3; 3.2; 3.4; 3.6; 3.8; 4; 4.2; 4.4; 4.6; 4.8; 5; 5.2; 5.4; 5.6; 5.8; 6; 6.2; 6.4; 6.6; 6.8; 7; 7.1312; 7.1312; 7.2; 7.4; 7.6; 7.8; 8; 8.2; 8.4; 8.5767; 8.5767; 8.6; 8.8; 9; 9.2; 9.4; 9.6; 9.8; 10]</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Sum</data>
@@ -680,7 +684,8 @@ SampleTime: -1</data>
 					<data key="block_function">Outport</data>
 					<data key="block_label">Out1
 ID: n8::n12
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
@@ -706,6 +711,7 @@ Function: Outport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+					<data key="Numeric.InitialOutput">[]</data>
 				</node>
 				<node id="n8::n54">
 					<data key="instance_name">In2</data>
@@ -977,7 +983,8 @@ SampleTime: -1</data>
 							<data key="block_function">Outport</data>
 							<data key="block_label">Out1
 ID: n13::n16::n20
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 							<data key="named_input_ports">0</data>
 							<data key="named_output_ports">0</data>
 							<data key="BusOutputAsStruct">off</data>
@@ -1003,6 +1010,7 @@ Function: Outport</data>
 							<data key="Unit">inherit</data>
 							<data key="VarSizeSig">Inherit</data>
 							<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+							<data key="Numeric.InitialOutput">[]</data>
 						</node>
 						<node id="n13::n16::n50">
 							<data key="instance_name">In2</data>
@@ -1303,7 +1311,8 @@ SampleTime: -1</data>
 							<data key="block_function">Outport</data>
 							<data key="block_label">Out1
 ID: n21::n25::n29
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 							<data key="named_input_ports">0</data>
 							<data key="named_output_ports">0</data>
 							<data key="BusOutputAsStruct">off</data>
@@ -1329,6 +1338,7 @@ Function: Outport</data>
 							<data key="Unit">inherit</data>
 							<data key="VarSizeSig">Inherit</data>
 							<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+							<data key="Numeric.InitialOutput">[]</data>
 						</node>
 						<node id="n21::n25::n52">
 							<data key="instance_name">In2</data>
@@ -1365,7 +1375,8 @@ Function: Inport</data>
 					<data key="block_function">Outport</data>
 					<data key="block_label">Out2
 ID: n21::n30
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
@@ -1391,6 +1402,7 @@ Function: Outport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+					<data key="Numeric.InitialOutput">[]</data>
 				</node>
 				<node id="n21::n31">
 					<data key="instance_name">Out1</data>
@@ -1398,7 +1410,8 @@ Function: Outport</data>
 					<data key="block_function">Outport</data>
 					<data key="block_label">Out1
 ID: n21::n31
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
@@ -1424,6 +1437,7 @@ Function: Outport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+					<data key="Numeric.InitialOutput">[]</data>
 				</node>
 				<node id="n21::n51">
 					<data key="instance_name">In2</data>
@@ -1724,7 +1738,8 @@ SampleTime: -1</data>
 					<data key="block_function">Outport</data>
 					<data key="block_label">Out2
 ID: n32::n39
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
@@ -1750,6 +1765,7 @@ Function: Outport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+					<data key="Numeric.InitialOutput">[]</data>
 				</node>
 				<node id="n32::n40">
 					<data key="instance_name">Out1</data>
@@ -1757,7 +1773,8 @@ Function: Outport</data>
 					<data key="block_function">Outport</data>
 					<data key="block_label">Out1
 ID: n32::n40
-Function: Outport</data>
+Function: Outport
+InitialOutput: []</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BusOutputAsStruct">off</data>
@@ -1783,6 +1800,7 @@ Function: Outport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 					<data key="VectorParamsAs1DForOutWhenUnconnected">off</data>
+					<data key="Numeric.InitialOutput">[]</data>
 				</node>
 				<node id="n32::n53">
 					<data key="instance_name">In2</data>

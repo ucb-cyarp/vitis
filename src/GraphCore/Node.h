@@ -13,6 +13,7 @@ class NodeFactory;
 class SubSystem;
 class ExpandedNode;
 class GraphMLParameter;
+class StateUpdate;
 
 #include <vector>
 #include <set>
@@ -23,18 +24,20 @@ class GraphMLParameter;
 #include "Port.h"
 #include "InputPort.h"
 #include "OutputPort.h"
+#include "OrderConstraintInputPort.h"
+#include "OrderConstraintOutputPort.h"
 #include "Arc.h"
 #include "GraphMLParameter.h"
 #include "Variable.h"
 #include "CExpr.h"
+#include "Context.h"
+#include "SchedParams.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
 
 //#include "SubSystem.h"
 //#include "GraphMLParameter.h"
-
-//This Class
 
 /**
 * \addtogroup GraphCore Graph Core
@@ -75,10 +78,18 @@ protected:
     std::vector<std::unique_ptr<InputPort>> inputPorts; ///<The input ports of this node
     std::vector<std::unique_ptr<OutputPort>> outputPorts; ///<The output ports of this node
 
+    std::unique_ptr<OrderConstraintInputPort> orderConstraintInputPort; ///<Port which is the destination for arcs creating scheduling ordering constraints between nodes when the output is not directly consumed by this node
+    std::unique_ptr<OrderConstraintOutputPort> orderConstraintOutputPort;
+
+
+    //TODO: Add Setters/Getters (check if port exists first), Update in degree, Update connected nodes, Update disconnect
+
     int tmpCount; ///<Used to track how many temporary variables have been created for this node
 
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
+    std::vector<Context> context; ///<A stack of contexts this node resides in.  The most specific context has the highest index.  Pushes onto the back of the stack and pops from the back of the stack.
+    std::shared_ptr<StateUpdate> stateUpdateNode; ///<A reference to the state update node for this delay
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -150,6 +161,26 @@ public:
     void addOutArcUpdatePrevUpdateArc(int portNum, std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Add a schedule ordering constraint arc to the given node, updating referenced objects in the process
+     *
+     * Adds an schedule ordering constraint arc to this node.  Removes the arc from the orig port if not NULL.
+     * Updates the given arc so that the source port is set to the specified output
+     * port of this node.  If the port object is not yet created, it will be created during the call.
+     * @param arc The arc to add
+     */
+    void addOrderConstraintInArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Add a schedule ordering constraint arc to the given node, updating referenced objects in the process
+     *
+     * Adds an schedule ordering constraint arc to this node.  Removes the arc from the orig port if not NULL.
+     * Updates the given arc so that the source port is set to the specified output
+     * port of this node.  If the port object is not yet created, it will be created during the call.
+     * @param arc The arc to add
+     */
+    void addOrderConstraintOutArcUpdatePrevUpdateArc(std::shared_ptr<Arc> arc);
+
+    /**
      * @brief Removes the given input arc from the node. Does not change the dstPort entry in the arc.
      *
      * Will search all input ports to find the given arc
@@ -166,6 +197,64 @@ public:
     void removeOutArc(std::shared_ptr<Arc> arc);
 
     /**
+     * @brief Removes the given OrderConstraintInArc arc from the node.  Does not change the dstPort entry in the arc.
+     *
+     * @param arc Arc to remove
+     */
+    void removeOrderConstraintInArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Removes the given OrderConstraintOutArc arc from the node.  Does not change the srcPort entry in the arc.
+     *
+     * @param arc Arc to remove
+     */
+    void removeOrderConstraintOutArc(std::shared_ptr<Arc> arc);
+
+    /**
+     * @brief Gets a copy of the node's context stack
+     * @return A copy of the node's context stack
+     */
+    std::vector<Context> getContext() const;
+
+    /**
+     * @brief Set the context stack of the node
+     * @param context the context stack
+     */
+    void setContext(std::vector<Context> &context);
+
+    /**
+     * @brief Gets the context at index i in the stack
+     * @param i the index into the context stack to fetch from
+     * @return context[i]
+     */
+    Context getContext(unsigned long i) const;
+
+    /**
+     * @brief Sets the context at index i in the context stack
+     * @param i index of the context stack to set
+     * @param context context to set
+     */
+    void setContext(unsigned long i, Context &context);
+
+    /**
+     * @brief Pushes a new context onto the back of the context stack
+     * @param context context to push onto the context stack
+     */
+    void pushBackContext(Context &context);
+
+    /**
+     * @brief Removes the given context from the context stack
+     * @param context the context to remove
+     */
+    void removeContext(Context &context);
+
+    /**
+     * @brief Removes context[i] from the context stack
+     * @param i the index to remove
+     */
+    void removeContext(unsigned long i);
+
+    /**
      * @brief Disconnects the node from the graph.
      *
      * Disconnects all arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
@@ -175,22 +264,64 @@ public:
     std::set<std::shared_ptr<Arc>> disconnectNode();
 
     /**
-     * @brief Disconnects the node from the graph.
+     * @brief Disconnects the node from nodes it is (directly and virtually) dependent on.
      *
      * Disconnects all input arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @note This also disconnects from the sources of OrderConstraint arcs.
      *
      * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
      */
     virtual std::set<std::shared_ptr<Arc>> disconnectInputs();
 
     /**
+     * @brief Disconnects the node from nodes it is (directly) dependent on.
+     *
+     * Disconnects all input arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @note This also disconnects from the sources of OrderConstraint arcs.
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectDirectInputs();
+
+    /**
+     * @brief Disconnects the node from nodes it is virtually dependent on.
+     *
+     * Disconnects all OrderConstraintIn arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectOrderConstraintInArcs();
+
+    /**
      * @brief Disconnects the node from the graph.
+     *
+     * Disconnects all output arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @note This also disconnects from the sources of OrderConstraint arcs.
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    std::set<std::shared_ptr<Arc>> disconnectOutputs();
+
+    /**
+     * @brief Disconnects the node from nodes it is (directly) dependent on by.
      *
      * Disconnects all output arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
      *
      * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
      */
-    std::set<std::shared_ptr<Arc>> disconnectOutputs();
+    virtual std::set<std::shared_ptr<Arc>> disconnectDirectOutputs();
+
+    /**
+     * @brief Disconnects the node from nodes it is virtually dependent on.
+     *
+     * Disconnects all OrderConstraintIn arcs from this node.  All arcs are disconnected from both the source and destination and should be safe to delete
+     *
+     * @return A list of arcs that have been disconnected from this node and the connected node.  These arcs should be safe to delete
+     */
+    virtual std::set<std::shared_ptr<Arc>> disconnectOrderConstraintOutArcs();
 
     /**
      * @brief Get the set of nodes connected to this node via arcs
@@ -199,28 +330,76 @@ public:
     std::set<std::shared_ptr<Node>> getConnectedNodes();
 
     /**
-     * @brief Get the set of nodes connected to the inputs of this node via arcs
+     * @brief Get the set of nodes connected to the inputs of this node via arcs (direct and virtual)
      * @return set of nodes connected to this node via incoming arcs
      */
     virtual std::set<std::shared_ptr<Node>> getConnectedInputNodes();
 
     /**
-     * @brief Get the set of nodes connected to the outputs of this node via arcs
+     * @brief Get the set of nodes connected to the inputs of this node via arcs (direct and virtual)
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedDirectInputNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the inputs of this node via arcs (virtual)
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedOrderConstraintInNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the output of this node via arcs (virtual)
+     * @return set of nodes connected to this node via incoming arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedOrderConstraintOutNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs (direct)
+     * @return set of nodes connected to this node via outgoing arcs
+     */
+    virtual std::set<std::shared_ptr<Node>> getConnectedDirectOutputNodes();
+
+    /**
+     * @brief Get the set of nodes connected to the outputs of this node via arcs (direct and virtual)
      * @return set of nodes connected to this node via outgoing arcs
      */
     virtual std::set<std::shared_ptr<Node>> getConnectedOutputNodes();
 
     /**
-     * @brief Get the in-degree of this node (number of connected input arcs)
+     * @brief Get the in-degree of this node (number of connected input arcs - direct and virtual)
      * @return in-degree of this node (number of connected input arcs)
      */
     virtual unsigned long inDegree();
 
     /**
-     * @brief Get the out-degree of this node (number of connected output arcs)
+     * @brief Get the in-degree of this node (number of connected input arcs - direct)
+     * @return in-degree of this node (number of connected input arcs)
+     */
+    virtual unsigned long directInDegree();
+
+    /**
+     * @brief Get the in-degree of this node (number of connected input arcs - virtual)
+     * @return in-degree of this node (number of connected input arcs)
+     */
+    virtual unsigned long orderConstraintInDegree();
+
+    /**
+     * @brief Get the out-degree of this node (number of connected output arcs - direct and virtual)
      * @return out-degree of this node (number of connected output arcs)
      */
     unsigned long outDegree();
+
+    /**
+     * @brief Get the out-degree of this node (number of connected output arcs - direct)
+     * @return out-degree of this node (number of connected output arcs)
+     */
+    unsigned long directOutDegree();
+
+    /**
+     * @brief Get the out-degree of this node (number of connected input arcs - virtual)
+     * @return out-degree of this node (number of connected output arcs)
+     */
+    virtual unsigned long orderConstraintOutDegree();
 
     /**
      * @brief Connects input and output ports with no arcs to the given node
@@ -233,7 +412,7 @@ public:
     virtual std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum);
 
     /**
-     * @brief Get the out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
+     * @brief Get the out-degree of this node (number of connected output arcs - direct and vitual), ignoring arcs to nodes in the provided ignoreSet
      * @param ignoreSet a set of pointers to nodes.  Arcs to these nodes are not included in the out degree
      * @return out-degree of this node (number of connected output arcs), ignoring arcs to nodes in the provided ignoreSet
      */
@@ -248,6 +427,24 @@ public:
      * @return aliased shared pointer to input port or nullptr
      */
     std::shared_ptr<InputPort> getInputPort(int portNum);
+
+    /**
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists a null pointer is returned.
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to input port or nullptr
+     */
+    std::shared_ptr<OrderConstraintInputPort> getOrderConstraintInputPort();
+
+    /**
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists a null pointer is returned.
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to input port or nullptr
+     */
+    std::shared_ptr<OrderConstraintOutputPort> getOrderConstraintOutputPort();
 
     /**
      * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists a null pointer is returned.
@@ -270,6 +467,24 @@ public:
     std::shared_ptr<InputPort> getInputPortCreateIfNot(int portNum);
 
     /**
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to input port
+     */
+    std::shared_ptr<OrderConstraintInputPort> getOrderConstraintInputPortCreateIfNot();
+
+    /**
+     * @brief Get an aliased shared pointer to the specified OrderConstraint port of this node.  If no such port exists, create one
+     *
+     * The pointer is aliased with this node as the stored pointer.
+     *
+     * @return aliased shared pointer to input port
+     */
+    std::shared_ptr<OrderConstraintOutputPort> getOrderConstraintOutputPortCreateIfNot();
+
+    /**
      * @brief Get an aliased shared pointer to the specified output port of this node.  If no such port exists, create one
      *
      * The pointer is aliased with this node as the stored pointer.
@@ -289,6 +504,30 @@ public:
     std::vector<std::shared_ptr<InputPort>> getInputPorts();
 
     /**
+     * @brief Get a vector of pointers to the current input ports of the node (including special inputs such as enables and selects)
+     *
+     * @warning Does not include the OrderConstraintPort
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @note The position in the vector does not nessisarily match the port number of the port.
+     *
+     * @return vector of aliased pointers to the current input ports of the node (including special inputs)
+     */
+    virtual std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecial();
+
+    /**
+     * @brief Get a vector of pointers to the current input ports of the node (including special inputs such as enables and selects).  Also includes the OrderConstraint port
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @note The position in the vector does not nessisarily match the port number of the port.
+     *
+     * @return vector of aliased pointers to the current input ports of the node (including special inputs)
+     */
+    std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecialAndOrderConstraint();
+
+    /**
      * @brief Get a vector of pointers to the current output ports of the node
      *
      * @note Ports may be added to the node later which will not be reflected in the returned array
@@ -296,6 +535,35 @@ public:
      * @return vector of aliased pointers to the current output ports of the node
      */
     std::vector<std::shared_ptr<OutputPort>> getOutputPorts();
+
+    /**
+     * @brief Get a vector of pointers to the current output ports of the node (including the OrderConstraint port)
+     *
+     * @note Ports may be added to the node later which will not be reflected in the returned array
+     *
+     * @note The position in the vector does not nessisarily match the port number of the port.
+     *
+     * @return vector of aliased pointers to the current output ports of the node
+     */
+    std::vector<std::shared_ptr<OutputPort>> getOutputPortsIncludingOrderConstraint();
+
+    /**
+     * @brief Get a list of direct output arcs connected to this node (not order constraint arcs)
+     * @return list of direct output arcs (not order constraint arcs)
+     */
+    std::set<std::shared_ptr<Arc>> getDirectOutputArcs();
+
+    /**
+     * @brief Get a list of order constraint output arcs connected to this node
+     * @return list of order constraint output arcs
+     */
+    std::set<std::shared_ptr<Arc>> getOrderConstraintOutputArcs();
+
+    /**
+     * @brief Get a list of  output arcs (direct and order constraint) connected to this node
+     * @return list of direct output arcs
+     */
+    std::set<std::shared_ptr<Arc>> getOutputArcs();
 
     /**
      * @brief Get the full hierarchical path of this node in GraphML format
@@ -317,10 +585,11 @@ public:
      * A typical fully qualified name would be "subsysName/nodeName"
      *
      * @param sanitize If true, replaces newlines with spaces in returned string.  Otherwise, will not replace newlines in returned string.
+     * @param delim the demimitor string (default '/')
      *
      * @return Fully qualified human readable name of the node as a std::string
      */
-    std::string getFullyQualifiedName(bool sanitize = true);
+    std::string getFullyQualifiedName(bool sanitize = true, std::string delim = "/");
 
     /**
      * @brief Get the node ID from a full GraphML ID path
@@ -424,13 +693,16 @@ public:
      * Fanout can also be forced which results in temporary variable creation
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param outputPortNum the output port for which the C++ code should be generated for
      * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
      * @param checkFanout if true, checks if the output is used in a fanout.  If false, no check is performed
      * @param forceFanout if true, a temporary variable is always create, if false the value of checkFanout dictates whether or not a temporary variable is created
      * @return a string containing the C code for calculating the result of the output port
      */
-    virtual std::string emitC(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false, bool checkFanout = true, bool forceFanout = false);
+    virtual std::string
+    emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag = false,
+              bool checkFanout = true, bool forceFanout = false);
 
 protected:
     /**
@@ -442,11 +714,13 @@ protected:
      * @note @ref emitC should be called from outside the class instead of this function.  @ref emitC automatically handles fanout while this function does not
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param outputPortNum the output port for which the C++ code should be generated for
      * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
      * @return a string containing the C expression for calculating the result of the output port
      */
-    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false);
+    virtual CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                            bool imag = false);
 
 public:
 
@@ -474,7 +748,7 @@ public:
     virtual void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
 
     /**
-     * @brief Clones input arcs for the given node
+     * @brief Clones input arcs (direct and virtual) for the given node
      *
      * The cloned arcs will connect the cloned versions of the nodes rather than redundantly connecting the origional nodes.
      *
@@ -495,6 +769,37 @@ public:
      * @return true if the node contains state elements, false if it does not contain state elements
      */
     virtual bool hasState();
+
+    /**
+     * @brief If this node has state, get the corresponding StateUpdate node
+     * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state or is a latch type (ex. EnableOutput)
+     */
+    std::shared_ptr<StateUpdate> getStateUpdateNode();
+
+    /**
+     * @brief Set the state update node (useful for cloneing)
+     * @param stateUpdate StateUpdate node to set
+     */
+     void setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate);
+
+    /**
+     * @brief If this node has state, create its corresponding StateUpdate node and insert it into the graph.  Also sets
+     * the stateUpdate node entry in the node so that getStateUpdateNode will return the corresponding node.
+     *
+     * @note This function should typically be called after context discovery and context expansion.  This is because
+     * the StateUpdate generally inherits
+     *
+     * @param new_nodes a vector of nodes added to the design.  This includes the new StateUpdate node
+     * @param deleted_nodes a vector of nodes to be deleted in the design
+     * @param new_arcs a vector of new arcs added to the design
+     * @param deleted_arcs a vector of arcs to be deleted from the design
+     *
+     * @return true if the StateUpdate node was created and inserted into the graph, false if it was not
+     */
+    virtual bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                       std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
      * @brief Identifies if the node requires a global declaration.
@@ -534,8 +839,9 @@ public:
      *
      * @warning This function is separated from the @ref emitCExpr function in order to break emit cycles
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  Additional statements may be enqueued by this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      */
-    virtual void emitCExprNextState(std::vector<std::string> &cStatementQueue);
+    virtual void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType);
 
     /**
      * @brief Emits the C code to update the state varibles of this node.
@@ -543,8 +849,9 @@ public:
      * This code should be called at the end of the emit for the given function.
      *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      */
-    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue);
+    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType);
 
     /**
      * @brief Get a human readable description of the node
@@ -606,6 +913,12 @@ public:
      * @return true if a->schedOrder < b->schedOrder
      */
     static bool lessThanSchedOrder(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
+
+    /**
+     * @brief Copy port names from another node.  If the ports in copyFrom do not exist in this node, they are created
+     * @param copyFrom The node to copy port names from
+     */
+    void copyPortNames(std::shared_ptr<Node> copyFrom);
 
 };
 

@@ -10,6 +10,7 @@
 #include "GraphCore/SelectPort.h"
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
+#include "GraphCore/ContextRoot.h"
 
 #include <map>
 
@@ -39,12 +40,14 @@
  * mux and a -1 on the select line.
  *
  */
-class Mux : public PrimitiveNode{
+class Mux : public PrimitiveNode, public ContextRoot{
     friend NodeFactory;
 
 private:
     std::unique_ptr<SelectPort> selectorPort;///< The port which determines the mux selection
     bool booleanSelect; ///< If true, the mux uses the simulink convention of the top (first) port being true and the bottom port being false
+    bool useSwitch; ///< If true, the mux uses a switch statement rather than an if/else statement (when tthe selector is not a bool).  This forces contexts to be contiguous
+    Variable muxContextOutputVar; ///< The context output variable
 
     //==== Constructors ====
     /**
@@ -103,6 +106,14 @@ public:
 
     void setBooleanSelect(bool booleanSelect);
 
+    bool isUseSwitch() const;
+
+    void setUseSwitch(bool useSwitch);
+
+    Variable getMuxContextOutputVar() const;
+
+    void setMuxContextOutputVar(const Variable &muxContextOutputVar);
+
     //==== Factories ====
     /**
      * @brief Creates a mux node from a GraphML Description
@@ -160,7 +171,37 @@ public:
      * statement, emit with contexts and context wrappers is required.  In this case, this function will not be called
      * as the output assignment will occur during the context emit.
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
+
+    /**
+     * @brief Version of emitCExpr for the bottom up scheduler.
+     *
+     * Gets the statement of each input port and creates a if/else or switch block.
+     *
+     * This should be used when context emit is not used.
+     *
+     * @param cStatementQueue the queue of C statements (modified durring the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
+     * @param outputPortNum the output port for which the C expression is being generated
+     * @param imag if true, generate the imagionary component of the output, otherwise generate the real component
+     * @return the C expression for the output
+     */
+    CExpr emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag);
+
+    /**
+     * @brief Version of emitCExpr for the contextual schedulers.
+     *
+     * Simply returns the context variable.
+     *
+     * This should be used when context emit is used.
+     *
+     * @param cStatementQueue the queue of C statements (modified durring the call to this function
+     * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
+     * @param outputPortNum the output port for which the C expression is being generated
+     * @param imag if true, generate the imagionary component of the output, otherwise generate the real component
+     * @return the C expression for the output
+     */
+    CExpr emitCExprContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag);
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
@@ -174,6 +215,54 @@ public:
 
     std::vector<std::shared_ptr<Arc>> connectUnconnectedPortsToNode(std::shared_ptr<Node> connectToSrc, std::shared_ptr<Node> connectToSink, int srcPortNum, int sinkPortNum) override;
 
+    std::vector<std::shared_ptr<InputPort>> getInputPortsIncludingSpecial() override;
+
+    std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() override;
+
+    /**
+     * @brief Discover the context for nodes connexted to the mux
+     *
+     * @note This function does not set the context hierarchy for marked nodes or set the nodesInContext array for the mux
+     *
+     * @return A map of input ports to sets of nodes in the port's context
+     */
+    std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> discoverContexts();
+
+    /**
+     * @brief Discovers and marks Mux contexts within a specific context level
+     *
+     * For example, this function should be called on muxes within an enabled subsystem.
+     *
+     * This method discovers mux contexts, discovers the hierarchy of contexts, set the context hierarchy in nodes
+     * within the mux contexts, and sets the context node lists in the muxes
+     *
+     * @param muxes muxes at the desired level of the design
+     */
+    static void discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> muxes);
+
+    int getNumSubContexts() const override;
+
+    //TODO: Update Mux Emit for Scheduled vs Bottom Up
+
+    bool createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                          bool setContext) override;
+
+    std::vector<Variable> getCContextVars() override;
+
+    bool requiresContiguousContextEmits() override;
+
+    Variable getCContextVar(int contextVarIndex) override;
+
+    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+
+    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
 };
 
 /*@}*/

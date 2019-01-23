@@ -508,17 +508,13 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Add node to design
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
-            design.addTopLevelNode(newNode);
+            throw std::runtime_error("Special Input Node cannot be at the top level");
         }
         //Add to map
         nodeMap[fullNodeID]=newNode;
 
     } else if(blockType == "Special Output Port"){
-        std::shared_ptr<EnableOutput> newNode = NodeFactory::createNode<EnableOutput>(parent);
-        newNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if(hasName){
-            newNode->setName(name);
-        }
+        std::shared_ptr<EnableOutput> newNode = GraphMLImporter::importEnableOutputNode(fullNodeID, dataKeyValueMap, parent, dialect);
 
         //Add to enableOutputs of parent (EnableNodes exist directly below their EnableSubsystem parent)
         std::shared_ptr<EnabledSubSystem> parentSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
@@ -531,7 +527,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //Add node to design
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
-            design.addTopLevelNode(newNode);
+            throw std::runtime_error("Special Output Node cannot be at the top level");
         }
         //Add to map
         nodeMap[fullNodeID]=newNode;
@@ -922,6 +918,24 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
     }
+
+    return newNode;
+}
+
+std::shared_ptr<EnableOutput> GraphMLImporter::importEnableOutputNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
+    std::shared_ptr<EnableOutput> newNode;
+
+    newNode = EnableOutput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
 
     return newNode;
 }

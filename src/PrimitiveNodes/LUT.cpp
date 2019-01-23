@@ -195,7 +195,7 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         }
 
         //Check if interp method is set to CLIP and the "RemoveProtectionInput" checkbox is set to "on"
-        if(extrapMethod == ExtrapMethod::CLIP && dataKeyValueMap.at("InterpMethod") == "on"){
+        if(extrapMethod == ExtrapMethod::CLIP && dataKeyValueMap.at("RemoveProtectionInput") == "on"){
             extrapMethod = ExtrapMethod::NO_CHECK;
         }
 
@@ -374,7 +374,7 @@ void LUT::validate() {
 std::string LUT::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: LUT\nInterpMethod:" + interpMethodToString(interpMethod) + "\nExtrapMethod: " + extrapMethodToString(extrapMethod) + "\nSearchMethod: " + searchMethodToString(searchMethod)+ "\nTable: " + NumericValue::toString(tableData);
+    label += "\nFunction: LUT\nInterpMethod:" + interpMethodToString(interpMethod) + "\nExtrapMethod: " + extrapMethodToString(extrapMethod) + "\nSearchMethod: " + searchMethodToString(searchMethod) + "\nTable: " + NumericValue::toString(tableData);
 
     unsigned long dimension = breakpoints.size();
     for(unsigned long i = 1; i<=dimension; i++){
@@ -440,7 +440,7 @@ std::string LUT::getGlobalDecl(){
     return tableDecl;
 }
 
-CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag){
+CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Emit the index calculation
     std::string indexName = name+"_n"+GeneralHelper::to_string(id)+"_index";
     Variable indexVariable = Variable(indexName, DataType()); //The correct type will be set durring index calculation.  Type is not required for de-reference
@@ -462,7 +462,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNu
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-        std::string inputExpr = srcNode->emitC(cStatementQueue, srcOutputPortNum, imag);
+        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
 
         //If the Input Datatype is a floating point type, calculating the index takes the form:

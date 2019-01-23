@@ -108,7 +108,8 @@ public:
      * @brief Does nothing since the sink node is unsupported.  Should never be called for bottom up emit but may
      * be called for scheduled emit.
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
 
 };
 

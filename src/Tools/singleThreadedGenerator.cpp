@@ -12,7 +12,7 @@
 #include "GraphMLTools/GraphMLDialect.h"
 
 int main(int argc, char* argv[]) {
-    Design::SchedType sched = Design::SchedType::BOTTOM_UP;
+    SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
 
     if(argc < 4  || argc > 5)
     {
@@ -22,13 +22,15 @@ int main(int argc, char* argv[]) {
         std::cout << "    singleThreadedGenerator inputfile.graphml outputDir designName <SCHED>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible SCHED:" << std::endl;
-        std::cout << "    bottomUp <DEFAULT> = Bottom Up Scheduler" << std::endl;
-        std::cout << "    topological = Topological Sort Scheduler" << std::endl;
+        std::cout << "    bottomUp = Bottom Up Scheduler (Does not Support EnabledSubsystems)" << std::endl;
+        std::cout << "    topological = Topological Sort Scheduler (Does not Support EnabledSubsystems)" << std::endl;
+        std::cout << "    topological_context <DEFAULT> = Topological Sort Scheduler with Contexts" << std::endl;
+
 
         return 1;
     }else if(argc == 5){
         try{
-            Design::SchedType parsedSched = Design::parseSchedTypeStr(argv[4]);
+            SchedParams::SchedType parsedSched = SchedParams::parseSchedTypeStr(argv[4]);
             sched = parsedSched;
         }catch(std::runtime_error e){
             throw std::runtime_error("Unknown Scheduler, Possible SCHED: bottomUp, topological");
@@ -51,6 +53,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+//    std::cerr << "Top Lvl Nodes: " << design->getTopLevelNodes().size() << std::endl;
+
     //Expand the design to primitives
     try{
         design->expandToPrimitive();
@@ -59,27 +63,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+//    std::cerr << "Top Lvl Nodes: " << design->getTopLevelNodes().size() << std::endl;
+
     //Assign node and arc IDs (needed for expanded nodes)
     design->assignNodeIDs();
     design->assignArcIDs();
 
     //Print Scheduler
-    std::cout << "SCHED: " << Design::schedTypeToString(sched) << std::endl;
+    std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
 
     //Emit C
-    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".h" << std::endl;
-    std::cout << "Emitting C File: " << outputDir << "/" << designName << ".c" << std::endl;
-
     try{
-        if(sched == Design::SchedType::BOTTOM_UP)
-            design->emitSingleThreadedC(outputDir, designName, designName, false);
-        else if(sched == Design::SchedType::TOPOLOGICAL){
-            design->scheduleTopologicalStort(true);
-            design->verifyTopologicalOrder();
-            design->emitSingleThreadedC(outputDir, designName, designName, true);
-        }else{
-            throw std::runtime_error("Unknown SCHED Type");
-        }
+        design->generateSingleThreadedC(outputDir, designName, sched);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;
@@ -95,7 +90,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName << "_benchmark_kernel_mem.cpp" << std::endl;
     std::cout << "Emitting CPP File: " << outputDir << "/" << designName +"_benchmark_driver_mem.cpp" << std::endl;
     std::cout << "Emitting Makefile: " << outputDir << "/Makefile_" << designName << "_mem" << std::endl;
-    std::cout << "Emitting Makefile: " << outputDir << "/Makefile_noPCM_" << designName << "_const_mem" << std::endl;
+    std::cout << "Emitting Makefile: " << outputDir << "/Makefile_noPCM_" << designName << "_mem" << std::endl;
 
     try{
         design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);

@@ -10,6 +10,10 @@ MasterNode::MasterNode() {
 
 }
 
+MasterNode::MasterNode(std::shared_ptr<SubSystem> parent, MasterNode* orig) : Node(parent, orig){
+
+};
+
 xercesc::DOMElement *
 MasterNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
     xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);

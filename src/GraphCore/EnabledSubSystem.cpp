@@ -2,11 +2,17 @@
 // Created by Christopher Yarp on 6/26/18.
 //
 
-#include <General/GeneralHelper.h>
+#include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
 #include "EnabledSubSystem.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "NodeFactory.h"
+#include "Context.h"
+
+#include "PrimitiveNodes/Mux.h"
+
+#include <map>
 
 EnabledSubSystem::EnabledSubSystem() {
 }
@@ -56,8 +62,8 @@ void EnabledSubSystem::validate() {
     }
 }
 
-std::shared_ptr<Port> EnabledSubSystem::getEnableSrc() {
-    std::shared_ptr<Port> srcPort = nullptr;
+std::shared_ptr<OutputPort> EnabledSubSystem::getEnableSrc() {
+    std::shared_ptr<OutputPort> srcPort = nullptr;
 
     if(enabledInputs.size()>0){
         std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[0]->getEnablePort()->getArcs();
@@ -89,6 +95,33 @@ std::shared_ptr<Port> EnabledSubSystem::getEnableSrc() {
     }
 
     return srcPort;
+}
+
+std::shared_ptr<Arc> EnabledSubSystem::getEnableDriverArc() {
+    std::shared_ptr<Arc> driverArc = nullptr;
+
+    if(enabledInputs.size()>0){
+        std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[0]->getEnablePort()->getArcs();
+        if(enableArcs.size() != 0){
+            driverArc = *(enableArcs.begin());
+        }else{
+            //throw std::runtime_error("First EnableInput of Enable Subsystem has no Enable Arc");
+            return nullptr;
+        }
+    }else if(enabledOutputs.size()>0){
+        std::set<std::shared_ptr<Arc>> enableArcs = enabledOutputs[0]->getEnablePort()->getArcs();
+        if(enableArcs.size() != 0){
+            driverArc = *(enableArcs.begin());
+        }else{
+            //throw std::runtime_error("First EnableOutput of Enable Subsystem has no Enable Arc");
+            return nullptr;
+        }
+    }else{
+        //throw std::runtime_error("EnableSubsystem does not have any EnableInputs or EnableOutputs");
+        return nullptr;
+    }
+
+    return driverArc;
 }
 
 void EnabledSubSystem::addEnableInput(std::shared_ptr<EnableInput> &input) {
@@ -194,3 +227,430 @@ void EnabledSubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> paren
         }
     }
 }
+
+void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                           std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    //==== Get the enable src before removing enabled inputs (in case all are removed) ====
+    std::shared_ptr<OutputPort> enabledSystemDriver = getEnableSrc();
+    std::shared_ptr<Arc> enabledSystemDriverArc = getEnableDriverArc();
+    DataType enabledSystemDriverDataType = enabledSystemDriverArc->getDataType();
+    double enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
+
+    //==== Get set of nodes to expand context to at inputs ====
+    std::set<std::shared_ptr<Node>> extendedContext;
+
+    //Iterate though all of the input node's input ports
+    std::map<std::shared_ptr<Arc>, bool> inputMarks;
+    for(unsigned long i = 0; i<enabledInputs.size(); i++){
+        //Enabled inputs should only have 1 standard input.  Should be caught durring validation if otherwise.
+        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceBackAndMark(enabledInputs[i]->getInputPort(0), inputMarks); //Reuse the same inputMarks map.  See docs for scopedTraceBackAndMark
+        extendedContext.insert(moreExtendedContextNodes.begin(), moreExtendedContextNodes.end());
+    }
+
+    std::vector<std::shared_ptr<EnableInput>> enableInputsToRemove;
+
+    //==== Remove input nodes connected to a node in the extended context, rewire ====
+    for(unsigned long i = 0; i<enabledInputs.size(); i++){
+        std::set<std::shared_ptr<Arc>> inputArcs = enabledInputs[i]->getInputPort(0)->getArcs(); //There should only be 1 input arc
+        if(inputArcs.size() != 1){
+            throw std::runtime_error("Enable Input Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1");
+        }
+        std::shared_ptr<Arc> inputArc = *inputArcs.begin();
+
+        std::shared_ptr<OutputPort> srcPort = inputArc->getSrcPort();
+
+        std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+        if(extendedContext.find(srcNode) != extendedContext.end()){
+            //The src node is in the extended context
+            //Rewire the outputs of the enabled input to the output port of the src node
+            std::shared_ptr<OutputPort> sourcePort = inputArc->getSrcPort();
+
+            std::set<std::shared_ptr<Arc>> outputArcs = enabledInputs[i]->getOutputPort(0)->getArcs();
+            for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                (*it)->setSrcPortUpdateNewUpdatePrev(srcPort);
+            }
+
+            //+++ Remove the Enable Input Node +++
+
+            //Remove the enable input arc
+            inputArc->setSrcPortUpdateNewUpdatePrev(nullptr);
+            inputArc->setDstPortUpdateNewUpdatePrev(nullptr);
+            deleted_arcs.push_back(inputArc);
+
+            //Remove the enable driver arc
+            std::set<std::shared_ptr<Arc>> enableDriverArcs = enabledInputs[i]->getEnablePort()->getArcs();
+            if(enableDriverArcs.size() != 1){
+                throw std::runtime_error("Enable Input Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1");
+            }
+            std::shared_ptr<Arc> enableDriverArc = *enableDriverArcs.begin();
+            enableDriverArc->setSrcPortUpdateNewUpdatePrev(nullptr);
+            enableDriverArc->setDstPort(nullptr);
+            deleted_arcs.push_back(enableDriverArc);
+
+            //Remove this enable input port from the enabled subsystem.
+            enableInputsToRemove.push_back(enabledInputs[i]);
+        }
+    }
+
+    for(unsigned long i = 0; i<enableInputsToRemove.size(); i++){
+        removeEnableInput(enableInputsToRemove[i]);
+        removeChild(enableInputsToRemove[i]);
+        deleted_nodes.push_back(enableInputsToRemove[i]);
+    }
+
+    //==== Move nodes into enabled subsystem, replicating subsystem hierarchy ====
+    std::vector<std::shared_ptr<Node>> newSubsystems;
+    for(auto it = extendedContext.begin(); it != extendedContext.end(); it++){
+        GraphAlgs::moveNodePreserveHierarchy(*it, std::dynamic_pointer_cast<SubSystem>(getSharedPointer()), newSubsystems);
+    }
+    new_nodes.insert(new_nodes.end(), newSubsystems.begin(), newSubsystems.end());
+
+    //==== Create new input nodes for arcs between a node not in the extended context to a node in the extended context ====
+    //Note: Nodes in extended context cannot have inputs from nodes in the previous (unexpanded context).  This is because
+    //any path from a node in the previous context muxt have passed through an enabled output.  Context discovery currently
+    //stops at enabled inputs and outputs.
+    //TODO: handle the corner case where there is a loop from an enabled output to an enabled input.  Currently, expansion is stopped
+    for(auto nodeIt = extendedContext.begin(); nodeIt != extendedContext.end(); nodeIt++){
+        //Iterate through each node in the new context & check each incoming arc.
+        std::vector<std::shared_ptr<InputPort>> nodeInputPorts = (*nodeIt)->getInputPortsIncludingSpecial();
+
+        for(unsigned long i = 0; i<nodeInputPorts.size(); i++){
+            std::shared_ptr<InputPort> inputPort = nodeInputPorts[i];
+
+            std::set<std::shared_ptr<Arc>> inputArcs = inputPort->getArcs();
+
+            for(auto arcIt = inputArcs.begin(); arcIt != inputArcs.end(); arcIt++){
+                //Check if the src node is in the extended context
+                std::shared_ptr<OutputPort> srcPort = (*arcIt)->getSrcPort();
+                std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+                if(extendedContext.find(srcNode) == extendedContext.end()){
+                    //The src is not in the extended context, create a new input node
+                    std::shared_ptr<EnableInput> enableInput = NodeFactory::createNode<EnableInput>(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()));
+                    enableInput->setName("Expanded Context Enable Input");
+                    addEnableInput(enableInput);
+                    new_nodes.push_back(enableInput);
+
+                    //Create input port 0 and output port 0 of enable node;
+                    std::shared_ptr<InputPort> enableInputInputPort = enableInput->getInputPortCreateIfNot(0);
+                    std::shared_ptr<OutputPort> enableInputOutputPort = enableInput->getOutputPortCreateIfNot(0);
+
+                    //Rewire arc to output of enable node
+                    (*arcIt)->setSrcPortUpdateNewUpdatePrev(enableInputOutputPort);
+
+                    //Create a new arc to connect to the input of the input node;
+                    std::shared_ptr<Arc> enableInputInputArc = Arc::connectNodes(srcPort, enableInputInputPort, (*arcIt)->getDataType(), (*arcIt)->getSampleTime());
+                    new_arcs.push_back(enableInputInputArc);
+
+                    //Create a new arc to connect the enable control line
+                    std::shared_ptr<Arc> enableInputDriverArc = Arc::connectNodes(enabledSystemDriver, enableInput, enabledSystemDriverDataType, enabledSystemDriverSampleTime);
+                    new_arcs.push_back(enableInputDriverArc);
+                }
+            }
+        }
+    }
+}
+
+void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                            std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                            std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                            std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    //==== Get the enable src before removing enabled inputs (in case all are removed) ====
+    std::shared_ptr<OutputPort> enabledSystemDriver = getEnableSrc();
+    std::shared_ptr<Arc> enabledSystemDriverArc = getEnableDriverArc();
+    DataType enabledSystemDriverDataType = enabledSystemDriverArc->getDataType();
+    double enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
+
+    //==== Get set of nodes to expand context to at inputs ====
+    std::set<std::shared_ptr<Node>> extendedContext;
+
+    //Iterate though all of the input node's input ports
+    std::map<std::shared_ptr<Arc>, bool> outputMarks;
+    for(unsigned long i = 0; i<enabledOutputs.size(); i++){
+        //Enabled outputs should only have 1 standard output.  Should be caught during validation if otherwise.
+        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceForwardAndMark(enabledOutputs[i]->getOutputPort(0), outputMarks); //Reuse the same outputMarks map.  See docs for scopedTraceForwardAndMark
+        extendedContext.insert(moreExtendedContextNodes.begin(), moreExtendedContextNodes.end());
+    }
+
+    //==== Remove output nodes connected to a node in the extended context, rewire ====
+    std::vector<std::shared_ptr<EnableOutput>> enableOutputsToRemove;
+    for(unsigned long i = 0; i<enabledOutputs.size(); i++){
+        std::set<std::shared_ptr<Arc>> outputArcs = enabledOutputs[i]->getOutputPort(0)->getArcs();
+
+        std::set<std::shared_ptr<Arc>> inputArcs = enabledOutputs[i]->getInputPort(0)->getArcs();
+        if(inputArcs.size() != 1){//Should only have 1 input arc
+            throw std::runtime_error("Enable Output Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1");
+        }
+        std::shared_ptr<Arc> enabledOutputInput = *inputArcs.begin();
+        std::shared_ptr<OutputPort> innerSrcPort = enabledOutputInput->getSrcPort();
+
+        //Check all of the output arcs.  If all are to nodes in the extended context, remove the output node
+        //Otherwise, keep the output node but rewire nodes in the extended context.
+        unsigned long numOutArcs = outputArcs.size();
+        unsigned long numRewired = 0;
+        for(auto outputArcIt = outputArcs.begin(); outputArcIt != outputArcs.end(); outputArcIt++){
+            std::shared_ptr<InputPort> dstNodePort = (*outputArcIt)->getDstPort();
+            std::shared_ptr<Node> dstNode = dstNodePort->getParent();
+
+            if(extendedContext.find(dstNode) != extendedContext.end()){
+                //The dst node is in the extended context, rewire
+                (*outputArcIt)->setSrcPortUpdateNewUpdatePrev(innerSrcPort);
+                numRewired++;
+            }
+        }
+
+        if(numRewired == numOutArcs){
+            //+++ Remove the Enable Output Node +++
+
+            //Remove the input to the enable output node
+            enabledOutputInput->setSrcPortUpdateNewUpdatePrev(nullptr);
+            enabledOutputInput->setDstPortUpdateNewUpdatePrev(nullptr);
+            deleted_arcs.push_back(enabledOutputInput);
+
+            //Remove the Enable Driver Arc
+            std::set<std::shared_ptr<Arc>> enableDriverArcs = enabledOutputs[i]->getEnablePort()->getArcs();
+            if(enableDriverArcs.size() != 1){
+                throw std::runtime_error("Enable Output Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1");
+            }
+            std::shared_ptr<Arc> enableDriverArc = *enableDriverArcs.begin();
+            enableDriverArc->setSrcPortUpdateNewUpdatePrev(nullptr);
+            enableDriverArc->setDstPort(nullptr);
+            deleted_arcs.push_back(enableDriverArc);
+
+            //Remove Node
+            enableOutputsToRemove.push_back(enabledOutputs[i]);
+        }
+    }
+
+    for(unsigned long i = 0; i<enableOutputsToRemove.size(); i++){
+        removeEnableOutput(enableOutputsToRemove[i]);
+        removeChild(enableOutputsToRemove[i]);
+        deleted_nodes.push_back(enableOutputsToRemove[i]);
+    }
+
+    //==== Move nodes into enabled subsystem, replicating subsystem hierarchy ====
+    for(auto it = extendedContext.begin(); it != extendedContext.end(); it++){
+        GraphAlgs::moveNodePreserveHierarchy(*it, std::dynamic_pointer_cast<SubSystem>(getSharedPointer()), new_nodes);
+    }
+
+    //==== Create new output nodes for arcs between a node in the extended context to a node not in the extended context ====
+    //Note: Nodes in previous (unexpanded context) context cannot have inputs from nodes in the extended context.  This is because
+    //any path from a node in the extended context must have passed through an enabled input.  Context discovery currently
+    //stops at enabled inputs and outputs.
+    //TODO: handle the corner case where there is a loop from an enabled output to an enabled input.  Currently, expansion is stopped
+
+    for(auto extendedNodeIt = extendedContext.begin(); extendedNodeIt != extendedContext.end(); extendedNodeIt++){
+        //Interate through out ports
+        std::vector<std::shared_ptr<OutputPort>> extendedNodeOutputPorts = (*extendedNodeIt)->getOutputPorts();
+
+        for(auto extendedNodeOutputPortIt = extendedNodeOutputPorts.begin(); extendedNodeOutputPortIt != extendedNodeOutputPorts.end(); extendedNodeOutputPortIt++){
+            //Iterate through all the out arcs.  For arcs that are to another extended context node, leave connected as is.
+            //For arcs to nodes not in the extended context, create the output node and rewire
+            //Note, we may have multiple output arcs to nodes not in the extended context, we need to add only 1 enable output node
+
+            std::set<std::shared_ptr<Arc>> extendedNodeOutputArcs = (*extendedNodeOutputPortIt)->getArcs();
+
+            std::shared_ptr<EnableOutput> enableOutputNode = nullptr;
+            std::shared_ptr<OutputPort> enableOutputOutPort = nullptr;
+
+            for(auto extendedNodeOutputArc = extendedNodeOutputArcs.begin(); extendedNodeOutputArc != extendedNodeOutputArcs.end(); extendedNodeOutputArc++){
+                std::shared_ptr<InputPort> dstPort = (*extendedNodeOutputArc)->getDstPort();
+                std::shared_ptr<Node> dstNode = dstPort->getParent();
+
+                if(extendedContext.find(dstNode) == extendedContext.end()){
+                    //The node is not in the extended context
+
+                    //Check if an enable output has already been created
+                    if(enableOutputNode == nullptr){
+                        enableOutputNode = NodeFactory::createNode<EnableOutput>(std::dynamic_pointer_cast<SubSystem>(getSharedPointer()));
+                        enableOutputOutPort = enableOutputNode->getOutputPortCreateIfNot(0);
+                        addEnableOutput(enableOutputNode);
+                        new_nodes.push_back(enableOutputNode);
+
+                        //Wire input
+                        DataType arcDataType = (*extendedNodeOutputArc)->getDataType();
+                        double arcSampleTime = (*extendedNodeOutputArc)->getSampleTime();
+                        std::shared_ptr<Arc> inputArc = Arc::connectNodes(*extendedNodeOutputPortIt, enableOutputNode->getInputPortCreateIfNot(0), arcDataType, arcSampleTime);
+                        new_arcs.push_back(inputArc);
+
+                        //Wire Enable Driver
+                        std::shared_ptr<Arc> enableDriver = Arc::connectNodes(enabledSystemDriver, enableOutputNode, enabledSystemDriverDataType, enabledSystemDriverSampleTime);
+                        new_arcs.push_back(enableDriver);
+                    }
+
+                    //Rewire (can rewire because the arc set is a copy and modifications will not effect it)
+                    (*extendedNodeOutputArc)->setSrcPortUpdateNewUpdatePrev(enableOutputOutPort);
+
+                }//else, do not rewire
+            }
+        }
+    }
+}
+
+void EnabledSubSystem::extendContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                     std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    extendContextInputs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+    extendContextOutputs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+void EnabledSubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                   std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //Expand self
+    extendContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+
+    //Then run on children
+    SubSystem::extendEnabledSubsystemContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+std::vector<std::shared_ptr<Node>> EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextStack){
+    //Add this to the context stack
+    std::vector<Context> newContextStack = curContextStack;
+    newContextStack.push_back(Context(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()), 0)); //The sub-context for enabled subsystems is 0
+
+    //Update each of the nodes in this system with the input context + the context for this enabled subsystem
+    //Also, Find the multiplexers and enabled subsystems at this level
+    std::vector<std::shared_ptr<Mux>> discoveredMuxes;
+    std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
+    std::vector<std::shared_ptr<Node>> discoveredGeneral;
+
+    discoverAndUpdateContexts(newContextStack, discoveredMuxes, discoveredEnabledSubsystems, discoveredGeneral);
+
+    std::vector<std::shared_ptr<Node>> discoveredNodes;
+    discoveredNodes.insert(discoveredNodes.end(), discoveredMuxes.begin(), discoveredMuxes.end());
+    discoveredNodes.insert(discoveredNodes.end(), discoveredEnabledSubsystems.begin(), discoveredEnabledSubsystems.end());
+    discoveredNodes.insert(discoveredNodes.end(), discoveredGeneral.begin(), discoveredGeneral.end());
+
+    //Set the nodes in the context for this enabled subsystem
+    for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
+        addSubContextNode(0, discoveredMuxes[i]);
+    }
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
+        addSubContextNode(0, discoveredEnabledSubsystems[i]);
+    }
+    for(unsigned long i = 0; i<discoveredGeneral.size(); i++){
+        addSubContextNode(0, discoveredGeneral[i]);
+    }
+
+    //Get and mark the Mux contexts
+    //Note that context should be set for the nodes within this subsystem before this is called (done above)
+    Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
+
+    //Recursivly call on the discovered enabled subsystems
+    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
+        std::vector<std::shared_ptr<Node>> nestedDiscoveries = discoveredEnabledSubsystems[i]->discoverAndMarkContexts(newContextStack);
+
+        //Add nodes returned by recursive call
+        discoveredNodes.insert(discoveredNodes.end(), nestedDiscoveries.begin(), nestedDiscoveries.end());
+
+        //Add the nodes returned by the recursive call to the list of nodes within this context
+        for(unsigned long j = 0; j<nestedDiscoveries.size(); j++){
+            addSubContextNode(0, nestedDiscoveries[j]);
+        }
+    }
+
+    //Return all nodes in context (including ones from recursion)
+
+    return discoveredNodes;
+}
+
+void EnabledSubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    //Add this enabled subsystem's enable driver to the list of predecessor nodes
+    predecessorNodes.push_back(getEnableSrc()->getParent());
+
+    //Continue with normal orderConstraint logic
+    SubSystem::orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+}
+
+std::vector<Variable> EnabledSubSystem::getCContextVars(){
+    //Do not need any additional context vars
+
+    return std::vector<Variable>();
+}
+
+Variable EnabledSubSystem::getCContextVar(int contextVarIndex) {
+    //Do not need any additional context vars
+    return Variable();
+}
+
+bool EnabledSubSystem::requiresContiguousContextEmits(){
+    return false;
+}
+
+void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+    if(subContextNumber != 0){
+        throw std::runtime_error("Enabled Subsystem Only Has 1 Context, Tried to Open Context " + GeneralHelper::to_string(subContextNumber));
+    }
+
+    std::shared_ptr<OutputPort> enableDriverPort = getEnableSrc();
+    std::string enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+
+    std::string cExpr = "if(" + enableDriverExpr + "){";
+
+    cStatementQueue.push_back(cExpr);
+}
+
+void EnabledSubSystem::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextOpen functions
+    emitCContextOpenFirst(cStatementQueue, schedType, subContextNumber);
+}
+
+void EnabledSubSystem::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextOpen functions
+    emitCContextOpenFirst(cStatementQueue, schedType, subContextNumber);
+}
+
+void EnabledSubSystem::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+    if(subContextNumber != 0){
+        throw std::runtime_error("Enabled Subsystem Only Has 1 Context, Tried to Close Context " + GeneralHelper::to_string(subContextNumber));
+    }
+
+    cStatementQueue.push_back("}");
+}
+
+void EnabledSubSystem::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextClose functions
+    emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber);
+}
+
+void EnabledSubSystem::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+    //For EnabledSubsystems, there is no distinction between the different ContextClose functions
+    emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber);
+}
+
+int EnabledSubSystem::getNumSubContexts() const{
+    return 1; //There is only 1 context in an enabled subsystem
+
+    //You could technically say there is an empty second context for the case that the subsystem is not taken
+}
+
+std::vector<std::shared_ptr<Arc>> EnabledSubSystem::getContextDecisionDriver() {
+    std::vector<std::shared_ptr<Arc>> driverArcs;
+
+    for(unsigned long i = 0; i<enabledInputs.size(); i++) {
+        std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[i]->getEnablePort()->getArcs();
+        if (enableArcs.size() != 0) {
+            driverArcs.push_back(*(enableArcs.begin()));
+        }
+    }
+
+    for(unsigned long i = 0; i<enabledOutputs.size(); i++) {
+        std::set<std::shared_ptr<Arc>> enableArcs = enabledOutputs[i]->getEnablePort()->getArcs();
+        if (enableArcs.size() != 0) {
+            driverArcs.push_back(*(enableArcs.begin()));
+        }
+    }
+
+    return driverArcs;
+};

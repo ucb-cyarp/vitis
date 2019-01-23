@@ -473,11 +473,11 @@ Function: SubSystem</data>
 					<data key="instance_name">Data Type
 Propagation</data>
 					<data key="block_node_type">Standard</data>
-					<data key="block_function">S-Function</data>
+					<data key="block_function">DataTypePropagation</data>
 					<data key="block_label">Data Type
 Propagation
 ID: n6::n7
-Function: S-Function</data>
+Function: DataTypePropagation</data>
 					<data key="named_input_ports">0</data>
 					<data key="named_output_ports">0</data>
 					<data key="BiasAdd">0</data>

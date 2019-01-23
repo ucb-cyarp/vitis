@@ -24,6 +24,7 @@ class MasterNode : public Node {
 
 protected:
     MasterNode();
+    MasterNode(std::shared_ptr<SubSystem> parent, MasterNode* orig);
 
 public:
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;

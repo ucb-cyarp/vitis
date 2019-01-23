@@ -170,6 +170,15 @@ public:
      */
     DataType getDataType();
 
+    /**
+     * @brief Returns the sample time of the port
+     *
+     * @warning Validation should occur before this function is called to confirm the port is connected
+     *
+     * @return
+     */
+    double getSampleTime();
+
     //==== Getters/Setters ====
 
     //Do not provide setter to parent as the port is contained within the parent.  Needs to be initialized at the constructor.

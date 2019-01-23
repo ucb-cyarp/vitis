@@ -4,11 +4,15 @@
 
 #include "MasterInput.h"
 #include "General/GeneralHelper.h"
+#include "GraphCore/NodeFactory.h"
 
 MasterInput::MasterInput() {
 
 }
 
+MasterInput::MasterInput(std::shared_ptr<SubSystem> parent, MasterNode* orig) : MasterNode(parent, orig){
+
+}
 
 std::string MasterInput::getCInputName(int portNum) {
     return getOutputPort(portNum)->getName() + "_inPort" + GeneralHelper::to_string(portNum);
@@ -20,11 +24,15 @@ std::string MasterInput::getCInputName(int portNum) {
 //    return emitCExpr(cStatementQueue, outputPortNum, imag).getExpr();
 //}
 
-CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Get a Dummy Variable Object So We can use its formatter
     Variable var;
     var.setName(getCInputName(outputPortNum));
     var.setDataType(getOutputPort(outputPortNum)->getDataType());
 
     return CExpr(var.getCVarName(imag), true);
+}
+
+std::shared_ptr<Node> MasterInput::shallowClone(std::shared_ptr<SubSystem> parent) {
+    return NodeFactory::shallowCloneNode<MasterInput>(parent, this);
 }

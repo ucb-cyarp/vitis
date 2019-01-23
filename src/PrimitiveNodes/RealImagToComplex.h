@@ -86,9 +86,11 @@ public:
     /**
      * @brief Emits a C expression for the Complex to Real/Imag
      */
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag = false) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag = false) override;
 
 };
 
+/*@}*/
 
 #endif //VITIS_REALIMAGTOCOMPLEX_H

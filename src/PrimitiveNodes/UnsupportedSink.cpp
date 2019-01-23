@@ -83,7 +83,7 @@ void UnsupportedSink::validate() {
     std::cerr << "Warning: Unsupported Sink Node Exists in Design: " << getFullyQualifiedName() << " (" << nodeType << ")" << std::endl;
 }
 
-CExpr UnsupportedSink::emitCExpr(std::vector<std::string> &cStatementQueue, int outputPortNum, bool imag) {
+CExpr UnsupportedSink::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Do nothing
     return CExpr("", false);
 }

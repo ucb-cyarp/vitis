@@ -5,6 +5,8 @@
 #include "SubSystem.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/GeneralHelper.h"
+#include "General/GraphAlgs.h"
 
 SubSystem::SubSystem() {
 
@@ -113,3 +115,66 @@ SubSystem::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vect
     }
 }
 
+void SubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr<Node>> &new_nodes,
+                                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                           std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //Run this recursivly on child subsystems
+
+    //Find the subsystems in the list of children and work on them
+        //Note, we do this search first because nodes can be moved durring the recursive call
+        //However, subsystems are currently not moved, they are replicated
+
+    std::vector<std::shared_ptr<SubSystem>> childSubsystems;
+    for(auto child = children.begin(); child != children.end(); child++){
+        if(GeneralHelper::isType<Node, SubSystem>(*child) != nullptr){
+            childSubsystems.push_back(std::dynamic_pointer_cast<SubSystem>(*child));
+        }
+    }
+
+    for(unsigned long i = 0; i<childSubsystems.size(); i++){
+        //Adding a condition to check if the subsystem still has this node as parent.
+        //TODO: remove condition if subsystems are never moved
+        if(childSubsystems[i]->getParent() == getSharedPointer()){
+            childSubsystems[i]->extendEnabledSubsystemContext(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        }else{
+            throw std::runtime_error("Subsystem moved during enabled subsystem context expansion.  This was unexpected.");
+        }
+    }
+}
+
+void
+SubSystem::discoverAndUpdateContexts(std::vector<Context> contextStack,
+                                     std::vector<std::shared_ptr<Mux>> &discoveredMux,
+                                     std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                     std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
+    GraphAlgs::discoverAndUpdateContexts(children, contextStack, discoveredMux, discoveredEnabledSubSystems,
+                                         discoveredGeneral);
+}
+
+void SubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
+                                             std::vector<std::shared_ptr<Node>> &new_nodes,
+                                             std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                             std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+
+    for(auto child = children.begin(); child != children.end(); child++){
+        std::shared_ptr<SubSystem> childAsSubsystem = GeneralHelper::isType<Node, SubSystem>(*child);
+
+        if(childAsSubsystem){
+            childAsSubsystem->orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        }else{
+            if((*child)->inDegree() == 0){
+                //This child (which is not a subsystem), has 0 indegree
+                //Create order constraint arcs
+                for(unsigned long i = 0; i<predecessorNodes.size(); i++){
+                    if(predecessorNodes[i] != *child){
+                        std::shared_ptr<Arc> constraintArc = Arc::connectNodesOrderConstraint(predecessorNodes[i], *child);
+                        new_arcs.push_back(constraintArc);
+                    }
+                }
+            }
+        }
+    }
+
+}
