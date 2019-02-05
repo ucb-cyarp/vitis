@@ -41,7 +41,7 @@ codegen_cs.set_param('PostCodeGenCommand', '');   % Post code generation command
 codegen_cs.set_param('SaveLog', 'on');   % Save build log
 codegen_cs.set_param('TLCOptions', '');   % TLC command line options
 codegen_cs.set_param('GenerateReport', 'on');   % Create code generation report
-codegen_cs.set_param('LaunchReport', 'on');   % Open report automatically
+codegen_cs.set_param('LaunchReport', 'off');   % Open report automatically
 codegen_cs.set_param('IncludeHyperlinkInReport', 'on');   % Code-to-model
 codegen_cs.set_param('GenerateTraceInfo', 'on');   % Model-to-code
 codegen_cs.set_param('GenerateWebview', 'off');   % Generate model Web view
