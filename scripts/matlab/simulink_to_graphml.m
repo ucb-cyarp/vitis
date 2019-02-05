@@ -252,6 +252,11 @@ for i = 1:length(special_nodes)
         special_node.dialogProperties('H_File') = h_file_with_rtwtypes;
         special_node.dialogProperties('C_File') = c_file_content;
         special_node.dialogProperties('init_function') = [special_node.name '_initialize'];
+        special_node.dialogProperties('output_function') = [special_node.name '_output'];
+        special_node.dialogProperties('state_update_function') = [special_node.name '_update'];
+        special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U'];
+        special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y'];
+        special_node.dialogProperties('state_struct_name') = [special_node.name '_DW'];
     end
 end
 
