@@ -226,7 +226,7 @@ for i = 1:length(nodes) %Do not need to include VectorFan nodes in this list
     expandedNodeOrigName = node.getFullSimulinkPath();
     if node.isMaster()
         error('Master node should not be in general node list.  Expansion occurs seperatly.');
-    elseif node.isSpecial()
+    elseif node.isSpecial() && ~node.isStateflow()
         [expansion_occured, new_expanded_nodes, new_vector_fans, new_new_arcs, new_arcs_to_delete] = ExpandMultiInputSingleOutputNoStateOp(node);
         new_nodes = [new_nodes, new_expanded_nodes];
         vector_fans = [vector_fans, new_vector_fans];

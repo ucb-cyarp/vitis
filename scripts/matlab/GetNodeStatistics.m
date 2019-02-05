@@ -49,6 +49,13 @@ for iter = 1:length(nodes)
         else
             countMap(key) = 1;
         end
+    elseif(node.nodeType == 9)
+        key = sprintf(generalFormatStr, 'Stateflow');
+        if(isKey(countMap, key))
+            countMap(key) = countMap(key) + 1;
+        else
+            countMap(key) = 1;
+        end
     elseif(node.nodeType ~= 0)
         key = sprintf(generalFormatStr, 'Special Node');
         if(isKey(countMap, 'Special Node'))

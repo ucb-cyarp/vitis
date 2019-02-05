@@ -152,9 +152,27 @@ new_special_nodes = [];
 
 %Make sure this is the node handle
 node_simulink_handle = get_param(simulink_node, 'Handle');
+node_block_type = get_param(node_simulink_handle, 'BlockType');
 
-[block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
+%Check if this node is a Stateflow Chart
+isChart = false;
+if strcmp(node_block_type, 'SubSystem')
+    %The dst block is a SubSystem or a Stateflow Chart
+    subsystemType = get_param(node_simulink_handle, 'SFBlockType');
+    if strcmp(subsystemType, 'Chart')
+        isChart = true;
+    end
+end
 
+if(isChart)
+    [block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'Stateflow', node_handle_ir_map, system_ir_node);
+    if node_created
+        new_special_nodes = [new_special_nodes, block_ir_node];
+    end
+else
+    [block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
+end
+    
 if node_created
     %This node is not in the map and has therefore never been traversed.
     %Add this new node to the list

@@ -16,6 +16,18 @@ function PopulateNodeParametersFromSimulink(node, simulink_block_handle)
 node.simulinkHandle = simulink_block_handle;
 node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
 
+%Handle Stateflow which Returns a Type of Subsystem
+isStateflow = false;
+if strcmp(node.simulinkBlockType, 'SubSystem')
+    %Using solution from https://www.mathworks.com/matlabcentral/answers/156628-how-to-recognize-stateflow-blocks-using-simulink-api-get_param
+    %did not know about the SFBlockType parameter (I assume this means
+    %StateFlowBlockType.
+    subsystemType = get_param(simulink_block_handle, 'SFBlockType');
+    if strcmp(subsystemType, 'Chart')
+        isStateflow = true;
+    end
+end
+
 %---Get parameters from simulink---
 %Get the list of parameter names
 dialog_params = get_param(simulink_block_handle, 'DialogParameters');
@@ -290,10 +302,44 @@ elseif strcmp(node.simulinkBlockType, 'Saturate' )
 elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Signal' newline 'Attributes/Data Type' newline 'Propagation'])
         %Changing block type from 'S-Function'
         node.simulinkBlockType = 'DataTypePropagation';
-        
+
+%---- Output Ports ----
 elseif strcmp(node.simulinkBlockType, 'Outport' )
     node.dialogPropertiesNumeric('InitialOutput') = GetParamEval(simulink_block_handle, 'InitialOutput');
         
+elseif isStateflow
+    %Getting generated C files occures at a later stage.  Here, need to get
+    %port names
+    outports = find_system(node.getFullSimulinkPath(),  'FollowLinks', 'on', 'LoadFullyIfNeeded', 'on', 'LookUnderMasks', 'on', 'SearchDepth', 1, 'BlockType', 'Outport');
+
+    for i = 1:length(outports)
+        outport = outports(i);
+
+        %Get the port number of the inport, this will be used to distinguish
+        %the different inputs.
+        port_number_str = get_param(outport, 'Port'); %Returned as a string
+        port_number = str2double(port_number_str);
+
+        %Get port name and create entry in Output Master Node
+        port_name = get_param(outport, 'Name');
+        node.outputPorts{port_number} = port_name{1}; 
+    end
+    
+    inports = find_system(node.getFullSimulinkPath(),  'FollowLinks', 'on', 'LoadFullyIfNeeded', 'on', 'LookUnderMasks', 'on', 'SearchDepth', 1, 'BlockType', 'Inport');
+
+    for i = 1:length(inports)
+        inport = inports(i);
+
+        %Get the port number of the inport, this will be used to distinguish
+        %the different inputs.
+        port_number_str = get_param(inport, 'Port'); %Returned as a string
+        port_number = str2double(port_number_str);
+
+        %Get port name and create entry in Output Master Node
+        port_name = get_param(inport, 'Name');
+        node.inputPorts{port_number} = port_name{1}; 
+    end
+    
 %TODO: More Blocks
 end
     
