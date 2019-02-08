@@ -25,6 +25,7 @@ class MasterUnconnected;
 class Node;
 class Arc;
 class ContextRoot;
+class BlackBox;
 
 //This Class
 
@@ -484,6 +485,12 @@ public:
      * @return a vector of ContexRoots in the design
      */
     std::vector<std::shared_ptr<ContextRoot>> findContextRoots();
+
+    /**
+     * @brief Find BlackBox nodes in the design
+     * @return a vector of BlackBox nodes in the design
+     */
+    std::vector<std::shared_ptr<BlackBox>> findBlackBoxes();
 
     //TODO: Validate that mux contexts do not contain state elements
 
