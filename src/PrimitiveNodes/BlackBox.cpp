@@ -267,7 +267,7 @@ xercesc::DOMElement *
 BlackBox::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
     xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
     if(include_block_node_type) {
-        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "BlackBox");
     }
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "BlackBox");

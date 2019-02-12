@@ -2184,7 +2184,7 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
             std::vector<int> registeredPortNumbers = asBlackBox->getRegisteredOutputPorts();
 
             std::vector<std::shared_ptr<OutputPort>> outputPorts = designClone.nodes[i]->getOutputPorts();
-            for(unsigned long j = 0; j<outputPorts.size(); i++){
+            for(unsigned long j = 0; j<outputPorts.size(); j++){
                 //Check if the port number is in the list of registered output ports
                 if(std::find(registeredPortNumbers.begin(), registeredPortNumbers.end(), outputPorts[j]->getPortNum()) != registeredPortNumbers.end()){
                     //This port is registered, its output arcs can be removed

@@ -147,7 +147,7 @@ xercesc::DOMElement *
 SimulinkCoderFSM::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
     xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
     if(include_block_node_type) {
-        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
+        GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Stateflow");
     }
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Stateflow");
