@@ -9,6 +9,10 @@
 #include "GraphMLHelper.h"
 #include "XMLTranscoder.h"
 
+#include "GraphCore/Node.h"
+#include "GraphCore/InputPort.h"
+#include "GraphCore/OutputPort.h"
+
 using namespace xercesc;
 
 void GraphMLExporter::exportGraphML(std::string filename, Design &design) {
@@ -73,4 +77,42 @@ void GraphMLExporter::exportGraphML(std::string filename, Design &design) {
     serializer->release();
 
     XMLPlatformUtils::Terminate();
+}
+
+void GraphMLExporter::exportPortNames(std::shared_ptr<Node> node, xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode) {
+    std::vector<std::shared_ptr<InputPort>> inputPorts = node->getInputPorts();
+    std::vector<std::shared_ptr<OutputPort>> outputPorts = node->getOutputPorts();
+
+    //Emit port names
+    unsigned long numInputPorts = inputPorts.size();
+    unsigned long numOutputPorts = outputPorts.size();
+    GraphMLHelper::addDataNode(doc, graphNode, "named_input_ports", GeneralHelper::to_string(numInputPorts));
+    GraphMLHelper::addDataNode(doc, graphNode, "named_output_ports", GeneralHelper::to_string(numOutputPorts));
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        GraphMLHelper::addDataNode(doc, graphNode, "input_port_name_" + GeneralHelper::to_string(i), inputPorts[i]->getName());
+    }
+
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        GraphMLHelper::addDataNode(doc, graphNode, "output_port_name_" + GeneralHelper::to_string(i), outputPorts[i]->getName());
+    }
+}
+
+void GraphMLExporter::addPortNameProperties(std::shared_ptr<Node> node, std::set<GraphMLParameter> &graphMLParameters) {
+    std::vector<std::shared_ptr<InputPort>> inputPorts = node->getInputPorts();
+    std::vector<std::shared_ptr<OutputPort>> outputPorts = node->getOutputPorts();
+
+    graphMLParameters.insert(GraphMLParameter("named_input_ports", "int", true));
+    graphMLParameters.insert(GraphMLParameter("named_output_ports", "int", true));
+
+    unsigned long numInputPorts = inputPorts.size();
+    unsigned long numOutputPorts = outputPorts.size();
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        graphMLParameters.insert(GraphMLParameter("input_port_name_" + GeneralHelper::to_string(i) , "string", true));
+    }
+
+    for(unsigned long i = 0; i<numOutputPorts; i++){
+        graphMLParameters.insert(GraphMLParameter("output_port_name_" + GeneralHelper::to_string(i) , "string", true));
+    }
 }

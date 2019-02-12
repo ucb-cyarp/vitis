@@ -28,6 +28,7 @@
 #include "PrimitiveNodes/DataTypeDuplicate.h"
 #include "PrimitiveNodes/LogicalOperator.h"
 #include "PrimitiveNodes/UnsupportedSink.h"
+#include "PrimitiveNodes/SimulinkCoderFSM.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -623,7 +624,27 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             design.addTopLevelNode(newNode);
         }
         nodeMap[fullNodeID] = newNode;
-    } else{
+    } else if(blockType == "Stateflow"){
+        std::shared_ptr<Node> newNode = GraphMLImporter::importStateflowNode(fullNodeID, dataKeyValueMap, parent, dialect);
+        //Add new node to design and to name node map
+        design.addNode(newNode);
+        if(parent == nullptr){//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
+        nodeMap[fullNodeID] = newNode;
+    } else if(blockType == "BlackBox"){
+//        std::shared_ptr<Node> newNode = GraphMLImporter::importBlackBoxNode(fullNodeID, dataKeyValueMap, parent, dialect);
+//        //Add new node to design and to name node map
+//        design.addNode(newNode);
+//        if(parent == nullptr){//If the parent is null, add this to the top level node list
+//            design.addTopLevelNode(newNode);
+//        }
+//        nodeMap[fullNodeID] = newNode;
+
+        throw std::runtime_error("Generic Black Box Import Not Yet Implemented");
+        //TODO: Handle the importing of input and output access strings.  One technique is to make this similar to importNodePortNames
+        //For now: Stateflow is the only blackboxed module.  The emit logic is there for the blackbox, just not the access name importing
+    }else{
         throw std::runtime_error("Unknown Block Type");
     }
 
@@ -921,6 +942,44 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
 
     return newNode;
 }
+
+std::shared_ptr<Node> GraphMLImporter::importStateflowNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
+    std::string blockFunction = dataKeyValueMap.at("block_function");
+
+    std::shared_ptr<Node> newNode;
+    newNode = SimulinkCoderFSM::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+
+    return newNode;
+}
+
+//std::shared_ptr<Node> GraphMLImporter::importBlackBoxNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+//                                                           std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+//
+//    int id = Node::getIDFromGraphMLFullPath(idStr);
+//
+//    std::string name = "";
+//
+//    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+//        name = dataKeyValueMap["instance_name"];
+//    }
+//
+//    std::string blockFunction = dataKeyValueMap.at("block_function");
+//
+//    std::shared_ptr<Node> newNode;
+//    newNode = SimulinkCoderFSM::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+//
+//    return newNode;
+//}
 
 std::shared_ptr<EnableOutput> GraphMLImporter::importEnableOutputNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
                                                           std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {

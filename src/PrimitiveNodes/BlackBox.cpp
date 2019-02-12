@@ -46,12 +46,11 @@ BlackBox::BlackBox(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), s
 
 BlackBox::BlackBox(std::shared_ptr<SubSystem> parent, BlackBox *orig) : PrimitiveNode(parent, orig),
     exeCombinationalName(orig->exeCombinationalName), exeCombinationalRtnType(orig->exeCombinationalRtnType),
-    stateUpdateName(orig->stateUpdateName), cppHeaderContent(orig->cppHeaderContent),
-    cppBodyContent(orig->cppBodyContent), stateful(orig->stateful), registeredOutputPorts(orig->registeredOutputPorts),
-    returnMethod(orig->returnMethod), outputAccessRe(orig->outputAccessRe), outputAccessIm(orig->outputAccessIm),
-    previouslyEmitted(orig->previouslyEmitted)
+    stateUpdateName(orig->stateUpdateName), resetName(orig->resetName), cppHeaderContent(orig->cppHeaderContent),
+    cppBodyContent(orig->cppBodyContent), stateful(orig->stateful), reSuffix(orig->reSuffix), imSuffix(orig->imSuffix),
+    inputMethods(orig->inputMethods), inputAccess(orig->inputAccess), registeredOutputPorts(orig->registeredOutputPorts),
+    returnMethod(orig->returnMethod), outputAccess(orig->outputAccess), previouslyEmitted(orig->previouslyEmitted)
     {
-
 }
 
 std::string BlackBox::getExeCombinationalName() const {
@@ -126,20 +125,12 @@ void BlackBox::setReturnMethod(BlackBox::ReturnMethod returnMethod) {
     BlackBox::returnMethod = returnMethod;
 }
 
-std::vector<std::string> BlackBox::getOutputAccessRe() const {
-    return outputAccessRe;
+std::vector<std::string> BlackBox::getOutputAccess() const {
+    return outputAccess;
 }
 
-void BlackBox::setOutputAccessRe(const std::vector<std::string> &outputAccessRe) {
-    BlackBox::outputAccessRe = outputAccessRe;
-}
-
-std::vector<std::string> BlackBox::getOutputAccessIm() const {
-    return outputAccessIm;
-}
-
-void BlackBox::setOutputAccessIm(const std::vector<std::string> &outputAccessIm) {
-    BlackBox::outputAccessIm = outputAccessIm;
+void BlackBox::setOutputAccess(const std::vector<std::string> &outputAccess) {
+    BlackBox::outputAccess = outputAccess;
 }
 
 bool BlackBox::isPreviouslyEmitted() const {
@@ -154,7 +145,7 @@ bool BlackBox::hasState() {
     return stateful;
 }
 
-std::set<GraphMLParameter> BlackBox::graphMLParameters() {
+std::set<GraphMLParameter> BlackBox::graphMLParametersCommon(){
     std::set<GraphMLParameter> parameters;
 
     parameters.insert(GraphMLParameter("ExeCombinationalName", "string", true));
@@ -162,7 +153,15 @@ std::set<GraphMLParameter> BlackBox::graphMLParameters() {
     parameters.insert(GraphMLParameter("CppHeaderContent", "string", true));
     parameters.insert(GraphMLParameter("CppBodyContent", "string", true));
     parameters.insert(GraphMLParameter("Stateful", "bool", true));
-    parameters.insert(GraphMLParameter("OutputPortsFromState", "string", true));
+    parameters.insert(GraphMLParameter("RegisteredOutputPorts", "string", true));
+
+    return parameters;
+}
+
+std::set<GraphMLParameter> BlackBox::graphMLParameters() {
+    std::set<GraphMLParameter> parameters = graphMLParametersCommon();
+
+    //TODO: Finish with input/output port access import
 
     return parameters;
 }
@@ -173,6 +172,8 @@ BlackBox::createFromGraphML(int id, std::string name, std::map<std::string, std:
     std::shared_ptr<BlackBox> newNode = NodeFactory::createNode<BlackBox>(parent);
 
     newNode->populatePropertiesFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+
+    //TODO: Finish with input/output port access import
 
     return newNode;
 }
@@ -261,6 +262,15 @@ void BlackBox::setResetName(const std::string &resetName) {
     BlackBox::resetName = resetName;
 }
 
+void BlackBox::emitGraphMLCommon(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode) {
+    GraphMLHelper::addDataNode(doc, graphNode, "ExeCombinationalName", exeCombinationalName);
+    GraphMLHelper::addDataNode(doc, graphNode, "StateUpdateName", stateUpdateName);
+    GraphMLHelper::addDataNode(doc, graphNode, "CppHeaderContent", cppHeaderContent);
+    GraphMLHelper::addDataNode(doc, graphNode, "CppBodyContent", cppBodyContent);
+    GraphMLHelper::addDataNode(doc, graphNode, "Stateful", GeneralHelper::to_string(stateful));
+    GraphMLHelper::addDataNode(doc, graphNode, "RegisteredOutputPorts", GeneralHelper::vectorToString(registeredOutputPorts));
+}
+
 xercesc::DOMElement *
 BlackBox::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
     xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
@@ -270,12 +280,9 @@ BlackBox::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode,
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "BlackBox");
 
-    GraphMLHelper::addDataNode(doc, thisNode, "ExeCombinationalName", exeCombinationalName);
-    GraphMLHelper::addDataNode(doc, thisNode, "StateUpdateName", stateUpdateName);
-    GraphMLHelper::addDataNode(doc, thisNode, "CppHeaderContent", cppHeaderContent);
-    GraphMLHelper::addDataNode(doc, thisNode, "CppBodyContent", cppBodyContent);
-    GraphMLHelper::addDataNode(doc, thisNode, "Stateful", GeneralHelper::to_string(stateful));
-    GraphMLHelper::addDataNode(doc, thisNode, "RegisteredOutputPorts", GeneralHelper::vectorToString(registeredOutputPorts));
+    emitGraphMLCommon(doc, thisNode);
+
+    //TODO: Add emit for input/output port access method
 
     return thisNode;
 }
@@ -311,6 +318,18 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         }
 
         //==== Issue the call to the BlackBoxed function ====
+        //Check for external inputs and set them if they exist before the fctn call
+        for(unsigned long i = 0; i<numInputPorts; i++){
+            DataType inputDataType = getInputPort(i)->getDataType();
+            if(inputMethods[i] == InputMethod::EXT){
+                cStatementQueue.push_back((inputDataType.isComplex() ? inputAccess[i]+reSuffix : inputAccess[i]) + " = " + inputExprsRe[i] + ";");
+
+                if (getInputPort(i)->getDataType().isComplex()) {
+                    cStatementQueue.push_back(inputAccess[i]+imSuffix + " = " + inputExprsIm[i] + ";");
+                }
+            }
+        }
+
         std::string callExpr = "";
 
         if(returnMethod != BlackBox::ReturnMethod::NONE && returnMethod != BlackBox::ReturnMethod::EXT){
@@ -319,15 +338,20 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
 
         callExpr += exeCombinationalName + "(";
 
+        bool firstArg = true;
         for(unsigned long i = 0; i < numInputPorts; i++){
-            if(i != 0){
-                callExpr += ", ";
-            }
+            if(inputMethods[i] == InputMethod::FUNCTION_ARG) {
+                if (!firstArg) {
+                    callExpr += ", ";
+                } else {
+                    firstArg = false;
+                }
 
-            callExpr += inputExprsRe[i];
+                callExpr += inputExprsRe[i];
 
-            if(getInputPort(i)->getDataType().isComplex()){
-                callExpr += ", " + inputExprsIm[i];
+                if (getInputPort(i)->getDataType().isComplex()) {
+                    callExpr += ", " + inputExprsIm[i];
+                }
             }
         }
 
@@ -339,16 +363,19 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
     }
 
     //==== Return output ====
+
+    DataType outputType = getOutputPort(outputPortNum)->getDataType();
+
     if(returnMethod == BlackBox::ReturnMethod::SCALAR){
         return CExpr(rtnVarName, true);
     }else if(returnMethod == BlackBox::ReturnMethod::SCALAR_POINTER){
         return CExpr("*"+rtnVarName, true);
     }else if(returnMethod == BlackBox::ReturnMethod::OBJECT){
-        return CExpr(rtnVarName + "." + (imag ? outputAccessIm[outputPortNum] : outputAccessRe[outputPortNum]), true);
+        return CExpr(rtnVarName + "." + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), true);
     }else if(returnMethod == BlackBox::ReturnMethod::OBJECT_POINTER){
-        return CExpr(rtnVarName + "->" + (imag ? outputAccessIm[outputPortNum] : outputAccessRe[outputPortNum]), true);
+        return CExpr(rtnVarName + "->" + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), true);
     }else if(returnMethod == BlackBox::ReturnMethod::EXT){
-        return CExpr(imag ? outputAccessIm[outputPortNum] : outputAccessRe[outputPortNum], true);
+        return CExpr(imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum]), true);
     }else{
         throw std::runtime_error("Error During BlackBox Emit - Unexpected Return Type");
     }
@@ -399,6 +426,38 @@ bool BlackBox::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nod
     }
 
     return false;
+}
+
+std::vector<BlackBox::InputMethod> BlackBox::getInputMethods() const {
+    return inputMethods;
+}
+
+void BlackBox::setInputMethods(const std::vector<BlackBox::InputMethod> &inputMethods) {
+    BlackBox::inputMethods = inputMethods;
+}
+
+std::vector<std::string> BlackBox::getInputAccess() const {
+    return inputAccess;
+}
+
+void BlackBox::setInputAccess(const std::vector<std::string> &inputAccess) {
+    BlackBox::inputAccess = inputAccess;
+}
+
+std::string BlackBox::getReSuffix() const {
+    return reSuffix;
+}
+
+void BlackBox::setReSuffix(const std::string &reSuffix) {
+    BlackBox::reSuffix = reSuffix;
+}
+
+std::string BlackBox::getImSuffix() const {
+    return imSuffix;
+}
+
+void BlackBox::setImSuffix(const std::string &imSuffix) {
+    BlackBox::imSuffix = imSuffix;
 }
 
 

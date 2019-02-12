@@ -307,6 +307,7 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Si
 elseif strcmp(node.simulinkBlockType, 'Outport' )
     node.dialogPropertiesNumeric('InitialOutput') = GetParamEval(simulink_block_handle, 'InitialOutput');
         
+%---- Stateflow ----
 elseif isStateflow
     %Getting generated C files occures at a later stage.  Here, need to get
     %port names

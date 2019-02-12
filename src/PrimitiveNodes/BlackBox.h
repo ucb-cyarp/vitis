@@ -19,7 +19,7 @@
  *
  * The C/C++ function is allowed to have state.  If the function does include state, then the corresponding instance
  * varible in this class should be set to true.  For statefull black boxes, 3 functions should be supplied:
- *   * exeCombonational (arguments are input port expressions in order)
+ *   * exeCombonational (arguments are input port expressions in order).  Input ports covered by external (global variables) are also OK and will be removed from the argument list for the function
  *   * stateUpdate (no arguments)
  *   * reset (no arguments)
  * exeCombonational is called when the BlackBox is scheduled.  The order of operands should match the input port numbering.
@@ -43,10 +43,15 @@ public:
         EXT ///< The function modifies external variables (or globals)
     };
 
+    enum class InputMethod{
+        FUNCTION_ARG, ///< The input is fed directly to the function as an argument in the function call
+        EXT ///< The input is in an external (global) variable and must be set before the function call
+    };
+
     static ReturnMethod parseReturnMethodStr(std::string str);
     static std::string returnMethodToStr(ReturnMethod returnMethod);
 
-    //TODO: ADD PARSER METHOD, ADD ReturnMethod and OutputAccess to Clone Constructor
+    //TODO: ADD PARSER METHODS for ENUMS, ADD Generic Black Box Importer (exp for Port Access Names)
 
 private:
     std::string exeCombinationalName; ///<The name of the exeCombinational function (called to process inputs and compute outputs
@@ -56,13 +61,17 @@ private:
     std::string cppHeaderContent; ///<The content of the C/C++ header file for this node.  The header should be properly wrapped with the #ifndef #def convention
     std::string cppBodyContent; ///<The content of the C/C++ file for this node
     bool stateful; ///<Denotes if this black box node is stateful or not
+    std::string reSuffix; ///<If a port is complex, this represents the suffix appended to the signal name for the real component
+    std::string imSuffix; ///<If a port is complex, this represents the suffix appended to the signal name for the imag component
+    std::vector<InputMethod> inputMethods; ///<Denotes the method used to pass a given input to the function
+    std::vector<std::string> inputAccess; ///<If InputMethod is EXT, specifies the name of the input port's external variable.  An entry in this array must be specified for each port if any port has an InputMethod of EXT
     std::vector<int> registeredOutputPorts; ///<If this node is stateful, identifies which outputs are registered
     ReturnMethod returnMethod; ///< The method by which the outputs of the BlackBox function calls are retrieved
-    std::vector<std::string> outputAccessRe; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, specifies the name for each output in the returned data structure (if in an object) or ext variable name (real component)
-    std::vector<std::string> outputAccessIm; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, specifies the name for each output in the returned data structure (if in an object) or ext variable name (imag component) @note If any port is complex, an entry must be supplied for imag component.  This entry can be an empty string
+    std::vector<std::string> outputAccess; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, specifies the name for each output in the returned data structure (if in an object) or ext variable name (real component)
     bool previouslyEmitted; ///<Used to check if the node has already been emitted before
 
     //==== Constructors ====
+protected:
     /**
      * @brief Constructs an empty BlackBox node
      *
@@ -122,14 +131,23 @@ public:
     ReturnMethod getReturnMethod() const;
     void setReturnMethod(ReturnMethod returnMethod);
 
-    std::vector<std::string> getOutputAccessRe() const;
-    void setOutputAccessRe(const std::vector<std::string> &outputAccessRe);
-
-    std::vector<std::string> getOutputAccessIm() const;
-    void setOutputAccessIm(const std::vector<std::string> &outputAccessIm);
+    std::vector<std::string> getOutputAccess() const;
+    void setOutputAccess(const std::vector<std::string> &outputAccess);
 
     bool isPreviouslyEmitted() const;
     void setPreviouslyEmitted(bool previouslyEmitted);
+
+    std::vector<InputMethod> getInputMethods() const;
+    void setInputMethods(const std::vector<InputMethod> &inputMethods);
+
+    std::vector<std::string> getInputAccess() const;
+    void setInputAccess(const std::vector<std::string> &inputAccess);
+
+    std::string getReSuffix() const;
+    void setReSuffix(const std::string &reSuffix);
+
+    std::string getImSuffix() const;
+    void setImSuffix(const std::string &imSuffix);
 
     //====Factories====
     /**
@@ -170,6 +188,18 @@ public:
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
+
+    /**
+     * @brief Get the GraphML Parameters that are common to BlackBox and its successors (namely StateFlow)
+     */
+    std::set<GraphMLParameter> graphMLParametersCommon();
+
+    /**
+     * @brief Emits the graphML that is common to BlackBox and its successors (namely StateFlow)
+     * @param doc the xml document being emitted into
+     * @param graphNode the xml node for this node
+     */
+    void emitGraphMLCommon(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
