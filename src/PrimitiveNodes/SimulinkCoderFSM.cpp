@@ -94,7 +94,7 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
     std::vector<std::string> inputAccess;
     for(unsigned long i = 0; i<inputPorts.size(); i++){
         inputMethods.push_back(BlackBox::InputMethod::EXT);
-        inputAccess.push_back(newNode->getInputPort(i)->getName());
+        inputAccess.push_back(inputsStructNameStr + "." + newNode->getInputPort(i)->getName()); //Prepend stucture name here
     }
     newNode->setInputMethods(inputMethods);
     newNode->setInputAccess(inputAccess);
@@ -103,7 +103,7 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
     std::vector<std::shared_ptr<OutputPort>> outputPorts = newNode->getOutputPorts();
     std::vector<std::string> outputAccess;
     for(unsigned long i = 0; i<outputPorts.size(); i++){
-        outputAccess.push_back(newNode->getOutputPort(i)->getName());
+        outputAccess.push_back(outputsStructNameStr + "." + newNode->getOutputPort(i)->getName());
     }
     newNode->setOutputAccess(outputAccess);
 
