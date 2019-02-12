@@ -192,35 +192,32 @@ BlackBox::populatePropertiesFromGraphML(int id, std::string name, std::map<std::
     std::string statefulStr;
     std::string registeredOutputPortsStr;
 
-    if(dialect == GraphMLDialect::VITIS){
-        //Vitis Name -- InputSigns
+    //Vitis Name -- InputSigns
+    if(dataKeyValueMap.find("ExeCombinationalName") != dataKeyValueMap.end()) {
         exeCombinationalNameStr = dataKeyValueMap.at("ExeCombinationalName");  //Required
+    }else{
+        exeCombinationalNameStr = "";
+    }
 
-        if(dataKeyValueMap.find("StateUpdateName") != dataKeyValueMap.end()) {
-            stateUpdateNameStr = dataKeyValueMap.at("StateUpdateName");
-        }else{
-            stateUpdateNameStr = "";
-        }
+    if(dataKeyValueMap.find("StateUpdateName") != dataKeyValueMap.end()) {
+        stateUpdateNameStr = dataKeyValueMap.at("StateUpdateName");
+    }else{
+        stateUpdateNameStr = "";
+    }
 
-        cppHeaderContentStr = dataKeyValueMap.at("CppHeaderContent"); //Required
-        cppBodyContentStr = dataKeyValueMap.at("CppBodyContent"); //Required
+    cppHeaderContentStr = dataKeyValueMap.at("CppHeaderContent"); //Required
+    cppBodyContentStr = dataKeyValueMap.at("CppBodyContent"); //Required
 
-        if(dataKeyValueMap.find("Stateful") != dataKeyValueMap.end()) { //stateful bay not be present (is overidden by the SimulinkCoderFSM)
-            statefulStr = dataKeyValueMap.at("Stateful");
-        }else{
-            statefulStr = "false";
-        }
+    if(dataKeyValueMap.find("Stateful") != dataKeyValueMap.end()) { //stateful bay not be present (is overidden by the SimulinkCoderFSM)
+        statefulStr = dataKeyValueMap.at("Stateful");
+    }else{
+        statefulStr = "false";
+    }
 
-        if(dataKeyValueMap.find("RegisteredOutputPorts") != dataKeyValueMap.end()) { //stateful bay not be present (is overidden by the SimulinkCoderFSM)
-            registeredOutputPortsStr = dataKeyValueMap.at("RegisteredOutputPorts");
-        }else{
-            registeredOutputPortsStr = "";
-        }
-
-    } else
-    {
-        //Simulink import not yet supported.
-        throw std::runtime_error("Unsupported Dialect when parsing XML - BlackBox");
+    if(dataKeyValueMap.find("RegisteredOutputPorts") != dataKeyValueMap.end()) { //stateful bay not be present (is overidden by the SimulinkCoderFSM)
+        registeredOutputPortsStr = dataKeyValueMap.at("RegisteredOutputPorts");
+    }else{
+        registeredOutputPortsStr = "";
     }
 
     exeCombinationalName = exeCombinationalNameStr;
@@ -228,15 +225,10 @@ BlackBox::populatePropertiesFromGraphML(int id, std::string name, std::map<std::
     cppHeaderContent = cppHeaderContentStr;
     cppBodyContentStr = cppBodyContentStr;
 
-    std::vector<NumericValue> statefulNumeric = NumericValue::parseXMLString(statefulStr);
-    if(statefulNumeric.size()!=1){
-        throw std::runtime_error("Error Parsing XML for BlackBox - Stateful");
+    if(statefulStr == "" || statefulStr == "false" || statefulStr == "0"){
+        stateful = false;
     }else{
-        if((!statefulNumeric[0].isFractional()) && (!statefulNumeric[0].isComplex())){
-            stateful = (statefulNumeric[0].getRealInt() != 0);
-        }else{
-            throw std::runtime_error("Error Parsing XML for BlackBox - Stateful");
-        }
+        stateful = true;
     }
 
     std::vector<NumericValue> registeredOutputPortsNumeric = NumericValue::parseXMLString(registeredOutputPortsStr);

@@ -241,8 +241,10 @@ void Design::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *root) {
             defaultVal = "0";
         } else if(parameter->getType() == "double"){
             defaultVal = "0.0";
+        } else if(parameter->getType() == "bool" || parameter->getType() == "boolean"){
+            defaultVal = "false";
         } else{
-            throw std::runtime_error("Unexpected attribute type");
+            throw std::runtime_error("Unexpected attribute type: " + parameter->getType());
         }
 
         xercesc::DOMElement* defaultNode = GraphMLHelper::createEncapulatedTextNode(doc, "default", defaultVal);
