@@ -223,7 +223,7 @@ BlackBox::populatePropertiesFromGraphML(int id, std::string name, std::map<std::
     exeCombinationalName = exeCombinationalNameStr;
     stateUpdateName = stateUpdateNameStr;
     cppHeaderContent = cppHeaderContentStr;
-    cppBodyContentStr = cppBodyContentStr;
+    cppBodyContent = cppBodyContentStr;
 
     if(statefulStr == "" || statefulStr == "false" || statefulStr == "0"){
         stateful = false;

@@ -248,9 +248,10 @@ for i = 1:length(special_nodes)
         rtwtypes_content = transpose(rtwtypes_content);
 
         h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
+        c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
         
         special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
-        special_node.dialogProperties('CppBodyContent') = c_file_content;
+        special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
         special_node.dialogProperties('init_function') = [special_node.name '_initialize'];
         special_node.dialogProperties('output_function') = [special_node.name '_output'];
         special_node.dialogProperties('state_update_function') = [special_node.name '_update'];
