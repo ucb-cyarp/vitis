@@ -85,8 +85,8 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
     newNode->setResetName(initFctnStr); //It appears that in the Simulink Coder Stateflow Generated C, init accomplishes the same as reset
     //Body and header contents imported in populateProperties method above
     newNode->setStateful(true);
-    newNode->setReSuffix("_re");
-    newNode->setImSuffix("_im");
+    newNode->setReSuffix(".re"); //In the current simulink settings, complex types are structures
+    newNode->setImSuffix(".im");
 
     //Input ports are external for the current style of Simulink Code Generation
     std::vector<std::shared_ptr<InputPort>> inputPorts = newNode->getInputPorts();
