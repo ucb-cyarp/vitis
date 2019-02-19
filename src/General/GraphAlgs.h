@@ -132,6 +132,27 @@ public:
      * @return a list of found nodes
      */
     static std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch);
+
+    /**
+     * @brief Creates a the StateUpdate node for the given node (in the style of Delay)
+     *
+     *
+     *
+     * Creates the state update for the node.
+     *
+     * The StateUpdate Node is dependent on:
+     *   - Next state calculated (calculated when Delay node scheduled) -> order constraint on delay node
+     *      - The next state is stored in a temporary.  This would be redundant (the preceding operation should produce
+     *        a single assignmnent to a temporary) except for the case when there is another state element.  In that case
+     *        a temporary variable is not
+     *   - Each node dependent on the output of the delay (order constraint only)
+     *
+     */
+    static bool createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNode,
+                                                std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
 

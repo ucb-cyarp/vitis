@@ -546,6 +546,10 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             //This is an integer type
             //For now, we only support integer first breakpoints for integers
 
+            //Round up the type to the nearest integer type
+            int numCPUBits = indexType.getCPUStorageType().getTotalBits();
+            indexType.setTotalBits(numCPUBits);
+
             indexExpr = "(" + inputExpr + ") - (" + GeneralHelper::to_string((breakpoints[0])[0].getRealInt()) + ")";
 
             if(breakpointStep<1){

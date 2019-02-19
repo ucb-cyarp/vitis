@@ -15,6 +15,7 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                  % 6 = Master
                  % 7 = Expanded (Node which has been expanded into a subsystem)
                  % 8 = VectorFan
+                 % 9 = Stateflow
         
         simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
@@ -104,6 +105,8 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 type = 'Expanded';
             elseif obj.nodeType == 8
                 type = 'VectorFan';
+            elseif obj.nodeType == 9
+                type = 'Stateflow';
             else
                 type = 'Error';
             end
@@ -129,8 +132,10 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 obj.nodeType = 7;
             elseif strcmp(type, 'VectorFan') %VectorFan object
                 obj.nodeType = 8;
-            else
+            elseif strcmp(type, 'Stateflow')
                 obj.nodeType = 9;
+            else
+                obj.nodeType = 10;
                 error(['''', type, ''' is not a recognized node type']);
             end
         end
@@ -270,8 +275,9 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
         
         function special = isSpecial(obj)
-            %isMaster Returns true if the node is a special Input/Output node
-            special = obj.nodeType == 3 || obj.nodeType == 4;
+            %isMaster Returns true if the node is a special Input/Output
+            %node or a Stateflow node
+            special = obj.nodeType == 3 || obj.nodeType == 4 || obj.nodeType == 9;
         end
         
         function special = isSpecialInput(obj)
@@ -282,6 +288,11 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function special = isSpecialOutput(obj)
             %isSpecialOutput Returns true if the node is a special Output node
             special = obj.nodeType == 4;
+        end
+        
+        function special = isStateflow(obj)
+            %isSpecialOutput Returns true if the node is a Stateflow node
+            special = obj.nodeType == 9;
         end
         
         function emitDialogParameters(obj, file, numTabs)
@@ -360,7 +371,7 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         
         function nodeLabelStr = labelStr(obj)
                nodeLabelStr = sprintf('%s\nID: %s', obj.name, obj.getFullIDPath('::', 'n%d', false));
-               if ~obj.isVectorFan() && ~obj.isMaster()
+               if ~obj.isVectorFan() && ~obj.isMaster() && ~obj.isStateflow()
                    nodeLabelStr = [nodeLabelStr, sprintf('\nFunction: %s', obj.simulinkBlockType)];
                else
                    nodeLabelStr = [nodeLabelStr, sprintf('\nType: %s', obj.getNodeTypeText())];

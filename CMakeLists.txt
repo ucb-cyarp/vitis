@@ -142,6 +142,10 @@ set(COMMON_SRCS
         src/PrimitiveNodes/LogicalOperator.h
         src/PrimitiveNodes/UnsupportedSink.cpp
         src/PrimitiveNodes/UnsupportedSink.h
+        src/PrimitiveNodes/BlackBox.cpp
+        src/PrimitiveNodes/BlackBox.h
+        src/PrimitiveNodes/SimulinkCoderFSM.cpp
+        src/PrimitiveNodes/SimulinkCoderFSM.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp

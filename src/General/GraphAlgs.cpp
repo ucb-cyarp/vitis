@@ -9,6 +9,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
+#include "GraphCore/StateUpdate.h"
 
 #include <iostream>
 
@@ -435,4 +436,46 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     }
 
     return schedule;
+}
+
+bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNode,
+                                                std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+    //Create a state update node for this delay
+    std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(statefulNode->getParent());
+    stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
+    stateUpdate->setPrimaryNode(statefulNode);
+    statefulNode->setStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
+    //Set context to be the same as the primary node
+    std::vector<Context> primarayContex = statefulNode->getContext();
+    stateUpdate->setContext(primarayContex);
+
+    //Add node to the lowest level context (if such a context exists
+    if(!primarayContex.empty()){
+        Context specificContext = primarayContex[primarayContex.size()-1];
+        specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+    }
+
+    new_nodes.push_back(stateUpdate);
+
+    //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
+    std::set<std::shared_ptr<Node>> connectedOutNodes = statefulNode->getConnectedOutputNodes();
+
+    for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
+        std::shared_ptr<Node> connectedOutNode = *it;
+        if(connectedOutNode == nullptr){
+            throw std::runtime_error("Encountered Arc with Null Dst when Wiring State Update");
+        }
+        std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(connectedOutNode, stateUpdate); //Datatype and sample time are not important, use defaults
+        new_arcs.push_back(orderConstraint);
+    }
+
+    //make this node dependent on the stateful block (prevents the update from occuring until the new state has been calculated for the stateful node -> this occurs when the stateful node is scheduled)
+    //Do this after adding the dependencies on the output nodes to avoid creating a false loop
+    std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(statefulNode, stateUpdate); //Datatype and sample time are not important, use defaults
+    new_arcs.push_back(orderConstraint);
+
+    return true;
 }

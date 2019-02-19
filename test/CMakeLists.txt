@@ -54,6 +54,7 @@ add_executable(testRunner
         src/DSP_TestAGC.cpp
         src/TestEnabledSubsys.cpp
         src/DSP_TestFastRxBaseband.cpp
+        src/DSP_Stateflow_CoarseCFO_est.cpp
         )
 
 target_link_libraries(testRunner gtest_main VitisLib ${XercesC_LIBRARIES})

@@ -126,7 +126,6 @@ end
 %Get a list of Inports within system
 outports = find_system(system,  'FollowLinks', 'on', 'LoadFullyIfNeeded', 'on', 'LookUnderMasks', 'on', 'SearchDepth', 1, 'BlockType', 'Outport');
 
-%Call the arc follower on each
 for i = 1:length(outports)
     outport = outports(i);
     
@@ -135,7 +134,7 @@ for i = 1:length(outports)
     port_number_str = get_param(outport, 'Port'); %Returned as a string
     port_number = str2double(port_number_str);
     
-    %Get port name and create entry in Input Master Node
+    %Get port name and create entry in Output Master Node
     port_name = get_param(outport, 'Name');
     output_master_node.inputPorts{port_number} = port_name{1}; 
 end
@@ -156,32 +155,36 @@ if verbose >= 1
     disp('[SimulinkToGraphML] **** Connecting Enable Ports to Drivers ****');
 end
 
-%Interate through the special nodes
+%Interate through the special nodes (SpecialInputs, SpecialOutputs, and
+%Stateflow)
 for i = 1:length(special_nodes)
     special_node = special_nodes(i);
     
-    %Get the enable driver from the parent node
-    %Special nodes are direct children of the enabled subsystem node which
-    %contains the enable driver information
-    special_node_parent = special_node.parent;
-    
-    en_driver_node = special_node_parent.en_in_src_node;
-    en_driver_port = special_node_parent.en_in_src_port;
-    
-    %Now, make an arc to the special port.  The enable port for all special
-    %nodes is 2
-    if isempty(en_driver_node) || isempty(en_driver_port)
-        error(['Enable Driver for ' special_node.getFullSimulinkPath() ' not found!'])
+    if ~special_node.isStateflow()
+        %==== Wire Special Input / Special Output Node ====
+        %Get the enable driver from the parent node
+        %Special nodes are direct children of the enabled subsystem node which
+        %contains the enable driver information
+        special_node_parent = special_node.parent;
+
+        en_driver_node = special_node_parent.en_in_src_node;
+        en_driver_port = special_node_parent.en_in_src_port;
+
+        %Now, make an arc to the special port.  The enable port for all special
+        %nodes is 2
+        if isempty(en_driver_node) || isempty(en_driver_port)
+            error(['Enable Driver for ' special_node.getFullSimulinkPath() ' not found!'])
+        end
+
+        newArc = GraphArc.createEnableArc(en_driver_node, en_driver_port, special_node, 2);
+
+        if exist('verbose', 'var') && verbose >= 3
+            disp(['[SimulinkToGraphML] Imported Arc: ' newArc.srcNode.getFullSimulinkPath() ':' num2str(newArc.srcPortNumber) ' -> ' newArc.dstNode.getFullSimulinkPath() ':'  newArc.dstPortTypeStr() ':' num2str(newArc.dstPortNumber)]);
+        end
+
+        %Add the arc back to the list
+        arcs = [arcs, newArc];
     end
-    
-    newArc = GraphArc.createEnableArc(en_driver_node, en_driver_port, special_node, 2);
-    
-    if exist('verbose', 'var') && verbose >= 3
-        disp(['[SimulinkToGraphML] Imported Arc: ' newArc.srcNode.getFullSimulinkPath() ':' num2str(newArc.srcPortNumber) ' -> ' newArc.dstNode.getFullSimulinkPath() ':'  newArc.dstPortTypeStr() ':' num2str(newArc.dstPortNumber)]);
-    end
-    
-    %Add the arc back to the list
-    arcs = [arcs, newArc];
     
 end
 
@@ -189,6 +192,84 @@ end
 %Need to do this after enable arc creation so that datatypes can be
 %captured
 top_system_func([], [], [], 'term');
+
+%% Generate Stateflow C
+%Do this after terminating model as this will change (and then restore) the
+%model config.
+
+%Change to a temp dir
+current_dir = pwd;
+paths = path;
+contains_path = contains(path, current_dir);
+if(~contains_path)
+    addpath(current_dir);
+end
+rtwdemodir();
+
+%Get the orig model config
+orig_model_config = getActiveConfigSet(simulink_file);
+
+%Create a copy of the config with the codegen options set.  Keeps model
+%solver settings.
+curTime = datetime;
+new_cfg_name = [orig_model_config.Name '-tmp' num2str(round(posixtime(curTime)))];
+
+stateflow_codegen_model_config = CreateStateFlowCodeGenCS(orig_model_config);
+stateflow_codegen_model_config.Name = new_cfg_name;
+attachConfigSet(simulink_file, stateflow_codegen_model_config);
+setActiveConfigSet(simulink_file, new_cfg_name);
+
+for i = 1:length(special_nodes)
+    special_node = special_nodes(i);
+    
+    if special_node.isStateflow()
+        if verbose >= 1
+            disp(['[SimulinkToGraphML] Generating C Code for Stateflow Chart: ' special_node.getFullSimulinkPath()]);
+        end
+        
+        %Build the model
+        rtwbuild(special_node.getFullSimulinkPath(), 'generateCodeOnly', true);
+
+        %Read the generated files & set them as a node property
+        gen_dir_path = [special_node.name '_ert_rtw'];
+        c_file = fopen([gen_dir_path '/' special_node.name '.c'], 'r');
+        c_file_content = fread(c_file, '*char');
+        fclose(c_file);
+        c_file_content = transpose(c_file_content);
+        
+        h_file = fopen([gen_dir_path '/' special_node.name '.h'], 'r');
+        h_file_content = fread(h_file, '*char');
+        fclose(h_file);
+        h_file_content = transpose(h_file_content);
+        
+        rtwtypes_file = fopen([gen_dir_path '/rtwtypes.h'], 'r');
+        rtwtypes_content = fread(rtwtypes_file, '*char');
+        fclose(rtwtypes_file);
+        rtwtypes_content = transpose(rtwtypes_content);
+
+        h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
+        c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
+        
+        special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
+        special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
+        special_node.dialogProperties('init_function') = [special_node.name '_initialize'];
+        special_node.dialogProperties('output_function') = [special_node.name '_output'];
+        special_node.dialogProperties('state_update_function') = [special_node.name '_update'];
+        special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U'];
+        special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y'];
+        special_node.dialogProperties('state_struct_name') = [special_node.name '_DW'];
+    end
+end
+
+%Restore orig model config set
+setActiveConfigSet(simulink_file, orig_model_config.Name);
+%Remove stateflow codegen config set
+detachConfigSet(simulink_file, new_cfg_name);
+
+cd(current_dir);
+if(~contains_path)
+    rmpath(current_dir);
+end
 
 %% Expand graph & cleanup busses
 

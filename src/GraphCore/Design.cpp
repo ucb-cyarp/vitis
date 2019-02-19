@@ -20,6 +20,7 @@
 #include "GraphCore/Variable.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Mux.h"
+#include "PrimitiveNodes/BlackBox.h"
 #include "ContextContainer.h"
 #include "ContextFamilyContainer.h"
 
@@ -240,8 +241,10 @@ void Design::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *root) {
             defaultVal = "0";
         } else if(parameter->getType() == "double"){
             defaultVal = "0.0";
+        } else if(parameter->getType() == "bool" || parameter->getType() == "boolean"){
+            defaultVal = "false";
         } else{
-            throw std::runtime_error("Unexpected attribute type");
+            throw std::runtime_error("Unexpected attribute type: " + parameter->getType());
         }
 
         xercesc::DOMElement* defaultNode = GraphMLHelper::createEncapulatedTextNode(doc, "default", defaultVal);
@@ -1089,6 +1092,18 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     headerFile << std::endl;
 
+    //Insert BlackBox Headers
+    std::vector<std::shared_ptr<BlackBox>> blackBoxes = findBlackBoxes();
+    if(blackBoxes.size() > 0) {
+        headerFile << "//==== BlackBox Headers ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            headerFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
+            headerFile << blackBoxes[i]->getCppHeaderContent() << std::endl;
+            headerFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
+        }
+    }
+
     headerFile << "#endif" << std::endl;
 
     headerFile.close();
@@ -1123,6 +1138,19 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
     for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
         cFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
+    }
+
+    cFile << std::endl;
+
+    //Emit BlackBox C++ functions
+    if(blackBoxes.size() > 0) {
+        cFile << "//==== BlackBox Functions ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            cFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Functions ****" << std::endl;
+            cFile << blackBoxes[i]->getCppBodyContent() << std::endl;
+            cFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Functions ****" << std::endl;
+        }
     }
 
     cFile << std::endl;
@@ -1191,6 +1219,15 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                     }
                 }
             }
+        }
+    }
+
+    //Call the reset functions of blackboxes if they have state
+    if(blackBoxes.size() > 0) {
+        cFile << "//==== Reset BlackBoxes ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            cFile << blackBoxes[i]->getResetName() << "();" << std::endl;
         }
     }
 
@@ -2131,12 +2168,39 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
     std::set<std::shared_ptr<Node>> nodesToRemove;
 
     for(unsigned long i = 0; i<designClone.nodes.size(); i++){
-        if(GeneralHelper::isType<Node, Constant>(designClone.nodes[i]) != nullptr){
+        if(GeneralHelper::isType<Node, Constant>(designClone.nodes[i]) != nullptr) {
             //This is a constant node, disconnect it and remove it from the graph to be ordered
             std::set<std::shared_ptr<Arc>> newArcsToDelete = designClone.nodes[i]->disconnectNode();
             arcsToDelete.insert(newArcsToDelete.begin(), newArcsToDelete.end());
 
             nodesToRemove.insert(designClone.nodes[i]);
+        }else if(GeneralHelper::isType<Node, BlackBox>(designClone.nodes[i]) != nullptr){
+            std::shared_ptr<BlackBox> asBlackBox = std::dynamic_pointer_cast<BlackBox>(designClone.nodes[i]);
+
+            //We need to treat black boxes a little differently.  They may have state but their outputs may not
+            //be registered (could be cominationally dependent on the input signals).
+            //We should only disconnect arcs to outputs that are registered.
+
+            std::vector<int> registeredPortNumbers = asBlackBox->getRegisteredOutputPorts();
+
+            std::vector<std::shared_ptr<OutputPort>> outputPorts = designClone.nodes[i]->getOutputPorts();
+            for(unsigned long j = 0; j<outputPorts.size(); j++){
+                //Check if the port number is in the list of registered output ports
+                if(std::find(registeredPortNumbers.begin(), registeredPortNumbers.end(), outputPorts[j]->getPortNum()) != registeredPortNumbers.end()){
+                    //This port is registered, its output arcs can be removed
+
+                    std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[j]->getArcs();
+                    for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                        std::shared_ptr<StateUpdate> dstAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>((*it)->getDstPort()->getParent());
+                        if(dstAsStateUpdate == nullptr || (dstAsStateUpdate != nullptr && dstAsStateUpdate->getPrimaryNode() != (*it)->getSrcPort()->getParent())){
+                            (*it)->disconnect();
+                            arcsToDelete.insert(*it);
+                        }
+                        //Else, this is a State node connected to its StateUpdate node and should not be removed
+                    }
+                }
+            }
+
         }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
             //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
             //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed
@@ -2487,6 +2551,20 @@ std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
     }
 
     return contextRoots;
+}
+
+std::vector<std::shared_ptr<BlackBox>> Design::findBlackBoxes(){
+    std::vector<std::shared_ptr<BlackBox>> blackBoxes;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        std::shared_ptr<BlackBox> nodeAsBlackBox = GeneralHelper::isType<Node, BlackBox>(nodes[i]);
+
+        if(nodeAsBlackBox){
+            blackBoxes.push_back(nodeAsBlackBox);
+        }
+    }
+
+    return blackBoxes;
 }
 
 void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,

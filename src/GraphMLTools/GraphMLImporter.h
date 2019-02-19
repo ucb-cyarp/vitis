@@ -109,6 +109,32 @@ private:
     static std::shared_ptr<Node> importStandardNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     /**
+     * @brief Imports a Stateflow GraphML block
+     *
+     * @note This method does not add the new node to either the design or the name/node map.
+     *
+     * @param id The id of the node
+     * @param dataKeyValueMap The map of key/value pairs for node parameters
+     * @param parent The parent Node object for the current position in the DOM
+     * @param dialect The dialect of the GraphML file being imported
+     * @return A pointer to the newly created Standard node
+     */
+    static std::shared_ptr<Node> importStateflowNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+//    /**
+//     * @brief Imports a Generic BlackBox GraphML block
+//     *
+//     * @note This method does not add the new node to either the design or the name/node map.
+//     *
+//     * @param id The id of the node
+//     * @param dataKeyValueMap The map of key/value pairs for node parameters
+//     * @param parent The parent Node object for the current position in the DOM
+//     * @param dialect The dialect of the GraphML file being imported
+//     * @return A pointer to the newly created Standard node
+//     */
+//    static std::shared_ptr<Node> importBlackBoxNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    /**
      * @brief Imports a EnableOutput GraphML block
      *
      * @note This method does not add the new node to either the design or the name/node map.
@@ -184,6 +210,7 @@ private:
      */
     static void printXMLNodeAndChildren(const xercesc::DOMNode *node, int tabs=0);
 
+public:
     /**
      * @brief Imports the human readable names of a node's ports
      * @param node The node to import

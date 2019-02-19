@@ -60,27 +60,41 @@ for i = 1:length(children)
                     errror('HDL FIFO Not Yet Implemented');
 
                 elseif strcmp(child_block_type, 'SubSystem')
-                    %This is a subsystem
-                    system_enabled = is_system_enabled(child_handle);
+                    %The dst block is a SubSystem or a Stateflow Chart
+            
+                    subsystemType = get_param(child_handle, 'SFBlockType');
 
-                    %Create (or get) the correct IR node 
-                    if system_enabled
-                        [child_ir_node, node_created] = GraphNode.createNodeIfNotAlready(child_handle, 'Enabled Subsystem', node_handle_ir_map, system_ir_node);
-                        if node_created
-                            new_nodes = [new_nodes, child_ir_node];
-                        end
+                    if strcmp(subsystemType, 'Chart')
+                        %This is not really a Subsystem, it is a stateflow chart
+                        %Treat this like a standard node from the perspective of
+                        %node traversal
+                        [block_ir_node, new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = simulink_to_graphml_helper(child_handle, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                        new_nodes = [new_nodes, new_nodes_recur];
+                        new_arcs = [new_arcs, new_arcs_recur];
+                        new_special_nodes = [new_special_nodes, new_special_nodes_recur];
                     else
-                        [child_ir_node, node_created] = GraphNode.createNodeIfNotAlready(child_handle, 'Subsystem', node_handle_ir_map, system_ir_node);
-                        if node_created
-                            new_nodes = [new_nodes, child_ir_node];
-                        end
-                    end
+                        %This is a subsystem
+                        system_enabled = is_system_enabled(child_handle);
 
-                    %Recurse on this child
-                    [new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = traverseRemainingNodes(child_handle, child_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
-                    new_nodes = [new_nodes, new_nodes_recur];
-                    new_arcs = [new_arcs, new_arcs_recur];
-                    new_special_nodes = [new_special_nodes, new_special_nodes_recur];
+                        %Create (or get) the correct IR node 
+                        if system_enabled
+                            [child_ir_node, node_created] = GraphNode.createNodeIfNotAlready(child_handle, 'Enabled Subsystem', node_handle_ir_map, system_ir_node);
+                            if node_created
+                                new_nodes = [new_nodes, child_ir_node];
+                            end
+                        else
+                            [child_ir_node, node_created] = GraphNode.createNodeIfNotAlready(child_handle, 'Subsystem', node_handle_ir_map, system_ir_node);
+                            if node_created
+                                new_nodes = [new_nodes, child_ir_node];
+                            end
+                        end
+
+                        %Recurse on this child
+                        [new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = traverseRemainingNodes(child_handle, child_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                        new_nodes = [new_nodes, new_nodes_recur];
+                        new_arcs = [new_arcs, new_arcs_recur];
+                        new_special_nodes = [new_special_nodes, new_special_nodes_recur];
+                    end
 
                 elseif ~strcmp(child_block_type, 'Inport') && ~strcmp(child_block_type, 'Outport') && ~strcmp(child_block_type, 'EnablePort') && ~(strcmp(child_block_type, 'ConstellationDiagram') || strcmp(child_block_type, 'Scope') || strcmp(child_block_type, 'Display') || strcmp(child_block_type, 'SpectrumAnalyzer')) && ~strcmp(child_block_type, 'Terminator')
                     %This is a node which should be traversed (not a port, 
