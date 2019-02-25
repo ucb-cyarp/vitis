@@ -29,6 +29,7 @@
 #include "PrimitiveNodes/LogicalOperator.h"
 #include "PrimitiveNodes/UnsupportedSink.h"
 #include "PrimitiveNodes/SimulinkCoderFSM.h"
+#include "PrimitiveNodes/ReinterpretCast.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -936,6 +937,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = Saturate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DataTypePropagation"){ //--This is an Unsupported Sink --
         newNode = UnsupportedSink::createFromGraphML(id, name, blockFunction, dataKeyValueMap, parent);
+    }else if(blockFunction == "ReinterpretCast"){ //--This is a Vitis Only Node --
+        newNode = ReinterpretCast::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
     }

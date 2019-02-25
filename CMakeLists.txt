@@ -146,6 +146,8 @@ set(COMMON_SRCS
         src/PrimitiveNodes/BlackBox.h
         src/PrimitiveNodes/SimulinkCoderFSM.cpp
         src/PrimitiveNodes/SimulinkCoderFSM.h
+        src/PrimitiveNodes/ReinterpretCast.cpp
+        src/PrimitiveNodes/ReinterpretCast.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
