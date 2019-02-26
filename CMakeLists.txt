@@ -148,6 +148,8 @@ set(COMMON_SRCS
         src/PrimitiveNodes/SimulinkCoderFSM.h
         src/PrimitiveNodes/ReinterpretCast.cpp
         src/PrimitiveNodes/ReinterpretCast.h
+        src/PrimitiveNodes/BitwiseOperator.cpp
+        src/PrimitiveNodes/BitwiseOperator.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
