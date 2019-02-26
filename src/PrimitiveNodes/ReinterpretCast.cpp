@@ -184,7 +184,7 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         //TODO: Implement Fixed Point Support
 
         //Assign input expr to var
-        return CExpr(afterCastName, false);
+        return CExpr(afterCastName, true);
     }
 }
 
