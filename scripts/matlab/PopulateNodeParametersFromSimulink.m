@@ -341,6 +341,115 @@ elseif isStateflow
         node.inputPorts{port_number} = port_name{1}; 
     end
     
+%---- NCO ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'dspsigops/NCO' )
+    node.dialogPropertiesNumeric('TableDepth') = GetParamEval(simulink_block_handle, 'TableDepth'); %The size of the full wave table address (in bits).  1 period of a sin wave is split into 2^TableDepth points
+    %If using a quarter wave table, the number of entries in the table is
+    %(2^TableDepth)/4
+    
+    node.dialogPropertiesNumeric('AccumWL') = GetParamEval(simulink_block_handle, 'AccumWL'); %The accumulator 
+    node.dialogPropertiesNumeric('DitherWL') = GetParamEval(simulink_block_handle, 'DitherWL');
+
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'NCO';
+    
+%---- BPSK Modulator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndpm3/BPSK' newline 'Modulator' newline 'Baseband'])
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'BPSK_ModulatorBaseband';
+    node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph');
+    % Phase offset (from point on horizontal)
+    % 0 -> 1 + 0j, 1 -> -1 + 0j
+    
+%---- QPSK Modulator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndpm3/QPSK' newline 'Modulator' newline 'Baseband'])
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'QPSK_ModulatorBaseband';
+    
+    node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph');
+    %Phase offset of pi/4 has points off the axes (the standard way we view 4QAM)
+    %Grey, pi/4
+    %0 ->  sqrt(2)/2 + j*sqrt(2)/2
+    %1 -> -sqrt(2)/2 + j*sqrt(2)/2
+    %2 ->  sqrt(2)/2 - j*sqrt(2)/2
+    %3 -> -sqrt(2)/2 - j*sqrt(2)/2
+    
+    %Enc is either "Gray" or "Binary"
+    
+%---- M-QAM Modulator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndam3/Rectangular QAM' newline 'Modulator' newline 'Baseband'])
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'RectangularQAM_ModulatorBaseband';
+    node.dialogPropertiesNumeric('M') = GetParamEval(simulink_block_handle, 'M'); % M-ary QAM
+    
+    node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph'); %The phase rotation.  A phase rotation of 0 has the constellation in a grid oriented long the axes
+    
+    %Enc is either "Gray" or "Binary"
+    
+    %PowType is the normalization method used for scalaing the constellation
+    %"Average Power", "Min. distance between symbols", "Peak Power"
+    
+    node.dialogPropertiesNumeric('MinDist') = GetParamEval(simulink_block_handle, 'MinDist'); % The min distance if "Min. distance between symbols" is selected for PowType
+    node.dialogPropertiesNumeric('AvgPow') = GetParamEval(simulink_block_handle, 'AvgPow'); % The avg power if "Average Power" is selected for PowType (referenced to 1 ohm (watts))
+    node.dialogPropertiesNumeric('PeakPow') = GetParamEval(simulink_block_handle, 'PeakPow'); % The peak power if "Peak Power" is selected for PowType (referenced to 1 ohm (watts))
+
+%---- BPSK Demodulator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndpm3/BPSK' newline 'Demodulator' newline 'Baseband'])
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'BPSK_DemodulatorBaseband';
+    node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph');
+    % Phase offset (from point on horizontal)
+    % 0 -> 1 + 0j, 1 -> -1 + 0j
+    
+    %DecType is the type of decoder and can be "Hard decision",
+    %"Log-likelihood ratio", or "Approximate log-likelihood ratio"
+    
+%---- QPSK Modulator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndpm3/QPSK' newline 'Demodulator' newline 'Baseband'])
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'QPSK_DemodulatorBaseband';
+    
+    node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph');
+    %Phase offset of pi/4 has points off the axes (the standard way we view 4QAM)
+    %Grey, pi/4
+    %0 ->  sqrt(2)/2 + j*sqrt(2)/2
+    %1 -> -sqrt(2)/2 + j*sqrt(2)/2
+    %2 ->  sqrt(2)/2 - j*sqrt(2)/2
+    %3 -> -sqrt(2)/2 - j*sqrt(2)/2
+    
+    %Enc is either "Gray" or "Binary"
+    
+    %OutType is the type of output with is either "Integer" or "Bit"
+    
+    %DecType is only relevent for OutType "Bit" and is the type of decoder 
+    %which can be "Hard decision", "Log-likelihood ratio", or 
+    %"Approximate log-likelihood ratio".  For OutType "Bit" it is a hard
+    %decision decoder
+    
+%---- M-QAM Modulator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndam3/Rectangular QAM' newline 'Demodulator' newline 'Baseband'])
+    %Changing block type from 'S-Function'
+    node.simulinkBlockType = 'RectangularQAM_DemodulatorBaseband';
+    node.dialogPropertiesNumeric('M') = GetParamEval(simulink_block_handle, 'M'); % M-ary QAM
+    
+    node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph'); %The phase rotation.  A phase rotation of 0 has the constellation in a grid oriented long the axes
+    
+    %Enc is either "Gray" or "Binary"
+    
+    %PowType is the normalization method used for scalaing the constellation
+    %"Average Power", "Min. distance between symbols", "Peak Power"
+    
+    node.dialogPropertiesNumeric('MinDist') = GetParamEval(simulink_block_handle, 'MinDist'); % The min distance if "Min. distance between symbols" is selected for PowType
+    node.dialogPropertiesNumeric('AvgPow') = GetParamEval(simulink_block_handle, 'AvgPow'); % The avg power if "Average Power" is selected for PowType (referenced to 1 ohm (watts))
+    node.dialogPropertiesNumeric('PeakPow') = GetParamEval(simulink_block_handle, 'PeakPow'); % The peak power if "Peak Power" is selected for PowType (referenced to 1 ohm (watts))
+    
+    %OutType is the type of output with is either "Integer" or "Bit"
+    
+    %DecType is only relevent for OutType "Bit" and is the type of decoder 
+    %which can be "Hard decision", "Log-likelihood ratio", or 
+    %"Approximate log-likelihood ratio".  For OutType "Bit" it is a hard
+    %decision decoder
+    
 %TODO: More Blocks
 end
     
