@@ -296,13 +296,13 @@ void LUT::validate() {
         throw std::runtime_error("Validation Failed - LUT - Currently only supports 1-D tables, requested " + GeneralHelper::to_string(breakpoints.size()));
     }
 
-    //Should have n input ports and 1 output port
-    if(inputPorts.size() != breakpoints.size()){
-        throw std::runtime_error("Validation Failed - LUT - Should Have Exactly n Input Ports for n-D Table");
+    if(outputPorts.size() < 1){
+        throw std::runtime_error("Validation Failed - LUT - Should Have Exactly 1 Output Port");
     }
 
-    if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - LUT - Should Have Exactly 1 Output Port");
+    //Should have n input ports and 1 output port
+    if(inputPorts.size() != breakpoints.size() * outputPorts.size()){ //Allow multiple output ports if the number of input ports is n*m where m is the number of output ports
+        throw std::runtime_error("Validation Failed - LUT - Should Have Exactly n*m Input Ports for n-D Table with m outputs");
     }
 
     //TODO: support other search methods?
@@ -442,10 +442,19 @@ std::string LUT::getGlobalDecl(){
 
 CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Emit the index calculation
-    std::string indexName = name+"_n"+GeneralHelper::to_string(id)+"_index";
+    std::string indexName = name+"_n"+GeneralHelper::to_string(id)+ "_outPort" + GeneralHelper::to_string(outputPortNum) +"_index"; //Changed to
     Variable indexVariable = Variable(indexName, DataType()); //The correct type will be set durring index calculation.  Type is not required for de-reference
 
-    if(!emittedIndexCalculation) {
+    //Create emittedIndexCalculation if not already created
+
+    for(unsigned long i = emittedIndexCalculation.size(); i<outputPortNum+1; i++){
+        emittedIndexCalculation.push_back(false);
+    }
+
+    unsigned long dimension = breakpoints.size();
+
+    //TODO: Make this a vector
+    if(!emittedIndexCalculation[outputPortNum]) {
 
         //TODO: support other search methods?
         if (searchMethod != SearchMethod::EVENLY_SPACED_POINTS) {
@@ -458,7 +467,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             throw std::runtime_error("Emit Failed - LUT - Currently only supports 1-D tables");
         }
 
-        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(dimension*outputPortNum)->getSrcOutputPort(); //TODO: Change to appropriate input port
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
@@ -606,7 +615,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             cStatementQueue.push_back(indexVariable.getCVarName(false) + " = " + indexExpr + ";");
         }
 
-        emittedIndexCalculation = true;
+        emittedIndexCalculation[outputPortNum] = true;
     }
 
     //Need to re-create

@@ -71,7 +71,7 @@ private:
     ExtrapMethod extrapMethod; ///<The method for dealing with inputs outside of breakpoint range
     SearchMethod searchMethod; ///<The method to search through the LUT
 
-    bool emittedIndexCalculation; ///<Used by the emitter to determine if the index calculation has already been emitted.  Used when the output is complex to avoid re-computing index.
+    std::vector<bool> emittedIndexCalculation; ///<Used by the emitter to determine if the index calculation has already been emitted.  Used when the output is complex to avoid re-computing index.
 
     //TODO:implement N-D LUTs, currently only support 1D.  Need to modify Matlab script to output array as 1D row major
 
