@@ -132,3 +132,17 @@ std::string GeneralHelper::repString(std::string str, unsigned long reps) {
 
     return repeatedStr;
 }
+
+unsigned long GeneralHelper::intPow(unsigned long base, unsigned long exp){
+    if(exp == 0){
+        return 1;
+    }
+
+    unsigned long tmp = base;
+
+    for(unsigned long i = 1; i<exp; i++){
+        tmp *= base;
+    }
+
+    return tmp;
+}

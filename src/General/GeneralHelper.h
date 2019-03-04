@@ -185,6 +185,14 @@ public:
      * @return str repeated reps times.
      */
     static std::string repString(std::string str, unsigned long reps);
+
+    /**
+     * @brief Get base^exp with integers (integer version of pow)
+     * @param base the base
+     * @param exp the exponent
+     * @return base^exp
+     */
+    static unsigned long intPow(unsigned long base, unsigned long exp);
 };
 
 /*@}*/

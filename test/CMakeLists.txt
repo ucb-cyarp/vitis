@@ -40,6 +40,8 @@ set(TEST_WORKING_DIR, ${CMAKE_BINARY_DIR}/test) #Issue with using the current bi
 
 #Tests
 add_executable(testRunner
+        src/MathSanityCheck.cpp
+        src/DSPHelperTests.cpp
         src/TestDataType.cpp
         src/TestNumericValue.cpp
         src/TestFixedPointConvert.cpp

@@ -38,6 +38,8 @@ set(COMMON_SRCS
         src/General/FixedPointHelpers.h
         src/General/GraphAlgs.cpp
         src/General/GraphAlgs.h
+        src/General/DSPHelpers.cpp
+        src/General/DSPHelpers.h
         src/GraphCore/SchedParams.cpp
         src/GraphCore/SchedParams.h
         src/GraphCore/Node.cpp
@@ -162,6 +164,12 @@ set(COMMON_SRCS
         src/MediumLevelNodes/SimulinkMultiPortSwitch.h
         src/MediumLevelNodes/Saturate.cpp
         src/MediumLevelNodes/Saturate.h
+        src/MediumLevelNodes/NCO.cpp
+        src/MediumLevelNodes/NCO.h
+        src/MediumLevelNodes/DigitalModulator.cpp
+        src/MediumLevelNodes/DigitalModulator.h
+        src/MediumLevelNodes/DigitalDemodulator.cpp
+        src/MediumLevelNodes/DigitalDemodulator.h
         src/HighLevelNodes/HighLevelNode.cpp
         src/HighLevelNodes/HighLevelNode.h
         src/HighLevelNodes/DiscreteFIR.cpp
