@@ -5,8 +5,8 @@
 #ifndef VITIS_DIGITALMODULATOR_H
 #define VITIS_DIGITALMODULATOR_H
 
-#import "MediumLevelNode.h"
-#import "GraphCore/NodeFactory.h"
+#include "MediumLevelNode.h"
+#include "GraphCore/NodeFactory.h"
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
