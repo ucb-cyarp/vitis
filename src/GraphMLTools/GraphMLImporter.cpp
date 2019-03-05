@@ -36,6 +36,9 @@
 #include "MediumLevelNodes/ThresholdSwitch.h"
 #include "MediumLevelNodes/SimulinkMultiPortSwitch.h"
 #include "MediumLevelNodes/Saturate.h"
+#include "MediumLevelNodes/NCO.h"
+#include "MediumLevelNodes/DigitalModulator.h"
+#include "MediumLevelNodes/DigitalDemodulator.h"
 #include "HighLevelNodes/DiscreteFIR.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
@@ -942,6 +945,12 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = ReinterpretCast::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "BitwiseOperator"){ //--This is a Vitis Only Node --
         newNode = BitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "NCO" ){ //Vitis name is NCO, Simulink Name is NCO (changed by export scripts)
+        newNode = NCO::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DigitalModulator" || blockFunction == "BPSK_ModulatorBaseband" || blockFunction == "QPSK_ModulatorBaseband" || blockFunction == "RectangularQAM_ModulatorBaseband"){ //Vitis name is DigitalModulator, other names are set in simulink export script (are technically different blocks)
+        newNode = DigitalModulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DigitalDemodulator" || blockFunction == "BPSK_DemodulatorBaseband" || blockFunction == "QPSK_DemodulatorBaseband" || blockFunction == "RectangularQAM_DemodulatorBaseband"){ //Vitis name is DigitalDemodulator, other names are set in simulink export script (are technically different blocks)
+        newNode = DigitalDemodulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
     }
