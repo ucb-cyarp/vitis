@@ -118,7 +118,8 @@ void Gain::validate() {
 }
 
 std::shared_ptr<ExpandedNode> Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                  std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                           std::shared_ptr<MasterUnconnected> &unconnected_master) {
 
     //Validate first to check that Gain is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
     validate();

@@ -300,7 +300,7 @@ bool Design::expand() {
     std::vector<std::shared_ptr<Arc>> deletedArcs;
 
     for(auto node = nodes.begin(); node != nodes.end(); node++){
-        std::shared_ptr<ExpandedNode> expandedPtr = (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs);
+        std::shared_ptr<ExpandedNode> expandedPtr = (*node)->expand(newNodes, deletedNodes, newArcs, deletedArcs, unconnectedMaster);
         if(expandedPtr != nullptr){
             expanded = true;
         }

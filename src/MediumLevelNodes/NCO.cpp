@@ -205,7 +205,9 @@ std::shared_ptr<Node> NCO::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<NCO>(parent, this);
 }
 
-std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                          std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                          std::shared_ptr<MasterUnconnected> &unconnected_master) {
     //Validate first to check that node is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
     validate();
 

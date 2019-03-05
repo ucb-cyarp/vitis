@@ -137,6 +137,9 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
         throw std::runtime_error("Unsupported Dialect when parsing XML - DigitalModulator");
     }
 
+    newNode->setGrayCoded(grayCodedParsed);
+    newNode->setAvgPwrNormalize(avgPwrNormalizeParsed);
+
     std::vector<NumericValue> bitsPerSymbolNV = NumericValue::parseXMLString(bitsPerSymbolStr);
     std::vector<NumericValue> rotationNv = NumericValue::parseXMLString(rotationStr);
     std::vector<NumericValue> normalizationNV = NumericValue::parseXMLString(normalizationStr);
@@ -262,10 +265,9 @@ void DigitalModulator::validate() {
     }
 }
 
-std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                       std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                       std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                       std::shared_ptr<MasterUnconnected> &unconnected_master) {
     //Validate first to check that node is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
     validate();
 
@@ -329,7 +331,12 @@ std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_p
         constPts.push_back(NumericValue(0, 0, std::complex<double>(-scale_factor, -scale_factor), true, true));
         constPts.push_back(NumericValue(0, 0, std::complex<double>(scale_factor, -scale_factor), true, true));
     }else{
-        double scale_factor = sqrt(3.0/(2.0*(pow(2,bitsPerSymbol)-1)));
+        double scale_factor;
+        if(avgPwrNormalize) {
+            scale_factor = normalization*sqrt(3.0 / (2.0 * (pow(2, bitsPerSymbol) - 1)));
+        }else{
+            scale_factor = normalization;
+        }
 
         //TODO: Assuming power of 2
         int dimension = GeneralHelper::intPow(2, bitsPerSymbol-1);
@@ -368,7 +375,7 @@ std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_p
 
     //---- Rewire ----
     std::shared_ptr<Arc> inputArc = *(inputPorts[0]->getArcs().begin());
-    lut->addOutArcUpdatePrevUpdateArc(0, inputArc);
+    lut->addInArcUpdatePrevUpdateArc(0, inputArc);
 
     std::set<std::shared_ptr<Arc>> outputArcs = outputPorts[0]->getArcs();
     for(auto outputArc = outputArcs.begin(); outputArc != outputArcs.end(); outputArc++){

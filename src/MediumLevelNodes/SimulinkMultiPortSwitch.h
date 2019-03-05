@@ -8,6 +8,7 @@
 #include "MediumLevelNode.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphMLTools/GraphMLDialect.h"
+#include "MasterNodes/MasterUnconnected.h"
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
@@ -109,7 +110,9 @@ public:
      *
      * The type of the constant (-1) used for the decrement is the same as the input.  The output of the subtract block is the same as the select input
      */
-    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
+    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                             std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                             std::shared_ptr<MasterUnconnected> &unconnected_master) override ;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;

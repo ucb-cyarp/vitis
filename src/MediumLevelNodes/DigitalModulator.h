@@ -7,6 +7,7 @@
 
 #include "MediumLevelNode.h"
 #include "GraphCore/NodeFactory.h"
+#include "MasterNodes/MasterUnconnected.h"
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
@@ -110,7 +111,7 @@ public:
 
     //==== Expand ====
     /**
-     * @brief Expands the gain block into a multiply block and a constant block.
+     * @brief Expands the Modulator block into a LUT
      *
      * Validates before expansion to check assumptions are fulfilled.
      *
@@ -122,7 +123,9 @@ public:
      *
      *   Complexity and width are taken from the gain NumericValue
      */
-    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes, std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) override ;
+    std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                             std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                             std::shared_ptr<MasterUnconnected> &unconnected_master) override ;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;

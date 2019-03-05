@@ -18,6 +18,7 @@
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
+#include "MasterNodes/MasterUnconnected.h"
 
 Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
 {
@@ -267,10 +268,9 @@ void Node::setParent(std::shared_ptr<SubSystem> parent) {
 }
 
 //Default behavior is to not do any expansion and to return false.
-std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                           std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                           std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                           std::shared_ptr<MasterUnconnected> &unconnected_master) {
     return nullptr;
 }
 

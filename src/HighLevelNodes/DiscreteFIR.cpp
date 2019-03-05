@@ -121,14 +121,15 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
 
 std::shared_ptr<ExpandedNode>
 DiscreteFIR::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                    std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                    std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                    std::shared_ptr<MasterUnconnected> &unconnected_master) {
     //Validate first to check that the DiscreteFIR block is properly wired
     validate();
 
     //TODO: Implement FIR Expansion
     throw std::runtime_error("FIR Expansion not yet implemented in VITIS.  If importing from Simulink, use Simulink expansion option in export script");
 
-    return Node::expand(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+    return Node::expand(new_nodes, deleted_nodes, new_arcs, deleted_arcs, unconnected_master);
 }
 
 std::set<GraphMLParameter> DiscreteFIR::graphMLParameters() {

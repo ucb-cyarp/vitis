@@ -14,6 +14,7 @@ class SubSystem;
 class ExpandedNode;
 class GraphMLParameter;
 class StateUpdate;
+class MasterUnconnected;
 
 #include <vector>
 #include <set>
@@ -658,12 +659,12 @@ public:
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     * @param unconnected_master A pointer to the unconnected master node
      * @return pointer to expanded node if expansion occurred, nullptr if it did not
      */
-    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                     std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                     std::shared_ptr<MasterUnconnected> &unconnected_master);
 
     /**
      * @brief Identifies if the given input port experiences internal fanout in the node.

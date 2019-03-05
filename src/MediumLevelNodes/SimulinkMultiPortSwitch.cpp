@@ -94,10 +94,9 @@ SimulinkMultiPortSwitch::createFromGraphML(int id, std::string name, std::map<st
     return newNode;
 }
 
-std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                     std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                              std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                              std::shared_ptr<MasterUnconnected> &unconnected_master) {
     //Validate first to check that the CompareToConstant block is properly wired
     validate();
 

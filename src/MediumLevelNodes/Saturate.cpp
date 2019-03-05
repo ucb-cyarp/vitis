@@ -164,7 +164,8 @@ void Saturate::validate() {
 }
 
 std::shared_ptr<ExpandedNode> Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                      std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                               std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                               std::shared_ptr<MasterUnconnected> &unconnected_master) {
 
     //Validate first to check that Saturate is properly wired
     validate();
