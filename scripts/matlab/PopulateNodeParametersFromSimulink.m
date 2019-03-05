@@ -406,7 +406,7 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbnd
     %DecType is the type of decoder and can be "Hard decision",
     %"Log-likelihood ratio", or "Approximate log-likelihood ratio"
     
-%---- QPSK Modulator ----
+%---- QPSK Demodulator ----
 elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndpm3/QPSK' newline 'Demodulator' newline 'Baseband'])
     %Changing block type from 'S-Function'
     node.simulinkBlockType = 'QPSK_DemodulatorBaseband';
@@ -428,7 +428,7 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbnd
     %"Approximate log-likelihood ratio".  For OutType "Bit" it is a hard
     %decision decoder
     
-%---- M-QAM Modulator ----
+%---- M-QAM Demodulator ----
 elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbndam3/Rectangular QAM' newline 'Demodulator' newline 'Baseband'])
     %Changing block type from 'S-Function'
     node.simulinkBlockType = 'RectangularQAM_DemodulatorBaseband';
