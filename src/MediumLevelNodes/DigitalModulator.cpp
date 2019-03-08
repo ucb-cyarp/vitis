@@ -73,6 +73,7 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
 
     //==== Import important properties ====
     std::string bitsPerSymbolStr;
+    std::string mStr;
     std::string rotationStr;
     std::string normalizationStr;
     bool grayCodedParsed;
@@ -99,11 +100,11 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
         //Simulink Names -- SimulinkBlockType (Contains BPSK_ModulatorBaseband, QPSK_ModulatorBaseband, RectangularQAM_ModulatorBaseband), M (QAM Only), Numeric.Ph, Enc, Numeric.AvgPow, Numeric.MinDist
         std::string simulinkBlockType = dataKeyValueMap.at("SimulinkBlockType");
         if(simulinkBlockType == "BPSK_ModulatorBaseband"){
-            bitsPerSymbolStr = "1";
+            mStr = "2";
         }else if(simulinkBlockType == "QPSK_ModulatorBaseband"){
-            bitsPerSymbolStr = "2";
+            mStr = "4";
         }else if(simulinkBlockType == "RectangularQAM_ModulatorBaseband"){
-            bitsPerSymbolStr = dataKeyValueMap.at("M");
+            mStr = dataKeyValueMap.at("M");
         }
 
         if(simulinkBlockType == "QPSK_ModulatorBaseband" || simulinkBlockType == "RectangularQAM_ModulatorBaseband"){
@@ -116,19 +117,13 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
                 throw std::runtime_error("Error Parsing Encoding - DigitalModulator");
             }
 
-            std::string powTypeStr = dataKeyValueMap.at("PowType");
-            if(powTypeStr == "Average Power"){
-                avgPwrNormalizeParsed = true;
-                normalizationStr = dataKeyValueMap.at("Numeric.AvgPow");
-            }else if(powTypeStr == "Min. distance between symbols"){
-                avgPwrNormalizeParsed = false;
-                normalizationStr = dataKeyValueMap.at("Numeric.MinDist");
-            }else{
-                throw std::runtime_error("Unsupported Power Type: " + powTypeStr + " - DigitalModulator");
-            }
+            //Simulink defaults to avg power 1, in fact, it does not look like you can select something different.
+            avgPwrNormalizeParsed = true;
+            normalizationStr = "1";
         }else{
             grayCodedParsed = true;
             avgPwrNormalizeParsed = true;
+            normalizationStr = "1";
         }
 
         rotationStr = dataKeyValueMap.at("Numeric.Ph");
@@ -140,17 +135,32 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
     newNode->setGrayCoded(grayCodedParsed);
     newNode->setAvgPwrNormalize(avgPwrNormalizeParsed);
 
-    std::vector<NumericValue> bitsPerSymbolNV = NumericValue::parseXMLString(bitsPerSymbolStr);
     std::vector<NumericValue> rotationNv = NumericValue::parseXMLString(rotationStr);
     std::vector<NumericValue> normalizationNV = NumericValue::parseXMLString(normalizationStr);
 
-    if(bitsPerSymbolNV.size() != 1){
-        throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+    if(dialect == GraphMLDialect::VITIS) {
+        std::vector<NumericValue> bitsPerSymbolNV = NumericValue::parseXMLString(bitsPerSymbolStr);
+        if (bitsPerSymbolNV.size() != 1) {
+            throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+        }
+        if (bitsPerSymbolNV[0].isComplex() || bitsPerSymbolNV[0].isFractional()) {
+            throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+        }
+        newNode->setBitsPerSymbol(bitsPerSymbolNV[0].getRealInt());
+    }else if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+        std::vector<NumericValue> mNV = NumericValue::parseXMLString(mStr);
+        if (mNV.size() != 1) {
+            throw std::runtime_error("Error Parsing M - DigitalModulator");
+        }
+        if (mNV[0].isComplex() || mNV[0].isFractional()) {
+            throw std::runtime_error("Error Parsing M - DigitalModulator");
+        }
+
+        int m = mNV[0].getRealInt();
+        int bitsPerSymbolParsed = ceil(log2(m));
+
+        newNode->setBitsPerSymbol(bitsPerSymbolParsed);
     }
-    if(bitsPerSymbolNV[0].isComplex() || bitsPerSymbolNV[0].isFractional()){
-        throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
-    }
-    newNode->setBitsPerSymbol(bitsPerSymbolNV[0].getRealInt());
 
     if(rotationNv.size() != 1){
         throw std::runtime_error("Error Parsing Rotation - DigitalModulator");
@@ -172,10 +182,10 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
 
 
     if(normalizationNV.size() != 1){
-        throw std::runtime_error("Error Parsing DitherBits - DigitalModulator");
+        throw std::runtime_error("Error Parsing normalization - DigitalModulator");
     }
     if(normalizationNV[0].isComplex()){
-        throw std::runtime_error("Error Parsing DitherBits - DigitalModulator");
+        throw std::runtime_error("Error Parsing normalization - DigitalModulator");
     }
     if(normalizationNV[0].isFractional()) {
         newNode->setNormalization(normalizationNV[0].getComplexDouble().real());
@@ -338,11 +348,11 @@ std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_p
             scale_factor = normalization;
         }
 
-        //TODO: Assuming power of 2
-        int dimension = GeneralHelper::intPow(2, bitsPerSymbol-1);
+        //TODO: Assuming square const
+        int dimension = GeneralHelper::intPow(2, bitsPerSymbol/2);
 
         for(unsigned long col = 0; col<dimension; col++){
-            double unscaledRe = col - (dimension/2) + 0.5;
+            double unscaledRe = ((double) col) - (dimension/2) + 0.5;
             double scaledRe = unscaledRe*scale_factor;
 
             for(unsigned long row = 0; row<dimension; row++){
@@ -350,12 +360,12 @@ std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_p
 
                 double unscaledIm;
                 if(down){
-                    unscaledRe = -(row - (dimension/2) + 0.5);
+                    unscaledIm = -(((double)row) - (dimension/2) + 0.5);
                 }else{
-                    unscaledRe = row - (dimension/2) + 0.5;
+                    unscaledIm = ((double)row) - (dimension/2) + 0.5;
                 }
 
-                double scaledIm = unscaledRe*scale_factor;
+                double scaledIm = unscaledIm*scale_factor;
 
                 constPts.push_back(NumericValue(0, 0, std::complex<double>(scaledRe, scaledIm), true, true));
             }

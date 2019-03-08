@@ -622,7 +622,10 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
 
     //Emit the array dereference
     std::string tablePrefix = name+"_n"+GeneralHelper::to_string(id)+"_table";
-    Variable tableVar = Variable(tablePrefix, DataType());
+
+    DataType tempDT = DataType();
+    tempDT.setComplex(getOutputPort(0)->getDataType().isComplex());
+    Variable tableVar = Variable(tablePrefix, tempDT);
 
     if(imag){
         return CExpr(tableVar.getCVarName(true) + "[" + indexVariable.getCVarName(false) + "]", false);

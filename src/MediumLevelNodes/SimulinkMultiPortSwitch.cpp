@@ -11,6 +11,7 @@
 #include "GraphCore/NodeFactory.h"
 
 #include <iostream>
+#include <General/GeneralHelper.h>
 
 SimulinkMultiPortSwitch::IndexType SimulinkMultiPortSwitch::parseIndexTypeStr(std::string str) {
     if(str == "ZERO_BASED"){
@@ -242,11 +243,11 @@ void SimulinkMultiPortSwitch::validate() {
     DataType outType = getOutputPort(0)->getDataType();
     unsigned long numInputPorts = inputPorts.size();
 
-    for(unsigned long i = 0; i<numInputPorts; i++){
+    for(unsigned long i = 1; i<numInputPorts; i++){
         DataType inType = getInputPort(i)->getDataType();
 
         if(inType != outType){
-            throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - DataType of Input Port Does not Match Output Port");
+            throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - DataType of Input Port[" + GeneralHelper::to_string(i) + "] " + inType.toString() + " Does not Match Output Port " + outType.toString());
         }
     }
 }

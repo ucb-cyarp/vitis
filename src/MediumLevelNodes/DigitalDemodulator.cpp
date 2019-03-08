@@ -86,6 +86,7 @@ DigitalDemodulator::createFromGraphML(int id, std::string name, std::map<std::st
 
     //==== Import important properties ====
     std::string bitsPerSymbolStr;
+    std::string mStr;
     std::string rotationStr;
     std::string normalizationStr;
     bool grayCodedParsed;
@@ -112,11 +113,11 @@ DigitalDemodulator::createFromGraphML(int id, std::string name, std::map<std::st
         //Simulink Names -- SimulinkBlockType (Contains BPSK_DemodulatorBaseband, QPSK_DemodulatorBaseband, RectangularQAM_DemodulatorBaseband), M (QAM Only), Numeric.Ph, Enc, Numeric.AvgPow, Numeric.MinDist
         std::string simulinkBlockType = dataKeyValueMap.at("SimulinkBlockType");
         if(simulinkBlockType == "BPSK_DemodulatorBaseband"){
-            bitsPerSymbolStr = "1";
+            mStr = "2";
         }else if(simulinkBlockType == "QPSK_DemodulatorBaseband"){
-            bitsPerSymbolStr = "2";
+            mStr = "4";
         }else if(simulinkBlockType == "RectangularQAM_DemodulatorBaseband"){
-            bitsPerSymbolStr = dataKeyValueMap.at("M");
+            mStr = dataKeyValueMap.at("M");
         }
 
         if(simulinkBlockType == "QPSK_DemodulatorBaseband" || simulinkBlockType == "RectangularQAM_DemodulatorBaseband"){
@@ -159,17 +160,32 @@ DigitalDemodulator::createFromGraphML(int id, std::string name, std::map<std::st
     newNode->setGrayCoded(grayCodedParsed);
     newNode->setAvgPwrNormalize(avgPwrNormalizeParsed);
 
-    std::vector<NumericValue> bitsPerSymbolNV = NumericValue::parseXMLString(bitsPerSymbolStr);
     std::vector<NumericValue> rotationNv = NumericValue::parseXMLString(rotationStr);
     std::vector<NumericValue> normalizationNV = NumericValue::parseXMLString(normalizationStr);
 
-    if(bitsPerSymbolNV.size() != 1){
-        throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalDemodulator");
+    if(dialect == GraphMLDialect::VITIS) {
+        std::vector<NumericValue> bitsPerSymbolNV = NumericValue::parseXMLString(bitsPerSymbolStr);
+        if (bitsPerSymbolNV.size() != 1) {
+            throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+        }
+        if (bitsPerSymbolNV[0].isComplex() || bitsPerSymbolNV[0].isFractional()) {
+            throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+        }
+        newNode->setBitsPerSymbol(bitsPerSymbolNV[0].getRealInt());
+    }else if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+        std::vector<NumericValue> mNV = NumericValue::parseXMLString(mStr);
+        if (mNV.size() != 1) {
+            throw std::runtime_error("Error Parsing M - DigitalModulator");
+        }
+        if (mNV[0].isComplex() || mNV[0].isFractional()) {
+            throw std::runtime_error("Error Parsing M - DigitalModulator");
+        }
+
+        int m = mNV[0].getRealInt();
+        int bitsPerSymbolParsed = ceil(log2(m));
+
+        newNode->setBitsPerSymbol(bitsPerSymbolParsed);
     }
-    if(bitsPerSymbolNV[0].isComplex() || bitsPerSymbolNV[0].isFractional()){
-        throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalDemodulator");
-    }
-    newNode->setBitsPerSymbol(bitsPerSymbolNV[0].getRealInt());
 
     if(rotationNv.size() != 1){
         throw std::runtime_error("Error Parsing Rotation - DigitalDemodulator");
@@ -474,8 +490,8 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         denormalizer->addInArcUpdatePrevUpdateArc(0, inputArc);
 
         //Offset the signal
-        //TODO: Assuming power of 2
-        int dimension = GeneralHelper::intPow(2, bitsPerSymbol-1);
+        //TODO: Assuming square const
+        int dimension = GeneralHelper::intPow(2, bitsPerSymbol/2);
 
         std::shared_ptr<Sum> signalOffsetSum = NodeFactory::createNode<Sum>(expandedNode);
         signalOffsetSum->setInputSign({true, true});

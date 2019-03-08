@@ -91,7 +91,7 @@ NCO::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         lutAddrBitsStr = dataKeyValueMap.at("Numeric.TableDepth");
         accumulatorBitsStr = dataKeyValueMap.at("Numeric.AccumWL");
         ditherBitsStr = dataKeyValueMap.at("Numeric.DitherWL");
-        std::string formula = dataKeyValueMap.at("Numeric.DitherWL");
+        std::string formula = dataKeyValueMap.at("Formula");
         if(formula == "Complex exponential"){
             complexOutParsed = true;
         }else if(formula == "Cosine"){

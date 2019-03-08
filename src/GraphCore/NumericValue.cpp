@@ -418,24 +418,30 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
                     }
                 }
             } else {
-                matches = std::smatch();
-                bool realMatched = std::regex_match(subStr, matches, realRegex);
+                if(subStr == "true"){
+                    val.realInt = 1;
+                }else if(subStr == "false"){
+                    val.realInt = 0;
+                }else {
+                    matches = std::smatch();
+                    bool realMatched = std::regex_match(subStr, matches, realRegex);
 
-                if (realMatched) {
-                    if (fractional) {
-                        double realComponent = std::stod(matches[1].str());
-                        double imagComponent = 0;
+                    if (realMatched) {
+                        if (fractional) {
+                            double realComponent = std::stod(matches[1].str());
+                            double imagComponent = 0;
 
-                        val.complexDouble = std::complex<double>(realComponent, imagComponent);
+                            val.complexDouble = std::complex<double>(realComponent, imagComponent);
+                        } else {
+                            int realComponent = std::stoi(matches[1].str());
+                            int imagComponent = 0;
+
+                            val.realInt = realComponent;
+                            val.imagInt = imagComponent;
+                        }
                     } else {
-                        int realComponent = std::stoi(matches[1].str());
-                        int imagComponent = 0;
-
-                        val.realInt = realComponent;
-                        val.imagInt = imagComponent;
+                        throw std::runtime_error("Error parsing real literal: \"" + subStr + "\"");
                     }
-                } else {
-                    throw std::runtime_error("Error parsing real literal: \"" + subStr + "\"");
                 }
             }
 

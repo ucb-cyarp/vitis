@@ -948,8 +948,14 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     }else if(blockFunction == "NCO" ){ //Vitis name is NCO, Simulink Name is NCO (changed by export scripts)
         newNode = NCO::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DigitalModulator" || blockFunction == "BPSK_ModulatorBaseband" || blockFunction == "QPSK_ModulatorBaseband" || blockFunction == "RectangularQAM_ModulatorBaseband"){ //Vitis name is DigitalModulator, other names are set in simulink export script (are technically different blocks)
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            dataKeyValueMap["SimulinkBlockType"] = blockFunction;
+        }
         newNode = DigitalModulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DigitalDemodulator" || blockFunction == "BPSK_DemodulatorBaseband" || blockFunction == "QPSK_DemodulatorBaseband" || blockFunction == "RectangularQAM_DemodulatorBaseband"){ //Vitis name is DigitalDemodulator, other names are set in simulink export script (are technically different blocks)
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            dataKeyValueMap["SimulinkBlockType"] = blockFunction;
+        }
         newNode = DigitalDemodulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
