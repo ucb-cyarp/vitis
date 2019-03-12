@@ -333,17 +333,17 @@ std::shared_ptr<ExpandedNode> DigitalModulator::expand(std::vector<std::shared_p
         constPts.push_back(NumericValue(1, 0, std::complex<double>(1, 0), true, false));
         constPts.push_back(NumericValue(-1, 0, std::complex<double>(-1, 0), true, false));
     }else if(bitsPerSymbol == 2){
-        double scale_factor = sqrt(3.0/(2.0*(pow(2,bitsPerSymbol)-1)));
+        double scale_factor_div2 = sqrt(3.0/(2.0*(pow(2,bitsPerSymbol)-1)));
 
         //Special case dictated by simulink
-        constPts.push_back(NumericValue(0, 0, std::complex<double>(scale_factor, scale_factor), true, true));
-        constPts.push_back(NumericValue(0, 0, std::complex<double>(-scale_factor, scale_factor), true, true));
-        constPts.push_back(NumericValue(0, 0, std::complex<double>(-scale_factor, -scale_factor), true, true));
-        constPts.push_back(NumericValue(0, 0, std::complex<double>(scale_factor, -scale_factor), true, true));
+        constPts.push_back(NumericValue(0, 0, std::complex<double>(scale_factor_div2, scale_factor_div2), true, true));
+        constPts.push_back(NumericValue(0, 0, std::complex<double>(-scale_factor_div2, scale_factor_div2), true, true));
+        constPts.push_back(NumericValue(0, 0, std::complex<double>(-scale_factor_div2, -scale_factor_div2), true, true));
+        constPts.push_back(NumericValue(0, 0, std::complex<double>(scale_factor_div2, -scale_factor_div2), true, true));
     }else{
         double scale_factor;
         if(avgPwrNormalize) {
-            scale_factor = normalization*sqrt(3.0 / (2.0 * (pow(2, bitsPerSymbol) - 1)));
+            scale_factor = normalization*2*sqrt(3.0 / (2.0 * (pow(2, bitsPerSymbol) - 1)));
         }else{
             scale_factor = normalization;
         }

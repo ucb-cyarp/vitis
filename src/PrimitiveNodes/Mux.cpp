@@ -649,10 +649,10 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
     }else{
         //Switch style (> 2 inputs)
 
-        std::string switchExpr = "switch(" + selectExpr + "){";
+        std::string switchExpr = "switch(" + selectExpr + "){\n";
         cStatementQueue.push_back(switchExpr);
 
-        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": ";
+        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": \n{"; //Open a new {} scope to allow intermediate variable declaration
         cStatementQueue.push_back(caseExpr);
     }
 
@@ -683,7 +683,7 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
 
     }else{
         //Switch style (> 2 inputs)
-        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": ";
+        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": \n{"; //Open a new {} scope to allow intermediate variable declaration
         cStatementQueue.push_back(caseExpr);
     }
 }
@@ -707,7 +707,7 @@ void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedP
 
     }else{
         //Switch style (> 2 inputs)
-        std::string caseExpr = "default " + GeneralHelper::to_string(subContextNumber) + ": ";
+        std::string caseExpr = "default:\n{"; //Open a new {} scope to allow intermediate variable declaration
         cStatementQueue.push_back(caseExpr);
     }
 }
@@ -723,7 +723,8 @@ void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, Sche
     }else{
         //Switch style (> 2 inputs)
 
-        //There is no close for a switch block
+        std::string switchExpr = "}\nbreak;\n"; //Close scope for case statement (allowed intermediate vars to be declared)
+        cStatementQueue.push_back(switchExpr);
     }
 }
 
@@ -738,7 +739,8 @@ void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedP
     }else{
         //Switch style (> 2 inputs)
 
-        //There is no close for a switch block
+        std::string switchExpr = "}\nbreak;\n"; //Close scope for case statement (allowed intermediate vars to be declared)
+        cStatementQueue.push_back(switchExpr);
     }
 }
 
@@ -753,7 +755,9 @@ void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, Sched
     }else{
         //Switch style (> 2 inputs)
 
-        //There is no close for a switch block
+        std::string ifExpr = "}\n}"; //Close scope for case statement (allowed intermediate vars to be declared)
+        cStatementQueue.push_back(ifExpr);
+
     }
 }
 

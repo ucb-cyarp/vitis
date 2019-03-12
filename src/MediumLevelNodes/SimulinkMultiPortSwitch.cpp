@@ -148,7 +148,7 @@ std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::s
         //Need to decrement the index
         std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(expandedNode);
         constantNode->setName("Constant");
-        constantNode->setValue(std::vector<NumericValue>{NumericValue(-1, 0, std::complex<double>(0, 0), false, false)});
+        constantNode->setValue(std::vector<NumericValue>{NumericValue(1, 0, std::complex<double>(0, 0), false, false)});
         new_nodes.push_back(constantNode);
 
         std::shared_ptr<Sum> minusNode = NodeFactory::createNode<Sum>(expandedNode);

@@ -419,7 +419,7 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbnd
     %2 ->  sqrt(2)/2 - j*sqrt(2)/2
     %3 -> -sqrt(2)/2 - j*sqrt(2)/2
     
-    %Enc is either "Gray" or "Binary"
+    %Dec is either "Gray" or "Binary"
     
     %OutType is the type of output with is either "Integer" or "Bit"
     
@@ -436,7 +436,7 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbnd
     
     node.dialogPropertiesNumeric('Ph') = GetParamEval(simulink_block_handle, 'Ph'); %The phase rotation.  A phase rotation of 0 has the constellation in a grid oriented long the axes
     
-    %Enc is either "Gray" or "Binary"
+    %Dec is either "Gray" or "Binary"
     
     %PowType is the normalization method used for scalaing the constellation
     %"Average Power", "Min. distance between symbols", "Peak Power"

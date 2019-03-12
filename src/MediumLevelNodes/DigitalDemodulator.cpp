@@ -121,7 +121,7 @@ DigitalDemodulator::createFromGraphML(int id, std::string name, std::map<std::st
         }
 
         if(simulinkBlockType == "QPSK_DemodulatorBaseband" || simulinkBlockType == "RectangularQAM_DemodulatorBaseband"){
-            std::string encStr = dataKeyValueMap.at("Enc");
+            std::string encStr = dataKeyValueMap.at("Dec");
             if(encStr == "Gray"){
                 grayCodedParsed = true;
             }else if(encStr == "Binary"){
@@ -149,6 +149,7 @@ DigitalDemodulator::createFromGraphML(int id, std::string name, std::map<std::st
         }else{
             //BSPK and QPSK do not use power normalization since they simply slice at the origin.
             avgPwrNormalizeParsed = true;
+            normalizationStr = "1";
         }
 
         rotationStr = dataKeyValueMap.at("Numeric.Ph");
@@ -207,10 +208,10 @@ DigitalDemodulator::createFromGraphML(int id, std::string name, std::map<std::st
 
 
     if(normalizationNV.size() != 1){
-        throw std::runtime_error("Error Parsing DitherBits - DigitalDemodulator");
+        throw std::runtime_error("Error Parsing Normalization - DigitalDemodulator");
     }
     if(normalizationNV[0].isComplex()){
-        throw std::runtime_error("Error Parsing DitherBits - DigitalDemodulator");
+        throw std::runtime_error("Error Parsing Normalization - DigitalDemodulator");
     }
     if(normalizationNV[0].isFractional()) {
         newNode->setNormalization(normalizationNV[0].getComplexDouble().real());
@@ -477,7 +478,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         double scale_factor;
         //This is the reciprocal of the scale factor used in the modulator
         if(avgPwrNormalize) {
-            scale_factor = 1/(normalization*sqrt(3.0 / (2.0 * (pow(2, bitsPerSymbol) - 1))));
+            scale_factor = 1/(normalization*2*sqrt(3.0 / (2.0 * (pow(2, bitsPerSymbol) - 1))));
         }else{
             scale_factor = 1/normalization;
         }

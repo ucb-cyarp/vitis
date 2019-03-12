@@ -25,11 +25,11 @@
  * and David G. Messerschmitt, 1998 (pg 150).
  *
  * When normalizing QAM to a pwr of 1, the distance between points (in the x and y axis) are computed using
- * \f$\sqrt{\frac{3}{2\left(M-1\right)}}\f$.
+ * \f$\2sqrt{\frac{3}{2\left(M-1\right)}}\f$.
  *
- * - BPSK is a special case with a normalization factor of 1
- * - QPSK/4QAM is scaled by \f$\sqrt{\frac{1}{2}}\f$
- * - 16QAM is scaled by \f$\sqrt{\frac{1}{10}}\f$
+ * - BPSK is a special case with a distance between points = 2
+ * - QPSK/4QAM distance between points = \f$2\sqrt{\frac{1}{2}}\f$
+ * - 16QAM distance between points = \f$\sqrt{2\frac{1}{10}}\f$
  */
 class DigitalModulator : public MediumLevelNode{
 friend NodeFactory;
