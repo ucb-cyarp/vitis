@@ -82,7 +82,30 @@ BitwiseOperator::createFromGraphML(int id, std::string name, std::map<std::strin
         //Vitis Name (LogicalOperator) -- LogicalOp
         bitwiseOpStr = dataKeyValueMap.at("BitwiseOp");
     } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        throw std::runtime_error("BitwiseOperator is not a Simulink Node");
+        //Only support a subset of the options for the simulink version of the node
+        bitwiseOpStr = dataKeyValueMap.at("logicop");
+        if(bitwiseOpStr == "NAND" || bitwiseOpStr == "NOR"){
+            throw std::runtime_error("Unsupported Simulink Bitwise Operator: " + bitwiseOpStr);
+        }
+
+        if(dataKeyValueMap.at("UseBitMask") != "off"){
+            //TODO: Implement bitwise operator with constant expansion
+            throw std::runtime_error("The UseBitMask option of Simulink Bitwise Operator is Currently Unsupported - Connect a Constant Block instead");
+        }
+
+        //Number of port error check handled in validate method
+
+//        std::vector<NumericValue> numPorts = NumericValue::parseXMLString("Numeric.NumInputPorts");
+//        if (numPorts.size() != 1) {
+//            throw std::runtime_error("Error Parsing NumInputPorts - DigitalModulator");
+//        }
+//        if (numPorts[0].isComplex() || numPorts[0].isFractional()) {
+//            throw std::runtime_error("Error Parsing NumInputPorts - DigitalModulator");
+//        }
+//
+//        if(bitwiseOpStr != "NOT" && numPorts[0].getRealInt() != 2){
+//            throw std::runtime_error("Only Simulink Bitwise Operators with 2 Input Ports (excepet for NOT) are Currently Supported");
+//        }
     } else
     {
         throw std::runtime_error("Unsupported Dialect when parsing XML - BitwiseOperator");

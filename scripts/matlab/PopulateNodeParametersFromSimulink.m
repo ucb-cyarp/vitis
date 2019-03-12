@@ -452,6 +452,23 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['commdigbbnd
     %"Approximate log-likelihood ratio".  For OutType "Bit" it is a hard
     %decision decoder
     
+%---- Bitwise Operator ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Logic and Bit' newline 'Operations/Bitwise' newline 'Operator'])
+        %Changing block type from 'S-Function'
+        node.simulinkBlockType = 'BitwiseOperator';
+        
+        %logicop = 'AND', 'OR', 'NAND', 'NOR', 'XOR', 'NOT'
+        
+        %Use UseBitMask = 'off' or 'on'.  Specifies if the mask is provided
+        %as a dialog parameter
+        
+        node.dialogPropertiesNumeric('NumInputPorts') = GetParamEval(simulink_block_handle, 'NumInputPorts'); %Number of input ports
+        
+        node.dialogPropertiesNumeric('BitMask') = GetParamEval(simulink_block_handle, 'BitMask'); %Bitmask if given in dialog
+        
+        %BitMaskRealWorld not quite sure what this is.  'Stored Integer' is
+        %an option.
+        
 %TODO: More Blocks
 end
     
