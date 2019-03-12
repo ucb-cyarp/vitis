@@ -365,12 +365,12 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
             //Connect real mux comparison
             std::shared_ptr<Arc> muxCtrl = Arc::connectNodes(compareToZeroReal, 0, mux, boolDT);
-            new_arcs.push_back(realInputToComparison);
+            new_arcs.push_back(muxCtrl);
 
             //Connect imag component to unconnected node
             std::shared_ptr<Arc> imagInputToUnconnected = Arc::connectNodes(complexToRealImag, 1, unconnected_master, 0,
                                                                             inputRealDT);
-            new_arcs.push_back(realInputToComparison);
+            new_arcs.push_back(imagInputToUnconnected);
 
             //Create Constants for Mux
             std::shared_ptr<Constant> constZero = NodeFactory::createNode<Constant>(expandedNode);
@@ -417,7 +417,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_nodes.push_back(realMux_ImGEQ0);
 
             std::shared_ptr<Arc> realComparisonToRealMuxGEQ = Arc::connectNodes(compareToZeroReal, 0, realMux_ImGEQ0, boolDT);
-            new_arcs.push_back(imagInputToComparison);
+            new_arcs.push_back(realComparisonToRealMuxGEQ);
 
             std::shared_ptr<Constant> q1Const = NodeFactory::createNode<Constant>(expandedNode);
             q1Const->setValue({NumericValue(0, 0, std::complex<double>(0, 0), false, false)}); //Q1 is always 0
@@ -447,7 +447,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_nodes.push_back(q4Const);
 
             std::shared_ptr<Arc> q4ToMux = Arc::connectNodes(q4Const, 0, realMux_ImLT0, 0, outDT);
-            new_arcs.push_back(q1ToMux);
+            new_arcs.push_back(q4ToMux);
 
             std::shared_ptr<Constant> q3Const = NodeFactory::createNode<Constant>(expandedNode);
             int q3ConstVal = grayCoded ? 3 : 2;
@@ -485,6 +485,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
         std::shared_ptr<Gain> denormalizer = NodeFactory::createNode<Gain>(expandedNode);
         denormalizer->setGain({NumericValue(0, 0, std::complex<double>(scale_factor, 0), false, true)});
+        new_nodes.push_back(denormalizer);
 
         //Rewire input
         std::shared_ptr<Arc> inputArc = *(inputPorts[0]->getArcs().begin());
@@ -536,9 +537,12 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
         //Down-cast to int (truncate)
         //Can be unsigned since saturation occured first and forced the value to be in the domain [0, #rows/cols)
-        DataType castIntDT = DataType(false, false, false, bitsPerSymbol, 0, 1);
+        DataType castIntDTExact = DataType(false, false, false, bitsPerSymbol, 0, 1);
+        //The cast needs to be to a CPU type for datatype convert
+        DataType castIntDT = castIntDTExact.getCPUStorageType();
 
         std::shared_ptr<DataTypeConversion> realDataTypeConversion = NodeFactory::createNode<DataTypeConversion>(expandedNode);
+        realDataTypeConversion->setInheritType(DataTypeConversion::InheritType::SPECIFIED);
         realDataTypeConversion->setTgtDataType(castIntDT);
         new_nodes.push_back(realDataTypeConversion);
 
@@ -546,6 +550,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         new_arcs.push_back(toRealDataTypeConversion);
 
         std::shared_ptr<DataTypeConversion> imagDataTypeConversion = NodeFactory::createNode<DataTypeConversion>(expandedNode);
+        realDataTypeConversion->setInheritType(DataTypeConversion::InheritType::SPECIFIED);
         imagDataTypeConversion->setTgtDataType(castIntDT);
         new_nodes.push_back(imagDataTypeConversion);
 
@@ -602,6 +607,9 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             }
         }
 
+        decoderTable->setSearchMethod(LUT::SearchMethod::EVENLY_SPACED_POINTS);
+        decoderTable->setInterpMethod(LUT::InterpMethod::FLAT);
+        decoderTable->setExtrapMethod(LUT::ExtrapMethod::NO_CHECK);
         decoderTable->setBreakpoints({breakpoints});
         decoderTable->setTableData(tableData);
 

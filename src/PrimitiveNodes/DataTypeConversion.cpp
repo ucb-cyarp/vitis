@@ -7,11 +7,11 @@
 #include "GraphCore/NodeFactory.h"
 #include <iostream>
 
-DataTypeConversion::DataTypeConversion() {
+DataTypeConversion::DataTypeConversion() : PrimitiveNode(), inheritType(DataTypeConversion::InheritType::SPECIFIED) {
 
 }
 
-DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
+DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), inheritType(DataTypeConversion::InheritType::SPECIFIED) {
 
 }
 
