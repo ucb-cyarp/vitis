@@ -232,7 +232,7 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                                 FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(),
                                                                       typeToConvertTo.getFractionalBits()));
                     }else{
-                        if(realInt > 0) {
+                        if(realInt >= 0) {
                             val = GeneralHelper::to_string(
                                     FixedPointHelpers::toFixedPointUnsigned((uint64_t) realInt,
                                                                             typeToConvertTo.getTotalBits(),
