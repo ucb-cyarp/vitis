@@ -568,6 +568,10 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         assignNodeIDs();
         assignArcIDs();
 
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
+
         scheduleTopologicalStort(false, true); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 

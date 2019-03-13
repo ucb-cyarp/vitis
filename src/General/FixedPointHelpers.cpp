@@ -13,8 +13,8 @@ int64_t FixedPointHelpers::toFixedPointSigned(int64_t orig, int totalBits, int f
     int integerBits = totalBits-fractionalBits;
 
     //The max range for signed integers is [-2^(integerBits-1), 2^(integerBits-1)-1]
-    int64_t minInt = (-1) << (integerBits-1); // (-1) << n is equiv to -2^n
-    int64_t maxInt = (1 << (integerBits-1))-1; // 1 << n is equiv to 2^n
+    int64_t minInt = ((int64_t)(-1)) << (integerBits-1); // (-1) << n is equiv to -2^n
+    int64_t maxInt = (((int64_t)1) << (integerBits-1))-1; // 1 << n is equiv to 2^n
 
     if(orig < minInt || orig > maxInt){
         throw std::runtime_error("The signed integer " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits");
@@ -34,7 +34,7 @@ uint64_t FixedPointHelpers::toFixedPointUnsigned(uint64_t orig, int totalBits, i
     int integerBits = totalBits-fractionalBits;
 
     //The max range for unsigned integers is [0, 2^(integerBits)-1]
-    int64_t maxInt = (1 << integerBits)-1; // 1 << n is equiv to 2^n
+    int64_t maxInt = (((uint64_t)1) << integerBits)-1; // 1 << n is equiv to 2^n
 
     if(orig > maxInt){ //Don't need to check min bound for unsigned
         throw std::runtime_error("The unsigned integer " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits");

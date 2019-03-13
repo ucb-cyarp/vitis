@@ -428,8 +428,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
             std::shared_ptr<Node> candidateNode = *it;
             std::cerr << candidateNode->getFullyQualifiedName(false) << " ID: " << candidateNode->getId() << " InDeg: " << candidateNode->inDegree() <<std::endl;
             std::set<std::shared_ptr<Node>> connectedInputNodes = candidateNode->getConnectedInputNodes();
-            for(auto conntectedInputNode = connectedInputNodes.begin(); conntectedInputNode != connectedInputNodes.end(); conntectedInputNode++){
-                std::cerr << "\tConntected to " << (*conntectedInputNode)->getFullyQualifiedName(false) << " ID: " << (*conntectedInputNode)->getId() << " InDeg: " << (*conntectedInputNode)->inDegree() <<std::endl;
+            for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
+                std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
+                std::cerr << "\tConnected to " << (connectedInputNode)->getFullyQualifiedName(false) << " ID: " << (connectedInputNode)->getId() << " InDeg: " << (connectedInputNode)->inDegree() <<std::endl;
             }
         }
         throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");

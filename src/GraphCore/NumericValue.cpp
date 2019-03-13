@@ -226,8 +226,21 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                         return "true";
                     }
                 }else{
-                    //TODO: Currently only support NumericValue signed integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
-                    val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    //TODO: Currently only support NumericValue signed integers for full 64 bit integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
+                    if(typeToConvertTo.isSignedType()) {
+                        val = GeneralHelper::to_string(
+                                FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(),
+                                                                      typeToConvertTo.getFractionalBits()));
+                    }else{
+                        if(realInt > 0) {
+                            val = GeneralHelper::to_string(
+                                    FixedPointHelpers::toFixedPointUnsigned((uint64_t) realInt,
+                                                                            typeToConvertTo.getTotalBits(),
+                                                                            typeToConvertTo.getFractionalBits()));
+                        }else{
+                            throw std::runtime_error("The an unsigned representation was requested for a negative NumericValue: " + GeneralHelper::to_string(realInt));
+                        }
+                    }
                 }
 
             }else{
@@ -243,7 +256,20 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                         }
                     }else{
                         //Return actual value (this number is complex)
-                        val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                        if(typeToConvertTo.isSignedType()) {
+                            val = GeneralHelper::to_string(
+                                    FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(),
+                                                                          typeToConvertTo.getFractionalBits()));
+                        }else{
+                            if(imagInt > 0) {
+                                val = GeneralHelper::to_string(
+                                        FixedPointHelpers::toFixedPointUnsigned((uint64_t) imagInt,
+                                                                                typeToConvertTo.getTotalBits(),
+                                                                                typeToConvertTo.getFractionalBits()));
+                            }else{
+                                throw std::runtime_error("The an unsigned representation was requested for a negative NumericValue: " + GeneralHelper::to_string(realInt));
+                            }
+                        }
                     }
                 }else{
                     if(typeToConvertTo.isBool()) {

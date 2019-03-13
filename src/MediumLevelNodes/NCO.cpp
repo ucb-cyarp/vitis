@@ -13,6 +13,7 @@
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/RealImagToComplex.h"
+#include "PrimitiveNodes/DataTypeConversion.h"
 #include "MediumLevelNodes/Gain.h"
 
 #include <cmath>
@@ -90,7 +91,11 @@ NCO::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         //Simulink Names -- Numeric.TableDepth, Numeric.AccumWL, Numeric.DitherWL, Formula
         lutAddrBitsStr = dataKeyValueMap.at("Numeric.TableDepth");
         accumulatorBitsStr = dataKeyValueMap.at("Numeric.AccumWL");
-        ditherBitsStr = dataKeyValueMap.at("Numeric.DitherWL");
+        if(dataKeyValueMap.at("HasDither") == "off"){
+            ditherBitsStr = "0";
+        }else {
+            ditherBitsStr = dataKeyValueMap.at("Numeric.DitherWL");
+        }
         std::string formula = dataKeyValueMap.at("Formula");
         if(formula == "Complex exponential"){
             complexOutParsed = true;
@@ -233,19 +238,32 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     new_nodes.push_back(expandedNode);
 
     //---- Create nodes and rewire ----
-    DataType incDT = getInputPort(0)->getDataType();
+    //DataType incDT = getInputPort(0)->getDataType();
+    DataType incDT(false, true, false, accumulatorBits+1, 0, 1); //Accumulator bits
+    //TODO: For this implementation, we round up to the next CPU type.  Comment out if true fixed point is needed
+    incDT = incDT.getCPUStorageType();
+
+    std::shared_ptr<DataTypeConversion> inputDTConvert = NodeFactory::createNode<DataTypeConversion>(expandedNode);
+    inputDTConvert->setInheritType(DataTypeConversion::InheritType::INHERIT_FROM_OUTPUT);
+    new_nodes.push_back(inputDTConvert);
+
+    //Rewire input
+    inputDTConvert->addInArcUpdatePrevUpdateArc(0, *(getInputPort(0)->getArcs().begin()));
 
     //+++ Accum +++
     std::shared_ptr<Sum> accum = NodeFactory::createNode<Sum>(expandedNode);
     accum->setInputSign(std::vector<bool>({true, true}));
+    accum->setName("NCO_Accumulator_Sum");
     new_nodes.push_back(accum);
 
-    //Rewire input
-    accum->addInArcUpdatePrevUpdateArc(0, *(getInputPort(0)->getArcs().begin()));
+    std::shared_ptr<Arc> dataTypeConvertInToAccum = Arc::connectNodes(inputDTConvert, 0, accum, 0, incDT);
+    new_arcs.push_back(dataTypeConvertInToAccum);
 
     //+ Delay +
     std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(expandedNode);
     delay->setDelayValue(1);
+    delay->setInitCondition({NumericValue(0, 0, std::complex<double>(0, 0), false, false)}); //TODO: implement initial phase
+    delay->setName("NCO_Accumulator_State");
     new_nodes.push_back(delay);
 
     std::shared_ptr<Arc> delayIn = Arc::connectNodes(accum, 0, delay, 0, incDT);
@@ -255,10 +273,15 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     unsigned long maskVal = GeneralHelper::twoPow(accumulatorBits)-1;
 
     std::shared_ptr<Constant> accumMaskConst = NodeFactory::createNode<Constant>(expandedNode);
+    accumMaskConst->setValue({NumericValue(maskVal, 0, std::complex<double>(0,0), false, false)});
+    new_nodes.push_back(accumMaskConst);
 
     std::shared_ptr<BitwiseOperator> accumMask = NodeFactory::createNode<BitwiseOperator>(expandedNode);
     accumMask->setOp(BitwiseOperator::BitwiseOp::AND);
     new_nodes.push_back(accumMask);
+
+    std::shared_ptr<Arc> delayToAccumMask = Arc::connectNodes(delay, 0, accumMask, 0, incDT);
+    new_arcs.push_back(delayToAccumMask);
 
     std::shared_ptr<Arc> constantToAccumMask = Arc::connectNodes(accumMaskConst, 0, accumMask, 1, incDT);
     new_arcs.push_back(constantToAccumMask);
@@ -289,12 +312,22 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     std::shared_ptr<Arc> reinterpretCastToQuantizer = Arc::connectNodes(reinterpretCast, 0, quantizer, 0, unsignedIncDT);
     new_arcs.push_back(reinterpretCastToQuantizer);
 
-    DataType quantizeConstType(false, false, false, 2, 0, 1);
+    DataType quantizeConstType(false, false, false, ceil(log2(accumulatorBits+1)), 0, 1);
     std::shared_ptr<Arc> quantizeConstToQuantizer = Arc::connectNodes(quantizeConst, 0, quantizer, 1, quantizeConstType);
     new_arcs.push_back(quantizeConstToQuantizer);
 
     DataType quantizerType = unsignedIncDT;
-    quantizerType.setTotalBits(quantizerType.getTotalBits()-(accumulatorBits-lutAddrBits));
+    quantizerType.setTotalBits(lutAddrBits); //The accumulator is quantized to
+    //TODO: For this implementation, we round up to the next CPU type.  Comment out if true fixed point is needed
+    quantizerType = quantizerType.getCPUStorageType();
+
+    //Insert another datatype convert
+    std::shared_ptr<DataTypeConversion> quantizeDTConvert = NodeFactory::createNode<DataTypeConversion>(expandedNode);
+    quantizeDTConvert->setInheritType(DataTypeConversion::InheritType::INHERIT_FROM_OUTPUT);
+    new_nodes.push_back(quantizeDTConvert);
+
+    std::shared_ptr<Arc> quantizerToDTConvert = Arc::connectNodes(quantizer, 0, quantizeDTConvert, 0, unsignedIncDT);
+    new_arcs.push_back(quantizerToDTConvert);
 
     //+++ Quad and Base Index Calculation +++
     //+Quad Calc+
@@ -306,10 +339,10 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     quadCalcConst->setValue({NumericValue(lutAddrBits-2, 0, std::complex<double>(0, 0), false, false)});
     new_nodes.push_back(quadCalcConst);
 
-    std::shared_ptr<Arc> quantizerToQuadCalc = Arc::connectNodes(quantizer, 0, quadCalc, 0, quantizerType);
+    std::shared_ptr<Arc> quantizerToQuadCalc = Arc::connectNodes(quantizeDTConvert, 0, quadCalc, 0, quantizerType);
     new_arcs.push_back(quantizerToQuadCalc);
 
-    DataType quantizeQuadConstType(false, false, false, (int) ceil(log2(lutAddrBits-2)), 0, 1);
+    DataType quantizeQuadConstType(false, false, false, ceil(log2(lutAddrBits-2)), 0, 1);
 
     std::shared_ptr<Arc> quadCalcConstToQuadCalc = Arc::connectNodes(quadCalcConst, 0, quadCalc, 1, quantizeQuadConstType);
     new_arcs.push_back(quadCalcConstToQuadCalc);
@@ -346,7 +379,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     new_arcs.push_back(indOffsetConstToBaseInSum);
 
     std::shared_ptr<Arc> baseIndCalcToBaseInSum = Arc::connectNodes(baseIndCalc, 0, baseIndSum, 1, baseIndDT);
-    new_arcs.push_back(baseIndMaskToBaseIndCalc);
+    new_arcs.push_back(baseIndCalcToBaseInSum);
 
     std::shared_ptr<Mux> cosIndMux;
     std::shared_ptr<Mux> sinIndMux;
@@ -420,20 +453,20 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
 
     quarterWaveLut->setBreakpoints(breakpoint2D);
     quarterWaveLut->setTableData(tableData);
+    quarterWaveLut->setSearchMethod(LUT::SearchMethod::EVENLY_SPACED_POINTS);
+    quarterWaveLut->setInterpMethod(LUT::InterpMethod::FLAT);
+    quarterWaveLut->setExtrapMethod(LUT::ExtrapMethod::NO_CHECK);
 
     if(calcCos){
         std::shared_ptr<Arc> cosIndToLUT = Arc::connectNodes(cosIndMux, 0, quarterWaveLut, 0, baseIndDT);
         new_arcs.push_back(cosIndToLUT);
-
-        std::shared_ptr<Arc> sinIndToLUT = Arc::connectNodes(cosIndMux, 0, quarterWaveLut, 1, baseIndDT);
-        new_arcs.push_back(sinIndToLUT);
     }
 
     if(calcSin && calcCos){
-        std::shared_ptr<Arc> sinIndToLUT = Arc::connectNodes(cosIndMux, 0, quarterWaveLut, 1, baseIndDT);
+        std::shared_ptr<Arc> sinIndToLUT = Arc::connectNodes(sinIndMux, 0, quarterWaveLut, 1, baseIndDT);
         new_arcs.push_back(sinIndToLUT);
     }else{
-        std::shared_ptr<Arc> sinIndToLUT = Arc::connectNodes(cosIndMux, 0, quarterWaveLut, 0, baseIndDT);
+        std::shared_ptr<Arc> sinIndToLUT = Arc::connectNodes(sinIndMux, 0, quarterWaveLut, 0, baseIndDT);
         new_arcs.push_back(sinIndToLUT);
     }
 

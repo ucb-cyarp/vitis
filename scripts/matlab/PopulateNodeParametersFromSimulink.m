@@ -350,6 +350,8 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'dspsigops/NC
     node.dialogPropertiesNumeric('AccumWL') = GetParamEval(simulink_block_handle, 'AccumWL'); %The accumulator 
     node.dialogPropertiesNumeric('DitherWL') = GetParamEval(simulink_block_handle, 'DitherWL');
     
+    %HasDither = 'off' or 'on'.  If 'off', ignore DitherWL
+    
     %Formula is 'Complex exponential', 'Sine', 'Cosine', or 'Sine and cosine'
 
     %Changing block type from 'S-Function'
