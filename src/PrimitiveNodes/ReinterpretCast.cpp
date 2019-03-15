@@ -171,7 +171,9 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
             //We actually need to do the cast
             cStatementQueue.push_back(srcType.toString(DataType::StringStyle::C, false) + " " + beforeCastName + " = " + inputExpr + ";");
 
-            std::string castExpr = tgtDataType.toString() + " " + afterCastName + " = *((" + tgtDataType.toString(DataType::StringStyle::C, false) + "*)((void*)(&" + beforeCastName + ")))";
+            std::string castExpr = "*((" + tgtDataType.toString(DataType::StringStyle::C, false) + "*)((void*)(&" + beforeCastName + ")))";
+
+            cStatementQueue.push_back(tgtDataType.toString(DataType::StringStyle::C, false) + " " + afterCastName + " = " + castExpr + ";");
         }
     }
 

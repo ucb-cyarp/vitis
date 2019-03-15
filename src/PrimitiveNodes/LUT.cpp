@@ -461,9 +461,9 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             throw std::runtime_error("Emit Failed - LUT - Currently only supports Evenly spaced search method");
         }
 
-        //TODO: Support multiple inputs (N-D inputs), only 1D is currently supported
+        //Multiple inputs to the same LUT is supported however it is simply another read port to the same lut.  TODO: Support multiple inputs (N-D inputs), only 1D is currently supported
         unsigned long numInputPorts = inputPorts.size();
-        if (numInputPorts > 1) {
+        if (dimension > 1) {
             throw std::runtime_error("Emit Failed - LUT - Currently only supports 1-D tables");
         }
 

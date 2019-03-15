@@ -245,10 +245,18 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
 
     std::shared_ptr<DataTypeConversion> inputDTConvert = NodeFactory::createNode<DataTypeConversion>(expandedNode);
     inputDTConvert->setInheritType(DataTypeConversion::InheritType::INHERIT_FROM_OUTPUT);
+    inputDTConvert->setName("NCO_Input_DT_Convert");
     new_nodes.push_back(inputDTConvert);
 
     //Rewire input
     inputDTConvert->addInArcUpdatePrevUpdateArc(0, *(getInputPort(0)->getArcs().begin()));
+
+    //+ Delay +
+    std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(expandedNode);
+    delay->setDelayValue(1);
+    delay->setInitCondition({NumericValue(0, 0, std::complex<double>(0, 0), false, false)}); //TODO: implement initial phase
+    delay->setName("NCO_Accumulator_State");
+    new_nodes.push_back(delay);
 
     //+++ Accum +++
     std::shared_ptr<Sum> accum = NodeFactory::createNode<Sum>(expandedNode);
@@ -259,15 +267,8 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     std::shared_ptr<Arc> dataTypeConvertInToAccum = Arc::connectNodes(inputDTConvert, 0, accum, 0, incDT);
     new_arcs.push_back(dataTypeConvertInToAccum);
 
-    //+ Delay +
-    std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(expandedNode);
-    delay->setDelayValue(1);
-    delay->setInitCondition({NumericValue(0, 0, std::complex<double>(0, 0), false, false)}); //TODO: implement initial phase
-    delay->setName("NCO_Accumulator_State");
-    new_nodes.push_back(delay);
-
-    std::shared_ptr<Arc> delayIn = Arc::connectNodes(accum, 0, delay, 0, incDT);
-    new_arcs.push_back(delayIn);
+    std::shared_ptr<Arc> delayToSum = Arc::connectNodes(delay, 0, accum, 1, incDT);
+    new_arcs.push_back(delayToSum);
 
     //+Accum Mask+
     unsigned long maskVal = GeneralHelper::twoPow(accumulatorBits)-1;
@@ -278,16 +279,17 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
 
     std::shared_ptr<BitwiseOperator> accumMask = NodeFactory::createNode<BitwiseOperator>(expandedNode);
     accumMask->setOp(BitwiseOperator::BitwiseOp::AND);
+    accumMask->setName("NCO_Accum_Mask");
     new_nodes.push_back(accumMask);
 
-    std::shared_ptr<Arc> delayToAccumMask = Arc::connectNodes(delay, 0, accumMask, 0, incDT);
-    new_arcs.push_back(delayToAccumMask);
+    std::shared_ptr<Arc> sumToAccumMask = Arc::connectNodes(accum, 0, accumMask, 0, incDT);
+    new_arcs.push_back(sumToAccumMask);
 
     std::shared_ptr<Arc> constantToAccumMask = Arc::connectNodes(accumMaskConst, 0, accumMask, 1, incDT);
     new_arcs.push_back(constantToAccumMask);
 
-    std::shared_ptr<Arc> accumMaskToAccum = Arc::connectNodes(accumMask, 0, accum, 1, incDT);
-    new_arcs.push_back(accumMaskToAccum);
+    std::shared_ptr<Arc> accumMaskToDelay = Arc::connectNodes(accumMask, 0, delay, 0, incDT);
+    new_arcs.push_back(accumMaskToDelay);
 
     //+++ Treat as Unsigned +++
     DataType unsignedIncDT = incDT;
@@ -297,7 +299,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     reinterpretCast->setTgtDataType(unsignedIncDT);
     new_nodes.push_back(reinterpretCast);
 
-    std::shared_ptr<Arc> accumMaskToReinterpretCast = Arc::connectNodes(accumMask, 0, reinterpretCast, 0, incDT);
+    std::shared_ptr<Arc> accumMaskToReinterpretCast = Arc::connectNodes(delay, 0, reinterpretCast, 0, incDT);
     new_arcs.push_back(accumMaskToReinterpretCast);
 
     //+++ Quantize +++
