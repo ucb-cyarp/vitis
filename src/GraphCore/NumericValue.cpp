@@ -320,7 +320,11 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
     bool done = false;
 
     while(!done){
-        unsigned long tokenEnd = str.find(',', startPos);
+        //TODO: do proper 2d parsing, currently collapse to 1d
+        unsigned long tokenEndComma = str.find(',', startPos);
+        unsigned long tokenEndSemicolon = str.find(';', startPos);
+        unsigned long tokenEnd = tokenEndComma<tokenEndSemicolon ? tokenEndComma : tokenEndSemicolon;
+
         if(tokenEnd == std::string::npos){
             done = true; //This is the last token
             tokenEnd = str.find(']', startPos);

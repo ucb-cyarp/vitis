@@ -57,10 +57,10 @@ ThresholdSwitch::createFromGraphML(int id, std::string name, std::map<std::strin
         //Comparison notation is different for the switch
         if(compareOpStr == "u2 > Threshold"){
             compareOpVal = Compare::CompareOp::GT;
-            thresholdVal = NumericValue::parseXMLString(dataKeyValueMap.at("Threshold"));
+            thresholdVal = NumericValue::parseXMLString(dataKeyValueMap.at("Numeric.Threshold"));
         }else if(compareOpStr == "u2 >= Threshold"){
             compareOpVal = Compare::CompareOp::GEQ;
-            thresholdVal = NumericValue::parseXMLString(dataKeyValueMap.at("Threshold"));
+            thresholdVal = NumericValue::parseXMLString(dataKeyValueMap.at("Numeric.Threshold"));
         }else if(compareOpStr == "u2 ~= 0"){
             compareOpVal = Compare::CompareOp::NEQ;
             thresholdVal.push_back(NumericValue(0, 0, std::complex<double>(0, 0), false, false)); //Set the constant to 0
@@ -215,6 +215,7 @@ void ThresholdSwitch::validate() {
     }
 
     //Check that all input ports and the output port have the same type
+    //TODO: Simulink actually does not appear to enforce this.  Perhaps add auto datatype conversion?
     DataType outType = getOutputPort(0)->getDataType();
     unsigned long numInputPorts = inputPorts.size();
 

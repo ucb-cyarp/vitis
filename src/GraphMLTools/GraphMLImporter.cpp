@@ -40,9 +40,11 @@
 #include "MediumLevelNodes/DigitalModulator.h"
 #include "MediumLevelNodes/DigitalDemodulator.h"
 #include "HighLevelNodes/DiscreteFIR.h"
+#include "HighLevelNodes/TappedDelay.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
 #include "BusNodes/VectorFanOut.h"
+#include "BusNodes/Concatenate.h"
 
 #include <iostream>
 #include <fstream>
@@ -929,12 +931,16 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DiscreteFIR" || blockFunction == "DiscreteFir"){ //Vitis name is DiscreteFIR, Simulink name is DiscreteFir
         newNode = DiscreteFIR::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "TappedDelay"){ //Vitis & Simulink name is TappedDelay
+        newNode = TappedDelay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "ComplexToRealImag"){
         newNode = ComplexToRealImag::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "RealImagToComplex"){
         newNode = RealImagToComplex::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DataTypeDuplicate"){
         newNode = DataTypeDuplicate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Concatenate"){
+        newNode = Concatenate::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "LogicalOperator" || blockFunction == "Logic"){ //Vitis name is LogicalOperator, Simulink name is Logic
         newNode = LogicalOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Saturate"){

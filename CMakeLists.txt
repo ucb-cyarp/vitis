@@ -174,12 +174,16 @@ set(COMMON_SRCS
         src/HighLevelNodes/HighLevelNode.h
         src/HighLevelNodes/DiscreteFIR.cpp
         src/HighLevelNodes/DiscreteFIR.h
+        src/HighLevelNodes/TappedDelay.cpp
+        src/HighLevelNodes/TappedDelay.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
         src/BusNodes/VectorFanIn.h
         src/BusNodes/VectorFanOut.cpp
-        src/BusNodes/VectorFanOut.h)
+        src/BusNodes/VectorFanOut.h
+        src/BusNodes/Concatenate.cpp
+        src/BusNodes/Concatenate.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
