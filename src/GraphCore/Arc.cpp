@@ -16,6 +16,8 @@
 
 #include "PrimitiveNodes/Mux.h"
 
+#include "General/ErrorHelpers.h"
+
 Arc::Arc() : id(-1), sampleTime(-1), delay(0), slack(0){
     srcPort = std::shared_ptr<OutputPort>(nullptr);
     dstPort = std::shared_ptr<InputPort>(nullptr);
@@ -249,7 +251,7 @@ int Arc::getIDFromGraphMLFullPath(std::string fullPath) {
     }
 
     if(nIndex == -1){
-        throw std::runtime_error("Could not find edge ID in full GraphML path: " + fullPath);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Could not find edge ID in full GraphML path: " + fullPath));
     }
 
     std::string localIDStr = fullPath.substr(nIndex+1, std::string::npos);

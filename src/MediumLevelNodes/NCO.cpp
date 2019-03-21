@@ -15,6 +15,7 @@
 #include "PrimitiveNodes/RealImagToComplex.h"
 #include "PrimitiveNodes/DataTypeConversion.h"
 #include "MediumLevelNodes/Gain.h"
+#include "General/ErrorHelpers.h"
 
 #include <cmath>
 
@@ -102,11 +103,11 @@ NCO::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         }else if(formula == "Cosine"){
             complexOutParsed = false;
         }else{
-            throw std::runtime_error("NCO Type: " + formula + " is not supported yet - NCO");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("NCO Type: " + formula + " is not supported yet - NCO", newNode));
         }
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - NCO", newNode));
     }
 
     std::vector<NumericValue> lutAddrBitsNV = NumericValue::parseXMLString(lutAddrBitsStr);
@@ -114,26 +115,26 @@ NCO::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
     std::vector<NumericValue> ditherBitsNV = NumericValue::parseXMLString(ditherBitsStr);
 
     if(lutAddrBitsNV.size() != 1){
-        throw std::runtime_error("Error Parsing LutAddrBits - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing LutAddrBits - NCO", newNode));
     }
     if(lutAddrBitsNV[0].isComplex() || lutAddrBitsNV[0].isFractional()){
-        throw std::runtime_error("Error Parsing LutAddrBits - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing LutAddrBits - NCO", newNode));
     }
     newNode->setLutAddrBits(lutAddrBitsNV[0].getRealInt());
 
     if(accumulatorBitsNV.size() != 1){
-        throw std::runtime_error("Error Parsing AccumulatorBits - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing AccumulatorBits - NCO", newNode));
     }
     if(accumulatorBitsNV[0].isComplex() || accumulatorBitsNV[0].isFractional()){
-        throw std::runtime_error("Error Parsing AccumulatorBits - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing AccumulatorBits - NCO", newNode));
     }
     newNode->setAccumulatorBits(accumulatorBitsNV[0].getRealInt());
 
     if(ditherBitsNV.size() != 1){
-        throw std::runtime_error("Error Parsing DitherBits - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing DitherBits - NCO", newNode));
     }
     if(ditherBitsNV[0].isComplex() || ditherBitsNV[0].isFractional()){
-        throw std::runtime_error("Error Parsing DitherBits - NCO");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing DitherBits - NCO", newNode));
     }
     newNode->setDitherBits(ditherBitsNV[0].getRealInt());
 
@@ -149,7 +150,7 @@ std::set<GraphMLParameter> NCO::graphMLParameters() {
     parameters.insert(GraphMLParameter("LutAddrBits", "string", true));
     parameters.insert(GraphMLParameter("AccumulatorBits", "string", true));
     parameters.insert(GraphMLParameter("DitherBits", "string", true));
-    parameters.insert(GraphMLParameter("ComplexOut", "bool", true));
+    parameters.insert(GraphMLParameter("ComplexOut", "boolean", true));
 
     return parameters;
 }
@@ -189,20 +190,20 @@ void NCO::validate() {
     Node::validate();
 
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - NCO - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - NCO - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - NCO - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - NCO - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     if(accumulatorBits <= lutAddrBits){
-        throw std::runtime_error("Validation Failed - NCO - AccumulatorBits should be larger than LUTAddrBits");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - NCO - AccumulatorBits should be larger than LUTAddrBits", getSharedPointer()));
     }
 
     //TODO: handle dithering
     if(ditherBits != 0){
-        throw std::runtime_error("Validation Failed - NCO - Dithering is currently not supported");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - NCO - Dithering is currently not supported", getSharedPointer()));
     }
 }
 

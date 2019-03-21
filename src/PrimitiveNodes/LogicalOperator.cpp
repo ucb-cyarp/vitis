@@ -5,6 +5,7 @@
 #include "LogicalOperator.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
 
 LogicalOperator::LogicalOp LogicalOperator::getLogicalOp() const {
     return logicalOp;
@@ -30,7 +31,7 @@ LogicalOperator::LogicalOp LogicalOperator::parseLogicalOpString(std::string str
     }else if(str == "NXOR"){
         return LogicalOp::NXOR;
     }else{
-        throw std::runtime_error("Logical Operator Unsupported: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Logical Operator Unsupported: " + str));
     }
 }
 
@@ -50,7 +51,7 @@ std::string LogicalOperator::logicalOpToString(LogicalOperator::LogicalOp op) {
     }else if(op == LogicalOp::NXOR){
         return "NXOR";
     }else{
-        throw std::runtime_error("LogicalOp toString not implemented for this operator.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("LogicalOp toString not implemented for this operator."));
     }
 }
 
@@ -70,7 +71,7 @@ std::string LogicalOperator::logicalOpToCString(LogicalOperator::LogicalOp op) {
     }else if(op == LogicalOp::NXOR){
         return "==";
     }else{
-        throw std::runtime_error("LogicalOp toCString not implemented for this operator.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("LogicalOp toCString not implemented for this operator."));
     }
 }
 
@@ -104,7 +105,7 @@ LogicalOperator::createFromGraphML(int id, std::string name, std::map<std::strin
         logicalOpStr = dataKeyValueMap.at("Operator");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - LogicalOperator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - LogicalOperator", newNode));
     }
 
     //Get Operator
@@ -151,16 +152,16 @@ void LogicalOperator::validate() {
 
     if(logicalOp == LogicalOp::NOT) {
         if (inputPorts.size() != 1) {
-            throw std::runtime_error("Validation Failed - LogicalOperator - Should Have Exactly 1 Input Ports");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LogicalOperator - Should Have Exactly 1 Input Ports", getSharedPointer()));
         }
     }else{
         if (inputPorts.size() < 2) {
-            throw std::runtime_error("Validation Failed - LogicalOperator - Should Have At Least 2 Input Ports");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LogicalOperator - Should Have At Least 2 Input Ports", getSharedPointer()));
         }
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - LogicalOperator - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LogicalOperator - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Validate ports are bools
@@ -168,19 +169,19 @@ void LogicalOperator::validate() {
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++) {
         if (!(getInputPort(i)->getDataType().isBool())) {
-            throw std::runtime_error("Validation Failed - LogicalOperator - Input " + GeneralHelper::to_string(i) + " is not a bool");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LogicalOperator - Input " + GeneralHelper::to_string(i) + " is not a bool", getSharedPointer()));
         }
     }
 
     if(!(getOutputPort(0)->getDataType().isBool())){
-        throw std::runtime_error("Validation Failed - LogicalOperator - Output is not a bool");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LogicalOperator - Output is not a bool", getSharedPointer()));
     }
 }
 
 CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     //Get the expressions for each input

@@ -10,6 +10,7 @@
 #include "General/GraphAlgs.h"
 
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
 
 Delay::Delay() : delayValue(0){
 
@@ -47,12 +48,12 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
         std::string delayLengthSource = dataKeyValueMap.at("DelayLengthSource");
 
         if (delayLengthSource != "Dialog") {
-            throw std::runtime_error("Delay block must specify Delay Source as \"Dialog\"");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Delay block must specify Delay Source as \"Dialog\"", newNode));
         }
 
         std::string initialConditionSource = dataKeyValueMap.at("InitialConditionSource");
         if (initialConditionSource != "Dialog") {
-            throw std::runtime_error("Delay block must specify Initial Condition Source source as \"Dialog\"");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Delay block must specify Initial Condition Source source as \"Dialog\"", newNode));
         }
     }
 
@@ -70,7 +71,7 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
         initialConditionStr = dataKeyValueMap.at("Numeric.InitialCondition");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Delay");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Delay", newNode));
     }
 
     int delayVal = std::stoi(delayStr);
@@ -132,11 +133,11 @@ void Delay::validate() {
 
     //Should have 1 input ports and 1 output port
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Delay - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Delay - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that input port and the output port have the same type
@@ -144,11 +145,11 @@ void Delay::validate() {
     DataType inType = getInputPort(0)->getDataType();
 
     if(inType != outType){
-        throw std::runtime_error("Validation Failed - Delay - DataType of Input Port Does not Match Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - DataType of Input Port Does not Match Output Port", getSharedPointer()));
     }
 
     if(delayValue != 0 && delayValue != initCondition.size()){
-        throw std::runtime_error("Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) + ") Does not Match the Length of Init Condition Vector (" + GeneralHelper::to_string(initCondition.size()) + ")");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) + ") Does not Match the Length of Init Condition Vector (" + GeneralHelper::to_string(initCondition.size()) + ")", getSharedPointer()));
     }
 }
 
@@ -187,7 +188,7 @@ std::vector<Variable> Delay::getCStateVars() {
 CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     if(delayValue == 0){

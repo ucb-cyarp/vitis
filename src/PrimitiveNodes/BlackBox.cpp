@@ -5,6 +5,7 @@
 #include <General/GeneralHelper.h>
 #include "BlackBox.h"
 #include "General/GraphAlgs.h"
+#include "General/ErrorHelpers.h"
 
 BlackBox::ReturnMethod BlackBox::parseReturnMethodStr(std::string str) {
     if(str == "NONE" || str == "none"){
@@ -20,7 +21,7 @@ BlackBox::ReturnMethod BlackBox::parseReturnMethodStr(std::string str) {
     }else if(str == "EXT" || str == "ext"){
         return BlackBox::ReturnMethod::EXT;
     }else{
-        throw std::runtime_error("Unable to parse ReturnMethod: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to parse ReturnMethod: " + str));
     }
 }
 
@@ -32,7 +33,7 @@ std::string BlackBox::returnMethodToStr(BlackBox::ReturnMethod returnMethod) {
         case BlackBox::ReturnMethod::SCALAR_POINTER : return "SCALAR_POINTER";
         case BlackBox::ReturnMethod::OBJECT_POINTER : return "OBJECT_POINTER";
         case BlackBox::ReturnMethod::EXT : return "EXT";
-        default : throw std::runtime_error("Unknown ReturnMethod");
+        default : throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ReturnMethod"));
     }
 }
 
@@ -152,7 +153,7 @@ std::set<GraphMLParameter> BlackBox::graphMLParametersCommon(){
     parameters.insert(GraphMLParameter("StateUpdateName", "string", true));
     parameters.insert(GraphMLParameter("CppHeaderContent", "string", true));
     parameters.insert(GraphMLParameter("CppBodyContent", "string", true));
-    parameters.insert(GraphMLParameter("Stateful", "bool", true));
+    parameters.insert(GraphMLParameter("Stateful", "boolean", true));
     parameters.insert(GraphMLParameter("RegisteredOutputPorts", "string", true));
 
     return parameters;
@@ -234,7 +235,7 @@ BlackBox::populatePropertiesFromGraphML(int id, std::string name, std::map<std::
     std::vector<NumericValue> registeredOutputPortsNumeric = NumericValue::parseXMLString(registeredOutputPortsStr);
     for(unsigned long i = 0; i<registeredOutputPortsNumeric.size(); i++){
         if(registeredOutputPortsNumeric[i].isFractional() || registeredOutputPortsNumeric[i].isComplex()){
-            throw std::runtime_error("Error Parsing XML for BlackBox - Stateful");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing XML for BlackBox - Stateful", getSharedPointer()));
         }else{
             registeredOutputPorts.push_back(registeredOutputPortsNumeric[i].getRealInt());
         }
@@ -369,7 +370,7 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
     }else if(returnMethod == BlackBox::ReturnMethod::EXT){
         return CExpr(imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum]), true);
     }else{
-        throw std::runtime_error("Error During BlackBox Emit - Unexpected Return Type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error During BlackBox Emit - Unexpected Return Type", getSharedPointer()));
     }
 
 }
@@ -380,19 +381,19 @@ void BlackBox::validate() {
     //TODO: Implement Vector Support
     for(unsigned long i = 0; i<inputPorts.size(); i++) {
         if(getInputPort(i)->getDataType().getWidth() > 1) {
-            throw std::runtime_error("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
     }
     for(unsigned long i = 0; i<outputPorts.size(); i++) {
         if(getOutputPort(i)->getDataType().getWidth() > 1) {
-            throw std::runtime_error("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
     }
 
     if(returnMethod == BlackBox::ReturnMethod::NONE && outputPorts.size()>0){
-        throw std::runtime_error("C Emit Error - BlackBox Return Type is NONE but had >0 Output Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Return Type is NONE but had >0 Output Ports", getSharedPointer()));
     }else if((returnMethod == BlackBox::ReturnMethod::SCALAR || returnMethod == BlackBox::ReturnMethod::SCALAR_POINTER) && outputPorts.size()>1){
-        throw std::runtime_error("C Emit Error - BlackBox Return Type is SCALAR or SCALAR_POINTER but had >1 Output Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Return Type is SCALAR or SCALAR_POINTER but had >1 Output Ports", getSharedPointer()));
     }
 }
 

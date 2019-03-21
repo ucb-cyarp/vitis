@@ -40,6 +40,8 @@ set(COMMON_SRCS
         src/General/GraphAlgs.h
         src/General/DSPHelpers.cpp
         src/General/DSPHelpers.h
+        src/General/ErrorHelpers.cpp
+        src/General/ErrorHelpers.h
         src/GraphCore/SchedParams.cpp
         src/GraphCore/SchedParams.h
         src/GraphCore/Node.cpp

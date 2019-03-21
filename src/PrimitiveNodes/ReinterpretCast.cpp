@@ -6,6 +6,7 @@
 
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
 #include <iostream>
 
 ReinterpretCast::ReinterpretCast() : PrimitiveNode(), emittedBefore(false) {
@@ -42,10 +43,10 @@ ReinterpretCast::createFromGraphML(int id, std::string name, std::map<std::strin
         datatypeStr = dataKeyValueMap.at("TgtDataType");
 
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        throw std::runtime_error("Reinterpret Cast is not a Simulink Node");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Reinterpret Cast is not a Simulink Node", newNode));
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Reinterpret Cast");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Reinterpret Cast", newNode));
     }
 
     //NOTE: complex is set to true and width is set to 1 for now.  These will be resolved with a call to propagate from Arcs.
@@ -54,7 +55,7 @@ ReinterpretCast::createFromGraphML(int id, std::string name, std::map<std::strin
         dataType = DataType(datatypeStr, true, 1);
         newNode->setTgtDataType(dataType);
     }catch(const std::invalid_argument& e){
-        throw std::runtime_error("Warning: Could not parse specified DataType: " + datatypeStr);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Could not parse specified DataType: " + datatypeStr, newNode));
     }
 
     return newNode;
@@ -97,13 +98,13 @@ std::string ReinterpretCast::labelStr() {
 
 void ReinterpretCast::propagateProperties() {
     if(getOutputPorts().size() < 1){
-        throw std::runtime_error("Propagate Error - ReinterpretCast - No Output Ports (" + name + ")");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Propagate Error - ReinterpretCast - No Output Ports", getSharedPointer()));
     }
 
     std::shared_ptr<OutputPort> output = getOutputPort(0);
 
     if(output->getArcs().size() < 1){
-        throw std::runtime_error("Propagate Error - ReinterpretCast - No Output Arcs (" + name + ")");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Propagate Error - ReinterpretCast - No Output Arcs", getSharedPointer()));
     }
 
     //Have a valid arc
@@ -120,23 +121,23 @@ void ReinterpretCast::validate() {
 
     //Should have 1 input ports and 1 output port
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - ReinterpretCast - Should Have Exactly 0 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ReinterpretCast - Should Have Exactly 0 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - ReinterpretCast - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ReinterpretCast - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
 
     std::shared_ptr<Arc> outArc = *(outputPorts[0]->getArcs().begin());
 
     if(outArc->getDataType() != tgtDataType) {
-        throw std::runtime_error("Validation Error - ReinterpretCast - Type Specified and Disagrees with Type of Output Arc");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Error - ReinterpretCast - Type Specified and Disagrees with Type of Output Arc", getSharedPointer()));
     }
 
     //Check that the datatype is a CPU type (important for re-interpret cast_
     if(!tgtDataType.isCPUType()){
-        throw std::runtime_error("Validation Error - ReinterpretCast - Type Specified must be a CPU Type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Error - ReinterpretCast - Type Specified must be a CPU Type", getSharedPointer()));
     }
 
 }
@@ -158,13 +159,13 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
         //TODO: Implement Vector Support
         if (getInputPort(0)->getDataType().getWidth() > 1) {
-            throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - ReinterpretCast Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
 
         //TODO: Implement Fixed Point Support
         if ((!getInputPort(0)->getDataType().isCPUType()) || (!getOutputPort(0)->getDataType().isCPUType())) {
-            throw std::runtime_error(
-                    "C Emit Error - DataType Conversion to/from Fixed Point Types has Not Yet Been Implemented");
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - DataType Conversion to/from Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
         }
 
         if (tgtDataType != srcType) {

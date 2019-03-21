@@ -8,6 +8,8 @@
 
 #include "PrimitiveNodes/LUT.h"
 
+#include "General/ErrorHelpers.h"
+
 #include <map>
 #include "math.h" //For M_PI_4
 
@@ -114,7 +116,7 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
             }else if(encStr == "Binary"){
                 grayCodedParsed = false;
             }else{
-                throw std::runtime_error("Error Parsing Encoding - DigitalModulator");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing Encoding - DigitalModulator", newNode));
             }
 
             //Simulink defaults to avg power 1, in fact, it does not look like you can select something different.
@@ -129,7 +131,7 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
         rotationStr = dataKeyValueMap.at("Numeric.Ph");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - DigitalModulator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - DigitalModulator", newNode));
     }
 
     newNode->setGrayCoded(grayCodedParsed);
@@ -141,19 +143,19 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
     if(dialect == GraphMLDialect::VITIS) {
         std::vector<NumericValue> bitsPerSymbolNV = NumericValue::parseXMLString(bitsPerSymbolStr);
         if (bitsPerSymbolNV.size() != 1) {
-            throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing BitsPerSymbol - DigitalModulator", newNode));
         }
         if (bitsPerSymbolNV[0].isComplex() || bitsPerSymbolNV[0].isFractional()) {
-            throw std::runtime_error("Error Parsing BitsPerSymbol - DigitalModulator");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing BitsPerSymbol - DigitalModulator", newNode));
         }
         newNode->setBitsPerSymbol(bitsPerSymbolNV[0].getRealInt());
     }else if(dialect == GraphMLDialect::SIMULINK_EXPORT){
         std::vector<NumericValue> mNV = NumericValue::parseXMLString(mStr);
         if (mNV.size() != 1) {
-            throw std::runtime_error("Error Parsing M - DigitalModulator");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing M - DigitalModulator", newNode));
         }
         if (mNV[0].isComplex() || mNV[0].isFractional()) {
-            throw std::runtime_error("Error Parsing M - DigitalModulator");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing M - DigitalModulator", newNode));
         }
 
         int m = mNV[0].getRealInt();
@@ -163,10 +165,10 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
     }
 
     if(rotationNv.size() != 1){
-        throw std::runtime_error("Error Parsing Rotation - DigitalModulator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing Rotation - DigitalModulator", newNode));
     }
     if(rotationNv[0].isComplex()){
-        throw std::runtime_error("Error Parsing Rotation - DigitalModulator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing Rotation - DigitalModulator", newNode));
     }
     if(rotationNv[0].isFractional()) {
         newNode->setRotation(rotationNv[0].getComplexDouble().real());
@@ -182,10 +184,10 @@ DigitalModulator::createFromGraphML(int id, std::string name, std::map<std::stri
 
 
     if(normalizationNV.size() != 1){
-        throw std::runtime_error("Error Parsing normalization - DigitalModulator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing normalization - DigitalModulator", newNode));
     }
     if(normalizationNV[0].isComplex()){
-        throw std::runtime_error("Error Parsing normalization - DigitalModulator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error Parsing normalization - DigitalModulator", newNode));
     }
     if(normalizationNV[0].isFractional()) {
         newNode->setNormalization(normalizationNV[0].getComplexDouble().real());
@@ -202,8 +204,8 @@ std::set<GraphMLParameter> DigitalModulator::graphMLParameters() {
     parameters.insert(GraphMLParameter("BitsPerSymbol", "string", true));
     parameters.insert(GraphMLParameter("Rotation", "string", true));
     parameters.insert(GraphMLParameter("Normalization", "string", true));
-    parameters.insert(GraphMLParameter("GrayCoded", "bool", true));
-    parameters.insert(GraphMLParameter("AvgPwrNormalize", "bool", true));
+    parameters.insert(GraphMLParameter("GrayCoded", "boolean", true));
+    parameters.insert(GraphMLParameter("AvgPwrNormalize", "boolean", true));
 
     return parameters;
 }
@@ -249,29 +251,29 @@ void DigitalModulator::validate() {
     Node::validate();
 
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - DigitalModulator - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalModulator - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - DigitalModulator - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalModulator - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     if(inputPorts[0]->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - DigitalModulator - Input Should not be Complex");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalModulator - Input Should not be Complex", getSharedPointer()));
     }
 
     //Output may be real (BPSK) or imagionary
 
     //TODO: implement more modulation schemes
     if(bitsPerSymbol != 1 && bitsPerSymbol != 2 && bitsPerSymbol != 4){
-        throw std::runtime_error("Validation Failed - DigitalModulator - Currently Only Supports BPSK, QPSK/4QAM, and 16QAM");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalModulator - Currently Only Supports BPSK, QPSK/4QAM, and 16QAM", getSharedPointer()));
 
     }
 
     //TODO: Implement Rotation Suport
     //TODO: Do not use small epsilon
     if(abs(rotation) > 0.001){
-        throw std::runtime_error("Validation Failed - DigitalModulator - Rotation currently not supported");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalModulator - Rotation currently not supported", getSharedPointer()));
     }
 }
 

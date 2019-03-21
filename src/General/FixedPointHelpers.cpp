@@ -7,6 +7,7 @@
 #include <cmath>
 #include "FixedPointHelpers.h"
 #include "GeneralHelper.h"
+#include "ErrorHelpers.h"
 
 int64_t FixedPointHelpers::toFixedPointSigned(int64_t orig, int totalBits, int fractionalBits) {
     //The original integer must be able to fit in the number of integer bits in the fixed point number (totalBits-fractionalBits)
@@ -17,7 +18,7 @@ int64_t FixedPointHelpers::toFixedPointSigned(int64_t orig, int totalBits, int f
     int64_t maxInt = (((int64_t)1) << (integerBits-1))-1; // 1 << n is equiv to 2^n
 
     if(orig < minInt || orig > maxInt){
-        throw std::runtime_error("The signed integer " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The signed integer " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits"));
     }
 
     //The number is shifted left by fractional bits since the orig integer has a binary point at 0
@@ -37,7 +38,7 @@ uint64_t FixedPointHelpers::toFixedPointUnsigned(uint64_t orig, int totalBits, i
     int64_t maxInt = (((uint64_t)1) << integerBits)-1; // 1 << n is equiv to 2^n
 
     if(orig > maxInt){ //Don't need to check min bound for unsigned
-        throw std::runtime_error("The unsigned integer " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The unsigned integer " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits"));
     }
 
     //The number is shifted left by fractional bits since the orig integer has a binary point at 0
@@ -70,7 +71,7 @@ int64_t FixedPointHelpers::toFixedPointSigned(double orig, int totalBits, int fr
     int64_t maxInt = (1 << (totalBits-1))-1; // 1 << n is equiv to 2^n
 
     if(scaledRounded < minInt || scaledRounded > maxInt){
-        throw std::runtime_error("The signed real number " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The signed real number " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits"));
     }
 
     int64_t fixedPt = static_cast<int64_t>(scaledRounded);
@@ -99,7 +100,7 @@ uint64_t FixedPointHelpers::toFixedPointUnsigned(double orig, int totalBits, int
     int64_t maxInt = (1 << totalBits)-1; // 1 << n is equiv to 2^n
 
     if(scaledRounded < minInt || scaledRounded > maxInt){ //Check for min since double can hold a negative value
-        throw std::runtime_error("The unsigned real number " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The unsigned real number " + GeneralHelper::to_string(orig) + " does not fit into a fixed point number with " + GeneralHelper::to_string(totalBits) + " total bits and " + GeneralHelper::to_string(fractionalBits) + " fractional bits"));
     }
 
     uint64_t fixedPt = static_cast<uint64_t>(scaledRounded);

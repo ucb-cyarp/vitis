@@ -9,6 +9,7 @@
 #include "PrimitiveNodes/Constant.h"
 #include "General/GeneralHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 #include <cmath>
 
 Gain::Gain() {
@@ -46,7 +47,7 @@ Gain::createFromGraphML(int id, std::string name, std::map<std::string, std::str
         gainStr = dataKeyValueMap.at("Numeric.Gain");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Gain");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Gain", newNode));
     }
 
     std::vector<NumericValue> gainValue = NumericValue::parseXMLString(gainStr);
@@ -94,16 +95,16 @@ void Gain::validate() {
     Node::validate();
 
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that there is at least 1 value
     if(gain.size() < 1){
-        throw std::runtime_error("Validation Failed - Gain - Should Have At Least 1 Gain Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Should Have At Least 1 Gain Value", getSharedPointer()));
     }
 
     //Check that if any input is complex, the result is complex
@@ -112,7 +113,7 @@ void Gain::validate() {
     if(inputPort->getDataType().isComplex()) {
         DataType outType = getOutputPort(0)->getDataType();
         if(!outType.isComplex()){
-            throw std::runtime_error("Validation Failed - Gain - Input Port is Complex but Output is Real");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Input Port is Complex but Output is Real", getSharedPointer()));
         }
     }
 }

@@ -4,6 +4,7 @@
 
 #include "Compare.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 Compare::Compare() : compareOp(CompareOp::LT) {
 
@@ -27,7 +28,7 @@ Compare::CompareOp Compare::parseCompareOpString(std::string str) {
     }else if(str == "!="){
         return CompareOp::NEQ;
     }else{
-        throw std::runtime_error("Compare Operator Unsupported: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Compare Operator Unsupported: " + str));
     }
 }
 
@@ -45,7 +46,7 @@ std::string Compare::compareOpToString(Compare::CompareOp op) {
     }else if(op == CompareOp::NEQ){
         return "!=";
     }else{
-        throw std::runtime_error("CompareOP toString not implemented for this operator.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("CompareOP toString not implemented for this operator."));
     }
 }
 
@@ -80,7 +81,7 @@ Compare::createFromGraphML(int id, std::string name, std::map<std::string, std::
         compareOpStr = dataKeyValueMap.at("Operator");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Compare");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Compare", newNode));
     }
 
     //Get Operator
@@ -126,32 +127,32 @@ void Compare::validate() {
     Node::validate();
 
     if(inputPorts.size() != 2){
-        throw std::runtime_error("Validation Failed - Compare - Should Have Exactly 2 Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Compare - Should Have Exactly 2 Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Compare - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Compare - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Validate output port is bool
 
     if(!(getOutputPort(0)->getDataType().isBool())){
-        throw std::runtime_error("Validation Failed - Compare - Output is not a bool");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Compare - Output is not a bool", getSharedPointer()));
     }
 
     if(getInputPort(0)->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - Compare - Currently Do Not Support Comparision of Complex Inputs");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Compare - Currently Do Not Support Comparision of Complex Inputs", getSharedPointer()));
     }
 
     if(getInputPort(1)->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - Compare - Currently Do Not Support Comparision of Complex Inputs");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Compare - Currently Do Not Support Comparision of Complex Inputs", getSharedPointer()));
     }
 }
 
 CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1 || getInputPort(1)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Compare Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Compare Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     //Get the expressions for each input
@@ -186,7 +187,7 @@ CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     }
     else{
         //TODO: Finish
-        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Compare");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Fixed Point Not Yet Implemented for Compare", getSharedPointer()));
     }
 
     return CExpr("", false);
