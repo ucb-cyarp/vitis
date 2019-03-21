@@ -54,6 +54,8 @@
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/parsers/XercesDOMParser.hpp>
 
+#include "General/ErrorHelpers.h"
+
 using namespace xercesc;
 
 std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, GraphMLDialect dialect)
@@ -64,7 +66,7 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
     if(!inputFile.good()){
         inputFile.close();
 
-        throw std::runtime_error("Error: Input file does not exist: " + filename);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error: Input file does not exist: " + filename));
     }
     inputFile.close();
 
@@ -108,7 +110,7 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
         char* error_msg = XMLString::transcode(toCatch.getMessage());
         std::cerr << "Error during initialization! :\n" << error_msg << std::endl;
         XMLString::release(&error_msg);
-        throw std::runtime_error("XML Parser Env could not initialize.  Could not import GraphML File.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parser Env could not initialize.  Could not import GraphML File."));
     }
 
     //From https://xerces.apache.org/xerces-c/program-dom-3.html and DOMCount.cpp
@@ -139,17 +141,17 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
         char* message = XMLString::transcode(toCatch.getMessage());
         std::cerr << "Exception message is:" << std::endl << message << std::endl;
         XMLString::release(&message);
-        throw std::runtime_error("XML Parsing Failed Due to XML Exception");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parsing Failed Due to XML Exception"));
     }
     catch (const DOMException& toCatch) {
         char* message = XMLString::transcode(toCatch.msg);
         std::cout << "Exception message is:" << std::endl << message << std::endl;
         XMLString::release(&message);
-        throw std::runtime_error("XML Parsing Failed Due to DOM Exception");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parsing Failed Due to DOM Exception"));
     }
     catch (...) {
         std::cerr << "Unexpected Exception" << std::endl;
-        throw std::runtime_error("XML Parsing Failed Due to an Unknown Exception");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parsing Failed Due to an Unknown Exception"));
     }
 
     //Create Design Object
@@ -259,7 +261,7 @@ DOMNode* GraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::map<std::s
 
                 if (childName == "graph") {
                     if (subgraph != nullptr) {
-                        throw std::runtime_error("Node with multiple graph children encountered");
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Node with multiple graph children encountered"));
                     }
                     subgraph = child;
                 } else if (childName == "data") {
@@ -276,7 +278,7 @@ DOMNode* GraphMLImporter::graphMLDataMap(xercesc::DOMNode *node, std::map<std::s
                         XMLString::release(&keyXMLCh);
 
                         if (keyNode == nullptr) {
-                            throw std::runtime_error("Data node with no key encountered");
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Data node with no key encountered"));
                         } else {
                             dataKey = GraphMLHelper::getTranscodedString(keyNode->getNodeValue());
                         }
@@ -362,7 +364,7 @@ int GraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::ma
             int textLen = text.size();
             for(int i = 0; i<textLen; i++){
                 if(!std::isspace(text[i])){
-                    throw std::runtime_error("Encountered a text node that is not whitespace");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered a text node that is not whitespace"));
                 }
             }
         } else if(nodeType==DOMNode::NodeType::ELEMENT_NODE) {
@@ -398,13 +400,13 @@ int GraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::ma
                 importedNodes += GraphMLImporter::importNode(node, design, nodeMap, edgeNodes, parent, dialect);
 
             } else if(nodeName=="data") {
-                throw std::runtime_error("Encountered a GraphML data node in an unexpected location");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered a GraphML data node in an unexpected location"));
             } else {
-                throw std::runtime_error("Encountered an unknown GraphML tag: " + nodeName);
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an unknown GraphML tag: " + nodeName));
             }
 
         } else{
-            throw std::runtime_error("Encountered a text node that is not whitespace");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered a text node that is not whitespace"));
         }
     }
 
@@ -428,7 +430,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         XMLString::release(&idXMLCh);
 
         if(idNode == nullptr){
-            throw std::runtime_error("Node with no ID encountered");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Node with no ID encountered"));
         }
         else{
             fullNodeID = GraphMLHelper::getTranscodedString(idNode->getNodeValue());
@@ -437,7 +439,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
 
     }else
     {
-        throw std::runtime_error("Node with no ID encountered");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Node with no ID encountered"));
     }
 
     //Construct a map of data values (children) of this node
@@ -510,13 +512,13 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         if(parentSubsystem){
             parentSubsystem->addEnableInput(newNode);
         }else{
-            throw std::runtime_error("EnableInput parent is not an Enabled Subsystem");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("EnableInput parent is not an Enabled Subsystem"));
         }
 
         //Add node to design
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
-            throw std::runtime_error("Special Input Node cannot be at the top level");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Special Input Node cannot be at the top level"));
         }
         //Add to map
         nodeMap[fullNodeID]=newNode;
@@ -529,20 +531,20 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         if(parentSubsystem){
             parentSubsystem->addEnableOutput(newNode);
         }else{
-            throw std::runtime_error("EnableOutput parent is not an Enabled Subsystem");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("EnableOutput parent is not an Enabled Subsystem"));
         }
 
         //Add node to design
         design.addNode(newNode);
         if(parent == nullptr){//If the parent is null, add this to the top level node list
-            throw std::runtime_error("Special Output Node cannot be at the top level");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Special Output Node cannot be at the top level"));
         }
         //Add to map
         nodeMap[fullNodeID]=newNode;
 
     } else if(blockType == "Top Level"){
         //Should not occur
-        throw std::runtime_error("Encountered Top Level Node");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered Top Level Node"));
     } else if(blockType == "Master"){
         //Determine which master it is to add to the node map
         std::string instanceName = dataKeyValueMap.at("instance_name");
@@ -588,7 +590,7 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             }
             importNodePortNames(master, dataKeyValueMap, dialect);
         } else {
-            throw std::runtime_error("Unknown Master Type: " + instanceName);
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Master Type: " + instanceName));
         }
 
     } else if(blockType == "VectorFan"){ //This is the Simulink VectorFan type, will call the VectorFan constructor which will return either a VectorFanIn or VectorFanOut
@@ -648,11 +650,11 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
 //        }
 //        nodeMap[fullNodeID] = newNode;
 
-        throw std::runtime_error("Generic Black Box Import Not Yet Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Generic Black Box Import Not Yet Implemented"));
         //TODO: Handle the importing of input and output access strings.  One technique is to make this similar to importNodePortNames
         //For now: Stateflow is the only blackboxed module.  The emit logic is there for the blackbox, just not the access name importing
     }else{
-        throw std::runtime_error("Unknown Block Type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Block Type"));
     }
 
     return nodesImported;
@@ -675,7 +677,7 @@ void GraphMLImporter::printGraphmlDOM(std::string filename)
         char* error_msg = XMLString::transcode(toCatch.getMessage());
         std::cerr << "Error during initialization! :\n" << error_msg << std::endl;
         XMLString::release(&error_msg);
-        throw std::runtime_error("XML Parser Env could not initialize.  Could not import GraphML File.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parser Env could not initialize.  Could not import GraphML File."));
     }
 
     //From https://xerces.apache.org/xerces-c/program-dom-3.html and DOMCount.cpp
@@ -700,17 +702,17 @@ void GraphMLImporter::printGraphmlDOM(std::string filename)
         char* message = XMLString::transcode(toCatch.getMessage());
         std::cerr << "Exception message is:" << std::endl << message << std::endl;
         XMLString::release(&message);
-        throw std::runtime_error("XML Parsing Failed Due to XML Exception");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parsing Failed Due to XML Exception"));
     }
     catch (const DOMException& toCatch) {
         char* message = XMLString::transcode(toCatch.msg);
         std::cout << "Exception message is:" << std::endl << message << std::endl;
         XMLString::release(&message);
-        throw std::runtime_error("XML Parsing Failed Due to DOM Exception");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parsing Failed Due to DOM Exception"));
     }
     catch (...) {
         std::cerr << "Unexpected Exception" << std::endl;
-        throw std::runtime_error("XML Parsing Failed Due to an Unknown Exception");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parsing Failed Due to an Unknown Exception"));
     }
 
     //Create Design Object
@@ -964,7 +966,7 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         }
         newNode = DigitalDemodulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
-        throw std::runtime_error("Unknown block type: " + blockFunction + " - " + parent->getFullyQualifiedName() + "/" + name);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }
 
     return newNode;
@@ -1047,12 +1049,12 @@ std::shared_ptr<Node> GraphMLImporter::importVectorFanNode(std::string idStr, st
         }else if(blockFunction == "VectorFanOut"){
             newNode = VectorFanOut::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
         }else{
-            throw std::runtime_error("Unknown VectorFan type: " + blockFunction);
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown VectorFan type: " + blockFunction));
         }
     }else if(dialect == GraphMLDialect::SIMULINK_EXPORT){
         newNode = VectorFan::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
-        throw std::runtime_error("Unknown XML Dialect when Parsing VectorFan");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown XML Dialect when Parsing VectorFan"));
     }
 
     return newNode;
@@ -1103,11 +1105,11 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
         std::shared_ptr<Node> dstNode = nodeMap.at(dstFullPath);
 
         if(srcNode == nullptr){
-            throw std::runtime_error("Null Src Node Ptr");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Null Src Node Ptr"));
         }
 
         if(dstNode == nullptr){
-            throw std::runtime_error("Null Dst Node Ptr");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Null Dst Node Ptr"));
         }
 
         if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
@@ -1117,11 +1119,11 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
         }
 
         if(srcPortNum < 0){
-            throw std::runtime_error("Src Port Num < 0");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Src Port Num < 0"));
         }
 
         if(dstPortNum < 0){
-            throw std::runtime_error("Dst Port Num < 0");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Dst Port Num < 0"));
         }
 
         //==== Create the Arc ====
@@ -1139,7 +1141,7 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
             std::shared_ptr<Mux> dstNodeSelect = std::dynamic_pointer_cast<Mux>(dstNode);
             newArc = Arc::connectNodes(srcNode, srcPortNum, dstNodeSelect, dataType);
         }else{
-            throw std::runtime_error("Unknown Port Type: " + dstPortType);
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Port Type: " + dstPortType));
         }
 
         newArc->setId(id);
@@ -1178,7 +1180,7 @@ GraphMLImporter::importNodePortNames(std::shared_ptr<Node> node, std::map<std::s
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
             input_port_name_query_str = "input_port_name_" + GeneralHelper::to_string(i+1); //Need to correct for simulink numbering starting at 1
         } else {
-            throw std::runtime_error("Unsupported Dialect when parsing XML");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML"));
         }
 
         std::string input_port_name = dataKeyValueMap.at(input_port_name_query_str);
@@ -1193,7 +1195,7 @@ GraphMLImporter::importNodePortNames(std::shared_ptr<Node> node, std::map<std::s
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
             output_port_name_query_str = "output_port_name_" + GeneralHelper::to_string(i+1); //Need to correct for simulink numbering starting at 1
         } else {
-            throw std::runtime_error("Unsupported Dialect when parsing XML");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML"));
         }
 
         std::string output_port_name = dataKeyValueMap.at(output_port_name_query_str);

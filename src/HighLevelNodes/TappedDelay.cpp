@@ -4,6 +4,7 @@
 
 #include <General/GeneralHelper.h>
 #include "TappedDelay.h"
+#include "General/ErrorHelpers.h"
 
 int TappedDelay::getDelays() const {
     return delays;
@@ -48,16 +49,16 @@ TappedDelay::createFromGraphML(int id, std::string name, std::map<std::string, s
         delaysStr = dataKeyValueMap.at("Delays");
         initValStr = dataKeyValueMap.at("InitialStates");
     }else{
-        throw std::runtime_error("Unknown GraphML Dialect");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown GraphML Dialect", newNode));
     }
 
     std::vector<NumericValue> delays = NumericValue::parseXMLString(delaysStr);
     if(delays.size() != 1){
-        throw std::runtime_error("Unable to Parse Delays in Tapped Delay Line");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to Parse Delays in Tapped Delay Line", newNode));
     }
 
     if(delays[0].isComplex() || delays[0].isFractional()){
-        throw std::runtime_error("Unable to Parse Delays in Tapped Delay Line");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to Parse Delays in Tapped Delay Line", newNode));
     }
 
     newNode->setDelays(delays[0].getRealInt());
@@ -76,7 +77,7 @@ TappedDelay::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<s
     validate();
 
     //TODO: Implement FIR Expansion
-    throw std::runtime_error("TappedDelay Expansion not yet implemented in VITIS.  If importing from Simulink, use Simulink expansion option in export script");
+    throw std::runtime_error(ErrorHelpers::genErrorStr("TappedDelay Expansion not yet implemented in VITIS.  If importing from Simulink, use Simulink expansion option in export script", getSharedPointer()));
 
     return Node::expand(new_nodes, deleted_nodes, new_arcs, deleted_arcs, unconnected_master);
 }
@@ -121,12 +122,12 @@ void TappedDelay::validate() {
     Node::validate();
 
     if (inputPorts.size() != 1) {
-        throw std::runtime_error(
-                "Validation Failed - TappedDelay - Should Have Exactly 1 Input Port With Fixed Coefs");
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "Validation Failed - TappedDelay - Should Have Exactly 1 Input Port With Fixed Coefs", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - TappedDelay - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
 }

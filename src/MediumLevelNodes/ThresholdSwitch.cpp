@@ -7,6 +7,7 @@
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "GraphCore/ExpandedNode.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 #include <iostream>
 
 ThresholdSwitch::ThresholdSwitch() : compareOp(Compare::CompareOp::LT) {
@@ -65,12 +66,12 @@ ThresholdSwitch::createFromGraphML(int id, std::string name, std::map<std::strin
             compareOpVal = Compare::CompareOp::NEQ;
             thresholdVal.push_back(NumericValue(0, 0, std::complex<double>(0, 0), false, false)); //Set the constant to 0
         }else{
-            throw std::runtime_error("Unknown Simulink ThresholdSwitch Comparison: " + compareOpStr);
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Simulink ThresholdSwitch Comparison: " + compareOpStr, newNode));
         }
 
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - ThresholdSwitch");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - ThresholdSwitch", newNode));
     }
 
 
@@ -202,16 +203,16 @@ void ThresholdSwitch::validate() {
     Node::validate();
 
     if(inputPorts.size() != 3){
-        throw std::runtime_error("Validation Failed - ThresholdSwitch - Should Have Exactly 3 Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThresholdSwitch - Should Have Exactly 3 Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - ThresholdSwitch - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThresholdSwitch - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that there is at least 1 value for the comparison
     if(threshold.size() < 1){
-        throw std::runtime_error("Validation Failed - ThresholdSwitch - Should Have At Least 1 Threshold Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThresholdSwitch - Should Have At Least 1 Threshold Value", getSharedPointer()));
     }
 
     //Check that all input ports and the output port have the same type
@@ -224,12 +225,12 @@ void ThresholdSwitch::validate() {
     //Port 2 is the line passed when false
     DataType inType0 = getInputPort(0)->getDataType();
     if(inType0 != outType){
-        throw std::runtime_error("Validation Failed - ThresholdSwitch - DataType of Input Port 0 Does not Match Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThresholdSwitch - DataType of Input Port 0 Does not Match Output Port", getSharedPointer()));
     }
 
     DataType inType2 = getInputPort(2)->getDataType();
     if(inType2 != outType){
-        throw std::runtime_error("Validation Failed - ThresholdSwitch - DataType of Input Port 2 Does not Match Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThresholdSwitch - DataType of Input Port 2 Does not Match Output Port", getSharedPointer()));
     }
 
 }

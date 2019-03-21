@@ -4,6 +4,7 @@
 
 #include "DiscreteFIR.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 DiscreteFIR::DiscreteFIR() {
 
@@ -19,7 +20,7 @@ DiscreteFIR::CoefSource DiscreteFIR::parseCoefSourceStr(std::string str) {
     }else if(str == "INPUT_PORT"){
         return CoefSource::INPUT_PORT;
     }else{
-        throw std::runtime_error("Unknown coef source type: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown coef source type: " + str));
     }
 }
 
@@ -29,7 +30,7 @@ std::string DiscreteFIR::coefSourceToString(DiscreteFIR::CoefSource coefSource) 
     }else if(coefSource == CoefSource::INPUT_PORT){
         return "INPUT_PORT";
     }else{
-        throw std::runtime_error("Unknown coef source type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown coef source type"));
     }
 }
 
@@ -80,7 +81,7 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
     }else if(dialect == GraphMLDialect::VITIS){
         coefSource = parseCoefSourceStr(coefSourceStr);
     }else{
-        throw std::runtime_error("Unknown GraphML Dialect");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown GraphML Dialect", newNode));
     }
 
     newNode->setCoefSource(coefSource);
@@ -94,7 +95,7 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
         }else if(dialect == GraphMLDialect::VITIS){
             coefStr = dataKeyValueMap.at("Coefficients");
         }else{
-            throw std::runtime_error("Unknown GraphML Dialect");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown GraphML Dialect", newNode));
         }
 
         coefs = NumericValue::parseXMLString(coefStr);
@@ -109,7 +110,7 @@ DiscreteFIR::createFromGraphML(int id, std::string name, std::map<std::string, s
     }else if(dialect == GraphMLDialect::VITIS){
         initValStr = dataKeyValueMap.at("InitialStates");
     }else{
-        throw std::runtime_error("Unknown GraphML Dialect");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown GraphML Dialect", newNode));
     }
 
     std::vector<NumericValue> initVals = NumericValue::parseXMLString(initValStr);
@@ -127,7 +128,7 @@ DiscreteFIR::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<s
     validate();
 
     //TODO: Implement FIR Expansion
-    throw std::runtime_error("FIR Expansion not yet implemented in VITIS.  If importing from Simulink, use Simulink expansion option in export script");
+    throw std::runtime_error(ErrorHelpers::genErrorStr("FIR Expansion not yet implemented in VITIS.  If importing from Simulink, use Simulink expansion option in export script", getSharedPointer()));
 
     return Node::expand(new_nodes, deleted_nodes, new_arcs, deleted_arcs, unconnected_master);
 }
@@ -180,35 +181,35 @@ void DiscreteFIR::validate() {
 
     if(coefSource == CoefSource::FIXED) {
         if (inputPorts.size() != 1) {
-            throw std::runtime_error(
-                    "Validation Failed - DiscreteFIR - Should Have Exactly 1 Input Port With Fixed Coefs");
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Validation Failed - DiscreteFIR - Should Have Exactly 1 Input Port With Fixed Coefs", getSharedPointer()));
         }
     }else if(coefSource == CoefSource::INPUT_PORT){
         if (inputPorts.size() != 2) {
-            throw std::runtime_error(
-                    "Validation Failed - DiscreteFIR - Should Have Exactly 2 Input Port With Input Port Coefs");
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Validation Failed - DiscreteFIR - Should Have Exactly 2 Input Port With Input Port Coefs", getSharedPointer()));
         }
     }else{
-        throw std::runtime_error("Unknown Coef Source");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Coef Source", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - DiscreteFIR - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DiscreteFIR - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that the number of initial values is #coef-1
     if(coefSource == CoefSource::FIXED){
         if(initVals.size() != 1){ //Note, init values can be given as a single number if all registers share the same value
             if(initVals.size() != (coefs.size()-1)){
-                throw std::runtime_error("Validation Failed - DiscreteFIR - Number of Initial Values Should be 1 Less Than the Number of Coefs");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DiscreteFIR - Number of Initial Values Should be 1 Less Than the Number of Coefs", getSharedPointer()));
             }
         }
     }else if(coefSource == CoefSource::INPUT_PORT){
         if(initVals.size() != (getInputPort(1)->getDataType().getWidth()-1)){ //Input port 1 is the coef input port
-            throw std::runtime_error("Validation Failed - DiscreteFIR - Number of Initial Values Should be 1 Less Than the Number of Coefs");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DiscreteFIR - Number of Initial Values Should be 1 Less Than the Number of Coefs", getSharedPointer()));
         }
     }else{
-        throw std::runtime_error("Unknown Coef Source");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Coef Source", getSharedPointer()));
     }
 }
 

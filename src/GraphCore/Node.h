@@ -921,6 +921,12 @@ public:
      */
     void copyPortNames(std::shared_ptr<Node> copyFrom);
 
+    /**
+     * @brief Returns a string that can be included at the end of error messages to provide context for the error
+     * @return
+     */
+    std::string getErrorReportContextStr();
+
 };
 
 /*@}*/

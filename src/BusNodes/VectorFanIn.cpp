@@ -4,6 +4,7 @@
 
 #include "VectorFanIn.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 VectorFanIn::VectorFanIn() {
 
@@ -53,14 +54,14 @@ void VectorFanIn::validate() {
     Node::validate();
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - VectorFanIn - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - VectorFanIn - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that the width of the output arc == number of input ports
     std::shared_ptr<Arc> outputArc = *(outputPorts[0]->getArcs().begin());
 
     if(outputArc->getDataType().getWidth() != inputPorts.size()){
-        throw std::runtime_error("Validation Failed - VectorFanIn - Width of Output Arc Should = Number of Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - VectorFanIn - Width of Output Arc Should = Number of Input Ports", getSharedPointer()));
     }
 }
 

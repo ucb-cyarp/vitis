@@ -4,6 +4,7 @@
 
 #include "RealImagToComplex.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 RealImagToComplex::RealImagToComplex() {
 
@@ -54,24 +55,24 @@ void RealImagToComplex::validate() {
     Node::validate();
 
     if(inputPorts.size() != 2){
-        throw std::runtime_error("Validation Failed - RealImagToComplex - Should Have Exactly 2 Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - RealImagToComplex - Should Have Exactly 2 Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - RealImagToComplex - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - RealImagToComplex - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that input is complex, and the outputs are real
     if(!(getOutputPort(0)->getDataType().isComplex())){
-        throw std::runtime_error("Validation Failed - RealImagToComplex - Output Port Must Be Complex");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - RealImagToComplex - Output Port Must Be Complex", getSharedPointer()));
     }
 
     if(getInputPort(0)->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - RealImagToComplex - Input Port 0 Must Be Real");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - RealImagToComplex - Input Port 0 Must Be Real", getSharedPointer()));
     }
 
     if(getInputPort(1)->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - RealImagToComplex - Input Port 1 Must Be Real");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - RealImagToComplex - Input Port 1 Must Be Real", getSharedPointer()));
     }
 }
 

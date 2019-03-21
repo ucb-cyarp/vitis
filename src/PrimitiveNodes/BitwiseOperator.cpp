@@ -4,6 +4,7 @@
 
 #include <General/GeneralHelper.h>
 #include "BitwiseOperator.h"
+#include "General/ErrorHelpers.h"
 
 BitwiseOperator::BitwiseOp BitwiseOperator::parseBitwiseOpString(std::string str) {
     if(str == "NOT"){
@@ -19,7 +20,7 @@ BitwiseOperator::BitwiseOp BitwiseOperator::parseBitwiseOpString(std::string str
     }else if(str == "SHIFT_RIGHT"){
         return BitwiseOp::SHIFT_RIGHT;
     }else{
-        throw std::runtime_error("Bitwise Operator Unsupported: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Bitwise Operator Unsupported: " + str));
     }
 }
 
@@ -37,7 +38,7 @@ std::string BitwiseOperator::bitwiseOpToString(BitwiseOperator::BitwiseOp op) {
     }else if(op == BitwiseOp::SHIFT_RIGHT){
         return "SHIFT_RIGHT";
     }else{
-        throw std::runtime_error("BitwiseOp toString not implemented for this operator.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("BitwiseOp toString not implemented for this operator."));
     }
 }
 
@@ -55,7 +56,7 @@ std::string BitwiseOperator::bitwiseOpToCString(BitwiseOperator::BitwiseOp op) {
     }else if(op == BitwiseOp::SHIFT_RIGHT){
         return ">>";
     }else{
-        throw std::runtime_error("BitwiseOp toCString not implemented for this operator.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("BitwiseOp toCString not implemented for this operator."));
     }
 }
 
@@ -85,12 +86,12 @@ BitwiseOperator::createFromGraphML(int id, std::string name, std::map<std::strin
         //Only support a subset of the options for the simulink version of the node
         bitwiseOpStr = dataKeyValueMap.at("logicop");
         if(bitwiseOpStr == "NAND" || bitwiseOpStr == "NOR"){
-            throw std::runtime_error("Unsupported Simulink Bitwise Operator: " + bitwiseOpStr);
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Simulink Bitwise Operator: " + bitwiseOpStr, newNode));
         }
 
         if(dataKeyValueMap.at("UseBitMask") != "off"){
             //TODO: Implement bitwise operator with constant expansion
-            throw std::runtime_error("The UseBitMask option of Simulink Bitwise Operator is Currently Unsupported - Connect a Constant Block instead");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("The UseBitMask option of Simulink Bitwise Operator is Currently Unsupported - Connect a Constant Block instead", newNode));
         }
 
         //Number of port error check handled in validate method
@@ -108,7 +109,7 @@ BitwiseOperator::createFromGraphML(int id, std::string name, std::map<std::strin
 //        }
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - BitwiseOperator");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - BitwiseOperator", newNode));
     }
 
     //Get Operator
@@ -154,25 +155,25 @@ void BitwiseOperator::validate() {
 
     if(op == BitwiseOp::NOT) {
         if (inputPorts.size() != 1) {
-            throw std::runtime_error("Validation Failed - BitwiseOperator - Should Have Exactly 1 Input Port");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Should Have Exactly 1 Input Port", getSharedPointer()));
         }
     }else if(op == BitwiseOp::SHIFT_LEFT || op == BitwiseOp::SHIFT_RIGHT) {
         if (inputPorts.size() != 2) {
-            throw std::runtime_error("Validation Failed - \"(\"+inputExprs[0]+\")\"  - Should Have at most 2 Input Ports");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - \"(\"+inputExprs[0]+\")\"  - Should Have at most 2 Input Ports", getSharedPointer()));
         }
 
         DataType shiftPortType = getOutputPort(1)->getDataType();
         if(shiftPortType.isComplex() || shiftPortType.isFloatingPt()){
-            throw std::runtime_error("Validation Failed - BitwiseOperator - Shift Amount Should be a Real Integer");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Shift Amount Should be a Real Integer", getSharedPointer()));
         }
     }else{
         if (inputPorts.size() != 2) {
-            throw std::runtime_error("Validation Failed - BitwiseOperator - Should Have Exactly 2 Input Ports");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Should Have Exactly 2 Input Ports", getSharedPointer()));
         }
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - BitwiseOperator - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
 }
@@ -180,7 +181,7 @@ void BitwiseOperator::validate() {
 CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - BitwiseOperator Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BitwiseOperator Support for Vector Types has Not Yet Been Implemented" , getSharedPointer()));
     }
 
     //Get the expressions for each input

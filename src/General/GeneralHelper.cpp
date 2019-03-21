@@ -3,6 +3,7 @@
 //
 
 #include "GeneralHelper.h"
+#include "ErrorHelpers.h"
 
 #include <cmath>
 #include <locale>
@@ -75,7 +76,7 @@ unsigned long GeneralHelper::roundUpToCPUBits(unsigned long bits) {
     }else if(bits <= 64){
         return 64;
     }else{
-        throw std::runtime_error("Cannot find a standard CPU integer type for a number of " + std::to_string(bits) + " bits");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot find a standard CPU integer type for a number of " + std::to_string(bits) + " bits"));
     }
 }
 

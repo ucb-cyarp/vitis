@@ -1080,3 +1080,7 @@ std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
 
     return arcs;
 }
+
+std::string Node::getErrorReportContextStr(){
+    return getFullyQualifiedName(true, "/");
+}
