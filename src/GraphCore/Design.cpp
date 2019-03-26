@@ -9,6 +9,7 @@
 #include <fstream>
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
+#include "General/ErrorHelpers.h"
 
 #include "NodeFactory.h"
 #include "MasterNodes/MasterInput.h"
@@ -2014,10 +2015,36 @@ unsigned long Design::prune(bool includeVisMaster) {
     std::set<std::shared_ptr<Node>> nodesDeleted;
     std::set<std::shared_ptr<Arc>> arcsDeleted;
 
+//    for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
+//        std::cout << "Node with Indeg 0: " <<  (*it)->getFullyQualifiedName() << std::endl;
+//    }
+
     while(!nodesWithZeroOutDeg.empty()){
         //Disconnect, erase nodes, remove from candidate set (if it is included)
         for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
             std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
+            //Check for the corner case that the node is an enabled input or output
+            //If so, it needs to be removed from the parent's enabled port lists
+            std::shared_ptr<EnableInput> asEnableInput = GeneralHelper::isType<Node, EnableInput>(*it);
+            if(asEnableInput){
+                std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = GeneralHelper::isType<Node, EnabledSubSystem>(asEnableInput->getParent());
+                if(parentAsEnabledSubsystem){
+                    parentAsEnabledSubsystem->removeEnableInput(asEnableInput);
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("When pruning EnabledInput node, could not remove node from EnableNode lists of parent", (*it)->getSharedPointer()));
+                }
+            }else{
+                std::shared_ptr<EnableOutput> asEnableOutput = GeneralHelper::isType<Node, EnableOutput>(*it);
+                if(asEnableOutput){
+                    std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = GeneralHelper::isType<Node, EnabledSubSystem>(asEnableOutput->getParent());
+                    if(parentAsEnabledSubsystem){
+                        parentAsEnabledSubsystem->removeEnableOutput(asEnableOutput);
+                    }else{
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("When pruning EnabledOutput node, could not remove node from EnableNode lists of parent", (*it)->getSharedPointer()));
+                    }
+                }
+            }
+
             arcsDeleted.insert(arcsToRemove.begin(), arcsToRemove.end());
             nodesDeleted.insert(*it);
             candidateNodes.erase(*it);
@@ -2094,7 +2121,7 @@ void Design::verifyTopologicalOrder() {
         //Otherwise the outputs of nodes with state are considered constants
         std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
-        if(srcNode != inputMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
+        if(srcNode != inputMaster && srcNode != unconnectedMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
                 (!srcNode->hasState() || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
@@ -2105,7 +2132,12 @@ void Design::verifyTopologicalOrder() {
                 if (dstNode->getSchedOrder() != -1) {
                     //dst node is scheduled
                     throw std::runtime_error(
-                            "Topological Order Validation: Src Node is Unscheduled but Dst Node is Scheduled");
+                            "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                            ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                            GeneralHelper::to_string(srcNode->getId()) +
+                            "] is Unscheduled but Dst Node (" + dstNode->getFullyQualifiedName() +
+                            ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
+                            GeneralHelper::to_string(dstNode->getId()) + "] is Scheduled");
                 }
                 //otherwise, there is no error here as both nodes are unscheduled
             } else {

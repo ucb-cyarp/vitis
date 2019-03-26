@@ -11,6 +11,7 @@
 #include "GraphCore/ContextContainer.h"
 #include "GraphCore/StateUpdate.h"
 #include "General/ErrorHelpers.h"
+#include "GraphMLTools/GraphMLExporter.h"
 
 #include <iostream>
 
@@ -279,6 +280,15 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                                                                          std::shared_ptr<MasterOutput> visMaster) {
     std::vector<std::shared_ptr<Node>> schedule;
 
+    //First, remove incoming arc connections to the Unconnected Master and the Terminator Master.
+    //These can create false dependencies, especially for state update and other nodes.
+    //* this is for the purpose of scheduling only
+    std::set<std::shared_ptr<Arc>> terminatorArcs = terminatorMaster->disconnectNode();
+    arcsToDelete.insert(arcsToDelete.end(), terminatorArcs.begin(), terminatorArcs.end());
+
+    std::set<std::shared_ptr<Arc>> unconnectedArcs = unconnectedMaster->disconnectNode();
+    arcsToDelete.insert(arcsToDelete.end(), unconnectedArcs.begin(), unconnectedArcs.end());
+
     //Find nodes with 0 in degree at this context level (and not in nested contexts)
     std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
     for(unsigned long i = 0; i<nodesToSort.size(); i++){
@@ -427,11 +437,11 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
         std::cerr << ErrorHelpers::genErrorStr("Topological Sort: Cycle Encountered.  Candidate Nodes: ") << candidateNodes.size() << std::endl;
         for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
-            std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " InDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
+            std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
             std::set<std::shared_ptr<Node>> connectedInputNodes = candidateNode->getConnectedInputNodes();
             for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
                 std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
-                std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;
+                std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;
             }
         }
         throw std::runtime_error(ErrorHelpers::genErrorStr("Topological Sort: Encountered Cycle, Unable to Sort"));
