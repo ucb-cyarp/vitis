@@ -543,7 +543,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(true, false);
+        scheduleTopologicalStort(true, false, designName, outputDir);
         verifyTopologicalOrder();
 
         //Export GraphML (for debugging)
@@ -555,6 +555,12 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
         expandEnabledSubsystemContexts();
+        //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
+        //Is ok for them to exist (specifically order constraint arcs) after state update node and context encapsulation
+        if(visMaster->outDegree() > 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Visualization Master is Not Expected to Have an Out Degree > 0, has " + GeneralHelper::to_string(visMaster->outDegree())));
+        }
+        createEnabledOutputsForEnabledSubsysVisualization();
         createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
         createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
         discoverAndMarkContexts();
@@ -573,7 +579,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
 //        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
-        scheduleTopologicalStort(false, true); //Pruned before inserting state update nodes
+        scheduleTopologicalStort(false, true, designName, outputDir); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 
         //Export GraphML (for debugging)
@@ -2121,7 +2127,7 @@ void Design::verifyTopologicalOrder() {
         //Otherwise the outputs of nodes with state are considered constants
         std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
-        if(srcNode != inputMaster && srcNode != unconnectedMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
+        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster &&  GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
                 (!srcNode->hasState() || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
@@ -2160,7 +2166,7 @@ void Design::verifyTopologicalOrder() {
     }
 }
 
-std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
+std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::string designName, std::string dir) {
     std::vector<std::shared_ptr<Arc>> arcsToDelete;
     std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
     topLevelContextNodes.push_back(outputMaster);
@@ -2170,7 +2176,19 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
 //        std::cerr << topLevelContextNodes[i]->getFullyQualifiedName(true) << std::endl;
 //    }
 
-    std::vector<std::shared_ptr<Node>> sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
+    std::vector<std::shared_ptr<Node>> sortedNodes;
+
+
+    bool failed = false;
+    std::exception err;
+    try {
+        sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster,
+                                                            inputMaster, terminatorMaster, unconnectedMaster,
+                                                            visMaster);
+    }catch(const std::exception &e){
+        failed = true;
+        err = e;
+    }
 
     //Delete the arcs
     //TODO: Remove this?  May not be needed for most applications.  We are probably going to distroy the design anyway
@@ -2178,10 +2196,17 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive() {
         arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
     }
 
+    if(failed) {
+        std::cout << "Emitting: " + dir + "/" + designName + "_sort_error_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(dir + "/" + designName + "_sort_error_scheduleGraph.graphml", *this);
+
+        throw err;
+    }
+
     return sortedNodes;
 }
 
-unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) {
+unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, std::string designName, std::string dir) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2282,8 +2307,11 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts) 
         designClone.assignArcIDs();
     }
 
+//    std::cout << "Emitting: ./cOut/context_scheduleGraph.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML("./cOut/context_scheduleGraph.graphml", *this);
+
     //==== Topological Sort (Destructive) ====
-    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive();
+    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir);
 
 //    std::cout << "Schedule" << std::endl;
 //    for(unsigned long i = 0; i<schedule.size(); i++){
@@ -2732,11 +2760,49 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     }
 }
 
-//Create function to reassign all arcs to nodes within ContextContainers to be to the context itself.  This will be used for scheduling.
+void Design::createEnabledOutputsForEnabledSubsysVisualization() {
+    //Find in nodes that have arcs to the Vis Master
 
+    std::set<std::shared_ptr<Arc>> visDriverArcs = visMaster->getInputArcs();
 
-//When scheduling nodes within contexts are removed from the scheduler node list to check for zero in degree.  This prevents these nodes from being scheduled outside of their context.  All arcs to these nodes are re-assigned to the ContextContainer for scheduling
-//For the scheduler, make a special case for scheduling a context container causing the scheduling algorithm to be called on the graph defined inside the context container.
+    for(auto driverArc = visDriverArcs.begin(); driverArc != visDriverArcs.end(); driverArc++){
+        std::shared_ptr<Node> srcNode = (*driverArc)->getSrcPort()->getParent();
+
+        std::shared_ptr<OutputPort> portToRewireTo = (*driverArc)->getSrcPort();
+
+        //Run through the hierarchy of the node (context stack not built yet)
+
+        for(std::shared_ptr<SubSystem> parent = srcNode->getParent(); parent != nullptr; parent=parent->getParent()){
+            //Check if the context root is an enabled subsystem
+            std::shared_ptr<EnabledSubSystem> contextAsEnabledSubsys = GeneralHelper::isType<SubSystem, EnabledSubSystem>(parent);
+
+            if(contextAsEnabledSubsys){
+                //This is an enabled subsystem context, create an EnableOutput port for this vis
+                std::shared_ptr<EnableOutput> visOutput = NodeFactory::createNode<EnableOutput>(contextAsEnabledSubsys);
+                contextAsEnabledSubsys->addEnableOutput(visOutput);
+                addNode(visOutput);
+
+                visOutput->setName("VisEnableOutput");
+
+                std::shared_ptr<Arc> enableDriverArcOrig = contextAsEnabledSubsys->getEnableDriverArc();
+                //Copy enable driver arc
+                std::shared_ptr<Arc> newEnDriverArc = Arc::connectNodes(enableDriverArcOrig->getSrcPort(), visOutput, enableDriverArcOrig->getDataType(), enableDriverArcOrig->getSampleTime());
+                addArc(newEnDriverArc);
+
+                //Create a new node from the portToRewireTo to this new output node
+                std::shared_ptr<Arc> newStdDriverArc = Arc::connectNodes(portToRewireTo, visOutput->getInputPortCreateIfNot(0), (*driverArc)->getDataType(), (*driverArc)->getSampleTime());
+                addArc(newStdDriverArc);
+
+                //Update the portToRewireTo to be the output port of this node.
+                portToRewireTo = visOutput->getOutputPortCreateIfNot(0);
+            }
+        }
+
+        //rewire the arc to the nodeToRewireTo
+        (*driverArc)->setSrcPortUpdateNewUpdatePrev(portToRewireTo);
+
+    }
+}
 
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

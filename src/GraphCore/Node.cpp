@@ -1050,6 +1050,36 @@ void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
     }
 }
 
+std::set<std::shared_ptr<Arc>> Node::getDirectInputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs;
+
+    //Iterate through the output ports/arcs
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> inputArcs = inputPorts[i]->getArcs();
+        arcs.insert(inputArcs.begin(), inputArcs.end());
+    }
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getOrderConstraintInputArcs(){
+    //Get a copy of the arc set for this port
+    std::set<std::shared_ptr<Arc>> arcs = orderConstraintInputPort->getArcs();
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getInputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+
+    std::set<std::shared_ptr<Arc>> moreArcs = getOrderConstraintInputArcs();
+    arcs.insert(moreArcs.begin(), moreArcs.end());
+
+    return arcs;
+}
+
 std::set<std::shared_ptr<Arc>> Node::getDirectOutputArcs(){
     std::set<std::shared_ptr<Arc>> arcs;
 

@@ -223,9 +223,13 @@ public:
      * @brief Schedule the nodes using topological sort.
      * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
      * @param rewireContexts if true, arcs between a node outside a context to a node inside a context are rewired to the context itself (for scheduling, the origional is left untouched).  If false, no rewiring operation is made for scheduling
+     *
+     * @param designName the name of the design (used when dumping a partially scheduled graph in the event an error is encountered)
+     * @param dir the directory to dump any error report files into
+     *
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(bool prune, bool rewireContexts);
+    unsigned long scheduleTopologicalStort(bool prune, bool rewireContexts, std::string designName, std::string dir);
 
     /**
      * @brief Topological sort the current graph.
@@ -233,9 +237,12 @@ public:
      * @warning This destroys the graph by removing arcs from the nodes.
      * It is reccomended to run on a copy of the graph and to back propagate the results
      *
+     * @param designName name of the design used in the working graph export at part of the file name
+     * @param dir location to export working graph in the event of a cycle or error
+     *
      * @return A vector of nodes arranged in topological order
      */
-    std::vector<std::shared_ptr<Node>> topologicalSortDestructive();
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir);
 
     /**
      * @brief Verify that the graph has topological ordering
@@ -409,6 +416,19 @@ public:
      * Note that expansion occurs hierarchically starting with the highest level and expanding any enabled subsystem within
      */
     void expandEnabledSubsystemContexts();
+
+    /**
+     * @brief It is possible that a design may want to visualize nodes inside of an enabled subsystem.  These nodes
+     * do not typically have EnableOutput ports associated with them.  This function creates the appropriate EnableOutput
+     * nodes for these visualizations.
+     *
+     * @note Only rewires standard arcs (not order constraint in arcs)
+     *
+     * @warning This function should be called after EnabledSubsystems are expanded but before state update nodes
+     * are created as it does not check for the case where the visualization node becomes an ordered predecessor of a
+     * state update node
+     */
+    void createEnabledOutputsForEnabledSubsysVisualization();
 
     /**
      * @brief Discover and mark contexts for nodes in the design.

@@ -549,6 +549,24 @@ public:
     std::vector<std::shared_ptr<OutputPort>> getOutputPortsIncludingOrderConstraint();
 
     /**
+     * @brief Get a list of direct input arcs connected to this node (not order constraint arcs)
+     * @return list of direct input arcs (not order constraint arcs)
+     */
+    std::set<std::shared_ptr<Arc>> getDirectInputArcs();
+
+    /**
+     * @brief Get a list of order constraint input arcs connected to this node
+     * @return list of order constraint input arcs
+     */
+    std::set<std::shared_ptr<Arc>> getOrderConstraintInputArcs();
+
+    /**
+     * @brief Get a list of input arcs (direct and order constraint) connected to this node
+     * @return list of direct input arcs
+     */
+    std::set<std::shared_ptr<Arc>> getInputArcs();
+
+    /**
      * @brief Get a list of direct output arcs connected to this node (not order constraint arcs)
      * @return list of direct output arcs (not order constraint arcs)
      */
