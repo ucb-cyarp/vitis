@@ -77,7 +77,7 @@ codegen_cs.set_param('CustomSymbolStrEmxType', 'emxArray_$M$N');   % EMX array t
 codegen_cs.set_param('CustomSymbolStrEmxFcn', 'emx$M$N');   % EMX array utility functions identifier format
 codegen_cs.set_param('MangleLength', 1);   % Minimum mangle length
 codegen_cs.set_param('SharedChecksumLength', 8);   % Shared checksum length
-codegen_cs.set_param('MaxIdLength', 31);   % Maximum identifier length
+codegen_cs.set_param('MaxIdLength', 255);   % Maximum identifier length
 codegen_cs.set_param('InternalIdentifier', 'Shortened');   % System-generated identifiers
 codegen_cs.set_param('InlinedPrmAccess', 'Literals');   % Generate scalar inlined parameters as
 codegen_cs.set_param('SignalNamingRule', 'None');   % Signal naming
