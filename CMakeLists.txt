@@ -213,6 +213,8 @@ target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
 target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
 
+add_executable(checkPlatformDataTypes src/Tools/checkPlatformDataTypes.cpp)
+
 #==== Doxygen ====
 #See https://cmake.org/cmake/help/v3.9/module/FindDoxygen.html
 find_package(Doxygen
