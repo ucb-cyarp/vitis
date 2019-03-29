@@ -4,6 +4,7 @@
 
 #include "Constant.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 Constant::Constant() {
 
@@ -41,7 +42,7 @@ Constant::createFromGraphML(int id, std::string name, std::map<std::string, std:
         valueStr = dataKeyValueMap.at("Numeric.Value");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Constant");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Constant", newNode));
     }
 
     std::vector<NumericValue> values = NumericValue::parseXMLString(valueStr);
@@ -89,21 +90,21 @@ void Constant::validate() {
 
     //Should have 0 input ports and 1 output port
     if(inputPorts.size() != 0){
-        throw std::runtime_error("Validation Failed - Constant - Should Have Exactly 0 Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Should Have Exactly 0 Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Constant - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check there is at least 1 constant value
     if(value.size() < 1){
-        throw std::runtime_error("Validation Failed - Constant - Should Have at Least 1 Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Should Have at Least 1 Value", getSharedPointer()));
     }
 
     //Check that width of value is the width of the output
     if(value.size() != getOutputPort(0)->getDataType().getWidth()){
-        throw std::runtime_error("Validation Failed - Constant - Width of Value Does Not Match Width of Output");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Width of Value Does Not Match Width of Output", getSharedPointer()));
     }
 }
 

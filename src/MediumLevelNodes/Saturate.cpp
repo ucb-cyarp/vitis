@@ -9,6 +9,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "PrimitiveNodes/Constant.h"
 #include "PrimitiveNodes/Compare.h"
+#include "General/ErrorHelpers.h"
 
 Saturate::Saturate() {
 
@@ -56,18 +57,18 @@ Saturate::createFromGraphML(int id, std::string name, std::map<std::string, std:
         upperLimitStr = dataKeyValueMap.at("Numeric.UpperLimit");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Saturate");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Saturate", newNode));
     }
 
     std::vector<NumericValue> lowerLimit = NumericValue::parseXMLString(lowerLimitStr);
     std::vector<NumericValue> upperLimit = NumericValue::parseXMLString(upperLimitStr);
 
     if(lowerLimit.size() != 1){
-        throw std::runtime_error("Error parsing XML - Saturate - Lower Limit Should be a Single Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error parsing XML - Saturate - Lower Limit Should be a Single Value", newNode));
     }
 
     if(upperLimit.size() != 1){
-        throw std::runtime_error("Error parsing XML - Saturate - Upper Limit Should be a Single Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error parsing XML - Saturate - Upper Limit Should be a Single Value", newNode));
     }
 
     newNode->setLowerLimit(lowerLimit[0]);
@@ -116,16 +117,16 @@ void Saturate::validate() {
     Node::validate();
 
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Saturate - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Saturate - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that the input and output datatypes are the same
     if(getInputPort(0)->getDataType() != getOutputPort(0)->getDataType()){
-        throw std::runtime_error("Validation Failed - Saturate - Input and Output Should Have Same Type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Input and Output Should Have Same Type", getSharedPointer()));
     }
 
     if(lowerLimit.isFractional() || upperLimit.isFractional()){
@@ -133,14 +134,14 @@ void Saturate::validate() {
         double upper = upperLimit.isFractional() ? upperLimit.getComplexDouble().real() : upperLimit.getRealInt();
 
         if(upper < lower){
-            throw std::runtime_error("Validation Failed - Saturate - Real Component of Upper Limit Must be Greater Than or Equal To the Real Component of the Lower Limit");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Real Component of Upper Limit Must be Greater Than or Equal To the Real Component of the Lower Limit", getSharedPointer()));
         }
     }else{
         int64_t lower = lowerLimit.getRealInt();
         int64_t upper = upperLimit.getRealInt();
 
         if(upper < lower){
-            throw std::runtime_error("Validation Failed - Saturate - Real Component of Upper Limit Must be Greater Than or Equal To the Real Component of the Lower Limit");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Real Component of Upper Limit Must be Greater Than or Equal To the Real Component of the Lower Limit", getSharedPointer()));
         }
     }
 
@@ -150,21 +151,22 @@ void Saturate::validate() {
             double upper = upperLimit.isComplex() ? (upperLimit.isFractional() ? upperLimit.getComplexDouble().imag() : upperLimit.getImagInt()) : 0;
 
             if(upper < lower){
-                throw std::runtime_error("Validation Failed - Saturate - Imag Component of Upper Limit Must be Greater Than or Equal To the Imag Component of the Lower Limit");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Imag Component of Upper Limit Must be Greater Than or Equal To the Imag Component of the Lower Limit", getSharedPointer()));
             }
         }else{
             int64_t lower = lowerLimit.isComplex() ? lowerLimit.getImagInt() : 0;
             int64_t upper = upperLimit.isComplex() ? upperLimit.getImagInt() : 0;
 
             if(upper < lower){
-                throw std::runtime_error("Validation Failed - Saturate - Imag Component of Upper Limit Must be Greater Than or Equal To the Imag Component of the Lower Limit");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Saturate - Imag Component of Upper Limit Must be Greater Than or Equal To the Imag Component of the Lower Limit", getSharedPointer()));
             }
         }
     }
 }
 
 std::shared_ptr<ExpandedNode> Saturate::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                      std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                               std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                               std::shared_ptr<MasterUnconnected> &unconnected_master) {
 
     //Validate first to check that Saturate is properly wired
     validate();

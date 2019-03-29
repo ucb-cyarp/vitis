@@ -4,6 +4,7 @@
 
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
+#include "General/ErrorHelpers.h"
 #include "EnabledSubSystem.h"
 
 #include "GraphMLTools/GraphMLHelper.h"
@@ -34,17 +35,17 @@ void EnabledSubSystem::validate() {
     //Check that the src of the EnableNodes all have the same src (and not nullptr)
     std::shared_ptr<Port> srcPort = getEnableSrc();
     if(srcPort == nullptr){
-        throw std::runtime_error("EnabledSubsystem could not find an Enable Source");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("EnabledSubsystem could not find an Enable Source", getSharedPointer()));
     }
 
     unsigned long enableInputsLen = enabledInputs.size();
     for(unsigned long i = 0; i<enableInputsLen; i++){
         std::set<std::shared_ptr<Arc>> enableArcs = enabledInputs[i]->getEnablePort()->getArcs();
         if(enableArcs.size() != 1){
-            throw std::runtime_error("EnabledInput Found with " + GeneralHelper::to_string(enableArcs.size()) + " Enable arcs");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("EnabledInput Found with " + GeneralHelper::to_string(enableArcs.size()) + " Enable arcs", getSharedPointer()));
         }else{
             if((*enableArcs.begin())->getSrcPort() != srcPort){
-                throw std::runtime_error("EnabledInput Found with with different Enable src");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("EnabledInput Found with with different Enable src", getSharedPointer()));
             }
         }
     }
@@ -53,10 +54,10 @@ void EnabledSubSystem::validate() {
     for(unsigned long i = 0; i<enableOutputLen; i++){
         std::set<std::shared_ptr<Arc>> enableArcs = enabledOutputs[i]->getEnablePort()->getArcs();
         if(enableArcs.size() != 1){
-            throw std::runtime_error("EnabledOutput Found with " + GeneralHelper::to_string(enableArcs.size()) + " Enable arcs");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("EnabledOutput Found with " + GeneralHelper::to_string(enableArcs.size()) + " Enable arcs", getSharedPointer()));
         }else{
             if((*enableArcs.begin())->getSrcPort() != srcPort){
-                throw std::runtime_error("EnabledOutput Found with with different Enable src");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("EnabledOutput Found with with different Enable src", getSharedPointer()));
             }
         }
     }
@@ -255,7 +256,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
     for(unsigned long i = 0; i<enabledInputs.size(); i++){
         std::set<std::shared_ptr<Arc>> inputArcs = enabledInputs[i]->getInputPort(0)->getArcs(); //There should only be 1 input arc
         if(inputArcs.size() != 1){
-            throw std::runtime_error("Enable Input Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Input Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1", getSharedPointer()));
         }
         std::shared_ptr<Arc> inputArc = *inputArcs.begin();
 
@@ -283,7 +284,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
             //Remove the enable driver arc
             std::set<std::shared_ptr<Arc>> enableDriverArcs = enabledInputs[i]->getEnablePort()->getArcs();
             if(enableDriverArcs.size() != 1){
-                throw std::runtime_error("Enable Input Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Input Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1", getSharedPointer()));
             }
             std::shared_ptr<Arc> enableDriverArc = *enableDriverArcs.begin();
             enableDriverArc->setSrcPortUpdateNewUpdatePrev(nullptr);
@@ -382,7 +383,7 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
 
         std::set<std::shared_ptr<Arc>> inputArcs = enabledOutputs[i]->getInputPort(0)->getArcs();
         if(inputArcs.size() != 1){//Should only have 1 input arc
-            throw std::runtime_error("Enable Output Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Output Port with " + GeneralHelper::to_string(inputArcs.size()) + " incoming arcs found, expected 1", enabledOutputs[i]->getSharedPointer()));
         }
         std::shared_ptr<Arc> enabledOutputInput = *inputArcs.begin();
         std::shared_ptr<OutputPort> innerSrcPort = enabledOutputInput->getSrcPort();
@@ -413,7 +414,7 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
             //Remove the Enable Driver Arc
             std::set<std::shared_ptr<Arc>> enableDriverArcs = enabledOutputs[i]->getEnablePort()->getArcs();
             if(enableDriverArcs.size() != 1){
-                throw std::runtime_error("Enable Output Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Output Port with " + GeneralHelper::to_string(enableDriverArcs.size()) + " incoming enable drivers found, expected 1", enabledOutputs[i]->getSharedPointer()));
             }
             std::shared_ptr<Arc> enableDriverArc = *enableDriverArcs.begin();
             enableDriverArc->setSrcPortUpdateNewUpdatePrev(nullptr);
@@ -590,7 +591,7 @@ bool EnabledSubSystem::requiresContiguousContextEmits(){
 
 void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
     if(subContextNumber != 0){
-        throw std::runtime_error("Enabled Subsystem Only Has 1 Context, Tried to Open Context " + GeneralHelper::to_string(subContextNumber));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Enabled Subsystem Only Has 1 Context, Tried to Open Context " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
     }
 
     std::shared_ptr<OutputPort> enableDriverPort = getEnableSrc();
@@ -613,7 +614,7 @@ void EnabledSubSystem::emitCContextOpenLast(std::vector<std::string> &cStatement
 
 void EnabledSubSystem::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
     if(subContextNumber != 0){
-        throw std::runtime_error("Enabled Subsystem Only Has 1 Context, Tried to Close Context " + GeneralHelper::to_string(subContextNumber));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Enabled Subsystem Only Has 1 Context, Tried to Close Context " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
     }
 
     cStatementQueue.push_back("}");

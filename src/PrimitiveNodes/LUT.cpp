@@ -5,6 +5,7 @@
 #include "LUT.h"
 #include "General/GeneralHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 LUT::InterpMethod LUT::parseInterpMethodStr(std::string str) {
     if(str == "Flat"){
@@ -16,7 +17,7 @@ LUT::InterpMethod LUT::parseInterpMethodStr(std::string str) {
     }else if(str == "Cubic spline"){
         return InterpMethod::CUBIC_SPLINE;
     }else{
-        throw std::runtime_error("Unknown InterpMethod: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown InterpMethod: " + str));
     }
 }
 
@@ -30,7 +31,7 @@ LUT::ExtrapMethod LUT::parseExtrapMethodStr(std::string str) {
     }else if(str == "Cubic spline"){
         return ExtrapMethod::CUBIC_SPLINE;
     }else{
-        throw std::runtime_error("Unknown ExtrapMethod: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ExtrapMethod: " + str));
     }
 }
 
@@ -46,7 +47,7 @@ LUT::SearchMethod LUT::parseSearchMethodStr(std::string str) {
     }else if(str == "Binary search (memory)"){
         return SearchMethod::BINARY_SEARCH_MEMORY;
     }else{
-        throw std::runtime_error("Unknown SearchMethod: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown SearchMethod: " + str));
     }
 }
 
@@ -60,7 +61,7 @@ std::string LUT::interpMethodToString(LUT::InterpMethod interpMethod) {
     }else if(interpMethod == InterpMethod::CUBIC_SPLINE){
         return "Cubic spline";
     }else{
-        throw std::runtime_error("Unknown InterpMethod");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown InterpMethod"));
     }
 }
 
@@ -74,7 +75,7 @@ std::string LUT::extrapMethodToString(LUT::ExtrapMethod extrapMethod) {
     }else if(extrapMethod == ExtrapMethod::CUBIC_SPLINE){
         return "Cubic spline";
     }else{
-        throw std::runtime_error("Unknown ExtrapMethod");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ExtrapMethod"));
     }
 }
 
@@ -90,7 +91,7 @@ std::string LUT::searchMethodToString(LUT::SearchMethod searchMethod) {
     }else if(searchMethod == SearchMethod::BINARY_SEARCH_MEMORY){
         return "Binary search (memory)";
     }else{
-        throw std::runtime_error("Unknown SearchMethod");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown SearchMethod"));
     }
 }
 
@@ -154,12 +155,12 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         //==== Check Supported Config (Only if Simulink Import)====
         std::string dataSpecification = dataKeyValueMap.at("DataSpecification");
         if (dataSpecification != "Table and breakpoints") {
-            throw std::runtime_error("LUT must use \"Table and breakpoints\" specification");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("LUT must use \"Table and breakpoints\" specification", newNode));
         }
 
         std::string breakpointSpecification = dataKeyValueMap.at("BreakpointsSpecification");
         if (breakpointSpecification != "Explicit values") {
-            throw std::runtime_error("LUT must use \"Explicit values\" specification");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("LUT must use \"Explicit values\" specification", newNode));
         }
     }
 
@@ -211,7 +212,7 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
                 }else if(searchMethodStr == "Binary search"){
                     searchMethod = SearchMethod::BINARY_SEARCH_MEMORY;
                 }else{
-                    throw std::runtime_error("Unknown search type: " + searchMethodStr);
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown search type: " + searchMethodStr, newNode));
                 }
             }else{
                 if(searchMethodStr == "Linear search"){
@@ -219,19 +220,19 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
                 }else if(searchMethodStr == "Binary search"){
                     searchMethod = SearchMethod::BINARY_SEARCH_NO_MEMORY;
                 }else{
-                    throw std::runtime_error("Unknown search type: " + searchMethodStr);
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown search type: " + searchMethodStr, newNode));
                 }
             }
         }
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - LUT");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - LUT", newNode));
     }
 
     //Temporary error check for dimension != 1
     int dimension = std::stoi(dimensionStr);
     if(dimension != 1){
-        throw std::runtime_error("LUT - Currently only supports 1-D tables");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("LUT - Currently only supports 1-D tables", newNode));
     }
 
     //iterate and import breakpoints
@@ -244,7 +245,7 @@ LUT::createFromGraphML(int id, std::string name, std::map<std::string, std::stri
         } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
             breakpointsForDimensionStr = "Numeric.BreakpointsForDimension" + GeneralHelper::to_string(i);
         } else {
-            throw std::runtime_error("Unsupported Dialect when parsing XML - LUT");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - LUT", newNode));
         }
 
         std::string breakpointStr = dataKeyValueMap.at(breakpointsForDimensionStr);
@@ -293,28 +294,28 @@ void LUT::validate() {
 
     //TODO: implement n-D lookup table
     if(breakpoints.size()!=1){
-        throw std::runtime_error("Validation Failed - LUT - Currently only supports 1-D tables, requested " + GeneralHelper::to_string(breakpoints.size()));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Currently only supports 1-D tables, requested " + GeneralHelper::to_string(breakpoints.size()), getSharedPointer()));
+    }
+
+    if(outputPorts.size() < 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Should have n input ports and 1 output port
-    if(inputPorts.size() != breakpoints.size()){
-        throw std::runtime_error("Validation Failed - LUT - Should Have Exactly n Input Ports for n-D Table");
-    }
-
-    if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - LUT - Should Have Exactly 1 Output Port");
+    if(inputPorts.size() != breakpoints.size() * outputPorts.size()){ //Allow multiple output ports if the number of input ports is n*m where m is the number of output ports
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Should Have Exactly n*m Input Ports for n-D Table with m outputs", getSharedPointer()));
     }
 
     //TODO: support other search methods?
     if(searchMethod != SearchMethod::EVENLY_SPACED_POINTS){
-        throw std::runtime_error("Validation Failed - LUT - Currently only supports Evenly spaced search method");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Currently only supports Evenly spaced search method", getSharedPointer()));
     }
 
     //TODO: Implement complex input (related to 2D)
     unsigned long breakpointLen = breakpoints[0].size();
     for(unsigned long i = 0; i<breakpointLen; i++){
         if((breakpoints[0])[i].isComplex()){
-            throw std::runtime_error("Validation Failed - LUT - Currently only supports real input");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Currently only supports real input", getSharedPointer()));
         }
     }
 
@@ -328,22 +329,22 @@ void LUT::validate() {
         //Check for Integer Input Conditions
         //Check if the first input is an integer
         if((breakpoints[0])[0].isFractional()){
-            throw std::runtime_error("Validation Failed - LUT - Currently only supports integer inputs when the starting breakpoint is an integer");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Currently only supports integer inputs when the starting breakpoint is an integer", getSharedPointer()));
         }
 
         //Check if the step size is an integer type or if its reciprocal is an integer type
         if(breakpointLen > 1) {
             //TODO: using fmod here to check.  Relying on double having enough precision to return 0 if exactly divides.  Check Assumption
             if ((fmod(range, breakpointLen - 1) != 0.0) && (fmod(breakpointLen - 1, range) != 0.0)) {
-                throw std::runtime_error(
-                        "Validation Failed - LUT - Currently only supports integer inputs when breakpoint step is an integer or the reciprocal of which is an integer");
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Validation Failed - LUT - Currently only supports integer inputs when breakpoint step is an integer or the reciprocal of which is an integer", getSharedPointer()));
             }
         }
 
 
     }else if((!inputType.isFloatingPt()) && inputType.getFractionalBits() > 0){
         //TODO: Implement Fixed Point Type Checks (can fit first input and step)
-        throw std::runtime_error("Validation Failed - LUT - Currently does not support fixed point input");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Currently does not support fixed point input", getSharedPointer()));
     }
 
     //Floating point should not require a check
@@ -360,11 +361,11 @@ void LUT::validate() {
 
             //TODO: using double here.  Assuming there is enough precision to calculate the step exactly.  Check assumption
             if(step != breakpointStep){
-                throw std::runtime_error("Validation Failed - LUT - Breakpoints step conflicts: " + GeneralHelper::to_string(step) + " != " + GeneralHelper::to_string(breakpointStep));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Breakpoints step conflicts: " + GeneralHelper::to_string(step) + " != " + GeneralHelper::to_string(breakpointStep), getSharedPointer()));
             }
 
             if(step < 0){
-                throw std::runtime_error("Validation Failed - LUT - Currently does not support decending breakpoints");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - LUT - Currently does not support decending breakpoints", getSharedPointer()));
             }
         }
     }
@@ -442,23 +443,32 @@ std::string LUT::getGlobalDecl(){
 
 CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Emit the index calculation
-    std::string indexName = name+"_n"+GeneralHelper::to_string(id)+"_index";
+    std::string indexName = name+"_n"+GeneralHelper::to_string(id)+ "_outPort" + GeneralHelper::to_string(outputPortNum) +"_index"; //Changed to
     Variable indexVariable = Variable(indexName, DataType()); //The correct type will be set durring index calculation.  Type is not required for de-reference
 
-    if(!emittedIndexCalculation) {
+    //Create emittedIndexCalculation if not already created
+
+    for(unsigned long i = emittedIndexCalculation.size(); i<outputPortNum+1; i++){
+        emittedIndexCalculation.push_back(false);
+    }
+
+    unsigned long dimension = breakpoints.size();
+
+    //TODO: Make this a vector
+    if(!emittedIndexCalculation[outputPortNum]) {
 
         //TODO: support other search methods?
         if (searchMethod != SearchMethod::EVENLY_SPACED_POINTS) {
-            throw std::runtime_error("Emit Failed - LUT - Currently only supports Evenly spaced search method");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Emit Failed - LUT - Currently only supports Evenly spaced search method", getSharedPointer()));
         }
 
-        //TODO: Support multiple inputs (N-D inputs), only 1D is currently supported
+        //Multiple inputs to the same LUT is supported however it is simply another read port to the same lut.  TODO: Support multiple inputs (N-D inputs), only 1D is currently supported
         unsigned long numInputPorts = inputPorts.size();
-        if (numInputPorts > 1) {
-            throw std::runtime_error("Emit Failed - LUT - Currently only supports 1-D tables");
+        if (dimension > 1) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Emit Failed - LUT - Currently only supports 1-D tables", getSharedPointer()));
         }
 
-        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(dimension*outputPortNum)->getSrcOutputPort(); //TODO: Change to appropriate input port
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
@@ -536,7 +546,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             if(interpMethod == InterpMethod::NEAREST){
                 indexExpr += "+0.5";
             }else if(interpMethod == InterpMethod::CUBIC_SPLINE || interpMethod == InterpMethod::LINEAR){
-                throw std::runtime_error("Emit Failed - LUT - Currently do not support Cubic Spline or Linear Interpolation");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Emit Failed - LUT - Currently do not support Cubic Spline or Linear Interpolation", getSharedPointer()));
             }
 
             //Truncate
@@ -574,7 +584,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             indexExpr = "((" + indexType.toString(DataType::StringStyle::C, false) + ")(" + indexExpr + "))";
 
         }else{
-            throw std::runtime_error("Emit Failed - LUT - Currently does not support fixed point input");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Emit Failed - LUT - Currently does not support fixed point input", getSharedPointer()));
         }
 
         if(extrapMethod == ExtrapMethod::CLIP){
@@ -601,19 +611,22 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             cStatementQueue.push_back(boundCheckStr);
 
         }else if(extrapMethod != ExtrapMethod::NO_CHECK){
-            throw std::runtime_error("Emit Failed - LUT - Currently only supports the clip and \"no check\" extrapolation methods");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Emit Failed - LUT - Currently only supports the clip and \"no check\" extrapolation methods", getSharedPointer()));
         }else{
             cStatementQueue.push_back(indexVariable.getCVarName(false) + " = " + indexExpr + ";");
         }
 
-        emittedIndexCalculation = true;
+        emittedIndexCalculation[outputPortNum] = true;
     }
 
     //Need to re-create
 
     //Emit the array dereference
     std::string tablePrefix = name+"_n"+GeneralHelper::to_string(id)+"_table";
-    Variable tableVar = Variable(tablePrefix, DataType());
+
+    DataType tempDT = DataType();
+    tempDT.setComplex(getOutputPort(0)->getDataType().isComplex());
+    Variable tableVar = Variable(tablePrefix, tempDT);
 
     if(imag){
         return CExpr(tableVar.getCVarName(true) + "[" + indexVariable.getCVarName(false) + "]", false);

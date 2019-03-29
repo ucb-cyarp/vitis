@@ -35,8 +35,8 @@ sudo apt-get install doxygen
 ```
 
 ##### Mac:
-- Install xcode
-- Install Brew
+- Install [xcode](https://developer.apple.com/xcode)
+- Install [Brew](https://brew.sh)
 - Install Dependencies from Brew:
 
 ```

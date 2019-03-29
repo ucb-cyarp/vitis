@@ -11,6 +11,8 @@
 #include "GraphCore/NodeFactory.h"
 
 #include <iostream>
+#include <General/GeneralHelper.h>
+#include "General/ErrorHelpers.h"
 
 SimulinkMultiPortSwitch::IndexType SimulinkMultiPortSwitch::parseIndexTypeStr(std::string str) {
     if(str == "ZERO_BASED"){
@@ -20,7 +22,7 @@ SimulinkMultiPortSwitch::IndexType SimulinkMultiPortSwitch::parseIndexTypeStr(st
     }else if(str == "CUSTOM"){
         return IndexType::CUSTOM;
     }else{
-        throw std::runtime_error("Unknown index type: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown index type: " + str));
     }
 }
 
@@ -32,7 +34,7 @@ std::string SimulinkMultiPortSwitch::indexTypeToString(SimulinkMultiPortSwitch::
     }else if(indexType == IndexType::CUSTOM){
         return "CUSTOM";
     }else{
-        throw std::runtime_error("Unknown index type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown index type"));
     }
 }
 
@@ -77,16 +79,16 @@ SimulinkMultiPortSwitch::createFromGraphML(int id, std::string name, std::map<st
         }else if(indexTypeStr == "Specify indices"){
             indexTypeVal = IndexType::CUSTOM;
         }else{
-            throw std::runtime_error("Unknown Simulink indexing type - SimulinkMultiPortSwitch");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Simulink indexing type - SimulinkMultiPortSwitch", newNode));
         }
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - SimulinkMultiPortSwitch");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - SimulinkMultiPortSwitch", newNode));
     }
 
     //TODO: Support Custom IndexType
     if(indexTypeVal == IndexType::CUSTOM){
-        throw std::runtime_error("IndexType CUSTOM is not currently supported for SimulinkMultiPortSwitch");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("IndexType CUSTOM is not currently supported for SimulinkMultiPortSwitch", newNode));
     }
 
     newNode->setIndexType(indexTypeVal);
@@ -94,10 +96,9 @@ SimulinkMultiPortSwitch::createFromGraphML(int id, std::string name, std::map<st
     return newNode;
 }
 
-std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                     std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                              std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                              std::shared_ptr<MasterUnconnected> &unconnected_master) {
     //Validate first to check that the CompareToConstant block is properly wired
     validate();
 
@@ -148,7 +149,7 @@ std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::s
         //Need to decrement the index
         std::shared_ptr<Constant> constantNode = NodeFactory::createNode<Constant>(expandedNode);
         constantNode->setName("Constant");
-        constantNode->setValue(std::vector<NumericValue>{NumericValue(-1, 0, std::complex<double>(0, 0), false, false)});
+        constantNode->setValue(std::vector<NumericValue>{NumericValue(1, 0, std::complex<double>(0, 0), false, false)});
         new_nodes.push_back(constantNode);
 
         std::shared_ptr<Sum> minusNode = NodeFactory::createNode<Sum>(expandedNode);
@@ -168,9 +169,9 @@ std::shared_ptr<ExpandedNode> SimulinkMultiPortSwitch::expand(std::vector<std::s
 
     }else if(indexType == IndexType::CUSTOM){
         //TODO: Implement CUSTOM IndexType (involves including a LUT in expansion)
-        throw std::runtime_error("CUSTOM IndexType is not currently supported for SimulinkMultiPortSwitch");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("CUSTOM IndexType is not currently supported for SimulinkMultiPortSwitch", getSharedPointer()));
     }else{
-        throw std::runtime_error("Unknown Index Type While Expanding - SimulinkMultiPortSwitch");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Index Type While Expanding - SimulinkMultiPortSwitch", getSharedPointer()));
     }
 
     return expandedNode;
@@ -214,40 +215,40 @@ void SimulinkMultiPortSwitch::validate() {
 
 
     if(inputPorts.size() < 2){
-        throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - Should Have 2 or More Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - SimulinkMultiPortSwitch - Should Have 2 or More Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - SimulinkMultiPortSwitch - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that the select port is real
     std::shared_ptr<Arc> selectArc = *(inputPorts[0]->getArcs().begin());
     if(selectArc->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - Select Port Cannot be Complex");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - SimulinkMultiPortSwitch - Select Port Cannot be Complex", getSharedPointer()));
     }
 
     //Check for sufficient width if indexType is ONE_BASED
     if(indexType==IndexType::ONE_BASED && !selectArc->getDataType().isFloatingPt() && (selectArc->getDataType().getTotalBits()-selectArc->getDataType().getFractionalBits()) < 2){
-        throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - Select Port Does Not Have Sufficient Width");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - SimulinkMultiPortSwitch - Select Port Does Not Have Sufficient Width", getSharedPointer()));
     }
 
 
     //warn if floating point type
     //TODO: enforce integer for select (need to rectify Simulink use of double)
     if(selectArc->getDataType().isFloatingPt()){
-        std::cerr << "Warning: SimulinkMultiPortSwitch Select Port is Driven by Floating Point" << std::endl;
+        std::cerr << ErrorHelpers::genErrorStr("Warning: SimulinkMultiPortSwitch Select Port is Driven by Floating Point", getSharedPointer()) << std::endl;
     }
 
     //Check that all input ports and the output port have the same type
     DataType outType = getOutputPort(0)->getDataType();
     unsigned long numInputPorts = inputPorts.size();
 
-    for(unsigned long i = 0; i<numInputPorts; i++){
+    for(unsigned long i = 1; i<numInputPorts; i++){
         DataType inType = getInputPort(i)->getDataType();
 
         if(inType != outType){
-            throw std::runtime_error("Validation Failed - SimulinkMultiPortSwitch - DataType of Input Port Does not Match Output Port");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - SimulinkMultiPortSwitch - DataType of Input Port[" + GeneralHelper::to_string(i) + "] " + inType.toString() + " Does not Match Output Port " + outType.toString(), getSharedPointer()));
         }
     }
 }

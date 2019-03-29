@@ -18,6 +18,7 @@
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
+#include "MasterNodes/MasterUnconnected.h"
 
 Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
 {
@@ -267,10 +268,9 @@ void Node::setParent(std::shared_ptr<SubSystem> parent) {
 }
 
 //Default behavior is to not do any expansion and to return false.
-std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                           std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                           std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                           std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+std::shared_ptr<ExpandedNode> Node::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                           std::shared_ptr<MasterUnconnected> &unconnected_master) {
     return nullptr;
 }
 
@@ -1050,6 +1050,36 @@ void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
     }
 }
 
+std::set<std::shared_ptr<Arc>> Node::getDirectInputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs;
+
+    //Iterate through the output ports/arcs
+    unsigned long numInputPorts = inputPorts.size();
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        //Get a copy of the arc set for this port
+        std::set<std::shared_ptr<Arc>> inputArcs = inputPorts[i]->getArcs();
+        arcs.insert(inputArcs.begin(), inputArcs.end());
+    }
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getOrderConstraintInputArcs(){
+    //Get a copy of the arc set for this port
+    std::set<std::shared_ptr<Arc>> arcs = orderConstraintInputPort->getArcs();
+
+    return arcs;
+}
+
+std::set<std::shared_ptr<Arc>> Node::getInputArcs(){
+    std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+
+    std::set<std::shared_ptr<Arc>> moreArcs = getOrderConstraintInputArcs();
+    arcs.insert(moreArcs.begin(), moreArcs.end());
+
+    return arcs;
+}
+
 std::set<std::shared_ptr<Arc>> Node::getDirectOutputArcs(){
     std::set<std::shared_ptr<Arc>> arcs;
 
@@ -1079,4 +1109,8 @@ std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
     arcs.insert(moreArcs.begin(), moreArcs.end());
 
     return arcs;
+}
+
+std::string Node::getErrorReportContextStr(){
+    return getFullyQualifiedName(true, "/");
 }

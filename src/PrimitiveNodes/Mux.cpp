@@ -9,6 +9,7 @@
 #include "General/GraphAlgs.h"
 #include "GraphCore/ContextRoot.h"
 #include "GraphCore/ContextVariableUpdate.h"
+#include "General/ErrorHelpers.h"
 #include <iostream>
 
 Mux::Mux() : booleanSelect(false), useSwitch(true) {
@@ -54,19 +55,19 @@ void Mux::setMuxContextOutputVar(const Variable &muxContextOutputVar) {
 std::shared_ptr<Mux>
 Mux::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
                        std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    //==== Create Node and set common properties ====
+    std::shared_ptr<Mux> newNode = NodeFactory::createNode<Mux>(parent);
+    newNode->setId(id);
+    newNode->setName(name);
+
     //==== Check Valid Import ====
     if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //Not supported for simulink import
-        throw std::runtime_error("Mux import is not supported for the SIMULINK_EXPORT dialect");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Mux import is not supported for the SIMULINK_EXPORT dialect", newNode));
     } else if (dialect == GraphMLDialect::VITIS) {
-        //==== Create Node and set common properties ====
-        std::shared_ptr<Mux> newNode = NodeFactory::createNode<Mux>(parent);
-        newNode->setId(id);
-        newNode->setName(name);
-
         return newNode;
     } else {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Mux");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Mux", newNode));
     }
 }
 
@@ -103,22 +104,22 @@ void Mux::validate() {
     selectorPort->validate();
 
     if(inputPorts.size() < 1){
-        throw std::runtime_error("Validation Failed - Mux - Should Have 1 or More Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Mux - Should Have 1 or More Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Mux - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Mux - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that the select port is real
     if((*selectorPort->getArcs().begin())->getDataType().isComplex()){
-        throw std::runtime_error("Validation Failed - Mux - Select Port Cannot be Complex");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Mux - Select Port Cannot be Complex", getSharedPointer()));
     }
 
     //warn if floating point type
     //TODO: enforce integer for select (need to rectify Simulink use of double)
     if((*selectorPort->getArcs().begin())->getDataType().isFloatingPt()){
-        std::cerr << "Warning: MUX Select Port is Driven by Floating Point" << std::endl;
+        std::cerr << ErrorHelpers::genErrorStr("Warning: MUX Select Port is Driven by Floating Point", getSharedPointer()) << std::endl;
     }
 
     //Check that all input ports and the output port have the same type
@@ -129,7 +130,7 @@ void Mux::validate() {
         DataType inType = getInputPort(i)->getDataType();
 
         if(inType != outType){
-            throw std::runtime_error("Validation Failed - Mux - DataType of Input Port Does not Match Output Port");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Mux - DataType of Input Port Does not Match Output Port", getSharedPointer()));
         }
     }
 
@@ -324,7 +325,7 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
     //Assert that the number of muxes in the map is unchanged
     //TODO: Remove
     if(muxInContextCount.size() != muxes.size()){
-        throw std::runtime_error("Found unexpected muxes durring mux context discovery.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Found unexpected muxes durring mux context discovery."));
     }
 
     //Get an ordered list of muxes by count
@@ -355,7 +356,7 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
     //TODO: Remove
     if(muxesByCount.size() > 0){
         if(muxesByCount[0].size()==0){
-            throw std::runtime_error("Discoverd muxes with count >0 without finding muxes of count ==0");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered muxes with count >0 without finding muxes of count ==0"));
         }
     }
 
@@ -374,18 +375,18 @@ void Mux::discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> mu
                 if(contextStack.size()<count){
                     //Check for impossible case, the context stack needs to be at least as deep as the count
                     //It can also be deeper if this mux is in an enabled subsystem
-                    throw std::runtime_error("Mux context had unexpected length");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Mux context had unexpected length", mux));
                 }
 
                 Context parentContext = contextStack[contextStack.size()-1];
                 if(GeneralHelper::isType<ContextRoot, Mux>(parentContext.getContextRoot()) == nullptr){
-                    throw std::runtime_error("Last ContextRoot for this mux expected to be a mux"); //For a count >0, this mux should be within another mux's context
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Last ContextRoot for this mux expected to be a mux", mux)); //For a count >0, this mux should be within another mux's context
                 }
 
                 std::shared_ptr<Mux> contextParent = std::dynamic_pointer_cast<Mux>(parentContext.getContextRoot());
 
                 if(contextStack.size() != contextParent->getContext().size() + 1){
-                    throw std::runtime_error("Unexpected difference in context stack sizes between this mux and the next mux in the hierarchy");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected difference in context stack sizes between this mux and the next mux in the hierarchy", mux));
                 }
             }
 
@@ -461,7 +462,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
 
 CExpr Mux::emitCExprContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag){
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     return CExpr(muxContextOutputVar.getCVarName(imag), true); //This is a variable
@@ -470,7 +471,7 @@ CExpr Mux::emitCExprContext(std::vector<std::string> &cStatementQueue, SchedPara
 CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
 
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     //Get the expression for the select line
@@ -589,7 +590,7 @@ bool Mux::requiresContiguousContextEmits() {
 
 Variable Mux::getCContextVar(int contextVarIndex) {
     if(contextVarIndex > 0){
-        throw std::runtime_error("Requested context variable " + GeneralHelper::to_string(contextVarIndex) + " from Mux.  There is only context variable 0");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested context variable " + GeneralHelper::to_string(contextVarIndex) + " from Mux.  There is only context variable 0", getSharedPointer()));
     }
 
     return muxContextOutputVar;
@@ -597,7 +598,7 @@ Variable Mux::getCContextVar(int contextVarIndex) {
 
 void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
@@ -622,7 +623,7 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
                     std::string ifExpr = "if(!" + selectExpr + "){";
                     cStatementQueue.push_back(ifExpr);
                 }else{
-                    throw std::runtime_error("C Emit Error - Mux Context > 1 was encountered with bool select input");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Context > 1 was encountered with bool select input", getSharedPointer()));
                 }
 
             } else {
@@ -636,7 +637,7 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
                     std::string ifExpr = "if(" + selectExpr + "){";
                     cStatementQueue.push_back(ifExpr);
                 }else{
-                    throw std::runtime_error("C Emit Error - Mux Context > 1 was encountered with bool select input");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Context > 1 was encountered with bool select input", getSharedPointer()));
                 }
             }
 
@@ -649,10 +650,10 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
     }else{
         //Switch style (> 2 inputs)
 
-        std::string switchExpr = "switch(" + selectExpr + "){";
+        std::string switchExpr = "switch(" + selectExpr + "){\n";
         cStatementQueue.push_back(switchExpr);
 
-        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": ";
+        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": \n{"; //Open a new {} scope to allow intermediate variable declaration
         cStatementQueue.push_back(caseExpr);
     }
 
@@ -660,7 +661,7 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
 
 void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
@@ -674,7 +675,7 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
 
         if (selectDataType.isBool()) {
             //This is a boolean input using if/else style
-            throw std::runtime_error("C Emit Error - Mux Context Open Mid Should not Occur for Boolean Select Inputs");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Context Open Mid Should not Occur for Boolean Select Inputs", getSharedPointer()));
         }else{
             //Non boolean select using if/else style
             std::string ifExpr = "else if(" + selectExpr + " == " + GeneralHelper::to_string(subContextNumber) + "){";
@@ -683,14 +684,14 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
 
     }else{
         //Switch style (> 2 inputs)
-        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": ";
+        std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": \n{"; //Open a new {} scope to allow intermediate variable declaration
         cStatementQueue.push_back(caseExpr);
     }
 }
 
 void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
@@ -707,7 +708,7 @@ void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedP
 
     }else{
         //Switch style (> 2 inputs)
-        std::string caseExpr = "default " + GeneralHelper::to_string(subContextNumber) + ": ";
+        std::string caseExpr = "default:\n{"; //Open a new {} scope to allow intermediate variable declaration
         cStatementQueue.push_back(caseExpr);
     }
 }
@@ -723,7 +724,8 @@ void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, Sche
     }else{
         //Switch style (> 2 inputs)
 
-        //There is no close for a switch block
+        std::string switchExpr = "}\nbreak;\n"; //Close scope for case statement (allowed intermediate vars to be declared)
+        cStatementQueue.push_back(switchExpr);
     }
 }
 
@@ -738,7 +740,8 @@ void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedP
     }else{
         //Switch style (> 2 inputs)
 
-        //There is no close for a switch block
+        std::string switchExpr = "}\nbreak;\n"; //Close scope for case statement (allowed intermediate vars to be declared)
+        cStatementQueue.push_back(switchExpr);
     }
 }
 
@@ -753,7 +756,9 @@ void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, Sched
     }else{
         //Switch style (> 2 inputs)
 
-        //There is no close for a switch block
+        std::string ifExpr = "}\n}"; //Close scope for case statement (allowed intermediate vars to be declared)
+        cStatementQueue.push_back(ifExpr);
+
     }
 }
 

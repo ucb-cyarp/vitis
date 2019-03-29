@@ -14,6 +14,7 @@ class SubSystem;
 class ExpandedNode;
 class GraphMLParameter;
 class StateUpdate;
+class MasterUnconnected;
 
 #include <vector>
 #include <set>
@@ -548,6 +549,24 @@ public:
     std::vector<std::shared_ptr<OutputPort>> getOutputPortsIncludingOrderConstraint();
 
     /**
+     * @brief Get a list of direct input arcs connected to this node (not order constraint arcs)
+     * @return list of direct input arcs (not order constraint arcs)
+     */
+    std::set<std::shared_ptr<Arc>> getDirectInputArcs();
+
+    /**
+     * @brief Get a list of order constraint input arcs connected to this node
+     * @return list of order constraint input arcs
+     */
+    std::set<std::shared_ptr<Arc>> getOrderConstraintInputArcs();
+
+    /**
+     * @brief Get a list of input arcs (direct and order constraint) connected to this node
+     * @return list of direct input arcs
+     */
+    std::set<std::shared_ptr<Arc>> getInputArcs();
+
+    /**
      * @brief Get a list of direct output arcs connected to this node (not order constraint arcs)
      * @return list of direct output arcs (not order constraint arcs)
      */
@@ -658,12 +677,12 @@ public:
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
      * @param deleted_arcs A vector which will be filled with the arcs deleted during expansion
+     * @param unconnected_master A pointer to the unconnected master node
      * @return pointer to expanded node if expansion occurred, nullptr if it did not
      */
-    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+    virtual std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                     std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                     std::shared_ptr<MasterUnconnected> &unconnected_master);
 
     /**
      * @brief Identifies if the given input port experiences internal fanout in the node.
@@ -919,6 +938,12 @@ public:
      * @param copyFrom The node to copy port names from
      */
     void copyPortNames(std::shared_ptr<Node> copyFrom);
+
+    /**
+     * @brief Returns a string that can be included at the end of error messages to provide context for the error
+     * @return
+     */
+    std::string getErrorReportContextStr();
 
 };
 

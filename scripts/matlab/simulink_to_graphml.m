@@ -197,6 +197,23 @@ top_system_func([], [], [], 'term');
 %Do this after terminating model as this will change (and then restore) the
 %model config.
 
+stateflow_nodes = [];
+for i = 1:length(special_nodes)
+    special_node = special_nodes(i);
+    
+    if special_node.isStateflow()
+       %Check if name already exists
+       for j = 1:length(stateflow_nodes)
+           checking_node = stateflow_nodes(j);
+           if strcmp(checking_node.name, special_node.name)
+               error(['Multiple Stateflow Charts have the same name.  Statflow chart are currently required to be unique for export: ' special_node.getFullSimulinkPath() ', ' checking_node.getFullSimulinkPath()]);
+           end
+       end
+       %If no duplicate found (error not created)
+       stateflow_nodes = [stateflow_nodes, special_node];
+    end
+end
+
 %Change to a temp dir
 current_dir = pwd;
 paths = path;
@@ -219,46 +236,44 @@ stateflow_codegen_model_config.Name = new_cfg_name;
 attachConfigSet(simulink_file, stateflow_codegen_model_config);
 setActiveConfigSet(simulink_file, new_cfg_name);
 
-for i = 1:length(special_nodes)
-    special_node = special_nodes(i);
+for i = 1:length(stateflow_nodes)
+    special_node = stateflow_nodes(i);
     
-    if special_node.isStateflow()
-        if verbose >= 1
-            disp(['[SimulinkToGraphML] Generating C Code for Stateflow Chart: ' special_node.getFullSimulinkPath()]);
-        end
-        
-        %Build the model
-        rtwbuild(special_node.getFullSimulinkPath(), 'generateCodeOnly', true);
-
-        %Read the generated files & set them as a node property
-        gen_dir_path = [special_node.name '_ert_rtw'];
-        c_file = fopen([gen_dir_path '/' special_node.name '.c'], 'r');
-        c_file_content = fread(c_file, '*char');
-        fclose(c_file);
-        c_file_content = transpose(c_file_content);
-        
-        h_file = fopen([gen_dir_path '/' special_node.name '.h'], 'r');
-        h_file_content = fread(h_file, '*char');
-        fclose(h_file);
-        h_file_content = transpose(h_file_content);
-        
-        rtwtypes_file = fopen([gen_dir_path '/rtwtypes.h'], 'r');
-        rtwtypes_content = fread(rtwtypes_file, '*char');
-        fclose(rtwtypes_file);
-        rtwtypes_content = transpose(rtwtypes_content);
-
-        h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
-        c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
-        
-        special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
-        special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
-        special_node.dialogProperties('init_function') = [special_node.name '_initialize'];
-        special_node.dialogProperties('output_function') = [special_node.name '_output'];
-        special_node.dialogProperties('state_update_function') = [special_node.name '_update'];
-        special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U'];
-        special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y'];
-        special_node.dialogProperties('state_struct_name') = [special_node.name '_DW'];
+    if verbose >= 1
+        disp(['[SimulinkToGraphML] Generating C Code for Stateflow Chart: ' special_node.getFullSimulinkPath()]);
     end
+
+    %Build the model
+    rtwbuild(special_node.getFullSimulinkPath(), 'generateCodeOnly', true);
+
+    %Read the generated files & set them as a node property
+    gen_dir_path = [special_node.name '_ert_rtw'];
+    c_file = fopen([gen_dir_path '/' special_node.name '.c'], 'r');
+    c_file_content = fread(c_file, '*char');
+    fclose(c_file);
+    c_file_content = transpose(c_file_content);
+
+    h_file = fopen([gen_dir_path '/' special_node.name '.h'], 'r');
+    h_file_content = fread(h_file, '*char');
+    fclose(h_file);
+    h_file_content = transpose(h_file_content);
+
+    rtwtypes_file = fopen([gen_dir_path '/rtwtypes.h'], 'r');
+    rtwtypes_content = fread(rtwtypes_file, '*char');
+    fclose(rtwtypes_file);
+    rtwtypes_content = transpose(rtwtypes_content);
+
+    h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
+    c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
+
+    special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
+    special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
+    special_node.dialogProperties('init_function') = [special_node.name '_initialize'];
+    special_node.dialogProperties('output_function') = [special_node.name '_output'];
+    special_node.dialogProperties('state_update_function') = [special_node.name '_update'];
+    special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U'];
+    special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y'];
+    special_node.dialogProperties('state_struct_name') = [special_node.name '_DW'];
 end
 
 %Restore orig model config set

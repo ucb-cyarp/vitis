@@ -9,6 +9,7 @@
 #include "PrimitiveNodes/Constant.h"
 #include "General/GeneralHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 #include <cmath>
 
 Gain::Gain() {
@@ -46,7 +47,7 @@ Gain::createFromGraphML(int id, std::string name, std::map<std::string, std::str
         gainStr = dataKeyValueMap.at("Numeric.Gain");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Gain");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Gain", newNode));
     }
 
     std::vector<NumericValue> gainValue = NumericValue::parseXMLString(gainStr);
@@ -94,16 +95,16 @@ void Gain::validate() {
     Node::validate();
 
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Gain - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that there is at least 1 value
     if(gain.size() < 1){
-        throw std::runtime_error("Validation Failed - Gain - Should Have At Least 1 Gain Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Should Have At Least 1 Gain Value", getSharedPointer()));
     }
 
     //Check that if any input is complex, the result is complex
@@ -112,13 +113,14 @@ void Gain::validate() {
     if(inputPort->getDataType().isComplex()) {
         DataType outType = getOutputPort(0)->getDataType();
         if(!outType.isComplex()){
-            throw std::runtime_error("Validation Failed - Gain - Input Port is Complex but Output is Real");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Gain - Input Port is Complex but Output is Real", getSharedPointer()));
         }
     }
 }
 
 std::shared_ptr<ExpandedNode> Gain::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                  std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                           std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                           std::shared_ptr<MasterUnconnected> &unconnected_master) {
 
     //Validate first to check that Gain is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
     validate();

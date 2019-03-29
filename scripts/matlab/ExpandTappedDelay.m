@@ -31,7 +31,7 @@ if numDelays == 1
     %delay which is re-wired.
     node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', 1); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
     node.simulinkBlockType = 'Delay';
-    node.dialogPropertiesNumeric('NumDelays') = numDelays;
+    node.dialogPropertiesNumeric('DelayLength') = numDelays;
     node.dialogPropertiesNumeric('vinit') = vinit;
     node.dialogPropertiesNumeric('samptime') = opBlock.dialogProperties('samptime');
     node.dialogProperties('DelayLengthSource') = 'Dialog';
@@ -87,6 +87,7 @@ else
     %----Treat first block specially----
     node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', 1); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
     node.simulinkBlockType = 'Delay';
+    node.dialogPropertiesNumeric('DelayLength') = 1;
     node.dialogPropertiesNumeric('InitialCondition') = delay_init_vals(1);
     node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogProperties('samptime');
     node.dialogProperties('DelayLengthSource') = 'Dialog';
@@ -128,6 +129,7 @@ else
         %Create new delay
         node = GraphNode.createExpandNodeNoSimulinkParams(opBlock, 'Standard', 'Delay', i); %Sums are 'Standard' nodes.  This function adds the node as a child of the parent.
         node.simulinkBlockType = 'Delay';
+        node.dialogPropertiesNumeric('DelayLength') = 1;
         node.dialogPropertiesNumeric('InitialCondition') = delay_init_vals(i);
         node.dialogPropertiesNumeric('SampleTime') = opBlock.dialogProperties('samptime');
         node.dialogProperties('DelayLengthSource') = 'Dialog';

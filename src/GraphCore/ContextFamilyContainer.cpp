@@ -6,6 +6,7 @@
 #include "ContextFamilyContainer.h"
 #include "PrimitiveNodes/Mux.h"
 #include "EnabledSubSystem.h"
+#include "General/ErrorHelpers.h"
 
 std::vector<std::shared_ptr<ContextContainer>> ContextFamilyContainer::getSubContextContainers() const {
     return subContextContainers;
@@ -91,7 +92,7 @@ void ContextFamilyContainer::rewireArcsToContextFamilyContainerAndRecurse(std::v
                         }else{
                             //We currently do not allow contexts to explicitally be dependant on the output of the node that is the root of the context.
                             //If the context is a node that has its own input and output ports (ex a mux and not an enabled subsustem), this would constitute a combinational loop as delays should stop the context from expanding
-                            throw std::runtime_error("Currently, nodes in a context are not permitted to be explicitally dependent on the root of that context.");
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, nodes in a context are not permitted to be explicitally dependent on the root of that context.", getSharedPointer()));
                         }
                     }
                 }
@@ -127,7 +128,7 @@ void ContextFamilyContainer::rewireArcsToContextFamilyContainerAndRecurse(std::v
     std::set<std::shared_ptr<Node>> nodesToInspect;
 
     if(contextRoot == nullptr){
-        throw std::runtime_error("Tried to Rewire ContextRoot that is null");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to Rewire ContextRoot that is null", getSharedPointer()));
     }else if(GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr){
         //The context root is a mux, we just schedule this
         nodesToInspect.insert(std::dynamic_pointer_cast<Mux>(contextRoot)); //TODO: fix diamond inheritance issue
@@ -145,10 +146,10 @@ void ContextFamilyContainer::rewireArcsToContextFamilyContainerAndRecurse(std::v
 
         //Verify no other children (all should have been moved into the context by now)
         if(asEnabledSubsystem->getChildren().size() != enableInputs.size() + enableOutputs.size()){
-            throw std::runtime_error("When rewiring, an enabled subsystem was encountered that had nodes not yet moved into a context");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When rewiring, an enabled subsystem was encountered that had nodes not yet moved into a context", getSharedPointer()));
         }
     }else{
-        throw std::runtime_error("When rewiring, a context root was encountered which is not yet implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When rewiring, a context root was encountered which is not yet implemented", getSharedPointer()));
     }
 
 

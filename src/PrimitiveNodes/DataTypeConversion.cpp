@@ -5,13 +5,14 @@
 #include "DataTypeConversion.h"
 
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 #include <iostream>
 
-DataTypeConversion::DataTypeConversion() {
+DataTypeConversion::DataTypeConversion() : PrimitiveNode(), inheritType(DataTypeConversion::InheritType::SPECIFIED) {
 
 }
 
-DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
+DataTypeConversion::DataTypeConversion(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), inheritType(DataTypeConversion::InheritType::SPECIFIED) {
 
 }
 
@@ -21,7 +22,7 @@ DataTypeConversion::InheritType DataTypeConversion::parseInheritType(std::string
     } else if (str == "INHERIT_FROM_OUTPUT"){
         return InheritType::INHERIT_FROM_OUTPUT;
     }else{
-        throw std::runtime_error("Unknown Inherit Type: " + str);
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Inherit Type: " + str));
     }
 }
 
@@ -31,7 +32,7 @@ std::string DataTypeConversion::inheritTypeToString(DataTypeConversion::InheritT
     }else if(type == InheritType::INHERIT_FROM_OUTPUT){
         return "INHERIT_FROM_OUTPUT";
     }else{
-        throw std::runtime_error("Unknown Inherit Type");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Inherit Type"));
     }
 }
 
@@ -87,7 +88,7 @@ DataTypeConversion::createFromGraphML(int id, std::string name, std::map<std::st
         }
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Constant");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Constant", newNode));
     }
 
     //Set the inherit type
@@ -156,13 +157,13 @@ std::string DataTypeConversion::labelStr() {
 
 void DataTypeConversion::propagateProperties() {
     if(getOutputPorts().size() < 1){
-        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Ports (" + name + ")");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Propagate Error - DataTypeConvert - No Output Ports (" + name + ")", getSharedPointer()));
     }
 
     std::shared_ptr<OutputPort> output = getOutputPort(0);
 
     if(output->getArcs().size() < 1){
-        throw std::runtime_error("Propagate Error - DataTypeConvert - No Output Arcs (" + name + ")");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Propagate Error - DataTypeConvert - No Output Arcs (" + name + ")", getSharedPointer()));
     }
 
     //Have a valid arc
@@ -182,7 +183,7 @@ void DataTypeConversion::validate() {
         //Only need to do for 1 arc since Node validation checks that all arcs have the same type
 
         if(getOutputPorts().size() < 1) {
-            throw std::runtime_error("Validation Error - DataTypeConversion - No Output Ports");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Error - DataTypeConversion - No Output Ports", getSharedPointer()));
         }
 
         std::shared_ptr<OutputPort> output = getOutputPort(0);
@@ -191,30 +192,30 @@ void DataTypeConversion::validate() {
         std::shared_ptr<Arc> outArc = *(output->getArcs().begin());
 
         if(outArc->getDataType() != tgtDataType) {
-            throw std::runtime_error("Validation Error - DataTypeConversion - Type Specified and Disagrees with Type of Output Arc");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Error - DataTypeConversion - Type Specified and Disagrees with Type of Output Arc", getSharedPointer()));
         }
     }
 
     //Should have 1 input ports and 1 output port
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - DataTypeConversion - Should Have Exactly 0 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeConversion - Should Have Exactly 0 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - DataTypeConversion - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeConversion - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 }
 
 CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getInputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     //TODO: Implement Fixed Point Support
     if((!getInputPort(0)->getDataType().isCPUType()) || (!getOutputPort(0)->getDataType().isCPUType())) {
-        throw std::runtime_error(
-                "C Emit Error - DataType Conversion to/from Fixed Point Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "C Emit Error - DataType Conversion to/from Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     //Get the Expression for the input (should only be 1)

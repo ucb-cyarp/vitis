@@ -226,8 +226,21 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                         return "true";
                     }
                 }else{
-                    //TODO: Currently only support NumericValue signed integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
-                    val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                    //TODO: Currently only support NumericValue signed integers for full 64 bit integers, need a seperate storage class for unsigned integers or a flag to keep track of how to reinterpret cast
+                    if(typeToConvertTo.isSignedType()) {
+                        val = GeneralHelper::to_string(
+                                FixedPointHelpers::toFixedPointSigned(realInt, typeToConvertTo.getTotalBits(),
+                                                                      typeToConvertTo.getFractionalBits()));
+                    }else{
+                        if(realInt >= 0) {
+                            val = GeneralHelper::to_string(
+                                    FixedPointHelpers::toFixedPointUnsigned((uint64_t) realInt,
+                                                                            typeToConvertTo.getTotalBits(),
+                                                                            typeToConvertTo.getFractionalBits()));
+                        }else{
+                            throw std::runtime_error("The an unsigned representation was requested for a negative NumericValue: " + GeneralHelper::to_string(realInt));
+                        }
+                    }
                 }
 
             }else{
@@ -243,7 +256,20 @@ std::string NumericValue::toStringComponent(bool imag, DataType typeToConvertTo)
                         }
                     }else{
                         //Return actual value (this number is complex)
-                        val = GeneralHelper::to_string(FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(), typeToConvertTo.getFractionalBits()));
+                        if(typeToConvertTo.isSignedType()) {
+                            val = GeneralHelper::to_string(
+                                    FixedPointHelpers::toFixedPointSigned(imagInt, typeToConvertTo.getTotalBits(),
+                                                                          typeToConvertTo.getFractionalBits()));
+                        }else{
+                            if(imagInt > 0) {
+                                val = GeneralHelper::to_string(
+                                        FixedPointHelpers::toFixedPointUnsigned((uint64_t) imagInt,
+                                                                                typeToConvertTo.getTotalBits(),
+                                                                                typeToConvertTo.getFractionalBits()));
+                            }else{
+                                throw std::runtime_error("The an unsigned representation was requested for a negative NumericValue: " + GeneralHelper::to_string(realInt));
+                            }
+                        }
                     }
                 }else{
                     if(typeToConvertTo.isBool()) {
@@ -294,7 +320,11 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
     bool done = false;
 
     while(!done){
-        unsigned long tokenEnd = str.find(',', startPos);
+        //TODO: do proper 2d parsing, currently collapse to 1d
+        unsigned long tokenEndComma = str.find(',', startPos);
+        unsigned long tokenEndSemicolon = str.find(';', startPos);
+        unsigned long tokenEnd = tokenEndComma<tokenEndSemicolon ? tokenEndComma : tokenEndSemicolon;
+
         if(tokenEnd == std::string::npos){
             done = true; //This is the last token
             tokenEnd = str.find(']', startPos);
@@ -418,24 +448,30 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
                     }
                 }
             } else {
-                matches = std::smatch();
-                bool realMatched = std::regex_match(subStr, matches, realRegex);
+                if(subStr == "true"){
+                    val.realInt = 1;
+                }else if(subStr == "false"){
+                    val.realInt = 0;
+                }else {
+                    matches = std::smatch();
+                    bool realMatched = std::regex_match(subStr, matches, realRegex);
 
-                if (realMatched) {
-                    if (fractional) {
-                        double realComponent = std::stod(matches[1].str());
-                        double imagComponent = 0;
+                    if (realMatched) {
+                        if (fractional) {
+                            double realComponent = std::stod(matches[1].str());
+                            double imagComponent = 0;
 
-                        val.complexDouble = std::complex<double>(realComponent, imagComponent);
+                            val.complexDouble = std::complex<double>(realComponent, imagComponent);
+                        } else {
+                            int realComponent = std::stoi(matches[1].str());
+                            int imagComponent = 0;
+
+                            val.realInt = realComponent;
+                            val.imagInt = imagComponent;
+                        }
                     } else {
-                        int realComponent = std::stoi(matches[1].str());
-                        int imagComponent = 0;
-
-                        val.realInt = realComponent;
-                        val.imagInt = imagComponent;
+                        throw std::runtime_error("Error parsing real literal: \"" + subStr + "\"");
                     }
-                } else {
-                    throw std::runtime_error("Error parsing real literal: \"" + subStr + "\"");
                 }
             }
 

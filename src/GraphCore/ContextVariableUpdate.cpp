@@ -54,7 +54,7 @@ ContextVariableUpdate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElemen
         GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "Standard");
     }
 
-    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "StateUpdate");
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "ContextVaribleUpdate");
 
     std::shared_ptr<Node> asNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot); //ContextRoot should also be node TODO: fix diamond inherit
     if(asNode == nullptr){

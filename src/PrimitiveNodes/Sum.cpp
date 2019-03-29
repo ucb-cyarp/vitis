@@ -5,6 +5,7 @@
 #include "Sum.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
 
 Sum::Sum() {
 
@@ -40,14 +41,14 @@ std::shared_ptr<Sum> Sum::createFromGraphML(int id, std::string name,
         inputSigns = dataKeyValueMap.at("Inputs");
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - Product");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Sum", newNode));
     }
 
     //There are multiple cases for inputs.  One is a string of + or - signs.  The other is a number.
     std::vector<bool> signs;
 
     if(inputSigns.empty()){
-        throw std::runtime_error("Empty Inputs parameter passed to Sum");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Empty Inputs parameter passed to Sum", newNode));
     }else if(inputSigns[0] == '+' || inputSigns[0] == '-' || inputSigns[0] == '|'){
         //An array of +,-,|
         unsigned long inputLength = inputSigns.size();
@@ -59,7 +60,7 @@ std::shared_ptr<Sum> Sum::createFromGraphML(int id, std::string name,
             }else if(inputSigns[i] == '|'){
                 //This is is a placeholder character that changes the position of the ports in the GUI but does not effect their numbering
             }else{
-                throw std::runtime_error("Unknown format for Sum Input Parameter");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown format for Sum Input Parameter", newNode));
             }
         }
     }else{
@@ -111,11 +112,11 @@ void Sum::validate() {
     Node::validate();
 
     if(inputPorts.size() < 2){
-        throw std::runtime_error("Validation Failed - Sum - Should Have 2 or More Input Ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Sum - Should Have 2 or More Input Ports", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - Sum - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Sum - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that if any input is complex, the result is complex
@@ -134,19 +135,19 @@ void Sum::validate() {
     if(foundComplex) {
         DataType outType = getOutputPort(0)->getDataType();
         if(!outType.isComplex()){
-            throw std::runtime_error("Validation Failed - Sum - An Input Port is Complex but Output is Real");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Sum - An Input Port is Complex but Output is Real", getSharedPointer()));
         }
     }
 
     if(inputSign.size() != inputPorts.size()){
-        throw std::runtime_error("Validation Failed - Sum - The number of signs (" + GeneralHelper::to_string(inputSign.size()) + ") does not match the number of inputs (" + GeneralHelper::to_string(inputPorts.size()) + ")");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Sum - The number of signs (" + GeneralHelper::to_string(inputSign.size()) + ") does not match the number of inputs (" + GeneralHelper::to_string(inputPorts.size()) + ")", getSharedPointer()));
     }
 }
 
 CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
     if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
     //Get the expressions for each input
@@ -231,7 +232,7 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     }
     else{
         //TODO: Fixed Point Support
-        throw std::runtime_error("C Emit Error - Fixed Point Not Yet Implemented for Sum");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Fixed Point Not Yet Implemented for Sum", getSharedPointer()));
     }
 
     return CExpr("", false);

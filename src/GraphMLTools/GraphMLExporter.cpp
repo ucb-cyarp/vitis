@@ -12,6 +12,7 @@
 #include "GraphCore/Node.h"
 #include "GraphCore/InputPort.h"
 #include "GraphCore/OutputPort.h"
+#include "General/ErrorHelpers.h"
 
 using namespace xercesc;
 
@@ -28,7 +29,7 @@ void GraphMLExporter::exportGraphML(std::string filename, Design &design) {
         char* error_msg = XMLString::transcode(toCatch.getMessage());
         std::cerr << "Error during initialization! :\n" << error_msg << std::endl;
         XMLString::release(&error_msg);
-        throw std::runtime_error("XML Parser Env could not initialize.  Could not import GraphML File.");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("XML Parser Env could not initialize.  Could not import GraphML File."));
     }
 
     //From https://xerces.apache.org/xerces-c/program-dom-3.html and DOMCount.cpp
@@ -69,7 +70,7 @@ void GraphMLExporter::exportGraphML(std::string filename, Design &design) {
     bool writeSuccess = serializer->writeToURI(doc, TranscodeToXMLCh(filename));
 
     if(!writeSuccess){
-        throw std::runtime_error("Encountered an error when exporting to XML");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an error when exporting to XML"));
     }
 
     //Release

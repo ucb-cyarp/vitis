@@ -4,6 +4,7 @@
 
 #include "DataTypeDuplicate.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 DataTypeDuplicate::DataTypeDuplicate() {
 
@@ -63,7 +64,7 @@ void DataTypeDuplicate::validate() {
             DataType portIType = getInputPort(i)->getDataType();
 
             if(port0Type != portIType){
-                throw std::runtime_error("Validation Failed - DataTypeDuplicate - Input Ports Do not Have Same Type");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeDuplicate - Input Ports Do not Have Same Type", getSharedPointer()));
             }
         }
     }
@@ -72,7 +73,7 @@ void DataTypeDuplicate::validate() {
 }
 
 CExpr DataTypeDuplicate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-    throw std::runtime_error("Emit Failed - DataTypeDuplicate - Attempted to Emit \"Constraint Only\" Block With No Outputs");
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Emit Failed - DataTypeDuplicate - Attempted to Emit \"Constraint Only\" Block With No Outputs", getSharedPointer()));
     return Node::emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
 }
 

@@ -7,6 +7,8 @@
 #include "GraphMLTools/GraphMLImporter.h"
 #include "GraphMLTools/GraphMLExporter.h"
 
+#include "General/ErrorHelpers.h"
+
 SimulinkCoderFSM::SimulinkCoderFSM() {
 
 }
@@ -40,37 +42,37 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
     if(dataKeyValueMap.find("init_function") != dataKeyValueMap.end()) {
         initFctnStr = dataKeyValueMap.at("init_function");
     }else{
-        throw std::runtime_error("Stateflow Module Missing Init Function");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Stateflow Module Missing Init Function", newNode));
     }
 
     if(dataKeyValueMap.find("output_function") != dataKeyValueMap.end()) {
         outputFunctionStr = dataKeyValueMap.at("output_function");
     }else{
-        throw std::runtime_error("Stateflow Module Missing Output Function");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Stateflow Module Missing Output Function", newNode));
     }
 
     if(dataKeyValueMap.find("state_update_function") != dataKeyValueMap.end()) {
         stateUpdateFunctionStr = dataKeyValueMap.at("state_update_function");
     }else{
-        throw std::runtime_error("Stateflow Module Missing State Update Function");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Stateflow Module Missing State Update Function", newNode));
     }
 
     if(dataKeyValueMap.find("inputs_struct_name") != dataKeyValueMap.end()) {
         inputsStructNameStr = dataKeyValueMap.at("inputs_struct_name");
     }else{
-        throw std::runtime_error("Stateflow Module Missing Input Structure Name");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Stateflow Module Missing Input Structure Name", newNode));
     }
 
     if(dataKeyValueMap.find("outputs_struct_name") != dataKeyValueMap.end()) {
         outputsStructNameStr = dataKeyValueMap.at("outputs_struct_name");
     }else{
-        throw std::runtime_error("Stateflow Module Missing Output Structure Name");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Stateflow Module Missing Output Structure Name", newNode));
     }
 
     if(dataKeyValueMap.find("state_struct_name") != dataKeyValueMap.end()) {
         stateStructNameStr = dataKeyValueMap.at("state_struct_name");
     }else{
-        throw std::runtime_error("Stateflow Module Missing State Structure Name");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Stateflow Module Missing State Structure Name", newNode));
     }
 
     //Set parameters

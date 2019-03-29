@@ -7,6 +7,7 @@
 #include "PrimitiveNodes/Constant.h"
 #include "General/GeneralHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 CompareToConstant::CompareToConstant() : compareOp(Compare::CompareOp::LT) {
 
@@ -53,7 +54,7 @@ CompareToConstant::createFromGraphML(int id, std::string name, std::map<std::str
     //Simulink is not a supported dialect for this block
     } else
     {
-        throw std::runtime_error("Unsupported Dialect when parsing XML - CompareToConstant");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - CompareToConstant", newNode));
     }
 
     std::vector<NumericValue> compareConstVal = NumericValue::parseXMLString(compareConstStr);
@@ -65,10 +66,9 @@ CompareToConstant::createFromGraphML(int id, std::string name, std::map<std::str
     return newNode;
 }
 
-std::shared_ptr<ExpandedNode> CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes,
-                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                               std::vector<std::shared_ptr<Arc>> &new_arcs,
-                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+std::shared_ptr<ExpandedNode> CompareToConstant::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                        std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                        std::shared_ptr<MasterUnconnected> &unconnected_master) {
 
     //Validate first to check that the CompareToConstant block is properly wired
     validate();
@@ -217,16 +217,16 @@ void CompareToConstant::validate() {
     Node::validate();
 
     if(inputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - CompareToConstant - Should Have Exactly 1 Input Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - CompareToConstant - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
-        throw std::runtime_error("Validation Failed - CompareToConstant - Should Have Exactly 1 Output Port");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - CompareToConstant - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
     //Check that there is at least 1 value for the comparison
     if(compareConst.size() < 1){
-        throw std::runtime_error("Validation Failed - CompareToConstant - Should Have At Least 1 Constant Value");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - CompareToConstant - Should Have At Least 1 Constant Value", getSharedPointer()));
     }
 }
 

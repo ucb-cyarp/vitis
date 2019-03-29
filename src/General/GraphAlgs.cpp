@@ -10,6 +10,8 @@
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
 #include "GraphCore/StateUpdate.h"
+#include "General/ErrorHelpers.h"
+#include "GraphMLTools/GraphMLExporter.h"
 
 #include <iostream>
 
@@ -38,7 +40,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
                     alreadyMarked = marks[*it];
             }
             if(alreadyMarked){
-                throw std::runtime_error("Traceback marked an arc twice.  Should never occur.");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Traceback marked an arc twice.  Should never occur."));
             }
 
             //Mark the arc
@@ -110,7 +112,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
                 alreadyMarked = marks[*it];
             }
             if(alreadyMarked){
-                throw std::runtime_error("Traceback marked an arc twice.  Should never occur.");
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Traceback marked an arc twice.  Should never occur."));
             }
 
             //Mark the arc
@@ -278,6 +280,15 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                                                                          std::shared_ptr<MasterOutput> visMaster) {
     std::vector<std::shared_ptr<Node>> schedule;
 
+    //First, remove incoming arc connections to the Unconnected Master and the Terminator Master.
+    //These can create false dependencies, especially for state update and other nodes.
+    //* this is for the purpose of scheduling only
+    std::set<std::shared_ptr<Arc>> terminatorArcs = terminatorMaster->disconnectNode();
+    arcsToDelete.insert(arcsToDelete.end(), terminatorArcs.begin(), terminatorArcs.end());
+
+    std::set<std::shared_ptr<Arc>> unconnectedArcs = unconnectedMaster->disconnectNode();
+    arcsToDelete.insert(arcsToDelete.end(), unconnectedArcs.begin(), unconnectedArcs.end());
+
     //Find nodes with 0 in degree at this context level (and not in nested contexts)
     std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
     for(unsigned long i = 0; i<nodesToSort.size(); i++){
@@ -355,7 +366,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                 std::vector<std::shared_ptr<Node>> nodesToSched;
 
                 if(contextRoot == nullptr){
-                    throw std::runtime_error("Tried to schedule a ContextRoot that is null");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to schedule a ContextRoot that is null"));
                 }else if(GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr){
                     //The context root is a mux, we just schedule this
                     nodesToSched.push_back(std::dynamic_pointer_cast<Mux>(contextRoot)); //TODO: fix diamond inheritance issue
@@ -372,7 +383,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
 //                    std::vector<std::shared_ptr<EnableOutput>> enableOutputs = asEnabledSubsystem->getEnableOutputs();
 //                    nodesToSched.insert(nodesToSched.end(), enableOutputs.begin(), enableOutputs.end());
                 }else{
-                    throw std::runtime_error("When scheduling, a context root was encountered which is not yet implemented");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("When scheduling, a context root was encountered which is not yet implemented"));
                 }
 
                 //Schedule context root
@@ -423,16 +434,17 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
 
     //If there are still viable candidate nodes, there was a cycle.
     if(!candidateNodes.empty()){
-        std::cerr << "Topological Sort: Cycle Encountered.  Candidate Nodes: " << candidateNodes.size() << std::endl;
+        std::cerr << ErrorHelpers::genErrorStr("Topological Sort: Cycle Encountered.  Candidate Nodes: ") << candidateNodes.size() << std::endl;
         for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
-            std::cerr << candidateNode->getFullyQualifiedName(false) << " ID: " << candidateNode->getId() << " InDeg: " << candidateNode->inDegree() <<std::endl;
+            std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
             std::set<std::shared_ptr<Node>> connectedInputNodes = candidateNode->getConnectedInputNodes();
-            for(auto conntectedInputNode = connectedInputNodes.begin(); conntectedInputNode != connectedInputNodes.end(); conntectedInputNode++){
-                std::cerr << "\tConntected to " << (*conntectedInputNode)->getFullyQualifiedName(false) << " ID: " << (*conntectedInputNode)->getId() << " InDeg: " << (*conntectedInputNode)->inDegree() <<std::endl;
+            for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
+                std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
+                std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;
             }
         }
-        throw std::runtime_error("Topological Sort: Encountered Cycle, Unable to Sort");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Topological Sort: Encountered Cycle, Unable to Sort"));
     }
 
     return schedule;
@@ -466,7 +478,7 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
         std::shared_ptr<Node> connectedOutNode = *it;
         if(connectedOutNode == nullptr){
-            throw std::runtime_error("Encountered Arc with Null Dst when Wiring State Update");
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered Arc with Null Dst when Wiring State Update"));
         }
         std::shared_ptr<Arc> orderConstraint = Arc::connectNodesOrderConstraint(connectedOutNode, stateUpdate); //Datatype and sample time are not important, use defaults
         new_arcs.push_back(orderConstraint);
