@@ -19,7 +19,7 @@ orig_model_config = getActiveConfigSet(simulink_file);
 curTime = datetime;
 new_cfg_name = [orig_model_config.Name '-tmp' num2str(round(posixtime(curTime)))];
 
-stateflow_codegen_model_config = CreateStateFlowCodeGenCS(orig_model_config);
+stateflow_codegen_model_config = CreateStateFlowCodeGenCS_Standalone(orig_model_config);
 stateflow_codegen_model_config.Name = new_cfg_name;
 attachConfigSet(simulink_file, stateflow_codegen_model_config);
 setActiveConfigSet(simulink_file, new_cfg_name);
