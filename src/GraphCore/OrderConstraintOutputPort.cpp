@@ -10,7 +10,7 @@ OrderConstraintOutputPort::OrderConstraintOutputPort() {
 
 }
 
-OrderConstraintOutputPort::OrderConstraintOutputPort(Node *parent) : OutputPort(parent, 0){
+OrderConstraintOutputPort::OrderConstraintOutputPort(Node *parent) : OutputPort(parent, -1){
 
 }
 
