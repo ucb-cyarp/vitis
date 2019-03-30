@@ -290,14 +290,14 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     arcsToDelete.insert(arcsToDelete.end(), unconnectedArcs.begin(), unconnectedArcs.end());
 
     //Find nodes with 0 in degree at this context level (and not in nested contexts)
-    std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
+    std::vector<std::shared_ptr<Node>> nodesWithZeroInDeg;
     for(unsigned long i = 0; i<nodesToSort.size(); i++){
         //Do not add general subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
         //However, do add ContextFamilyContainers as they are a special case of a subsystem that should be scheduled.
         if(GeneralHelper::isType<Node, SubSystem>(nodesToSort[i]) == nullptr || GeneralHelper::isType<Node, ContextFamilyContainer>(nodesToSort[i]) != nullptr) {
             unsigned long inDeg = nodesToSort[i]->inDegree();
             if (inDeg == 0) {
-                nodesWithZeroInDeg.insert(nodesToSort[i]);
+                nodesWithZeroInDeg.push_back(nodesToSort[i]);
             }
         }
     }
@@ -307,7 +307,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //list of nodes with zero in deg if this is the case.  Note that if there is at least 1 arc to a node without state, it will be
     //considered a candidate
     if(std::find(nodesToSort.begin(), nodesToSort.end(), outputMaster) != nodesToSort.end() && outputMaster->inDegree() == 0){
-        nodesWithZeroInDeg.insert(outputMaster);
+        nodesWithZeroInDeg.push_back(outputMaster);
     }
 
     //We need to keep track of all the nodes we have discovered so far by looking at connected nodes of scheduled nodes
@@ -319,24 +319,25 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
         //Schedule Nodes with Zero In Degree
+        unsigned long ind = 0; //=0 for BFS and DFS, random number for rand
 
-        auto it = nodesWithZeroInDeg.begin(); //Pop node to schedule off the top of the stack/queue depending on DFS/BFS traversal
+        std::shared_ptr<Node> to_sched = nodesWithZeroInDeg[0]; //Pop node to schedule off the top of the stack/queue depending on DFS/BFS traversal
 
         //Get the candidates from this node (the only nodes that do not currently have indeg 0 that could have indeg 0 after this
         //node is scheduled are its neighbors)
-        std::set<std::shared_ptr<Node>> candidateNodes = (*it)->getConnectedOutputNodes();
+        std::set<std::shared_ptr<Node>> candidateNodes = to_sched->getConnectedOutputNodes();
 
         //Disconnect the node
         //std::cerr << "Sched: " << (*it)->getFullyQualifiedName(true) << std::endl;
-        std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
+        std::set<std::shared_ptr<Arc>> arcsToRemove = to_sched->disconnectNode();
         arcsToDelete.insert(arcsToDelete.end(), arcsToRemove.begin(), arcsToRemove.end());
 
-        discoveredNodes.erase(*it);
-        nodesWithZeroInDeg.erase(*it);
+        discoveredNodes.erase(to_sched);
+        nodesWithZeroInDeg.erase(nodesWithZeroInDeg.begin()+ind);
 
         //====Check if the node is a ContextContainerFamily====
-        if(GeneralHelper::isType<Node, ContextFamilyContainer>(*it) != nullptr){
-            std::shared_ptr<ContextFamilyContainer> familyContainer = std::static_pointer_cast<ContextFamilyContainer>(*it);
+        if(GeneralHelper::isType<Node, ContextFamilyContainer>(to_sched) != nullptr){
+            std::shared_ptr<ContextFamilyContainer> familyContainer = std::static_pointer_cast<ContextFamilyContainer>(to_sched);
 
             //Recursively schedule the nodes in this ContextContainerFamily
             //Schedule the subcontexts first
@@ -378,7 +379,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
             schedule.insert(schedule.end(), contexRootSched.begin(), contexRootSched.end());
 
         }else{//----End node is a ContextContainerFamily----
-            schedule.push_back(*it);
+            schedule.push_back(to_sched);
         }
 
         //Find discovered nodes from the candidate list (that are in the nodes to be sorted set)
@@ -392,7 +393,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                     discoveredNodes.insert(candidateNode);
 
                     if (candidateNode->inDegree() == 0) {
-                        nodesWithZeroInDeg.insert(candidateNode);
+                        nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS (Queue Based), Push Front for DFS
                     }
                 }
             }
