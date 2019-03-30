@@ -319,9 +319,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
         //Schedule Nodes with Zero In Degree
-        unsigned long ind = 0; //=0 for BFS and DFS, random number for rand
+        unsigned long ind = 0; //=0 for BFS, =size()-1 DFS, random number for rand
 
-        std::shared_ptr<Node> to_sched = nodesWithZeroInDeg[0]; //Pop node to schedule off the top of the stack/queue depending on DFS/BFS traversal
+        std::shared_ptr<Node> to_sched = nodesWithZeroInDeg[ind]; //Pop node to schedule off the top of the stack/queue depending on DFS/BFS traversal
 
         //Get the candidates from this node (the only nodes that do not currently have indeg 0 that could have indeg 0 after this
         //node is scheduled are its neighbors)
@@ -393,7 +393,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
                     discoveredNodes.insert(candidateNode);
 
                     if (candidateNode->inDegree() == 0) {
-                        nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS (Queue Based), Push Front for DFS
+                        nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS and DFS.  Dequeuing determines BFS or DFS
                     }
                 }
             }
