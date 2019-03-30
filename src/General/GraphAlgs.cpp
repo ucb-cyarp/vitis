@@ -14,6 +14,7 @@
 #include "GraphMLTools/GraphMLExporter.h"
 
 #include <iostream>
+#include <random>
 
 std::set<std::shared_ptr<Node>>
 GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks) {
@@ -271,7 +272,8 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
     return foundNodes;
 }
 
-std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::vector<std::shared_ptr<Node>> nodesToSort,
+std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(TopologicalSortParameters parameters,
+                                                                         std::vector<std::shared_ptr<Node>> nodesToSort,
                                                                          std::vector<std::shared_ptr<Arc>> &arcsToDelete,
                                                                          std::shared_ptr<MasterOutput> outputMaster,
                                                                          std::shared_ptr<MasterInput> inputMaster,
@@ -316,10 +318,32 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     std::set<std::shared_ptr<Node>> discoveredNodes;
     discoveredNodes.insert(nodesWithZeroInDeg.begin(), nodesWithZeroInDeg.end());
 
+    std::default_random_engine rndGen(parameters.getRandSeed());
+
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
         //Schedule Nodes with Zero In Degree
-        unsigned long ind = 0; //=0 for BFS, =size()-1 DFS, random number for rand
+        unsigned long ind;
+
+        switch(parameters.getHeuristic()) {
+            case TopologicalSortParameters::Heuristic::BFS:
+                ind = 0;
+                break;
+
+            case TopologicalSortParameters::Heuristic::DFS:
+                ind = nodesWithZeroInDeg.size() - 1;
+                break;
+
+            case TopologicalSortParameters::Heuristic::RANDOM: {
+                std::uniform_int_distribution<unsigned long> dist(0, nodesWithZeroInDeg.size() - 1); //Pick a number randomly in the range [0, nodesWithZeroInDeg.size()-1]
+                ind = dist(rndGen);
+                break;
+            }
+
+            default:
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Scheduling Heuristic"));
+                break;
+        }
 
         std::shared_ptr<Node> to_sched = nodesWithZeroInDeg[ind]; //Pop node to schedule off the top of the stack/queue depending on DFS/BFS traversal
 
@@ -350,7 +374,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
 
                 std::vector<std::shared_ptr<Node>> nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
 
-                std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(nextLvlNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
+                std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(parameters, nextLvlNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
                 //Add to schedule
                 schedule.insert(schedule.end(), subSched.begin(), subSched.end());
             }
@@ -374,7 +398,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
             }
 
             //Schedule context root
-            std::vector<std::shared_ptr<Node>> contexRootSched = GraphAlgs::topologicalSortDestructive(nodesToSched, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
+            std::vector<std::shared_ptr<Node>> contexRootSched = GraphAlgs::topologicalSortDestructive(parameters, nodesToSched, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
             //Add to schedule
             schedule.insert(schedule.end(), contexRootSched.begin(), contexRootSched.end());
 

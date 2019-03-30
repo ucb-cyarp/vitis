@@ -38,6 +38,8 @@ set(COMMON_SRCS
         src/General/FixedPointHelpers.h
         src/General/GraphAlgs.cpp
         src/General/GraphAlgs.h
+        src/General/TopologicalSortParameters.cpp
+        src/General/TopologicalSortParameters.h
         src/General/DSPHelpers.cpp
         src/General/DSPHelpers.h
         src/General/ErrorHelpers.cpp

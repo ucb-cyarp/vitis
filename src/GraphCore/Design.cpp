@@ -539,11 +539,11 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType){
+void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams){
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(true, false, designName, outputDir);
+        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir);
         verifyTopologicalOrder();
 
         //Export GraphML (for debugging)
@@ -579,7 +579,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
 //        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
-        scheduleTopologicalStort(false, true, designName, outputDir); //Pruned before inserting state update nodes
+        scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 
         //Export GraphML (for debugging)
@@ -2166,7 +2166,7 @@ void Design::verifyTopologicalOrder() {
     }
 }
 
-std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::string designName, std::string dir) {
+std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params) {
     std::vector<std::shared_ptr<Arc>> arcsToDelete;
     std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
     topLevelContextNodes.push_back(outputMaster);
@@ -2182,7 +2182,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     bool failed = false;
     std::exception err;
     try {
-        sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster,
+        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodes, arcsToDelete, outputMaster,
                                                             inputMaster, terminatorMaster, unconnectedMaster,
                                                             visMaster);
     }catch(const std::exception &e){
@@ -2206,7 +2206,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     return sortedNodes;
 }
 
-unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, std::string designName, std::string dir) {
+unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2311,7 +2311,7 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, 
 //    GraphMLExporter::exportGraphML("./cOut/context_scheduleGraph.graphml", *this);
 
     //==== Topological Sort (Destructive) ====
-    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir);
+    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir, params);
 
 //    std::cout << "Schedule" << std::endl;
 //    for(unsigned long i = 0; i<schedule.size(); i++){

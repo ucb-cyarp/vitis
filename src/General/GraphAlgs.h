@@ -16,6 +16,7 @@
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterUnconnected.h"
+#include "TopologicalSortParameters.h"
 
 //Forward Declare
 class EnabledSubSystem;
@@ -113,11 +114,13 @@ public:
      * @warning This destroys the graph by removing arcs from the nodes.
      * It is recomended to run on a copy of the graph and to back propagate the results
      *
+     * @param parameters the parameters to use when scheduling (ex. heuristic type and random seed)
      * @param nodesToSort a vector of nodes to schedule, including ContextFamilyContainers to be scheduled together if the schedule is context aware.  Should not contain nodes in lower levels of the context hierarchy.  These will be handled through recursion on ContextFamilyContainers
      * @param arcsToDelete a vector of arcs to delete from the design,
      * @return A vector of nodes arranged in topological order
      */
-    static std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::vector<std::shared_ptr<Node>> nodesToSort,
+    static std::vector<std::shared_ptr<Node>> topologicalSortDestructive(TopologicalSortParameters parameters,
+                                                                         std::vector<std::shared_ptr<Node>> nodesToSort,
                                                                          std::vector<std::shared_ptr<Arc>> &arcsToDelete,
                                                                          std::shared_ptr<MasterOutput> outputMaster,
                                                                          std::shared_ptr<MasterInput> inputMaster,
