@@ -3,6 +3,7 @@
 //
 
 #include "TopologicalSortParameters.h"
+#include <stdexcept>
 
 TopologicalSortParameters::Heuristic TopologicalSortParameters::getHeuristic() const {
     return heuristic;
