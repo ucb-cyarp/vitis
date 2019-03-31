@@ -16,12 +16,12 @@ int main(int argc, char* argv[]) {
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
 
 
-    if(argc < 4  || argc > 7)
+    if(argc < 4  || argc > 8)
     {
         std::cout << "singleThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Single Threaded C Function" << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    singleThreadedGenerator inputfile.graphml outputDir designName <SCHED> <SCHED_HEUR> <SCHED_RAND_SEED>" << std::endl;
+        std::cout << "    singleThreadedGenerator inputfile.graphml outputDir designName <SCHED> <SCHED_HEUR> <SCHED_RAND_SEED> <EMIT_GRAPHML_SCHED>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible SCHED:" << std::endl;
         std::cout << "    bottomUp                      = Bottom Up Scheduler (Does not Support EnabledSubsystems)" << std::endl;
@@ -34,7 +34,11 @@ int main(int argc, char* argv[]) {
         std::cout << "    random        = Random Style" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible SCHED_RAND_SEED (only applies to topological and topological_context):" << std::endl;
-        std::cout << "    unsigned long seed <DEFAULT = 0>";
+        std::cout << "    unsigned long seed <DEFAULT = 0>" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Possible EMIT_GRAPHML_SCHED (only applies to topological and topological_context):" << std::endl;
+        std::cout << "    EMIT_GRAPHML_SCHED  = Emit a GraphML file with the computed schedule as a node parameter" << std::endl;
+        std::cout << "    <nothing> <DEFAULT> = Do not emit a GraphML file with the computed schedule" << std::endl;
         std::cout << std::endl;
 
         return 1;
@@ -42,6 +46,8 @@ int main(int argc, char* argv[]) {
 
     TopologicalSortParameters::Heuristic heuristic = TopologicalSortParameters::Heuristic::BFS;
     unsigned long randSeed = 0;
+
+    bool emitGraphMLSched = false;
 
     for(unsigned long i = 4; i<argc; i++){
         bool found = false;
@@ -72,6 +78,13 @@ int main(int argc, char* argv[]) {
             continue;
         }catch(std::invalid_argument e){
             ;
+        }
+
+        std::string argStr = argv[i];
+        if(argStr == "EMIT_GRAPHML_SCHED" || argStr == "emit_graphml_sched"){
+            emitGraphMLSched = true;
+            found = true;
+            continue;
         }
 
         if(!found){
@@ -124,7 +137,7 @@ int main(int argc, char* argv[]) {
 
     //Emit C
     try{
-        design->generateSingleThreadedC(outputDir, designName, sched, topoParams);
+        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, emitGraphMLSched);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

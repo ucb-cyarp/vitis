@@ -539,17 +539,19 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams){
+void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched){
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
         scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir);
         verifyTopologicalOrder();
 
-        //Export GraphML (for debugging)
-        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
-        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
-
+        if(emitGraphMLSched) {
+            //Export GraphML (for debugging)
+            std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName
+                      << "_scheduleGraph.graphml" << std::endl;
+            GraphMLExporter::exportGraphML(outputDir + "/" + designName + "_scheduleGraph.graphml", *this);
+        }
 
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
@@ -582,9 +584,12 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 
-        //Export GraphML (for debugging)
-        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
-        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
+        if(emitGraphMLSched) {
+            //Export GraphML (for debugging)
+            std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName
+                      << "_scheduleGraph.graphml" << std::endl;
+            GraphMLExporter::exportGraphML(outputDir + "/" + designName + "_scheduleGraph.graphml", *this);
+        }
 
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else{

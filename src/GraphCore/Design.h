@@ -343,8 +343,9 @@ public:
      * @param designName the design name to be used as the C file names
      * @param schedType the type of scheduler to use when generating the C program
      * @param topoSortParams the parameters used by the topological scheduler if applicable (ex. what heuristic to use, random seed)
+     * @param emitGraphMLSched if true, emit a GraphML file with the computed schedule as a node parameter
      */
-    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams);
+    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched);
 
     /**
      * @brief Emits operators using the bottom up emitter
