@@ -132,7 +132,7 @@ std::cout << "Emitting C File: " << mainCFileLoc << std::endl;
 
 {
 SCOPED_TRACE("Emitting C");
-design->generateSingleThreadedC(outputDir, designName, sched, topoParams);
+design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false);
 }
 
 std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
