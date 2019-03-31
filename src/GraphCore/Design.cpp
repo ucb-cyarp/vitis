@@ -575,8 +575,8 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         assignNodeIDs();
         assignArcIDs();
 
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
+        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML pre-Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
         scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir); //Pruned before inserting state update nodes
@@ -2171,6 +2171,9 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
     topLevelContextNodes.push_back(outputMaster);
 
+//    std::cout << "Emitting: " + dir + "/" + designName + "_sort_error_scheduleGraph.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML(dir + "/" + designName + "_sort_error_scheduleGraph.graphml", *this);
+
 //    std::cerr << "Top Lvl Nodes to Sched:" << std::endl;
 //    for(unsigned long i = 0; i<topLevelContextNodes.size(); i++){
 //        std::cerr << topLevelContextNodes[i]->getFullyQualifiedName(true) << std::endl;
@@ -2644,6 +2647,10 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
         std::map<std::shared_ptr<OutputPort>, std::shared_ptr<Arc>> srcPortToNewArc; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
+            //The driver arcs must have the destination re-wired.  At a minimum, they should be rewired to
+            //the context container node.  However, if they exist inside of a nested context, the destination
+            //may need to be rewired to another context family container higher in the hierarchy
+
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
 
@@ -2652,10 +2659,44 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
             std::shared_ptr<Arc> rewiredArc;
             if(srcPortToNewArc.find(driverSrc) != srcPortToNewArc.end()){
+                //The particular source has already been wired to this
                 rewiredArc = srcPortToNewArc[driverSrc];
             }else{
                 //Create a new rewiredArc
-                rewiredArc = Arc::connectNodesOrderConstraint(driverSrc->getParent(), driverSrc->getPortNum(), contextRoots[i]->getContextFamilyContainer(), driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
+                std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoots[i]);
+
+                std::vector<Context> srcContext = driverSrc->getParent()->getContext();
+                std::vector<Context> dstContext = contextRootAsNode->getContext();
+                //Add the context family container to the context stack of the destination (the context root is not in its own context
+                dstContext.push_back(Context(contextRoots[i], -1)); //The subcontext number is a dummy
+
+                std::shared_ptr<Node> newSrc = driverSrc->getParent(); //Default to orig
+                //Check if the src should be changed
+                if(!Context::isEqOrSubContext(dstContext, srcContext)){
+                    //Need to pick new src
+                    long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+                    if(commonContextInd+1 > srcContext.size()){
+                        throw std::runtime_error("When rewiring context arc, got unexpected result for new src");
+                    }
+                    std::shared_ptr<ContextRoot> newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
+                    //TODO: fix diamond inheritcance
+
+                    newSrc = newSrcAsContextRoot->getContextFamilyContainer();
+                }
+
+                //The dst needs to be rewired (at least to the ContextFamily container of the context root
+                //Determine new dst node
+                long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+                if(commonContextInd+1 > dstContext.size()){
+                    throw std::runtime_error("When rewiring context arc, got unexpected result for new dst");
+                }
+
+                std::shared_ptr<ContextRoot> newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
+                //TODO: fix diamond inheritcance
+
+                std::shared_ptr<Node> newDest = newDstAsContextRoot->getContextFamilyContainer();
+
+                rewiredArc = Arc::connectNodesOrderConstraint(newSrc, newDest, driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
                 //Add to the map and the set of contextRootRewiredArcs
                 srcPortToNewArc[driverSrc] = rewiredArc;
                 contextRootRewiredArcs.insert(rewiredArc);
@@ -2677,6 +2718,12 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
         std::shared_ptr<Arc> candidateArc = candidateArcs[i];
+        int id = candidateArc->getId();
+        bool foundIt = id == 14;
+        if(foundIt){
+            std::cout << "Found it" << std::endl;
+        }
+
         std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
         std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
 

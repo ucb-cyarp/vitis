@@ -352,7 +352,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
         std::set<std::shared_ptr<Node>> candidateNodes = to_sched->getConnectedOutputNodes();
 
         //Disconnect the node
-        //std::cerr << "Sched: " << (*it)->getFullyQualifiedName(true) << std::endl;
+//        std::cerr << "Sched: " << to_sched->getFullyQualifiedName(true) << " [ID: " << to_sched->getId() << "]" << std::endl;
         std::set<std::shared_ptr<Arc>> arcsToRemove = to_sched->disconnectNode();
         arcsToDelete.insert(arcsToDelete.end(), arcsToRemove.begin(), arcsToRemove.end());
 
@@ -381,26 +381,20 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 
             //Schedule the contextRoot
             std::shared_ptr<ContextRoot> contextRoot = familyContainer->getContextRoot();
-            std::vector<std::shared_ptr<Node>> nodesToSched;
 
             if(contextRoot == nullptr){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to schedule a ContextRoot that is null"));
             }else if(GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr){
                 //The context root is a mux, we just schedule this
-                nodesToSched.push_back(std::dynamic_pointer_cast<Mux>(contextRoot)); //TODO: fix diamond inheritance issue
+                schedule.push_back(GeneralHelper::isType<ContextRoot, Mux>(contextRoot)); //Schedule the Mux node (context root)
+                //Should not require finding more candidate nodes since any arc to/from it should be elevated to the ContextFamilyContainer
+//                std::set<std::shared_ptr<Node>> moreCandidateNodes = std::dynamic_pointer_cast<Mux>(contextRoot)->getConnectedOutputNodes();
+//                candidateNodes.insert(moreCandidateNodes.begin(), moreCandidateNodes.end());
             }else if(GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr){
-                //Add the subsystem and EnableNodes
-                //This should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
-                std::shared_ptr<EnabledSubSystem> asEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(contextRoot); //TODO: fix diamond inheritance issue
-                nodesToSched.push_back(asEnabledSubsystem);
+                //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
             }else{
                 throw std::runtime_error(ErrorHelpers::genErrorStr("When scheduling, a context root was encountered which is not yet implemented"));
             }
-
-            //Schedule context root
-            std::vector<std::shared_ptr<Node>> contexRootSched = GraphAlgs::topologicalSortDestructive(parameters, nodesToSched, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
-            //Add to schedule
-            schedule.insert(schedule.end(), contexRootSched.begin(), contexRootSched.end());
 
         }else{//----End node is a ContextContainerFamily----
             schedule.push_back(to_sched);
