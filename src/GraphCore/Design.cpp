@@ -2130,10 +2130,12 @@ void Design::verifyTopologicalOrder() {
 
         //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
         //Otherwise the outputs of nodes with state are considered constants
+        //Another exception is state update nodes which should be checked
         std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
         if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster &&  GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
-                (!srcNode->hasState() || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
+                (!srcNode->hasState() || (srcNode->hasState() && GeneralHelper::isType<Node, StateUpdate>(srcNode) != nullptr)
+                || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
             //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
@@ -2166,6 +2168,46 @@ void Design::verifyTopologicalOrder() {
                     }
                 }
                 //Dst node unscheduled is OK
+            }
+        }
+    }
+
+    //For each node, check its context stack and make sure it is scheduled after the driver node
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->getSchedOrder() != -1) {
+
+            std::vector<Context> context = nodes[i]->getContext();
+
+            //Check if this is a context root, add its context to the context stack
+            std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
+            if(asContextRoot) {
+                context.push_back(Context(asContextRoot, -1));
+            }
+
+            for(unsigned long j = 0; j < context.size(); j++){
+                std::vector<std::shared_ptr<Arc>> drivers = context[j].getContextRoot()->getContextDecisionDriver();
+
+                for(unsigned long k = 0; k < drivers.size(); k++){
+                    std::shared_ptr<Node> driverSrc = drivers[k]->getSrcPort()->getParent();
+
+                    //Only check if the context driver node is not a constant or a node with state (with the exception of
+                    //Enabled output ports)
+
+                    if(GeneralHelper::isType<Node, Constant>(driverSrc) == nullptr && (!driverSrc->hasState() || (driverSrc->hasState() && GeneralHelper::isType<Node, EnableOutput>(driverSrc) != nullptr))) {
+                        if (driverSrc->getSchedOrder() >= nodes[i]->getSchedOrder()) {
+                            throw std::runtime_error(
+                                    "Topological Order Validation: Context Driver Node (" +
+                                    driverSrc->getFullyQualifiedName() +
+                                    ") [Sched Order: " + GeneralHelper::to_string(driverSrc->getSchedOrder()) +
+                                    ", ID: " +
+                                    GeneralHelper::to_string(driverSrc->getId()) +
+                                    "] is not Scheduled before Context Node (" + nodes[i]->getFullyQualifiedName() +
+                                    ") [Sched Order: " + GeneralHelper::to_string(nodes[i]->getSchedOrder()) +
+                                    ", ID: " +
+                                    GeneralHelper::to_string(nodes[i]->getId()) + "]");
+                        }
+                    }
+                }
             }
         }
     }
@@ -2272,7 +2314,7 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 
         }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
             //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
-            //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed
+            //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed as it acts like a transparent latch.
 
             std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
             for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
