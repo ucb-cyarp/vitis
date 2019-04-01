@@ -2130,11 +2130,11 @@ void Design::verifyTopologicalOrder() {
 
         //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
         //Otherwise the outputs of nodes with state are considered constants
-        //Another exception is state update nodes which should be checked
+        //Another exception is EnableOutput nodes which should be checked
         std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
         if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster &&  GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
-                (!srcNode->hasState() || (srcNode->hasState() && GeneralHelper::isType<Node, StateUpdate>(srcNode) != nullptr)
+                (!srcNode->hasState() || (srcNode->hasState() && GeneralHelper::isType<Node, EnableOutput>(srcNode) != nullptr)
                 || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
             std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
