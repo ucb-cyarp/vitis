@@ -415,6 +415,11 @@ bool Node::hasState() {
     return false;
 }
 
+bool Node::hasCombinationalPath(){
+    //Default is to return true
+    return true;
+}
+
 std::shared_ptr<StateUpdate> Node::getStateUpdateNode(){
     //default has no state
     return stateUpdateNode;

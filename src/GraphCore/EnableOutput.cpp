@@ -269,3 +269,7 @@ std::vector<NumericValue> EnableOutput::getInitCondition() const {
 void EnableOutput::setInitCondition(const std::vector<NumericValue> &initCondition) {
     EnableOutput::initCondition = initCondition;
 }
+
+bool EnableOutput::hasCombinationalPath() {
+    return true; //When transparent, latch has a combinational path
+}

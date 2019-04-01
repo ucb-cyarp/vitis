@@ -115,9 +115,6 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
     newNode->setRegisteredOutputPorts(registeredOutputPorts);
     newNode->setReturnMethod(BlackBox::ReturnMethod::EXT);
 
-    //This is a state machine so it should have some state
-    newNode->setStateful(true);
-
     return newNode;
 }
 

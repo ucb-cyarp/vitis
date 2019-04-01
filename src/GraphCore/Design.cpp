@@ -2133,11 +2133,29 @@ void Design::verifyTopologicalOrder() {
         //Another exception is EnableOutput nodes which should be checked
         std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
-        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster &&  GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
-                (!srcNode->hasState() || (srcNode->hasState() && GeneralHelper::isType<Node, EnableOutput>(srcNode) != nullptr)
-                || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
-            std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
+        bool shouldCheck;
+        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr) {
+            if (GeneralHelper::isType<Node, BlackBox>(srcNode) != nullptr) {
+                std::shared_ptr<BlackBox> asBlackBox = std::dynamic_pointer_cast<BlackBox>(srcNode);
+
+                //We need to treat black boxes a little differently.  They may have state but their outputs may not
+                //be registered (could be cominationally dependent on the input signals).
+                //We should only disconnect arcs to outputs that are registered.
+
+                std::vector<int> registeredPortNumbers = asBlackBox->getRegisteredOutputPorts();
+
+                shouldCheck = std::find(registeredPortNumbers.begin(), registeredPortNumbers.end(), arcs[i]->getSrcPort()->getPortNum()) == registeredPortNumbers.end(); //Check if output port is unregistered
+            }else{
+                shouldCheck = !srcNode->hasState() || (srcNode->hasState() && srcNode->hasCombinationalPath())
+                        || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr); //Check arcs going into state update nodes
+
+            }
+        }else{
+            shouldCheck = false;
+        }
+
+        if(shouldCheck){
             //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
             //The srcNode can only be -1 if the destination is also -1
             if (srcNode->getSchedOrder() == -1) {
@@ -2274,7 +2292,8 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 
 //    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
 
-    //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
+    //==== Remove input master and constants.  Disconnect output arcs from nodes with state (that do not contain combo paths)====
+    //++++ Note: excpetions explained below ++++
     std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
     std::set<std::shared_ptr<Node>> nodesToRemove;
 
@@ -2312,14 +2331,17 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
                 }
             }
 
-        }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
-            //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
-            //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed as it acts like a transparent latch.
+        }else if(designClone.nodes[i]->hasState() && !designClone.nodes[i]->hasCombinationalPath()){
+            //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
+            //Disconnect output arcs (we still need to calculate the inputs to the state element, however the output of the output appears like a constant from a scheduling perspecitve)
+
+            //Note, arcs to state update nodes should not be removed.
 
             std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
             for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                //Check if the dst is a state update.  Keep arcs to state update nodes
                 std::shared_ptr<StateUpdate> dstAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>((*it)->getDstPort()->getParent());
-                if(dstAsStateUpdate == nullptr || (dstAsStateUpdate != nullptr && dstAsStateUpdate->getPrimaryNode() != (*it)->getSrcPort()->getParent())){
+                if(dstAsStateUpdate == nullptr){
                     (*it)->disconnect();
                     arcsToDelete.insert(*it);
                 }

@@ -790,6 +790,15 @@ public:
     virtual bool hasState();
 
     /**
+     * @brief Identifies if the node contains a path that is combinational
+     *
+     * @note: Nodes can both contain state and have combinational paths (ex. Mealey style FSM)
+     *
+     * @return true if the node contains a combinational path, false if it does not contain a combinational path (likely a pure state element)
+     */
+    virtual bool hasCombinationalPath();
+
+    /**
      * @brief If this node has state, get the corresponding StateUpdate node
      * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state or is a latch type (ex. EnableOutput)
      */

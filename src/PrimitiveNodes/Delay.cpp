@@ -286,3 +286,7 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
 
     return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 }
+
+bool Delay::hasCombinationalPath() {
+    return false; //This is a pure state element
+}

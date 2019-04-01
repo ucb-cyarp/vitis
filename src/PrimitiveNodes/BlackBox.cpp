@@ -453,4 +453,8 @@ void BlackBox::setImSuffix(const std::string &imSuffix) {
     BlackBox::imSuffix = imSuffix;
 }
 
+bool BlackBox::hasCombinationalPath() {
+    return registeredOutputPorts.size() != outputPorts.size();
+}
+
 
