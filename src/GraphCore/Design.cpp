@@ -539,11 +539,11 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched){
+void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched, bool printNodeSched){
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir);
+        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched);
         verifyTopologicalOrder();
 
         if(emitGraphMLSched) {
@@ -581,7 +581,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
 //        std::cout << "Emitting GraphML pre-Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
-        scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir); //Pruned before inserting state update nodes
+        scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 
         if(emitGraphMLSched) {
@@ -2274,7 +2274,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     return sortedNodes;
 }
 
-unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir) {
+unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2385,10 +2385,12 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
     //==== Topological Sort (Destructive) ====
     std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir, params);
 
-//    std::cout << "Schedule" << std::endl;
-//    for(unsigned long i = 0; i<schedule.size(); i++){
-//        std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
-//    }
+    if(printNodeSched) {
+        std::cout << "Schedule" << std::endl;
+        for(unsigned long i = 0; i<schedule.size(); i++){
+            std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
+        }
+    }
 
     //==== Back Propagate Schedule ====
     for(unsigned long i = 0; i<schedule.size(); i++){

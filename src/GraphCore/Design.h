@@ -229,10 +229,11 @@ public:
      *
      * @param designName the name of the design (used when dumping a partially scheduled graph in the event an error is encountered)
      * @param dir the directory to dump any error report files into
+     * @param printNodeSched if true, print the node schedule to the console
      *
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir);
+    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched);
 
     /**
      * @brief Topological sort the current graph.
@@ -344,8 +345,9 @@ public:
      * @param schedType the type of scheduler to use when generating the C program
      * @param topoSortParams the parameters used by the topological scheduler if applicable (ex. what heuristic to use, random seed)
      * @param emitGraphMLSched if true, emit a GraphML file with the computed schedule as a node parameter
+     * @param printNodeSched if true, print the node schedule to the console
      */
-    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched);
+    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched, bool printNodeSched);
 
     /**
      * @brief Emits operators using the bottom up emitter
