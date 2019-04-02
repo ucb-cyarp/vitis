@@ -2799,11 +2799,6 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
         std::shared_ptr<Arc> candidateArc = candidateArcs[i];
-        int id = candidateArc->getId();
-        bool foundIt = id == 14;
-        if(foundIt){
-            std::cout << "Found it" << std::endl;
-        }
 
         std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
         std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
