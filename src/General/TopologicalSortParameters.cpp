@@ -29,7 +29,7 @@ TopologicalSortParameters::TopologicalSortParameters(TopologicalSortParameters::
 
 }
 
-TopologicalSortParameters::TopologicalSortParameters(TopologicalSortParameters::Heuristic heuristic, unsigned long randSeed) : heuristic(heuristic), randSeed(0){
+TopologicalSortParameters::TopologicalSortParameters(TopologicalSortParameters::Heuristic heuristic, unsigned long randSeed) : heuristic(heuristic), randSeed(randSeed){
 
 }
 

@@ -75,8 +75,8 @@ int main(int argc, char* argv[]) {
             ;
         }
 
+        std::string argStr = argv[i];
         try{
-            std::string argStr = argv[i];
             unsigned long parsedRandSeed = std::stoul(argStr);
             randSeed = parsedRandSeed;
             found = true;
@@ -85,7 +85,6 @@ int main(int argc, char* argv[]) {
             ;
         }
 
-        std::string argStr = argv[i];
         if(argStr == "EMIT_GRAPHML_SCHED" || argStr == "emit_graphml_sched"){
             emitGraphMLSched = true;
             found = true;
