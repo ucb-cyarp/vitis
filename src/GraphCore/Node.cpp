@@ -1119,3 +1119,11 @@ std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
 std::string Node::getErrorReportContextStr(){
     return getFullyQualifiedName(true, "/");
 }
+
+bool Node::PtrID_Compare::operator() (const std::shared_ptr<Node>& lhs, const std::shared_ptr<Node>& rhs) const{
+    if(lhs->getId() != rhs->getId()){
+        return lhs->getId() < rhs->getId();
+    }else{
+        return lhs<rhs;
+    }
+}

@@ -221,7 +221,7 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
     cursorDown->addChild(nodeToMove);
 }
 
-void GraphAlgs::discoverAndUpdateContexts(std::set<std::shared_ptr<Node>> nodesToSearch,
+void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nodesToSearch,
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
@@ -258,7 +258,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
         }else if(GeneralHelper::isType<Node, SubSystem>(nodesToSearch[i]) != nullptr){
             std::shared_ptr<SubSystem> subSystem = std::static_pointer_cast<SubSystem>(nodesToSearch[i]);
             foundNodes.push_back(subSystem);
-            std::set<std::shared_ptr<Node>> childrenSet = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>> childrenSetPtrOrder = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+            childrenSet.insert(childrenSetPtrOrder.begin(), childrenSetPtrOrder.end());
             std::vector<std::shared_ptr<Node>> childrenVector;
             childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
@@ -315,7 +317,7 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
     //We need to keep track of all the nodes we have discovered so far by looking at connected nodes of scheduled nodes
     //Nodes are removed from this list when they are scheduled.  If this list is not empty and there are no nodes with 0
     //in degree, there was a cycle
-    std::set<std::shared_ptr<Node>> discoveredNodes;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> discoveredNodes;
     discoveredNodes.insert(nodesWithZeroInDeg.begin(), nodesWithZeroInDeg.end());
 
     std::default_random_engine rndGen(parameters.getRandSeed());
@@ -349,7 +351,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 
         //Get the candidates from this node (the only nodes that do not currently have indeg 0 that could have indeg 0 after this
         //node is scheduled are its neighbors)
-        std::set<std::shared_ptr<Node>> candidateNodes = to_sched->getConnectedOutputNodes();
+        std::set<std::shared_ptr<Node>> candidateNodesPtrOrdered = to_sched->getConnectedOutputNodes();
+        std::set<std::shared_ptr<Node>, Node::PtrID_Compare> candidateNodes;
+        candidateNodes.insert(candidateNodesPtrOrdered.begin(), candidateNodesPtrOrdered.end()); //Need to order by ID rather than ptr value to have consistent ordering across runs.
 
         //Disconnect the node
 //        std::cerr << "Sched: " << to_sched->getFullyQualifiedName(true) << " [ID: " << to_sched->getId() << "]" << std::endl;
@@ -368,7 +372,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 
             std::vector<std::shared_ptr<ContextContainer>> subContextContainers = familyContainer->getSubContextContainers();
             for(unsigned long i = 0; i<subContextContainers.size(); i++){
-                std::set<std::shared_ptr<Node>> childrenSet = subContextContainers[i]->getChildren();
+                std::set<std::shared_ptr<Node>> childrenSetPtrOrdered = subContextContainers[i]->getChildren();
+                std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+                childrenSet.insert(childrenSetPtrOrdered.begin(), childrenSetPtrOrdered.end()); //Need to order by ID for consistency between runs
                 std::vector<std::shared_ptr<Node>> childrenVector;
                 childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
@@ -424,7 +430,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
         for(auto it = discoveredNodes.begin(); it != discoveredNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
             std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
-            std::set<std::shared_ptr<Node>> connectedInputNodes = candidateNode->getConnectedInputNodes();
+            std::set<std::shared_ptr<Node>> connectedInputNodesPtrOrder = candidateNode->getConnectedInputNodes();
+            std::set<std::shared_ptr<Node>> connectedInputNodes; //Order by ID for output
+            connectedInputNodes.insert(connectedInputNodesPtrOrder.begin(), connectedInputNodesPtrOrder.end());
             for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
                 std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
                 std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;

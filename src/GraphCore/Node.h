@@ -65,6 +65,16 @@ class MasterUnconnected;
 class Node : public std::enable_shared_from_this<Node> {
     friend class NodeFactory;
 
+public:
+    /**
+     * @brief Class for comparing std::shared_ptr<Node> pointers by their IDs rather than by the pointer address.  Is useful when order consistency between runs is important (ptr addresses will almost certainly be different between runs)
+     *
+     * @note If IDs are equal (for example if they have not yet been assigned), the ptr address is used as the tie breaker.
+     */
+    struct PtrID_Compare{
+        bool operator() (const std::shared_ptr<Node>& lhs, const std::shared_ptr<Node>& rhs) const;
+    };
+
 protected:
     std::string name; ///< An optional human readable name for the node
     int id; ///<Node ID number used when reading/writing GraphML files

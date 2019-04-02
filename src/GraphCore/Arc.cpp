@@ -392,3 +392,11 @@ void Arc::disconnect(){
     setDstPortUpdateNewUpdatePrev(nullptr);
     setSrcPortUpdateNewUpdatePrev(nullptr);
 }
+
+bool Arc::PtrID_Compare::operator() (const std::shared_ptr<Arc>& lhs, const std::shared_ptr<Arc>& rhs) const{
+    if(lhs->getId() != rhs->getId()){
+        return lhs->getId() < rhs->getId();
+    }else{
+        return lhs<rhs;
+    }
+}

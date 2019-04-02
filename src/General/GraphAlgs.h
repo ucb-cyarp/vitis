@@ -95,7 +95,7 @@ public:
      * @param discoveredEnabledSubSystems a vector modified to include discovered enabled subsystems
      * @param discoveredGeneral a vector modified to include discovered general nodes
      */
-    static void discoverAndUpdateContexts(std::set<std::shared_ptr<Node>> nodesToSearch,
+    static void discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nodesToSearch,
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,

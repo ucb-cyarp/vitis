@@ -145,6 +145,18 @@ int main(int argc, char* argv[]) {
         std::cout << "SCHED_RAND_SEED: " << topoParams.getRandSeed() << std::endl;
     }
 
+//    std::vector<std::shared_ptr<Node>> nodes = design->getNodes();
+//    std::cout << "Nodes:" << std::endl;
+//    for(unsigned long i = 0; i<nodes.size(); i++){
+//        std::cout << "[" << i << "]: " << nodes[i]->getFullyQualifiedName() << std::endl;
+//    }
+//
+//    std::vector<std::shared_ptr<Arc>> arcs = design->getArcs();
+//    std::cout << "Arcs:" << std::endl;
+//    for(unsigned long i = 0; i<nodes.size(); i++){
+//        std::cout << "[" << i << "]: " << arcs[i]->getSrcPort()->getParent()->getFullyQualifiedName() << " -> " << arcs[i]->getDstPort()->getParent()->getFullyQualifiedName() << std::endl;
+//    }
+
     //Emit C
     try{
         design->generateSingleThreadedC(outputDir, designName, sched, topoParams, emitGraphMLSched, printNodeSched);

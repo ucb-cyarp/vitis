@@ -33,6 +33,15 @@ class Mux;
  * @brief Represents Arcs in the data flow graph of a DSP design
  */
 class Arc : public std::enable_shared_from_this<Arc>{
+public:
+    /**
+     * @brief Class for comparing std::shared_ptr<Arc> pointers by their IDs rather than by the pointer address.  Is useful when order consistency between runs is important (ptr addresses will almost certainly be different between runs)
+     *
+     * @note If IDs are equal (for example if they have not yet been assigned), the ptr address is used as the tie breaker.
+     */
+    struct PtrID_Compare{
+        bool operator() (const std::shared_ptr<Arc>& lhs, const std::shared_ptr<Arc>& rhs) const;
+    };
 private:
     int id; ///< ID number for arc
     std::shared_ptr<OutputPort> srcPort; ///< Pointer to the source port this arc is connected to

@@ -563,18 +563,28 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
             throw std::runtime_error(ErrorHelpers::genErrorStr("Visualization Master is Not Expected to Have an Out Degree > 0, has " + GeneralHelper::to_string(visMaster->outDegree())));
         }
         createEnabledOutputsForEnabledSubsysVisualization();
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         discoverAndMarkContexts();
+//        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+//        assignArcIDs();
+
         //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
         //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
         //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
         //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
 
         encapsulateContexts();
-
-        //We have added nodes and arcs.  Assign them IDs
-        assignNodeIDs();
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
         assignArcIDs();
 
         //Export GraphML (for debugging)
@@ -1989,15 +1999,17 @@ void Design::removeNode(std::shared_ptr<Node> node) {
 unsigned long Design::prune(bool includeVisMaster) {
     //TODO: Check connected components to make sure that there is a link to an output.  If not, prune connected component.  This eliminates cycles that do no useful work.
 
+    //Want sets to have a consistent ordering across runs.  Therefore, will not use pointer address for set comparison
+
     //Find nodes with 0 out-degree when not counting the various master nodes
-    std::set<std::shared_ptr<Node>> nodesToIgnore;
+    std::set<std::shared_ptr<Node>> nodesToIgnore; //This can be a standard set as order is unimportant for checking against the ignore set
     nodesToIgnore.insert(unconnectedMaster);
     nodesToIgnore.insert(terminatorMaster);
     if(includeVisMaster){
         nodesToIgnore.insert(visMaster);
     }
 
-    std::set<std::shared_ptr<Node>> nodesWithZeroOutDeg;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> nodesWithZeroOutDeg;
     for(unsigned long i = 0; i<nodes.size(); i++){
         //Do not remove subsystems or state updates (they will have outdeg 0)
         if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr && GeneralHelper::isType<Node, StateUpdate>(nodes[i]) == nullptr ) {
@@ -2009,9 +2021,9 @@ unsigned long Design::prune(bool includeVisMaster) {
 
     //Get the candidate nodes which may have out-deg 0 after removing the nodes
     //Note that all of the connected nodes have zero out degree so connected nodes are either connected to the input ports or are the master nodes
-    std::set<std::shared_ptr<Node>> candidateNodes;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> candidateNodes;
     for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
-        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
+        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes(); //Should be ok if this is ordered by ptr since it is being inserted into the set ordered by ID
         candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
     }
 
@@ -2023,8 +2035,8 @@ unsigned long Design::prune(bool includeVisMaster) {
     candidateNodes.erase(outputMaster);
 
     //Erase
-    std::set<std::shared_ptr<Node>> nodesDeleted;
-    std::set<std::shared_ptr<Arc>> arcsDeleted;
+    std::vector<std::shared_ptr<Node>> nodesDeleted;
+    std::vector<std::shared_ptr<Arc>> arcsDeleted;
 
 //    for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
 //        std::cout << "Node with Indeg 0: " <<  (*it)->getFullyQualifiedName() << std::endl;
@@ -2056,8 +2068,8 @@ unsigned long Design::prune(bool includeVisMaster) {
                 }
             }
 
-            arcsDeleted.insert(arcsToRemove.begin(), arcsToRemove.end());
-            nodesDeleted.insert(*it);
+            arcsDeleted.insert(arcsDeleted.end(), arcsToRemove.begin(), arcsToRemove.end());
+            nodesDeleted.push_back(*it);
             candidateNodes.erase(*it);
         }
 
@@ -2442,9 +2454,7 @@ void Design::discoverAndMarkContexts() {
     std::vector<Context> initialStack;
 
     //Discover contexts at the top layer (and below non-enabled subsystems).  Also set the contexts of these top level nodes
-    std::set<std::shared_ptr<Node>> topLevelNodeSet;
-    topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
-    GraphAlgs::discoverAndUpdateContexts(topLevelNodeSet, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
+    GraphAlgs::discoverAndUpdateContexts(topLevelNodes, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
                                          discoveredGeneral);
 
     //Add context nodes (muxes and enabled subsystems) to the topLevelContextRoots list
@@ -2709,7 +2719,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                                   std::vector<std::shared_ptr<Arc>> &contextArcs) {
     //First, let's rewire the ContextRoot driver arcs
     std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
-    std::set<std::shared_ptr<Arc>> contextRootOrigArcs, contextRootRewiredArcs;
+    std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> contextRootOrigArcs, contextRootRewiredArcs; //Want Arc orders to be consistent across runs
 
     for(unsigned long i = 0; i<contextRoots.size(); i++){
         //Rewire Drivers
@@ -2880,8 +2890,9 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
 void Design::createEnabledOutputsForEnabledSubsysVisualization() {
     //Find in nodes that have arcs to the Vis Master
-
-    std::set<std::shared_ptr<Arc>> visDriverArcs = visMaster->getInputArcs();
+    std::set<std::shared_ptr<Arc>> visDriverArcsPtrOrder = visMaster->getInputArcs();
+    std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> visDriverArcs; //Order by ID for consistency across runs
+    visDriverArcs.insert(visDriverArcsPtrOrder.begin(), visDriverArcsPtrOrder.end());
 
     for(auto driverArc = visDriverArcs.begin(); driverArc != visDriverArcs.end(); driverArc++){
         std::shared_ptr<Node> srcNode = (*driverArc)->getSrcPort()->getParent();
