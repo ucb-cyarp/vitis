@@ -60,7 +60,10 @@ SubSystem::emitGramphMLSubgraphAndChildren(xercesc::DOMDocument *doc, xercesc::D
     GraphMLHelper::setAttribute(graphElement, "edgedefault", "directed");
     thisNode->appendChild(graphElement);
 
-    for(auto child = children.begin(); child != children.end(); child++){
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenOrdered; //Need to order by ID for consistency between runs/machines
+    childrenOrdered.insert(children.begin(), children.end());
+
+    for(auto child = childrenOrdered.begin(); child != childrenOrdered.end(); child++){
         (*child)->emitGraphML(doc, graphElement);
     }
 
