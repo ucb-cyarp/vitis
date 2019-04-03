@@ -240,7 +240,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
     double enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
 
     //==== Get set of nodes to expand context to at inputs ====
-    std::set<std::shared_ptr<Node>> extendedContext;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> extendedContext;
 
     //Iterate though all of the input node's input ports
     std::map<std::shared_ptr<Arc>, bool> inputMarks;
@@ -366,7 +366,7 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
     double enabledSystemDriverSampleTime = enabledSystemDriverArc->getSampleTime();
 
     //==== Get set of nodes to expand context to at inputs ====
-    std::set<std::shared_ptr<Node>> extendedContext;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> extendedContext;
 
     //Iterate though all of the input node's input ports
     std::map<std::shared_ptr<Arc>, bool> outputMarks;

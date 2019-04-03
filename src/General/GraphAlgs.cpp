@@ -14,6 +14,7 @@
 #include "GraphMLTools/GraphMLExporter.h"
 
 #include <iostream>
+#include <random>
 
 std::set<std::shared_ptr<Node>>
 GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks) {
@@ -220,7 +221,7 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
     cursorDown->addChild(nodeToMove);
 }
 
-void GraphAlgs::discoverAndUpdateContexts(std::set<std::shared_ptr<Node>> nodesToSearch,
+void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nodesToSearch,
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
@@ -257,7 +258,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
         }else if(GeneralHelper::isType<Node, SubSystem>(nodesToSearch[i]) != nullptr){
             std::shared_ptr<SubSystem> subSystem = std::static_pointer_cast<SubSystem>(nodesToSearch[i]);
             foundNodes.push_back(subSystem);
-            std::set<std::shared_ptr<Node>> childrenSet = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>> childrenSetPtrOrder = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+            childrenSet.insert(childrenSetPtrOrder.begin(), childrenSetPtrOrder.end());
             std::vector<std::shared_ptr<Node>> childrenVector;
             childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
@@ -271,7 +274,8 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
     return foundNodes;
 }
 
-std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::vector<std::shared_ptr<Node>> nodesToSort,
+std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(TopologicalSortParameters parameters,
+                                                                         std::vector<std::shared_ptr<Node>> nodesToSort,
                                                                          std::vector<std::shared_ptr<Arc>> &arcsToDelete,
                                                                          std::shared_ptr<MasterOutput> outputMaster,
                                                                          std::shared_ptr<MasterInput> inputMaster,
@@ -290,14 +294,14 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     arcsToDelete.insert(arcsToDelete.end(), unconnectedArcs.begin(), unconnectedArcs.end());
 
     //Find nodes with 0 in degree at this context level (and not in nested contexts)
-    std::set<std::shared_ptr<Node>> nodesWithZeroInDeg;
+    std::vector<std::shared_ptr<Node>> nodesWithZeroInDeg;
     for(unsigned long i = 0; i<nodesToSort.size(); i++){
         //Do not add general subsystems to the list of zero in degree nodes, they do not need to be scheduled.  The nodes within them do.
         //However, do add ContextFamilyContainers as they are a special case of a subsystem that should be scheduled.
         if(GeneralHelper::isType<Node, SubSystem>(nodesToSort[i]) == nullptr || GeneralHelper::isType<Node, ContextFamilyContainer>(nodesToSort[i]) != nullptr) {
             unsigned long inDeg = nodesToSort[i]->inDegree();
             if (inDeg == 0) {
-                nodesWithZeroInDeg.insert(nodesToSort[i]);
+                nodesWithZeroInDeg.push_back(nodesToSort[i]);
             }
         }
     }
@@ -307,138 +311,128 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(std::ve
     //list of nodes with zero in deg if this is the case.  Note that if there is at least 1 arc to a node without state, it will be
     //considered a candidate
     if(std::find(nodesToSort.begin(), nodesToSort.end(), outputMaster) != nodesToSort.end() && outputMaster->inDegree() == 0){
-        nodesWithZeroInDeg.insert(outputMaster);
+        nodesWithZeroInDeg.push_back(outputMaster);
     }
 
-    //Find Candidate Nodes
-    std::set<std::shared_ptr<Node>> candidateNodes;
-    for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedOutputNodes();
+    //We need to keep track of all the nodes we have discovered so far by looking at connected nodes of scheduled nodes
+    //Nodes are removed from this list when they are scheduled.  If this list is not empty and there are no nodes with 0
+    //in degree, there was a cycle
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> discoveredNodes;
+    discoveredNodes.insert(nodesWithZeroInDeg.begin(), nodesWithZeroInDeg.end());
 
-        //Check if the nodes are in the nodesToSort list before inserting
-        for(auto possibleCandidate = moreCandidates.begin(); possibleCandidate != moreCandidates.end(); possibleCandidate++){
-            if(std::find(nodesToSort.begin(), nodesToSort.end(), *possibleCandidate) != nodesToSort.end()) {
-                candidateNodes.insert(*possibleCandidate);
-            }
-        }
-    }
-
-    //Remove the master nodes from the candidate list as well as any nodes that are about to be removed
-    candidateNodes.erase(unconnectedMaster);
-    candidateNodes.erase(terminatorMaster);
-    candidateNodes.erase(visMaster);
-    candidateNodes.erase(inputMaster);
-//    candidateNodes.erase(outputMaster); //Actually, schedule this master
+    std::default_random_engine rndGen(parameters.getRandSeed());
 
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
         //Schedule Nodes with Zero In Degree
-        //Disconnect, erase nodes, remove from candidate set (if it is included)
-        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            //Disconnect the node
+        unsigned long ind;
 
-//            std::cerr << "Sched: " << (*it)->getFullyQualifiedName(true) << std::endl;
-            std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
-            arcsToDelete.insert(arcsToDelete.end(), arcsToRemove.begin(), arcsToRemove.end());
+        switch(parameters.getHeuristic()) {
+            case TopologicalSortParameters::Heuristic::BFS:
+                ind = 0;
+                break;
 
-            //====Check if the node is a ContextContainerFamily====
-            if(GeneralHelper::isType<Node, ContextFamilyContainer>(*it) != nullptr){
-                std::shared_ptr<ContextFamilyContainer> familyContainer = std::static_pointer_cast<ContextFamilyContainer>(*it);
+            case TopologicalSortParameters::Heuristic::DFS:
+                ind = nodesWithZeroInDeg.size() - 1;
+                break;
 
-                //Recursively schedule the nodes in this ContextContainerFamily
-                //Schedule the subcontexts first
+            case TopologicalSortParameters::Heuristic::RANDOM: {
+                std::uniform_int_distribution<unsigned long> dist(0, nodesWithZeroInDeg.size() - 1); //Pick a number randomly in the range [0, nodesWithZeroInDeg.size()-1]
+                ind = dist(rndGen);
+                break;
+            }
 
-                std::vector<std::shared_ptr<ContextContainer>> subContextContainers = familyContainer->getSubContextContainers();
-                for(unsigned long i = 0; i<subContextContainers.size(); i++){
-                    std::set<std::shared_ptr<Node>> childrenSet = subContextContainers[i]->getChildren();
-                    std::vector<std::shared_ptr<Node>> childrenVector;
-                    childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
+            default:
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Scheduling Heuristic"));
+                break;
+        }
 
-                    std::vector<std::shared_ptr<Node>> nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+        std::shared_ptr<Node> to_sched = nodesWithZeroInDeg[ind]; //Pop node to schedule off the top of the stack/queue depending on DFS/BFS traversal
 
-                    std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(nextLvlNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
-                    //Add to schedule
-                    schedule.insert(schedule.end(), subSched.begin(), subSched.end());
-                }
+        //Get the candidates from this node (the only nodes that do not currently have indeg 0 that could have indeg 0 after this
+        //node is scheduled are its neighbors)
+        std::set<std::shared_ptr<Node>> candidateNodesPtrOrdered = to_sched->getConnectedOutputNodes();
+        std::set<std::shared_ptr<Node>, Node::PtrID_Compare> candidateNodes;
+        candidateNodes.insert(candidateNodesPtrOrdered.begin(), candidateNodesPtrOrdered.end()); //Need to order by ID rather than ptr value to have consistent ordering across runs.
 
-                //Schedule the contextRoot
-                std::shared_ptr<ContextRoot> contextRoot = familyContainer->getContextRoot();
-                std::vector<std::shared_ptr<Node>> nodesToSched;
+        //Disconnect the node
+//        std::cerr << "Sched: " << to_sched->getFullyQualifiedName(true) << " [ID: " << to_sched->getId() << "]" << std::endl;
+        std::set<std::shared_ptr<Arc>> arcsToRemove = to_sched->disconnectNode();
+        arcsToDelete.insert(arcsToDelete.end(), arcsToRemove.begin(), arcsToRemove.end());
 
-                if(contextRoot == nullptr){
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to schedule a ContextRoot that is null"));
-                }else if(GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr){
-                    //The context root is a mux, we just schedule this
-                    nodesToSched.push_back(std::dynamic_pointer_cast<Mux>(contextRoot)); //TODO: fix diamond inheritance issue
-                }else if(GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr){
-                    //Add the subsystem and EnableNodes
-                    //This should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
-                    std::shared_ptr<EnabledSubSystem> asEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(contextRoot); //TODO: fix diamond inheritance issue
-                    nodesToSched.push_back(asEnabledSubsystem);
-//
-//                    //Add EnableInputs and EnableOutputs
-//                    std::vector<std::shared_ptr<EnableInput>> enableInputs = asEnabledSubsystem->getEnableInputs();
-//                    nodesToSched.insert(nodesToSched.end(), enableInputs.begin(), enableInputs.end());
-//
-//                    std::vector<std::shared_ptr<EnableOutput>> enableOutputs = asEnabledSubsystem->getEnableOutputs();
-//                    nodesToSched.insert(nodesToSched.end(), enableOutputs.begin(), enableOutputs.end());
-                }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("When scheduling, a context root was encountered which is not yet implemented"));
-                }
+        discoveredNodes.erase(to_sched);
+        nodesWithZeroInDeg.erase(nodesWithZeroInDeg.begin()+ind);
 
-                //Schedule context root
-                std::vector<std::shared_ptr<Node>> contexRootSched = GraphAlgs::topologicalSortDestructive(nodesToSched, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
+        //====Check if the node is a ContextContainerFamily====
+        if(GeneralHelper::isType<Node, ContextFamilyContainer>(to_sched) != nullptr){
+            std::shared_ptr<ContextFamilyContainer> familyContainer = std::static_pointer_cast<ContextFamilyContainer>(to_sched);
+
+            //Recursively schedule the nodes in this ContextContainerFamily
+            //Schedule the subcontexts first
+
+            std::vector<std::shared_ptr<ContextContainer>> subContextContainers = familyContainer->getSubContextContainers();
+            for(unsigned long i = 0; i<subContextContainers.size(); i++){
+                std::set<std::shared_ptr<Node>> childrenSetPtrOrdered = subContextContainers[i]->getChildren();
+                std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+                childrenSet.insert(childrenSetPtrOrdered.begin(), childrenSetPtrOrdered.end()); //Need to order by ID for consistency between runs
+                std::vector<std::shared_ptr<Node>> childrenVector;
+                childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
+
+                std::vector<std::shared_ptr<Node>> nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+
+                std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(parameters, nextLvlNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
                 //Add to schedule
-                schedule.insert(schedule.end(), contexRootSched.begin(), contexRootSched.end());
-
-            }else{//----End node is a ContextContainerFamily----
-                schedule.push_back(*it);
+                schedule.insert(schedule.end(), subSched.begin(), subSched.end());
             }
 
-            candidateNodes.erase(*it);
+            //Schedule the contextRoot
+            std::shared_ptr<ContextRoot> contextRoot = familyContainer->getContextRoot();
+
+            if(contextRoot == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to schedule a ContextRoot that is null"));
+            }else if(GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr){
+                //The context root is a mux, we just schedule this
+                schedule.push_back(GeneralHelper::isType<ContextRoot, Mux>(contextRoot)); //Schedule the Mux node (context root)
+                //Should not require finding more candidate nodes since any arc to/from it should be elevated to the ContextFamilyContainer
+//                std::set<std::shared_ptr<Node>> moreCandidateNodes = std::dynamic_pointer_cast<Mux>(contextRoot)->getConnectedOutputNodes();
+//                candidateNodes.insert(moreCandidateNodes.begin(), moreCandidateNodes.end());
+            }else if(GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr){
+                //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
+            }else{
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When scheduling, a context root was encountered which is not yet implemented"));
+            }
+
+        }else{//----End node is a ContextContainerFamily----
+            schedule.push_back(to_sched);
         }
 
-        //Reset nodes with zero in degree
-        nodesWithZeroInDeg.clear();
-
-        //Find nodes with zero in degree from candidates list
-        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
+        //Find discovered nodes from the candidate list (that are in the nodes to be sorted set)
+        //Also, find nodes with zero in degree
+        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++) {
             std::shared_ptr<Node> candidateNode = *it;
-            if(candidateNode->inDegree() == 0){
-                nodesWithZeroInDeg.insert(candidateNode);
-            }
-        }
 
-        //Update candidates list
-        for(auto it = nodesWithZeroInDeg.begin(); it != nodesWithZeroInDeg.end(); it++){
-            std::shared_ptr<Node> zeroInDegNode = *it;
-            std::set<std::shared_ptr<Node>> newCandidates = zeroInDegNode->getConnectedOutputNodes();
+            if (candidateNode != unconnectedMaster && candidateNode != terminatorMaster && candidateNode != visMaster &&
+                candidateNode != inputMaster) {
+                if (std::find(nodesToSort.begin(), nodesToSort.end(), candidateNode) != nodesToSort.end()) {
+                    discoveredNodes.insert(candidateNode);
 
-            //Check if the nodes are in the nodesToSort list before inserting
-            for(auto possibleCandidate = newCandidates.begin(); possibleCandidate != newCandidates.end(); possibleCandidate++){
-                if(std::find(nodesToSort.begin(), nodesToSort.end(), *possibleCandidate) != nodesToSort.end()) {
-                    candidateNodes.insert(*possibleCandidate);
+                    if (candidateNode->inDegree() == 0) {
+                        nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS and DFS.  Dequeuing determines BFS or DFS
+                    }
                 }
             }
-
         }
-
-        //Remove master nodes from candidates list
-        candidateNodes.erase(unconnectedMaster);
-        candidateNodes.erase(terminatorMaster);
-        candidateNodes.erase(visMaster);
-        candidateNodes.erase(inputMaster);
-//        candidateNodes.erase(outputMaster); //Actually, schedule this master
-
     }
 
-    //If there are still viable candidate nodes, there was a cycle.
-    if(!candidateNodes.empty()){
-        std::cerr << ErrorHelpers::genErrorStr("Topological Sort: Cycle Encountered.  Candidate Nodes: ") << candidateNodes.size() << std::endl;
-        for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++){
+    //If there are still viable discovered nodes, there was a cycle.
+    if(!discoveredNodes.empty()){
+        std::cerr << ErrorHelpers::genErrorStr("Topological Sort: Cycle Encountered.  Candidate Nodes: ") << discoveredNodes.size() << std::endl;
+        for(auto it = discoveredNodes.begin(); it != discoveredNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
             std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
-            std::set<std::shared_ptr<Node>> connectedInputNodes = candidateNode->getConnectedInputNodes();
+            std::set<std::shared_ptr<Node>> connectedInputNodesPtrOrder = candidateNode->getConnectedInputNodes();
+            std::set<std::shared_ptr<Node>> connectedInputNodes; //Order by ID for output
+            connectedInputNodes.insert(connectedInputNodesPtrOrder.begin(), connectedInputNodesPtrOrder.end());
             for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
                 std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
                 std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;

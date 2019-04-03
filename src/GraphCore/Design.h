@@ -12,6 +12,7 @@
 
 #include "GraphMLParameter.h"
 #include "General/GeneralHelper.h"
+#include "General/TopologicalSortParameters.h"
 #include "Variable.h"
 #include "SchedParams.h"
 
@@ -221,15 +222,18 @@ public:
 
     /**
      * @brief Schedule the nodes using topological sort.
+     *
+     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
      * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
      * @param rewireContexts if true, arcs between a node outside a context to a node inside a context are rewired to the context itself (for scheduling, the origional is left untouched).  If false, no rewiring operation is made for scheduling
      *
      * @param designName the name of the design (used when dumping a partially scheduled graph in the event an error is encountered)
      * @param dir the directory to dump any error report files into
+     * @param printNodeSched if true, print the node schedule to the console
      *
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(bool prune, bool rewireContexts, std::string designName, std::string dir);
+    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched);
 
     /**
      * @brief Topological sort the current graph.
@@ -239,10 +243,11 @@ public:
      *
      * @param designName name of the design used in the working graph export at part of the file name
      * @param dir location to export working graph in the event of a cycle or error
+     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
      *
      * @return A vector of nodes arranged in topological order
      */
-    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir);
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params);
 
     /**
      * @brief Verify that the graph has topological ordering
@@ -338,8 +343,11 @@ public:
      * @param outputDir the output directory for the C files
      * @param designName the design name to be used as the C file names
      * @param schedType the type of scheduler to use when generating the C program
+     * @param topoSortParams the parameters used by the topological scheduler if applicable (ex. what heuristic to use, random seed)
+     * @param emitGraphMLSched if true, emit a GraphML file with the computed schedule as a node parameter
+     * @param printNodeSched if true, print the node schedule to the console
      */
-    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType);
+    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched, bool printNodeSched);
 
     /**
      * @brief Emits operators using the bottom up emitter

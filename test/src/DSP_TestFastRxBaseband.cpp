@@ -120,8 +120,11 @@ design->assignArcIDs();
 
 //Print Scheduler
 SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
+TopologicalSortParameters topoParams(TopologicalSortParameters::Heuristic::BFS, 0);
 
 std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
+std::cout << "SCHED_HEUR: " << TopologicalSortParameters::heuristicToString(topoParams.getHeuristic()) << std::endl;
+std::cout << "SCHED_RAND_SEED: " << topoParams.getRandSeed() << std::endl;
 
 //Emit C
 std::cout << "Emitting C File: " << mainHFileLoc << std::endl;
@@ -129,7 +132,7 @@ std::cout << "Emitting C File: " << mainCFileLoc << std::endl;
 
 {
 SCOPED_TRACE("Emitting C");
-design->generateSingleThreadedC(outputDir, designName, sched);
+design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false);
 }
 
 std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;

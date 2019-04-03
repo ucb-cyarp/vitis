@@ -539,17 +539,19 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType){
+void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched, bool printNodeSched){
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(true, false, designName, outputDir);
+        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched);
         verifyTopologicalOrder();
 
-        //Export GraphML (for debugging)
-        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
-        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
-
+        if(emitGraphMLSched) {
+            //Export GraphML (for debugging)
+            std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName
+                      << "_scheduleGraph.graphml" << std::endl;
+            GraphMLExporter::exportGraphML(outputDir + "/" + designName + "_scheduleGraph.graphml", *this);
+        }
 
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
@@ -561,30 +563,43 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
             throw std::runtime_error(ErrorHelpers::genErrorStr("Visualization Master is Not Expected to Have an Out Degree > 0, has " + GeneralHelper::to_string(visMaster->outDegree())));
         }
         createEnabledOutputsForEnabledSubsysVisualization();
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         discoverAndMarkContexts();
+//        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+//        assignArcIDs();
+
         //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
         //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
         //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
         //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
 
         encapsulateContexts();
-
-        //We have added nodes and arcs.  Assign them IDs
-        assignNodeIDs();
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
         assignArcIDs();
 
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
+        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML pre-Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
-        scheduleTopologicalStort(false, true, designName, outputDir); //Pruned before inserting state update nodes
+        scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 
-        //Export GraphML (for debugging)
-        std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName << "_scheduleGraph.graphml" << std::endl;
-        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_scheduleGraph.graphml", *this);
+        if(emitGraphMLSched) {
+            //Export GraphML (for debugging)
+            std::cout << "Emitting GraphML Schedule File: " << outputDir << "/" << designName
+                      << "_scheduleGraph.graphml" << std::endl;
+            GraphMLExporter::exportGraphML(outputDir + "/" + designName + "_scheduleGraph.graphml", *this);
+        }
 
         emitSingleThreadedC(outputDir, designName, designName, schedType);
     }else{
@@ -1984,15 +1999,17 @@ void Design::removeNode(std::shared_ptr<Node> node) {
 unsigned long Design::prune(bool includeVisMaster) {
     //TODO: Check connected components to make sure that there is a link to an output.  If not, prune connected component.  This eliminates cycles that do no useful work.
 
+    //Want sets to have a consistent ordering across runs.  Therefore, will not use pointer address for set comparison
+
     //Find nodes with 0 out-degree when not counting the various master nodes
-    std::set<std::shared_ptr<Node>> nodesToIgnore;
+    std::set<std::shared_ptr<Node>> nodesToIgnore; //This can be a standard set as order is unimportant for checking against the ignore set
     nodesToIgnore.insert(unconnectedMaster);
     nodesToIgnore.insert(terminatorMaster);
     if(includeVisMaster){
         nodesToIgnore.insert(visMaster);
     }
 
-    std::set<std::shared_ptr<Node>> nodesWithZeroOutDeg;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> nodesWithZeroOutDeg;
     for(unsigned long i = 0; i<nodes.size(); i++){
         //Do not remove subsystems or state updates (they will have outdeg 0)
         if(GeneralHelper::isType<Node, SubSystem>(nodes[i]) == nullptr && GeneralHelper::isType<Node, StateUpdate>(nodes[i]) == nullptr ) {
@@ -2004,9 +2021,9 @@ unsigned long Design::prune(bool includeVisMaster) {
 
     //Get the candidate nodes which may have out-deg 0 after removing the nodes
     //Note that all of the connected nodes have zero out degree so connected nodes are either connected to the input ports or are the master nodes
-    std::set<std::shared_ptr<Node>> candidateNodes;
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> candidateNodes;
     for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
-        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes();
+        std::set<std::shared_ptr<Node>> moreCandidates = (*it)->getConnectedNodes(); //Should be ok if this is ordered by ptr since it is being inserted into the set ordered by ID
         candidateNodes.insert(moreCandidates.begin(), moreCandidates.end());
     }
 
@@ -2018,8 +2035,8 @@ unsigned long Design::prune(bool includeVisMaster) {
     candidateNodes.erase(outputMaster);
 
     //Erase
-    std::set<std::shared_ptr<Node>> nodesDeleted;
-    std::set<std::shared_ptr<Arc>> arcsDeleted;
+    std::vector<std::shared_ptr<Node>> nodesDeleted;
+    std::vector<std::shared_ptr<Arc>> arcsDeleted;
 
 //    for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
 //        std::cout << "Node with Indeg 0: " <<  (*it)->getFullyQualifiedName() << std::endl;
@@ -2051,8 +2068,8 @@ unsigned long Design::prune(bool includeVisMaster) {
                 }
             }
 
-            arcsDeleted.insert(arcsToRemove.begin(), arcsToRemove.end());
-            nodesDeleted.insert(*it);
+            arcsDeleted.insert(arcsDeleted.end(), arcsToRemove.begin(), arcsToRemove.end());
+            nodesDeleted.push_back(*it);
             candidateNodes.erase(*it);
         }
 
@@ -2125,12 +2142,32 @@ void Design::verifyTopologicalOrder() {
 
         //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
         //Otherwise the outputs of nodes with state are considered constants
+        //Another exception is EnableOutput nodes which should be checked
         std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
-        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster &&  GeneralHelper::isType<Node, Constant>(srcNode) == nullptr &&
-                (!srcNode->hasState() || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr && dstNodeAsStateUpdate->getPrimaryNode() == srcNode))){
-            std::shared_ptr<Node> dstNode = arcs[i]->getDstPort()->getParent();
 
+        bool shouldCheck;
+        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr) {
+            if (GeneralHelper::isType<Node, BlackBox>(srcNode) != nullptr) {
+                std::shared_ptr<BlackBox> asBlackBox = std::dynamic_pointer_cast<BlackBox>(srcNode);
+
+                //We need to treat black boxes a little differently.  They may have state but their outputs may not
+                //be registered (could be cominationally dependent on the input signals).
+                //We should only disconnect arcs to outputs that are registered.
+
+                std::vector<int> registeredPortNumbers = asBlackBox->getRegisteredOutputPorts();
+
+                shouldCheck = std::find(registeredPortNumbers.begin(), registeredPortNumbers.end(), arcs[i]->getSrcPort()->getPortNum()) == registeredPortNumbers.end(); //Check if output port is unregistered
+            }else{
+                shouldCheck = !srcNode->hasState() || (srcNode->hasState() && srcNode->hasCombinationalPath())
+                        || (srcNode->hasState() && dstNodeAsStateUpdate != nullptr); //Check arcs going into state update nodes
+
+            }
+        }else{
+            shouldCheck = false;
+        }
+
+        if(shouldCheck){
             //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
             //The srcNode can only be -1 if the destination is also -1
             if (srcNode->getSchedOrder() == -1) {
@@ -2164,12 +2201,55 @@ void Design::verifyTopologicalOrder() {
             }
         }
     }
+
+    //For each node, check its context stack and make sure it is scheduled after the driver node
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->getSchedOrder() != -1) {
+
+            std::vector<Context> context = nodes[i]->getContext();
+
+            //Check if this is a context root, add its context to the context stack
+            std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
+            if(asContextRoot) {
+                context.push_back(Context(asContextRoot, -1));
+            }
+
+            for(unsigned long j = 0; j < context.size(); j++){
+                std::vector<std::shared_ptr<Arc>> drivers = context[j].getContextRoot()->getContextDecisionDriver();
+
+                for(unsigned long k = 0; k < drivers.size(); k++){
+                    std::shared_ptr<Node> driverSrc = drivers[k]->getSrcPort()->getParent();
+
+                    //Only check if the context driver node is not a constant or a node with state (with the exception of
+                    //Enabled output ports)
+
+                    if(GeneralHelper::isType<Node, Constant>(driverSrc) == nullptr && (!driverSrc->hasState() || (driverSrc->hasState() && GeneralHelper::isType<Node, EnableOutput>(driverSrc) != nullptr))) {
+                        if (driverSrc->getSchedOrder() >= nodes[i]->getSchedOrder()) {
+                            throw std::runtime_error(
+                                    "Topological Order Validation: Context Driver Node (" +
+                                    driverSrc->getFullyQualifiedName() +
+                                    ") [Sched Order: " + GeneralHelper::to_string(driverSrc->getSchedOrder()) +
+                                    ", ID: " +
+                                    GeneralHelper::to_string(driverSrc->getId()) +
+                                    "] is not Scheduled before Context Node (" + nodes[i]->getFullyQualifiedName() +
+                                    ") [Sched Order: " + GeneralHelper::to_string(nodes[i]->getSchedOrder()) +
+                                    ", ID: " +
+                                    GeneralHelper::to_string(nodes[i]->getId()) + "]");
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
-std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::string designName, std::string dir) {
+std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params) {
     std::vector<std::shared_ptr<Arc>> arcsToDelete;
     std::vector<std::shared_ptr<Node>> topLevelContextNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes);
     topLevelContextNodes.push_back(outputMaster);
+
+//    std::cout << "Emitting: " + dir + "/" + designName + "_sort_error_scheduleGraph.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML(dir + "/" + designName + "_sort_error_scheduleGraph.graphml", *this);
 
 //    std::cerr << "Top Lvl Nodes to Sched:" << std::endl;
 //    for(unsigned long i = 0; i<topLevelContextNodes.size(); i++){
@@ -2182,7 +2262,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     bool failed = false;
     std::exception err;
     try {
-        sortedNodes = GraphAlgs::topologicalSortDestructive(topLevelContextNodes, arcsToDelete, outputMaster,
+        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodes, arcsToDelete, outputMaster,
                                                             inputMaster, terminatorMaster, unconnectedMaster,
                                                             visMaster);
     }catch(const std::exception &e){
@@ -2206,7 +2286,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     return sortedNodes;
 }
 
-unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, std::string designName, std::string dir) {
+unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2224,7 +2304,8 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, 
 
 //    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
 
-    //==== Remove input master and constants.  Disconnect output arcs from nodes with state ====
+    //==== Remove input master and constants.  Disconnect output arcs from nodes with state (that do not contain combo paths)====
+    //++++ Note: excpetions explained below ++++
     std::set<std::shared_ptr<Arc>> arcsToDelete = designClone.inputMaster->disconnectNode();
     std::set<std::shared_ptr<Node>> nodesToRemove;
 
@@ -2262,14 +2343,17 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, 
                 }
             }
 
-        }else if(designClone.nodes[i]->hasState() && GeneralHelper::isType<Node, EnableOutput>(designClone.nodes[i]) == nullptr){ //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
-            //Disconnect output arcs (we still need to calculate the inputs to the delay, however, the outputs are like constants for the cycle)
-            //Note, the one exception to this is the StateUpdate node for the given node, that arc should not be removed
+        }else if(designClone.nodes[i]->hasState() && !designClone.nodes[i]->hasCombinationalPath()){
+            //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
+            //Disconnect output arcs (we still need to calculate the inputs to the state element, however the output of the output appears like a constant from a scheduling perspecitve)
+
+            //Note, arcs to state update nodes should not be removed.
 
             std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
             for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
+                //Check if the dst is a state update.  Keep arcs to state update nodes
                 std::shared_ptr<StateUpdate> dstAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>((*it)->getDstPort()->getParent());
-                if(dstAsStateUpdate == nullptr || (dstAsStateUpdate != nullptr && dstAsStateUpdate->getPrimaryNode() != (*it)->getSrcPort()->getParent())){
+                if(dstAsStateUpdate == nullptr){
                     (*it)->disconnect();
                     arcsToDelete.insert(*it);
                 }
@@ -2311,12 +2395,14 @@ unsigned long Design::scheduleTopologicalStort(bool prune, bool rewireContexts, 
 //    GraphMLExporter::exportGraphML("./cOut/context_scheduleGraph.graphml", *this);
 
     //==== Topological Sort (Destructive) ====
-    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir);
+    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir, params);
 
-//    std::cout << "Schedule" << std::endl;
-//    for(unsigned long i = 0; i<schedule.size(); i++){
-//        std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
-//    }
+    if(printNodeSched) {
+        std::cout << "Schedule" << std::endl;
+        for(unsigned long i = 0; i<schedule.size(); i++){
+            std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
+        }
+    }
 
     //==== Back Propagate Schedule ====
     for(unsigned long i = 0; i<schedule.size(); i++){
@@ -2368,9 +2454,7 @@ void Design::discoverAndMarkContexts() {
     std::vector<Context> initialStack;
 
     //Discover contexts at the top layer (and below non-enabled subsystems).  Also set the contexts of these top level nodes
-    std::set<std::shared_ptr<Node>> topLevelNodeSet;
-    topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
-    GraphAlgs::discoverAndUpdateContexts(topLevelNodeSet, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
+    GraphAlgs::discoverAndUpdateContexts(topLevelNodes, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
                                          discoveredGeneral);
 
     //Add context nodes (muxes and enabled subsystems) to the topLevelContextRoots list
@@ -2635,7 +2719,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                                   std::vector<std::shared_ptr<Arc>> &contextArcs) {
     //First, let's rewire the ContextRoot driver arcs
     std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
-    std::set<std::shared_ptr<Arc>> contextRootOrigArcs, contextRootRewiredArcs;
+    std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> contextRootOrigArcs, contextRootRewiredArcs; //Want Arc orders to be consistent across runs
 
     for(unsigned long i = 0; i<contextRoots.size(); i++){
         //Rewire Drivers
@@ -2644,6 +2728,10 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
         std::map<std::shared_ptr<OutputPort>, std::shared_ptr<Arc>> srcPortToNewArc; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
+            //The driver arcs must have the destination re-wired.  At a minimum, they should be rewired to
+            //the context container node.  However, if they exist inside of a nested context, the destination
+            //may need to be rewired to another context family container higher in the hierarchy
+
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
 
@@ -2652,10 +2740,44 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
             std::shared_ptr<Arc> rewiredArc;
             if(srcPortToNewArc.find(driverSrc) != srcPortToNewArc.end()){
+                //The particular source has already been wired to this
                 rewiredArc = srcPortToNewArc[driverSrc];
             }else{
                 //Create a new rewiredArc
-                rewiredArc = Arc::connectNodesOrderConstraint(driverSrc->getParent(), driverSrc->getPortNum(), contextRoots[i]->getContextFamilyContainer(), driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
+                std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoots[i]);
+
+                std::vector<Context> srcContext = driverSrc->getParent()->getContext();
+                std::vector<Context> dstContext = contextRootAsNode->getContext();
+                //Add the context family container to the context stack of the destination (the context root is not in its own context
+                dstContext.push_back(Context(contextRoots[i], -1)); //The subcontext number is a dummy
+
+                std::shared_ptr<Node> newSrc = driverSrc->getParent(); //Default to orig
+                //Check if the src should be changed
+                if(!Context::isEqOrSubContext(dstContext, srcContext)){
+                    //Need to pick new src
+                    long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+                    if(commonContextInd+1 > srcContext.size()){
+                        throw std::runtime_error("When rewiring context arc, got unexpected result for new src");
+                    }
+                    std::shared_ptr<ContextRoot> newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
+                    //TODO: fix diamond inheritcance
+
+                    newSrc = newSrcAsContextRoot->getContextFamilyContainer();
+                }
+
+                //The dst needs to be rewired (at least to the ContextFamily container of the context root
+                //Determine new dst node
+                long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+                if(commonContextInd+1 > dstContext.size()){
+                    throw std::runtime_error("When rewiring context arc, got unexpected result for new dst");
+                }
+
+                std::shared_ptr<ContextRoot> newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
+                //TODO: fix diamond inheritcance
+
+                std::shared_ptr<Node> newDest = newDstAsContextRoot->getContextFamilyContainer();
+
+                rewiredArc = Arc::connectNodesOrderConstraint(newSrc, newDest, driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
                 //Add to the map and the set of contextRootRewiredArcs
                 srcPortToNewArc[driverSrc] = rewiredArc;
                 contextRootRewiredArcs.insert(rewiredArc);
@@ -2677,6 +2799,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
         std::shared_ptr<Arc> candidateArc = candidateArcs[i];
+
         std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
         std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
 
@@ -2762,8 +2885,9 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
 void Design::createEnabledOutputsForEnabledSubsysVisualization() {
     //Find in nodes that have arcs to the Vis Master
-
-    std::set<std::shared_ptr<Arc>> visDriverArcs = visMaster->getInputArcs();
+    std::set<std::shared_ptr<Arc>> visDriverArcsPtrOrder = visMaster->getInputArcs();
+    std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> visDriverArcs; //Order by ID for consistency across runs
+    visDriverArcs.insert(visDriverArcsPtrOrder.begin(), visDriverArcsPtrOrder.end());
 
     for(auto driverArc = visDriverArcs.begin(); driverArc != visDriverArcs.end(); driverArc++){
         std::shared_ptr<Node> srcNode = (*driverArc)->getSrcPort()->getParent();

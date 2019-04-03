@@ -186,6 +186,8 @@ public:
     //====Methods====
     bool hasState() override;
 
+    bool hasCombinationalPath() override;
+
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
 

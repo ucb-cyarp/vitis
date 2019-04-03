@@ -97,6 +97,9 @@ public:
     //Override hasState (it is like a transparent latch)
     bool hasState() override;
 
+    //Override hasCombinationalPath (it is like a transparent latch)
+    bool hasCombinationalPath() override;
+
     /**
      * @brief Creates a the StateUpdate node for the EnableOutput
      *

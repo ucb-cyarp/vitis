@@ -339,6 +339,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
     if(bitsPerSymbol == 1 || bitsPerSymbol == 2){
         std::shared_ptr<ComplexToRealImag> complexToRealImag = NodeFactory::createNode<ComplexToRealImag>(expandedNode);
+        complexToRealImag->setName("ComplexToRealImag");
         new_nodes.push_back(complexToRealImag);
 
         //Rewire Input
@@ -348,6 +349,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         DataType outDT = getOutputPort(0)->getDataType();
 
         std::shared_ptr<CompareToConstant> compareToZeroReal = NodeFactory::createNode<CompareToConstant>(expandedNode);
+        compareToZeroReal->setName("CompareToZeroReal");
         compareToZeroReal->setCompareOp(Compare::CompareOp::GEQ);
         compareToZeroReal->setCompareConst({NumericValue(0, 0, std::complex<double>(0, 0), false, true)});
         new_nodes.push_back(compareToZeroReal);
@@ -361,6 +363,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         if(bitsPerSymbol == 1) {
             //Create Mux and return demodulated signal
             std::shared_ptr<Mux> mux = NodeFactory::createNode<Mux>(expandedNode);
+            mux->setName("Mux");
             mux->setBooleanSelect(true);
             mux->setUseSwitch(false);
             new_nodes.push_back(mux);
@@ -376,10 +379,12 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
             //Create Constants for Mux
             std::shared_ptr<Constant> constZero = NodeFactory::createNode<Constant>(expandedNode);
+            constZero->setName("ConstZero");
             constZero->setValue({NumericValue(0, 0, std::complex<double>(0, 0), false, false)});
             new_nodes.push_back(constZero);
 
             std::shared_ptr<Constant> constOne = NodeFactory::createNode<Constant>(expandedNode);
+            constOne->setName("ConstOne");
             constOne->setValue({NumericValue(1, 0, std::complex<double>(0, 0), false, false)});
             new_nodes.push_back(constOne);
 
@@ -393,6 +398,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         }else{
             //bitsPerSymbol == 2
             std::shared_ptr<CompareToConstant> compareToZeroImag = NodeFactory::createNode<CompareToConstant>(expandedNode);
+            compareToZeroImag->setName("CompareToZeroImag");
             compareToZeroImag->setCompareOp(Compare::CompareOp::GEQ);
             compareToZeroImag->setCompareConst({NumericValue(0, 0, std::complex<double>(0, 0), false, true)});
             new_nodes.push_back(compareToZeroImag);
@@ -414,6 +420,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             //TODO: Implement a version using a LUT or 4 entry MUX
 
             std::shared_ptr<Mux> realMux_ImGEQ0 = NodeFactory::createNode<Mux>(expandedNode);
+            realMux_ImGEQ0->setName("RealMux_ImGEQ0");
             realMux_ImGEQ0->setBooleanSelect(true);
             realMux_ImGEQ0->setUseSwitch(false);
             new_nodes.push_back(realMux_ImGEQ0);
@@ -422,6 +429,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_arcs.push_back(realComparisonToRealMuxGEQ);
 
             std::shared_ptr<Constant> q1Const = NodeFactory::createNode<Constant>(expandedNode);
+            q1Const->setName("Q1Const");
             q1Const->setValue({NumericValue(0, 0, std::complex<double>(0, 0), false, false)}); //Q1 is always 0
             new_nodes.push_back(q1Const);
 
@@ -429,6 +437,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_arcs.push_back(q1ToMux);
 
             std::shared_ptr<Constant> q2Const = NodeFactory::createNode<Constant>(expandedNode);
+            q2Const->setName("Q2Const");
             q2Const->setValue({NumericValue(1, 0, std::complex<double>(0, 0), false, false)}); //Q2 is always 1
             new_nodes.push_back(q2Const);
 
@@ -436,6 +445,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_arcs.push_back(q2ToMux);
 
             std::shared_ptr<Mux> realMux_ImLT0 = NodeFactory::createNode<Mux>(expandedNode);
+            realMux_ImLT0->setName("RealMux_ImLT0");
             realMux_ImLT0->setBooleanSelect(true);
             realMux_ImLT0->setUseSwitch(false);
             new_nodes.push_back(realMux_ImLT0);
@@ -444,6 +454,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_arcs.push_back(realComparisonToRealMuxLT);
 
             std::shared_ptr<Constant> q4Const = NodeFactory::createNode<Constant>(expandedNode);
+            q4Const->setName("Q4Const");
             int q4ConstVal = grayCoded ? 2 : 3;
             q4Const->setValue({NumericValue(q4ConstVal, 0, std::complex<double>(0, 0), false, false)});
             new_nodes.push_back(q4Const);
@@ -452,6 +463,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_arcs.push_back(q4ToMux);
 
             std::shared_ptr<Constant> q3Const = NodeFactory::createNode<Constant>(expandedNode);
+            q3Const->setName("Q3Const");
             int q3ConstVal = grayCoded ? 3 : 2;
             q3Const->setValue({NumericValue(q3ConstVal, 0, std::complex<double>(0, 0), false, false)});
             new_nodes.push_back(q3Const);
@@ -460,6 +472,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
             new_arcs.push_back(q3ToMux);
 
             std::shared_ptr<Mux> imagMux = NodeFactory::createNode<Mux>(expandedNode);
+            imagMux->setName("ImagMux");
             imagMux->setBooleanSelect(true);
             realMux_ImLT0->setUseSwitch(false);
             new_nodes.push_back(imagMux);
@@ -486,6 +499,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         }
 
         std::shared_ptr<Gain> denormalizer = NodeFactory::createNode<Gain>(expandedNode);
+        denormalizer->setName("Denormalizer");
         denormalizer->setGain({NumericValue(0, 0, std::complex<double>(scale_factor, 0), false, true)});
         new_nodes.push_back(denormalizer);
 
@@ -498,10 +512,12 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         int dimension = GeneralHelper::intPow(2, bitsPerSymbol/2);
 
         std::shared_ptr<Sum> signalOffsetSum = NodeFactory::createNode<Sum>(expandedNode);
+        signalOffsetSum->setName("SignalOffsetSum");
         signalOffsetSum->setInputSign({true, true});
         new_nodes.push_back(signalOffsetSum);
 
         std::shared_ptr<Constant> offsetConst = NodeFactory::createNode<Constant>(expandedNode);
+        offsetConst->setName("OffsetConst");
         offsetConst->setValue({NumericValue(0, 0, std::complex<double>(dimension/2, dimension/2), true, true)});
         new_nodes.push_back(offsetConst);
 
@@ -512,6 +528,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         new_arcs.push_back(offsetConstToOffset);
 
         std::shared_ptr<ComplexToRealImag> complexToRealImag = NodeFactory::createNode<ComplexToRealImag>(expandedNode);
+        complexToRealImag->setName("ComplexToRealImag");
         new_nodes.push_back(complexToRealImag);
 
         std::shared_ptr<Arc> offsetToCplxToRealImag = Arc::connectNodes(signalOffsetSum, 0, complexToRealImag, 0, inputDT);
@@ -522,6 +539,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         double epsilon = scale_factor/10.0;
 
         std::shared_ptr<Saturate> realSaturate = NodeFactory::createNode<Saturate>(expandedNode);
+        realSaturate->setName("RealSaturate");
         realSaturate->setLowerLimit(NumericValue(0, 0, std::complex<double>(0, 0), false, true));
         realSaturate->setUpperLimit(NumericValue(0, 0, std::complex<double>(dimension-epsilon, 0), false, true));
         new_nodes.push_back(realSaturate);
@@ -530,6 +548,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         new_arcs.push_back(toRealSaturate);
 
         std::shared_ptr<Saturate> imagSaturate = NodeFactory::createNode<Saturate>(expandedNode);
+        imagSaturate->setName("ImagSaturate");
         imagSaturate->setLowerLimit(NumericValue(0, 0, std::complex<double>(0, 0), false, true));
         imagSaturate->setUpperLimit(NumericValue(0, 0, std::complex<double>(dimension-epsilon, 0), false, true));
         new_nodes.push_back(imagSaturate);
@@ -544,6 +563,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         DataType castIntDT = castIntDTExact.getCPUStorageType();
 
         std::shared_ptr<DataTypeConversion> realDataTypeConversion = NodeFactory::createNode<DataTypeConversion>(expandedNode);
+        realDataTypeConversion->setName("RealDataTypeConversion");
         realDataTypeConversion->setInheritType(DataTypeConversion::InheritType::SPECIFIED);
         realDataTypeConversion->setTgtDataType(castIntDT);
         new_nodes.push_back(realDataTypeConversion);
@@ -552,7 +572,8 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         new_arcs.push_back(toRealDataTypeConversion);
 
         std::shared_ptr<DataTypeConversion> imagDataTypeConversion = NodeFactory::createNode<DataTypeConversion>(expandedNode);
-        realDataTypeConversion->setInheritType(DataTypeConversion::InheritType::SPECIFIED);
+        imagDataTypeConversion->setName("ImagDataTypeConversion");
+        imagDataTypeConversion->setInheritType(DataTypeConversion::InheritType::SPECIFIED);
         imagDataTypeConversion->setTgtDataType(castIntDT);
         new_nodes.push_back(imagDataTypeConversion);
 
@@ -561,10 +582,12 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
         //Shift and concat
         std::shared_ptr<BitwiseOperator> realShifter = NodeFactory::createNode<BitwiseOperator>(expandedNode);
+        realShifter->setName("RealShifter");
         realShifter->setOp(BitwiseOperator::BitwiseOp::SHIFT_LEFT);
         new_nodes.push_back(realShifter);
 
         std::shared_ptr<Constant> shiftAmt = NodeFactory::createNode<Constant>(expandedNode);
+        shiftAmt->setName("ShiftAmt");
         shiftAmt->setValue({NumericValue(bitsPerSymbol/2, 0, std::complex<double>(0, 0), false, false)});
         new_nodes.push_back(shiftAmt);
 
@@ -575,6 +598,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         new_arcs.push_back(constToRealShifter);
 
         std::shared_ptr<BitwiseOperator> concat = NodeFactory::createNode<BitwiseOperator>(expandedNode);
+        concat->setName("Concat");
         concat->setOp(BitwiseOperator::BitwiseOp::OR);
         new_nodes.push_back(concat);
 
@@ -585,6 +609,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         new_arcs.push_back(shiftedRealToConcat);
 
         std::shared_ptr<LUT> decoderTable = NodeFactory::createNode<LUT>(expandedNode);
+        decoderTable->setName("DecoderTable");
         new_nodes.push_back(decoderTable);
 
         std::vector<NumericValue> breakpoints;

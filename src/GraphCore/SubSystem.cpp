@@ -60,7 +60,10 @@ SubSystem::emitGramphMLSubgraphAndChildren(xercesc::DOMDocument *doc, xercesc::D
     GraphMLHelper::setAttribute(graphElement, "edgedefault", "directed");
     thisNode->appendChild(graphElement);
 
-    for(auto child = children.begin(); child != children.end(); child++){
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenOrdered; //Need to order by ID for consistency between runs/machines
+    childrenOrdered.insert(children.begin(), children.end());
+
+    for(auto child = childrenOrdered.begin(); child != childrenOrdered.end(); child++){
         (*child)->emitGraphML(doc, graphElement);
     }
 
@@ -148,7 +151,11 @@ SubSystem::discoverAndUpdateContexts(std::vector<Context> contextStack,
                                      std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                      std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                      std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
-    GraphAlgs::discoverAndUpdateContexts(children, contextStack, discoveredMux, discoveredEnabledSubSystems,
+    std::set<std::shared_ptr<Node>, Node::PtrID_Compare> idOrderedChildren;
+    idOrderedChildren.insert(children.begin(), children.end());
+    std::vector<std::shared_ptr<Node>> childrenVector;
+    childrenVector.insert(childrenVector.end(), idOrderedChildren.begin(), idOrderedChildren.end());
+    GraphAlgs::discoverAndUpdateContexts(childrenVector, contextStack, discoveredMux, discoveredEnabledSubSystems,
                                          discoveredGeneral);
 }
 

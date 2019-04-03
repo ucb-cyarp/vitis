@@ -103,6 +103,8 @@ public:
 
     bool hasState() override;
 
+    bool hasCombinationalPath() override;
+
     std::vector<Variable> getCStateVars() override;
 
     void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
