@@ -1394,12 +1394,11 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
     benchDriver.close();
 
     //#### Emit Makefiles ####
-    std::string makefileContent =  "SRCS=$(MAIN_FILE)\n"
-                                   "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
-                                   "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
-                                   "SYSTEM_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SYSTEM_SRC))\n"
-                                   "KERNEL_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))\n"
-                                   "KERNEL_NO_OPT_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_NO_OPT_SRCS))\n"
+    std::string makefileContent =  "BUILD_DIR=build\n"
+                                   "DEPENDS_DIR=./depends\n"
+                                   "COMMON_DIR=./common\n"
+                                   "SRC_DIR=./intrin\n"
+                                   "LIB_DIR=.\n"
                                    "\n"
                                    "#Parameters that can be supplied to this makefile\n"
                                    "USE_PCM=1\n"
@@ -1654,12 +1653,11 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     benchMemDriver.close();
 
     //#### Emit Makefiles ####
-    std::string makefileContent =  "SRCS=$(MAIN_FILE)\n"
-                                   "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
-                                   "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
-                                   "SYSTEM_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SYSTEM_SRC))\n"
-                                   "KERNEL_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))\n"
-                                   "KERNEL_NO_OPT_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_NO_OPT_SRCS))\n"
+    std::string makefileContent =  "BUILD_DIR=build\n"
+                                   "DEPENDS_DIR=./depends\n"
+                                   "COMMON_DIR=./common\n"
+                                   "SRC_DIR=./intrin\n"
+                                   "LIB_DIR=.\n"
                                    "\n"
                                    "#Parameters that can be supplied to this makefile\n"
                                    "USE_PCM=1\n"
