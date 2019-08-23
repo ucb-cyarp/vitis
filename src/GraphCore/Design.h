@@ -372,7 +372,7 @@ public:
     void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType);
 
     /**
-     * @brief Emits the design as a single threaded C function (using the bottom-up method)
+     * @brief Emits the design as a single threaded C function
      *
      * @note Design expansion and validation should be run before calling this function
      *
@@ -384,6 +384,45 @@ public:
      * @param schedType Schedule type
      */
     void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType);
+
+    /**
+     * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C
+     * function.  A function is created for each thread which includes the intra-thread scheduler.  This scheduler is
+     * responsible for calling the partition functions as appropriate.  The scheduler also has access to the input and
+     * output FIFOs for the thread and checks the inputs for the empty state and the outputs for the full state to decide
+     * if functions should be executed.  A setup function will also be created which allocates the inter-thread
+     * FIFOs, creates the threads, binds them to cores, and them starts execution.  Seperate function will be created
+     * that enqueue data onto the input FIFOs (when not full) and dequeue data off the output FIFOs (when not empty).
+     * Blocking and non-blocking variants of these functions will be created.  Benchmarking code should call the setup
+     * function then interact with the input/output FIFO functions.  This will require the use of a core.
+     *
+     * @note (For framework devloper) The conditional statement about whether or not a context excutes needs to be made in each context it exists
+     * in.
+     *
+     * @note Partitioning should have already occurred before calling this function.
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @note To avoid dead code being emitted, prune the design before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     * @param schedType Schedule type
+     */
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType);
+    /*
+     * Discover Partitions
+     *      The I/O in/out of the design needs to be handled in some way.  For now, we will probably want to keep them
+     *      in one partition.  This will allow I/O to be handled in a signel thread.  Therefore, the input and output
+     *      ports should be assigned a partition.  It may be best for them to have their own partition.  OR perhaps, it
+     *      would be better for them to be in the same partition as the blocks that directly use them.  However, this
+     *      method would require I/O's impact on performance to be
+     * Discover Partiton Crossings
+     * Discover Groupable Partition Crossings
+     * Insert Inter-Partition FIFOs
+     * Discover function prototypes for each partiton (s
+     */
 
     /**
      * @brief Emits the benchmarking drivers for the design
@@ -519,6 +558,58 @@ public:
      * @return a vector of BlackBox nodes in the design
      */
     std::vector<std::shared_ptr<BlackBox>> findBlackBoxes();
+
+    /**
+     * @brief Discovers partitions in the design and the nodes that are in each partition
+     *
+     * @note: Subsystems may not have a valid partition.  Partition -1 indicates that the node has not been placed in a
+     * partition.
+     *
+     * @return A map of partitions to vectors of nodes in that partition
+     */
+    std::map<int, std::vector<std::shared_ptr<Node>>> findPartitions();
+
+    /**
+     * @brief Discovers directional crossings between nodes in different partitions
+     *
+     * This can be used to discover where inter-partition FIFOs are needed.
+     *
+     * @note: Not all inter-partition FIFOs need to be checked at all times.  For instance, if an enabled subsystem is
+     * split between partitions, the FIFOs within the enabled subsystem may be empty for some cycles.  However, the
+     * EnableOutput ports need to know that the subsystem was not enabled so that they can emit the last value.  One
+     * method to alleviate this is to have a separate FIFO which caries information about whether or not the enabled
+     * subsystem executed.  If it was, the scheduler needs to wait for data on the subsystem FIFOs.  If not, it can
+     * proceed.
+     *
+     * Another special case to note is that a partitioned enabled subsystem may not have EnabledOutput ports in each
+     * partition.  For instance, you can imagine an Enabled Subsystem being split into 3 partitions 1, 2, and 3 with the
+     * inputs occurring in partition 1, and outputs occurring in partition 3, with paths running from 1->2 and 2->3.  Even
+     * though the compute graph may not explicitally indicate the need for an arc from 1->2 indicating that the enabled
+     * subsystem was active or not, one should be included anyway for the scheduler's benifit.  (The arc may exist in
+     * the compute graph as a order constraint arc).
+     *
+     * The same issue exists for the mux contexts where a context may or may not execute.  The scheduler needs to know
+     * about this.
+     *
+     * In general, the conditional statements for contexts need to be run in each partition they are present in.  This
+     * may be inside the partition function itself an may not be expicitally handled by the scheduler.  The scheduler needs
+     * to be aware of whether or not a context executes to decide if it needs to wait on data on particular FIFOs.  An
+     * alternate to this is for the cross parition boundaries to be
+     *
+     * @return A map of vectors which contain the arcs that go from the nodes in one partition to nodes in another partition.
+     */
+    std::map<std::pair<int, int>, std::shared_ptr<Arc>> getPartitionCrossings();
+
+    /**
+     * @brief Discovers partition crossing arcs that can be grouped together
+     *
+     * There may be cases where multiple arcs from a node in 1 partition go to several nodes inside of another
+     * parition.  Instead of creating a FIFO for each arc, a single FIFO should be created with the fanout occuring within
+     * the second parition.  This function finds arcs which can be combined into single FIFOs in this manner.
+     *
+     * @return
+     */
+    std::vector<std::vector<std::shared_ptr<Arc>>> getGroupableCrossings();
 
     //TODO: Validate that mux contexts do not contain state elements
 
