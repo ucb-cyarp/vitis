@@ -1258,7 +1258,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << fctnProto << "{" << std::endl;
 
     //emit inner loop
-    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)), 0, 1);
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
     if(blockSize > 1) {
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
     }
