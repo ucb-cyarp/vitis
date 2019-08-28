@@ -1652,8 +1652,7 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     std::ofstream benchKernelMem;
     benchKernelMem.open(path+"/"+fileName+"_benchmark_kernel_mem.cpp", std::ofstream::out | std::ofstream::trunc);
 
-    benchKernelMem << "#include \"" << fileName << ".c" << "\" //Entire function is included to allow inlining" << std::endl;
-    benchKernelMem << "#include \"" << fileName << "_benchmark_kernel_mem.h" << "\"" << std::endl;
+    benchKernelMem << "#include \"" << fileName << ".h\"" << std::endl;
     benchKernelMem << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchKernelMem << "void bench_"+fileName+"_mem(void** in, void** out)" << std::endl;
     benchKernelMem << "{\n";
@@ -1723,7 +1722,6 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
 
     benchKernelHeaderMem << "#ifndef " << fileNameUpper << "_BENCHMARK_KERNEL_H" << std::endl;
     benchKernelHeaderMem << "#define " << fileNameUpper << "_BENCHMARK_KERNEL_H" << std::endl;
-    benchKernelHeaderMem << "#include \"" << fileName << ".h\"" << std::endl;
     benchKernelHeaderMem << "void bench_"+fileName+"_mem(void** in, void** out);" << std::endl;
     benchKernelHeaderMem << "#endif" << std::endl;
     benchKernelHeaderMem.close();
@@ -1834,16 +1832,17 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
         defaultArgs.push_back(val);
     }
 
-    benchMemDriver << "void initInput(void** in, unsigned long index){" << std::endl;
+    benchMemDriver << "void initInput(void* in, unsigned long index){" << std::endl;
 
     //Cast the input and output arrays to the correct type
+    benchMemDriver << "\tvoid** in_cast = (void**) in;" << std::endl;
     inCur = 0;
     for(unsigned long i = 0; i<numInputVars; i++){
         std::string inputDTStr = inputVars[i].getDataType().toString(DataType::StringStyle::C, false, false);
-        benchMemDriver << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(false) << " = (" << inputDTStr << "*) in[" << inCur << "];" << std::endl;
+        benchMemDriver << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(false) << " = (" << inputDTStr << "*) in_cast[" << inCur << "];" << std::endl;
         inCur++;
         if(inputVars[i].getDataType().isComplex()){
-            benchMemDriver << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(true) << " = (" << inputDTStr << "*) in[" << inCur << "];" << std::endl;
+            benchMemDriver << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(true) << " = (" << inputDTStr << "*) in_cast[" << inCur << "];" << std::endl;
             inCur++;
         }
     }
@@ -1921,13 +1920,12 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
                                    "endif\n"
                                    "\n"
                                    "MAIN_FILE = benchmark_throughput_test.cpp\n"
-                                   "LIB_SRCS = " + fileName + "_benchmark_driver.cpp #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
+                                   "LIB_SRCS = " + fileName + "_benchmark_driver_mem.cpp #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
                                    "SYSTEM_SRC = " + fileName + ".c\n"
-                                   "KERNEL_SRCS = " + fileName + "_benchmark_kernel.cpp\n"
+                                   "KERNEL_SRCS = " + fileName + "_benchmark_kernel_mem.cpp\n"
                                    "KERNEL_NO_OPT_SRCS = \n"
                                    "\n"
                                    "SRCS=$(MAIN_FILE)\n"
-                                   "SRCS+=$(LIB_SRCS) #This file is not optomized because it calls the kernel runner (which starts the timers).  Re-ordering code is not desired\n"
                                    "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
                                    "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
                                    "SYSTEM_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SYSTEM_SRC))\n"
@@ -1937,8 +1935,8 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
                                    "#Production\n"
                                    "all: benchmark_" + fileName +"_mem\n"
                                    "\n"
-                                   "benchmark_" + fileName + "mem: $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(DEPENDS_LIB) \n"
-                                   "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileName + "mem $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
+                                   "benchmark_" + fileName + "_mem: $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(DEPENDS_LIB) \n"
+                                   "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileName + "_mem $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
                                    "\n"
                                    "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
                                    "\t$(CXX) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
