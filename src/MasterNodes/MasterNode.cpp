@@ -46,3 +46,19 @@ std::set<GraphMLParameter> MasterNode::graphMLParameters() {
 
     return parameters;
 }
+
+int MasterNode::getBlockSize() const {
+    return blockSize;
+}
+
+void MasterNode::setBlockSize(int blockSize) {
+    MasterNode::blockSize = blockSize;
+}
+
+const std::string &MasterNode::getIndVarName() const {
+    return indVarName;
+}
+
+void MasterNode::setIndVarName(const std::string &indVarName) {
+    MasterNode::indVarName = indVarName;
+}
