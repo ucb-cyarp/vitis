@@ -450,7 +450,7 @@ std::vector<Variable> Design::getCInputVariables() {
     return inputVars;
 }
 
-std::string Design::getCFunctionArgPrototype() {
+std::string Design::getCFunctionArgPrototype(bool forceArray) {
     std::string prototype = "";
 
     std::vector<Variable> inputVars = getCInputVariables();
@@ -460,16 +460,28 @@ std::string Design::getCFunctionArgPrototype() {
     if(numInputVars>0){
         Variable var = inputVars[0];
 
-        prototype += "const " + var.getCVarDecl(false);
+        if(forceArray){
+            DataType varType = var.getDataType();
+            varType.setWidth(2);
+            var.setDataType(varType);
+        }
+
+        prototype += "const " + var.getCVarDecl(false, false, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, true, false, true);
+            prototype += ", const " + var.getCVarDecl(true, false, false, true);
         }
     }
 
     for(unsigned long i = 1; i<numInputVars; i++){
         Variable var = inputVars[i];
+
+        if(forceArray){
+            DataType varType = var.getDataType();
+            varType.setWidth(2);
+            var.setDataType(varType);
+        }
 
         prototype += ", const " + var.getCVarDecl(false);
 
@@ -491,7 +503,7 @@ std::string Design::getCFunctionArgPrototype() {
     return prototype;
 }
 
-std::string Design::getCInputPortStructDefn(){
+std::string Design::getCInputPortStructDefn(int blockSize){
     std::string prototype = "typedef struct {\n";
 
     std::vector<Variable> inputVars = getCInputVariables();
@@ -500,11 +512,15 @@ std::string Design::getCInputPortStructDefn(){
     for(unsigned long i = 0; i<numInputVars; i++){
         Variable var = inputVars[i];
 
-        prototype += "\t" + var.getCVarDecl(false, false, false, true) + ";\n";
+        DataType varType = var.getDataType();
+        varType.setWidth(varType.getWidth()*blockSize);
+        var.setDataType(varType);
+
+        prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += "\t" + var.getCVarDecl(true, false, false, true) + ";\n";
+            prototype += "\t" + var.getCVarDecl(true, true, false, true) + ";\n";
         }
     }
 
@@ -513,7 +529,7 @@ std::string Design::getCInputPortStructDefn(){
     return prototype;
 }
 
-std::string Design::getCOutputStructDefn() {
+std::string Design::getCOutputStructDefn(int blockSize) {
     //Emit struct header
     std::string str = "typedef struct {";
 
@@ -524,13 +540,15 @@ std::string Design::getCOutputStructDefn() {
 
         DataType portDataType = output->getDataType();
 
+        portDataType.setWidth(portDataType.getWidth()*blockSize);
+
         Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
 
-        str += "\n\t" + var.getCVarDecl(false, false, false, true) + ";";
+        str += "\n\t" + var.getCVarDecl(false, true, false, true) + ";";
 
         //Check if complex
         if(portDataType.isComplex()){
-            str += "\n\t" + var.getCVarDecl(true, false, false, true) + ";";
+            str += "\n\t" + var.getCVarDecl(true, true, false, true) + ";";
         }
     }
 
@@ -539,9 +557,9 @@ std::string Design::getCOutputStructDefn() {
     return str;
 }
 
-void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched, bool printNodeSched){
+void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, unsigned long blockSize, bool emitGraphMLSched, bool printNodeSched){
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
-        emitSingleThreadedC(outputDir, designName, designName, schedType);
+        emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
         scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched);
         verifyTopologicalOrder();
@@ -553,7 +571,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
             GraphMLExporter::exportGraphML(outputDir + "/" + designName + "_scheduleGraph.graphml", *this);
         }
 
-        emitSingleThreadedC(outputDir, designName, designName, schedType);
+        emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
         expandEnabledSubsystemContexts();
@@ -601,7 +619,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
             GraphMLExporter::exportGraphML(outputDir + "/" + designName + "_scheduleGraph.graphml", *this);
         }
 
-        emitSingleThreadedC(outputDir, designName, designName, schedType);
+        emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     }else{
         throw std::runtime_error("Unknown SCHED Type");
     }
@@ -784,7 +802,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
     }
 }
 
-void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType){
+void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, int blockSize, std::string indVarName){
 
     cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
@@ -980,7 +998,24 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 
                 //emit the assignment
                 Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+                int varWidth = outputVar.getDataType().getWidth();
+                int varBytes = outputVar.getDataType().getCPUStorageType().getTotalBits()/8;
+                if(varWidth > 1){
+                    if(blockSize > 1) {
+                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << "+" << blockSize
+                              << "*" << indVarName << ", " << expr_re << ", " << varWidth * varBytes << ");"
+                              << std::endl;
+                    }else{
+                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << ", " << expr_re << ", "
+                              << varWidth * varBytes << ");" << std::endl;
+                    }
+                }else{
+                    if(blockSize > 1) {
+                        cFile << "output[0]." << outputVar.getCVarName(false) << "[" << indVarName << "] = " << expr_re << ";" << std::endl;
+                    }else{
+                        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+                    }
+                }
 
                 //Emit Imag if Datatype is complex
                 if (outputDataType.isComplex()) {
@@ -994,7 +1029,22 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
                     }
 
                     //emit the assignment
-                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                    if(varWidth > 1){
+                        if(blockSize > 1) {
+                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << "+" << blockSize
+                                  << "*" << indVarName << ", " << expr_im << ", " << varWidth * varBytes << ");"
+                                  << std::endl;
+                        }else{
+                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << ", " << expr_im << ", "
+                                  << varWidth * varBytes << ");" << std::endl;
+                        }
+                    }else{
+                        if(blockSize > 1) {
+                            cFile << "output[0]." << outputVar.getCVarName(true) << "[" << indVarName << "] = " << expr_im << ";" << std::endl;
+                        }else{
+                            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                        }
+                    }
                 }
             }
         }else if(GeneralHelper::isType<Node, StateUpdate>(*it) != nullptr){
@@ -1061,11 +1111,33 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
     }
 }
 
-void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched) {
-    //Get the OutputType struct defn
-    std::string outputTypeDefn = getCOutputStructDefn();
+void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched, unsigned long blockSize) {
+    std::string blockIndVar = "";
 
-    std::string fctnProtoArgs = getCFunctionArgPrototype();
+    //Set the block size and indVarName in the master nodes.  This is used in the emit, specifically in the inputMaster
+    inputMaster->setBlockSize(blockSize);
+    outputMaster->setBlockSize(blockSize);
+    terminatorMaster->setBlockSize(blockSize);
+    unconnectedMaster->setBlockSize(blockSize);
+    visMaster->setBlockSize(blockSize);
+
+    if(blockSize > 1) {
+        blockIndVar = "blkInd";
+        inputMaster->setIndVarName(blockIndVar);
+        outputMaster->setIndVarName(blockIndVar);
+        terminatorMaster->setIndVarName(blockIndVar);
+        unconnectedMaster->setIndVarName(blockIndVar);
+        visMaster->setIndVarName(blockIndVar);
+    }
+
+    //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
+    //types are allowed since multiple values are being passed
+
+    //Get the OutputType struct defn and function prototype
+
+    std::string outputTypeDefn = getCOutputStructDefn(blockSize);
+    bool forceArrayArgs = blockSize > 1;
+    std::string fctnProtoArgs = getCFunctionArgPrototype(forceArrayArgs);
 
     std::string fctnProto = "void " + designName + "(" + fctnProtoArgs + ")";
 
@@ -1185,13 +1257,20 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     cFile << fctnProto << "{" << std::endl;
 
+    //emit inner loop
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
+    if(blockSize > 1) {
+        cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
+    }
+
     //Emit operators
+    //TODO: Implement other scheduler types
     if(sched == SchedParams::SchedType::BOTTOM_UP){
         emitSingleThreadedOpsBottomUp(cFile, nodesWithState, sched);
     }else if(sched == SchedParams::SchedType::TOPOLOGICAL){
         emitSingleThreadedOpsSched(cFile, sched);
     }else if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
-        emitSingleThreadedOpsSchedStateUpdateContext(cFile, sched);
+        emitSingleThreadedOpsSchedStateUpdateContext(cFile, sched, blockSize, blockIndVar);
     }else{
         throw std::runtime_error("Unknown schedule type");
     }
@@ -1208,6 +1287,10 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                 cFile << stateUpdateExprs[j] << std::endl;
             }
         }
+    }
+
+    if(blockSize > 1) {
+        cFile << "}" << std::endl;
     }
 
     cFile << std::endl << "//==== Return Number Outputs Generated ====" << std::endl;
@@ -1262,25 +1345,33 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile.close();
 }
 
-void Design::emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName) {
-    emitSingleThreadedCBenchmarkingDriverConst(path, fileName, designName);
-    emitSingleThreadedCBenchmarkingDriverMem(path, fileName, designName);
+void Design::emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName, int blockSize) {
+    //TODO: emit blocked versions
+    emitSingleThreadedCBenchmarkingDriverConst(path, fileName, designName, blockSize);
+    emitSingleThreadedCBenchmarkingDriverMem(path, fileName, designName, blockSize);
 }
 
 void
-Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName) {
+Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName, int blockSize) {
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
 
     //#### Emit Kernel File & Header ####
     std::ofstream benchKernel;
     benchKernel.open(path+"/"+fileName+"_benchmark_kernel.cpp", std::ofstream::out | std::ofstream::trunc);
 
+    benchKernel << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    benchKernel << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    benchKernel << "void bench_"+fileName+"()\n"
+                   "{\n"
+                   "\tOutputType output;\n"
+                   "\tunsigned long outputCount;\n";
+
     //Generate loop
     std::vector<Variable> inputVars = getCInputVariables();
     unsigned long numInputVars = inputVars.size();
 
     std::vector<NumericValue> defaultArgs;
-    for(unsigned long i = 0; i<numInputVars; i++){
+    for (unsigned long i = 0; i < numInputVars; i++) {
         DataType type = inputVars[i].getDataType();
         NumericValue val;
         val.setRealInt(1);
@@ -1292,30 +1383,72 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
     }
 
     std::string fctnCall = designName + "(";
-    if(numInputVars>0){
-        fctnCall += defaultArgs[0].toStringComponent(false, inputVars[0].getDataType());
-        if(inputVars[0].getDataType().isComplex()){
-            fctnCall += ", " + defaultArgs[0].toStringComponent(true, inputVars[0].getDataType());
+
+    if(blockSize >1) {
+        //For a block size greater than 1, constant arrays need to be created
+        for (unsigned long i = 0; i < numInputVars; i++) {
+            //Expand the size of the variable to account for the block size;
+            Variable blockInputVar = inputVars[i];
+            DataType blockDT = blockInputVar.getDataType();
+            int blockedWidth = blockDT.getWidth()*blockSize;
+            blockDT.setWidth(blockedWidth);
+            blockInputVar.setDataType(blockDT);
+            benchKernel << "\t" << blockInputVar.getCVarDecl(false, true, false, true) << " = {";
+
+            for (unsigned long j = 0; j < blockedWidth; j++){
+                if(j>0){
+                    benchKernel << ", ";
+                }
+                benchKernel << defaultArgs[i].toStringComponent(false, blockDT);
+            }
+            benchKernel << "};" << std::endl;
+
+            if(i>0){
+                fctnCall += ", ";
+            }
+            fctnCall += blockInputVar.getCVarName(false);
+
+            if (inputVars[i].getDataType().isComplex()) {
+                benchKernel << "\t" << blockInputVar.getCVarDecl(true, true, false, true) << " = {";
+
+                for (unsigned long j = 0; j < blockedWidth; j++){
+                    if(j>0){
+                        benchKernel << ", ";
+                    }
+                    benchKernel << defaultArgs[i].toStringComponent(true, blockDT);
+                }
+                benchKernel << "};" << std::endl;
+
+                fctnCall += ", "; //This is guarenteed to be needed as the real component will come first
+                fctnCall += blockInputVar.getCVarName(true);
+            }
+        }
+    }else{
+        //For a block size of 1, the arguments are passed as scalars
+        if (numInputVars > 0) {
+            fctnCall += defaultArgs[0].toStringComponent(false, inputVars[0].getDataType());
+            if (inputVars[0].getDataType().isComplex()) {
+                fctnCall += ", " + defaultArgs[0].toStringComponent(true, inputVars[0].getDataType());
+            }
+        }
+        for (unsigned long i = 1; i < numInputVars; i++) {
+            fctnCall += ", " + defaultArgs[i].toStringComponent(false, inputVars[i].getDataType());
+            if (inputVars[i].getDataType().isComplex()) {
+                fctnCall += ", " + defaultArgs[i].toStringComponent(true, inputVars[i].getDataType());
+            }
         }
     }
-    for(unsigned long i = 1; i<numInputVars; i++){
-        fctnCall += ", " + defaultArgs[i].toStringComponent(false, inputVars[i].getDataType());
-        if(inputVars[i].getDataType().isComplex()){
-            fctnCall += ", " + defaultArgs[i].toStringComponent(true, inputVars[i].getDataType());
-        }
-    }
-    if(numInputVars>0){
+
+    if (numInputVars > 0) {
         fctnCall += ", ";
     }
     fctnCall += "&output, &outputCount)";
-
-    benchKernel << "#include \"" << fileName << ".h" << "\"" << std::endl;
-    benchKernel << "#include \"intrin_bench_default_defines.h\"" << std::endl;
-    benchKernel << "void bench_"+fileName+"()\n"
-                   "{\n"
-                   "\tOutputType output;\n"
-                   "\tunsigned long outputCount;\n"
-                   "\tfor(int i = 0; i<STIM_LEN; i++)\n"
+    if(blockSize > 1){
+        benchKernel << "\tint iterLimit = STIM_LEN/" << blockSize << ";" << std::endl;
+    }else{
+        benchKernel << "\tint iterLimit = STIM_LEN;" << std::endl;
+    }
+    benchKernel << "\tfor(int i = 0; i<iterLimit; i++)\n"
                    "\t{\n"
                    "\t\t" + fctnCall + ";\n"
                    "\t}\n"
@@ -1512,46 +1645,76 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
     makefile.close();
 }
 
-void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName) {
+void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName, int blockSize) {
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
 
     //#### Emit Kernel File & Header (Memory)
     std::ofstream benchKernelMem;
     benchKernelMem.open(path+"/"+fileName+"_benchmark_kernel_mem.cpp", std::ofstream::out | std::ofstream::trunc);
 
-    //Generate loop
+    benchKernelMem << "#include \"" << fileName << ".h\"" << std::endl;
+    benchKernelMem << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    benchKernelMem << "void bench_"+fileName+"_mem(void** in, void** out)" << std::endl;
+    benchKernelMem << "{\n";
+
+    //Cast the input and output arrays to the correct type
     std::vector<Variable> inputVars = getCInputVariables();
     unsigned long numInputVars = inputVars.size();
-
-    std::string fctnCall = designName + "(";
-    if(numInputVars>0){
-        fctnCall += "in[i]." + inputVars[0].getCVarName(false);
-        if(inputVars[0].getDataType().isComplex()){
-            fctnCall += ", in[i]." + inputVars[0].getCVarName(true);
-        }
-    }
-    for(unsigned long i = 1; i<numInputVars; i++){
-        fctnCall += ", in[i]." + inputVars[i].getCVarName(false);
+    int inCur = 0; //This is used to track the current index in the input array since it may not allign with i (due to mixed real and imag inputs)
+    for(unsigned long i = 0; i<numInputVars; i++){
+        std::string inputDTStr = inputVars[i].getDataType().toString(DataType::StringStyle::C, false, false);
+        benchKernelMem << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(false) << " = (" << inputDTStr << "*) in[" << inCur << "];" << std::endl;
+        inCur++;
         if(inputVars[i].getDataType().isComplex()){
-            fctnCall += ", in[i]." + inputVars[i].getCVarName(true);
+            benchKernelMem << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(true) << " = (" << inputDTStr << "*) in[" << inCur << "];" << std::endl;
+            inCur++;
         }
     }
-    if(numInputVars>0){
-        fctnCall += ", ";
-    }
-    fctnCall += "out+i, &outputCount)";
 
-    benchKernelMem << "#include \"" << fileName << ".c" << "\" //Entire function is included to allow inlining" << std::endl;
-    benchKernelMem << "#include \"" << fileName << "_benchmark_kernel_mem.h" << "\"" << std::endl;
-    benchKernelMem << "#include \"intrin_bench_default_defines.h\"" << std::endl;
-    benchKernelMem << "void bench_"+fileName+"_mem(InputType* in, OutputType* out)\n"
-                      "{\n"
-                      "\tunsigned long outputCount;\n"
-                      "\tfor(int i = 0; i<STIM_LEN; i++)\n"
-                      "\t{\n"
-                      "\t\t" + fctnCall + ";\n"
-                      "\t}\n"
-                      "}" << std::endl;
+    //Cast output array
+    benchKernelMem << "\tOutputType* outArr = (OutputType*) out[0];" << std::endl;
+
+    //Generate loop
+    benchKernelMem << "\tunsigned long outputCount;\n";
+    if(blockSize>1){
+        benchKernelMem << "\tint iterLimit = STIM_LEN/" << blockSize << ";\n";
+    }else{
+        benchKernelMem << "\tint iterLimit = STIM_LEN;\n";
+    }
+    benchKernelMem << "\tfor(int i = 0; i<iterLimit; i++)\n";
+    benchKernelMem << "\t{\n";
+
+    if(blockSize>1){
+        benchKernelMem << "\t\tint j = i*" << blockSize << ";\n";
+    }
+
+    benchKernelMem << "\t\t" << designName << "(";
+    for(unsigned long i = 0; i<numInputVars; i++){
+        if(i > 0){
+            benchKernelMem << ", ";
+        }
+        benchKernelMem << inputVars[i].getCVarName(false);
+        if(blockSize>1){
+            benchKernelMem << "+j";
+        }else{
+            benchKernelMem << "[i]";
+        }
+        if(inputVars[i].getDataType().isComplex()){
+            benchKernelMem << ", " << inputVars[i].getCVarName(true);
+            if(blockSize>1){
+                benchKernelMem << "+j";
+            }else{
+                benchKernelMem << "[i]";
+            }
+        }
+    }
+    if(numInputVars>=1){
+        benchKernelMem << ", ";
+    }
+    benchKernelMem << "outArr+i, &outputCount);" << std::endl;
+
+    benchKernelMem << "\t}" << std::endl;
+    benchKernelMem << "}" << std::endl;
     benchKernelMem.close();
 
     std::ofstream benchKernelHeaderMem;
@@ -1559,10 +1722,7 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
 
     benchKernelHeaderMem << "#ifndef " << fileNameUpper << "_BENCHMARK_KERNEL_H" << std::endl;
     benchKernelHeaderMem << "#define " << fileNameUpper << "_BENCHMARK_KERNEL_H" << std::endl;
-    benchKernelHeaderMem << "#include \"" << fileName << ".h\"" << std::endl;
-    //Emit a structure for the input (for array allocation)
-    benchKernelHeaderMem << getCInputPortStructDefn() << std::endl;
-    benchKernelHeaderMem << "void bench_"+fileName+"_mem(InputType* in, OutputType* out);" << std::endl;
+    benchKernelHeaderMem << "void bench_"+fileName+"_mem(void** in, void** out);" << std::endl;
     benchKernelHeaderMem << "#endif" << std::endl;
     benchKernelHeaderMem.close();
 
@@ -1618,14 +1778,48 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     benchMemDriver << "std::map<std::string, std::map<std::string, Results*>*> runBenchSuite(Profiler* profiler, int* cpu_num_int){\n"
                       "\tstd::map<std::string, std::map<std::string, Results*>*> kernel_results;\n"
                       "\n"
-                      "\tstd::map<std::string, Results*>* type_result = new std::map<std::string, Results*>;\n"
-                      "\tResults* result = load_store_two_arg_init_kernel<InputType, OutputType, __m256>(profiler, &bench_" + fileName + "_mem, *cpu_num_int, \"===== Generated System: " + designName + " =====\");\n"
+                      "\tstd::map<std::string, Results*>* type_result = new std::map<std::string, Results*>;\n";
+
+    //Create vectors for input, output sizing
+    std::string inSizeStr = "";
+    std::string inElementsStr = "";
+    for(unsigned long i = 0; i<numInputVars; i++){
+        if(i > 0){
+            inSizeStr += ", ";
+            inElementsStr += ", ";
+        }
+        DataType dt = inputVars[i].getDataType().getCPUStorageType();
+        inSizeStr += GeneralHelper::to_string(dt.getTotalBits()/8);
+        inElementsStr += "STIM_LEN";
+
+        if(dt.isComplex()){
+            inSizeStr += ", " + GeneralHelper::to_string(dt.getTotalBits()/8);
+            inElementsStr += ", STIM_LEN";
+        }
+    }
+
+    benchMemDriver << "\tstd::vector<int> inSizes = {" << inSizeStr << "};" << std::endl;
+    benchMemDriver << "\tstd::vector<int> numInElements = {" << inElementsStr << "};" << std::endl;
+
+    std::string outputEntriesStr;
+    if(blockSize>1) {
+        outputEntriesStr = "STIM_LEN/" + GeneralHelper::to_string(blockSize);
+    }else{
+        outputEntriesStr = "STIM_LEN";
+    }
+
+    benchMemDriver << "\tstd::vector<int> outSizes = {sizeof(OutputType)};" << std::endl;
+    benchMemDriver << "\tstd::vector<int> numOutElements = {" << outputEntriesStr << "};" <<std::endl;
+
+    benchMemDriver << "\tResults* result = load_store_arb_init_kernel<__m256>(profiler, &bench_" + fileName + "_mem, "
+                      "inSizes, outSizes, numInElements, numOutElements, "
+                      "*cpu_num_int, \"===== Generated System: " + designName + " =====\");\n"
                       "\t(*type_result)[\"" + typeStr + "\"] = result;\n"
                       "\tkernel_results[\"" + designName + "\"] = type_result;\n"
                       "\tprintf(\"\\n\");\n"
                       "\treturn kernel_results;\n}" << std::endl;
 
-    //Generate init
+    //==== Generate init ====
     std::vector<NumericValue> defaultArgs;
     for(unsigned long i = 0; i<numInputVars; i++){
         DataType type = inputVars[i].getDataType();
@@ -1638,14 +1832,26 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
         defaultArgs.push_back(val);
     }
 
-    benchMemDriver << "void initInput(void* ptr, unsigned long index){\n"
-                   "\tInputType* castPtr = (InputType*) ptr;" << std::endl;
+    benchMemDriver << "void initInput(void* in, unsigned long index){" << std::endl;
+
+    //Cast the input and output arrays to the correct type
+    benchMemDriver << "\tvoid** in_cast = (void**) in;" << std::endl;
+    inCur = 0;
+    for(unsigned long i = 0; i<numInputVars; i++){
+        std::string inputDTStr = inputVars[i].getDataType().toString(DataType::StringStyle::C, false, false);
+        benchMemDriver << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(false) << " = (" << inputDTStr << "*) in_cast[" << inCur << "];" << std::endl;
+        inCur++;
+        if(inputVars[i].getDataType().isComplex()){
+            benchMemDriver << "\t" << inputDTStr << "* " << inputVars[i].getCVarName(true) << " = (" << inputDTStr << "*) in_cast[" << inCur << "];" << std::endl;
+            inCur++;
+        }
+    }
 
     for(unsigned long i = 0; i<numInputVars; i++){
-        benchMemDriver << "\tcastPtr->" << inputVars[i].getCVarName(false) << " = " << defaultArgs[i].toStringComponent(false, inputVars[i].getDataType()) << ";" << std::endl;
+        benchMemDriver << "\t" << inputVars[i].getCVarName(false) << "[index] = " << defaultArgs[i].toStringComponent(false, inputVars[i].getDataType()) << ";" << std::endl;
         //Check if complex
         if(inputVars[i].getDataType().isComplex()) {
-            benchMemDriver << "\tcastPtr->" << inputVars[i].getCVarName(true) << " = " << defaultArgs[i].toStringComponent(true, inputVars[i].getDataType()) << ";" << std::endl;
+            benchMemDriver << "\t" << inputVars[i].getCVarName(true) << "[index] = " << defaultArgs[i].toStringComponent(true, inputVars[i].getDataType()) << ";" << std::endl;
         }
     }
     benchMemDriver << "}" << std::endl;
@@ -1714,13 +1920,12 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
                                    "endif\n"
                                    "\n"
                                    "MAIN_FILE = benchmark_throughput_test.cpp\n"
-                                   "LIB_SRCS = " + fileName + "_benchmark_driver.cpp #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
+                                   "LIB_SRCS = " + fileName + "_benchmark_driver_mem.cpp #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
                                    "SYSTEM_SRC = " + fileName + ".c\n"
-                                   "KERNEL_SRCS = " + fileName + "_benchmark_kernel.cpp\n"
+                                   "KERNEL_SRCS = " + fileName + "_benchmark_kernel_mem.cpp\n"
                                    "KERNEL_NO_OPT_SRCS = \n"
                                    "\n"
                                    "SRCS=$(MAIN_FILE)\n"
-                                   "SRCS+=$(LIB_SRCS) #This file is not optomized because it calls the kernel runner (which starts the timers).  Re-ordering code is not desired\n"
                                    "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
                                    "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
                                    "SYSTEM_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SYSTEM_SRC))\n"
@@ -1730,8 +1935,8 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
                                    "#Production\n"
                                    "all: benchmark_" + fileName +"_mem\n"
                                    "\n"
-                                   "benchmark_" + fileName + "mem: $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(DEPENDS_LIB) \n"
-                                   "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileName + "mem $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
+                                   "benchmark_" + fileName + "_mem: $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(DEPENDS_LIB) \n"
+                                   "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileName + "_mem $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
                                    "\n"
                                    "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
                                    "\t$(CXX) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"

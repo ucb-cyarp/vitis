@@ -126,7 +126,7 @@ TEST(DSP_TestAGC, SimulinkGenCBottomUp_CrashOnly) {
 
     {
         SCOPED_TRACE("Emitting C");
-        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false);
+        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false, 1);
     }
 
     std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
@@ -143,7 +143,7 @@ TEST(DSP_TestAGC, SimulinkGenCBottomUp_CrashOnly) {
 
     {
         SCOPED_TRACE("Emitting Benchmarks");
-        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
+        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName, 1);
     }
 
     //Cleanup and Erase Exported Files
@@ -232,7 +232,7 @@ TEST(DSP_TestAGC, SimulinkGenCTopological_CrashOnly) {
 
     {
         SCOPED_TRACE("Emitting C");
-        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false);
+        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false, 1);
     }
 
     std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
@@ -249,7 +249,7 @@ TEST(DSP_TestAGC, SimulinkGenCTopological_CrashOnly) {
 
     {
         SCOPED_TRACE("Emitting Benchmarks");
-        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
+        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName, 1);
     }
 
     //Cleanup and Erase Exported Files
@@ -338,7 +338,7 @@ TEST(DSP_TestAGC, SimulinkGenCTopologicalContext_CrashOnly) {
 
     {
         SCOPED_TRACE("Emitting C");
-        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false);
+        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false, 1);
     }
 
     std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
@@ -355,7 +355,7 @@ TEST(DSP_TestAGC, SimulinkGenCTopologicalContext_CrashOnly) {
 
     {
         SCOPED_TRACE("Emitting Benchmarks");
-        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName);
+        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName, 1);
     }
 
     //Cleanup and Erase Exported Files
