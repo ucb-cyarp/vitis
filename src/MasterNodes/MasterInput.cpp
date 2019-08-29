@@ -30,7 +30,20 @@ CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
     var.setName(getCInputName(outputPortNum));
     var.setDataType(getOutputPort(outputPortNum)->getDataType());
 
-    return CExpr(var.getCVarName(imag), true);
+    std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
+
+    std::string expr;
+    if(blockSize > 1){
+        if(outputPort->getDataType().getWidth() > 1){
+            expr = var.getCVarName(imag) + "+" + GeneralHelper::to_string(blockSize) + "*" + indVarName;
+        }else{
+            expr = var.getCVarName(imag) + "[" + indVarName + "]";
+        }
+    }else{
+        expr = var.getCVarName(imag);
+    }
+
+    return CExpr(expr, true);
 }
 
 std::shared_ptr<Node> MasterInput::shallowClone(std::shared_ptr<SubSystem> parent) {

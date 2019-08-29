@@ -26,6 +26,9 @@ protected:
     MasterNode();
     MasterNode(std::shared_ptr<SubSystem> parent, MasterNode* orig);
 
+    int blockSize; ///<The size of the block (in samples) processed in each call to the function. NOTE: This is used in emit only and is set during the emit process.  Think of this more like a callback
+    std::string indVarName; ///<When the blockSize > 1, this is the variable used for indexing into the block. NOTE: This is used in emit only and is set during the emit process.  Think of this more like a callback
+
 public:
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
@@ -34,6 +37,12 @@ public:
     std::string labelStr() override ;
 
     bool canExpand() override ;
+
+    //==== Getters/Setters ====
+    int getBlockSize() const;
+    void setBlockSize(int blockSize);
+    const std::string &getIndVarName() const;
+    void setIndVarName(const std::string &indVarName);
 };
 
 /*@}*/

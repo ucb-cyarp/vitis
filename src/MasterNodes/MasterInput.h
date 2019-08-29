@@ -53,6 +53,7 @@ public:
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag = false) override;
 
+
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };

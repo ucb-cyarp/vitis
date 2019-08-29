@@ -299,9 +299,11 @@ public:
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
+     * @param forceArray if true, forces the width of the type to be >1 which forces an array declaration
+     *
      * @return argument portion of the C function prototype for this design
      */
-    std::string getCFunctionArgPrototype();
+    std::string getCFunctionArgPrototype(bool forceArray);
 
     /**
      * @brief Get the structure definition for the Input ports
@@ -314,11 +316,13 @@ public:
      *     ...
      * }
      *
-     * This is used by the driver generator if arrays need to be defined and the .
+     * This is used by the driver generator.
+     *
+     * @param blockSize the block size (in samples).  The width is multiplied by this number
      *
      * @return
      */
-    std::string getCInputPortStructDefn();
+    std::string getCInputPortStructDefn(int blockSize = 1);
 
     /**
      * @brief Get the structure definition for the output type
@@ -331,9 +335,10 @@ public:
      *     ...
      * }
      *
-     * @return
+     * @param blockSize the block size (in samples).  The width is multiplied by this number
+     * @return a string of the C structure definition
      */
-    std::string getCOutputStructDefn();
+    std::string getCOutputStructDefn(int blockSize = 1);
 
     /**
      * @brief Generates a Single Threaded Version of the Design as a C program
@@ -344,10 +349,11 @@ public:
      * @param designName the design name to be used as the C file names
      * @param schedType the type of scheduler to use when generating the C program
      * @param topoSortParams the parameters used by the topological scheduler if applicable (ex. what heuristic to use, random seed)
+     * @param blockSize the size of the blocks (in samples) processed in each call to the generated C function
      * @param emitGraphMLSched if true, emit a GraphML file with the computed schedule as a node parameter
      * @param printNodeSched if true, print the node schedule to the console
      */
-    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, bool emitGraphMLSched, bool printNodeSched);
+    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, unsigned long blockSize, bool emitGraphMLSched, bool printNodeSched);
 
     /**
      * @brief Emits operators using the bottom up emitter
@@ -368,8 +374,10 @@ public:
      * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
      * @param cFile the cFile to emit to
      * @param nodesWithState nodes with state in the design
+     * @param blockSize the size of the block (in samples) that are processed in each call to the function
+     * @param indVarName the variable that specifies the index in the block that is being computed
      */
-    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType);
+    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, int blockSize = 1, std::string indVarName = "");
 
     /**
      * @brief Emits the design as a single threaded C function (using the bottom-up method)
@@ -382,8 +390,9 @@ public:
      * @param fileName name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
+     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
      */
-    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType);
+    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize);
 
     /**
      * @brief Emits the benchmarking drivers for the design
@@ -393,8 +402,9 @@ public:
      * @param path path to where the output files will be generated
      * @param fileName base name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
+     * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
      */
-    void emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName);
+    void emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName, int blockSize);
 
     /**
      * @brief Emits the benchmarking drivers (constant arguments) for the design
@@ -404,8 +414,9 @@ public:
      * @param path path to where the output files will be generated
      * @param fileName base name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
+     * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
      */
-    void emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName);
+    void emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName, int blockSize);
 
     /**
      * @brief Emits the benchmarking drivers (memory arguments) for the design
@@ -415,8 +426,9 @@ public:
      * @param path path to where the output files will be generated
      * @param fileName base name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
+     * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
      */
-    void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName);
+    void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName, int blockSize);
 
     /**
      * @brief Expands the enabled subsystems in the design to include combinational logic at the inputs and outputs of enabled subsystems
