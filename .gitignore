@@ -44,7 +44,7 @@ compile_commands.json
 CTestTestfile.cmake
 
 #From me
-build
+build*/
 cmake-build-debug
 docs
 buildCoverage

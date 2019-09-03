@@ -423,14 +423,60 @@ public:
     /*
      * Discover Partitions
      *      The I/O in/out of the design needs to be handled in some way.  For now, we will probably want to keep them
-     *      in one partition.  This will allow I/O to be handled in a signel thread.  Therefore, the input and output
+     *      in one partition.  This will allow I/O to be handled in a single thread.  Therefore, the input and output
      *      ports should be assigned a partition.  It may be best for them to have their own partition.  OR perhaps, it
      *      would be better for them to be in the same partition as the blocks that directly use them.  However, this
      *      method would require I/O's impact on performance to be
-     * Discover Partiton Crossings
-     * Discover Groupable Partition Crossings
+     * Discover Partition Crossings
+     * Discover Group-able Partition Crossings
      * Insert Inter-Partition FIFOs
-     * Discover function prototypes for each partiton (s
+     *      FIFO module will have a similar structure to a delay or latch (EnableOutput).  Will create a context update node
+     *      and will de-couple itself.  However, will be less restrictive than delay because state update because dependencies
+     *      arcs are not drawn from outputs of delay back to the context update node (which in delays prevents an update from occurring
+     *      before the current value is being used).  This job now gets implicitly handled by the thread schedulers and the FIFO
+     *      itself.  Also, the context update and the FIFO output will be placed in their respective partitions.  For now, all FIFOs
+     *      are assumed to be at the boundaries
+     * Simple re-timing
+     *      We need to do proper re-timing but, as a first step, allow delays next to a FIFO to be re-timed into it if they are the
+     *      only connection.  This works best if state update nodes are not created when the FIFOs are inserted.  TODO: check sequence.
+     * Possible needed modifications:
+     *     When creating context nodes (or expanding nodes), need to make sure they are in the same partition as their parent (except for FIFOs)
+     *     This also applied to any nodes created during expansion.
+     *          Partitioning will probably happen after expansion but it would be a good thing to include (ie. for the case when hand partitioning is performed)
+     *          TODO: perhaps modify factory functions
+     * Discover function prototypes for each partition (the I/O is the FIFO inputs)
+     * Identify which FIFOs are contained within contexts and what FIFO contains information about the context's execution mode
+     *      Note: Only FIFOs entirely within a context may not need a value.
+     *          Note: there is an optimization for inputs into a context where values do not need to be communicated to the next thread if the
+     *          downstream context is is used in is not going to execute.
+     *      For now, will assume that FIFOs to/from a context will need to be checked (with the possible exception of to enableOutput
+     *      ports which, if not considered part of the
+     * Emit the partition, replacing any FIFO output with a variable name.  Similar to Delays being split into a constant
+     *      and a state update, FIFOs are separated into a receive and send portion.  The receive partition
+     * As we had a choice in how to handle input/output FIFOs, there is also a choice in how to handle output FIFOs
+     *      Could have the FIFO check occur as part of the function or outside of the function.
+     *      For consistency with the inputs and for modularity, we will handle the output FIFOs outside of the function
+     * Create scheduler for thread
+     *      - Checks input FIFOs.  Context Dependency is respected in check
+     *      - Execute function
+     *      - Check output FIFOs for room, stall if necessary
+     *      - Enqueue outputs (for outputs that were enabled)
+     *      - Repeat
+     * Create I/O thread
+     *      - constant (benchmarking)
+     *      - file (benchmarking)
+     *      - initialized memory (benchmarking)
+     *      - socket (get 10 GbE card and another system to act as playback)
+     * Create global scheduler
+     *      - create FIFOs
+     *      - create and start threads (passing FIFOs to them)
+     *      - create and start I/O threads
+     *      - wait for I/O threads to finish or any errors
+     *
+     * TODO: Consider other FIFO access schemes:
+     *      - Input FIFO as part of function.  Stall if empty.  Requires check dependency for contexts.
+     *      - Output FIFO as part of function.  Stall if empty.
+     *      - Output FIFO as part of function.  Check for space before function executes.  Allows scheduled write to occur interleaved with computation
      */
 
     /**
@@ -619,9 +665,9 @@ public:
      * parition.  Instead of creating a FIFO for each arc, a single FIFO should be created with the fanout occuring within
      * the second parition.  This function finds arcs which can be combined into single FIFOs in this manner.
      *
-     * @return
+     * @return A map of vectors which contain groups arcs that go from the nodes in one partition to nodes in another partition.  Groups can contain one or several arcs
      */
-    std::vector<std::vector<std::shared_ptr<Arc>>> getGroupableCrossings();
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> getGroupableCrossings();
 
     //TODO: Validate that mux contexts do not contain state elements
 
