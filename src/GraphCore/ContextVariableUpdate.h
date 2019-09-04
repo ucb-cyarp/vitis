@@ -18,8 +18,8 @@ class ContextRoot;
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief A node that represents a Context Variable Update
@@ -106,6 +106,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTVARIABLEUPDATE_H

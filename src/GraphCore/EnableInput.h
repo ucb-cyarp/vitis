@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a special input port at the interface of an enabled subsystem.
@@ -82,6 +82,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEINPUT_H

@@ -13,8 +13,8 @@ class EnabledSubSystem;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Sub-system within the flow graph.
@@ -143,6 +143,6 @@ public:
                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SUBSYSTEM_H

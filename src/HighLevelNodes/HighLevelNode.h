@@ -13,8 +13,8 @@
  * @brief Expandable to primitives and may have multiple implementation possibilities
  *
  * A Convenience For Referring to a Common Structure
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a High Level Node which is expandable to primitives and may have multiple implementation possibilities
@@ -53,6 +53,6 @@ public:
     bool canExpand() override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_HIGHLEVELNODE_H

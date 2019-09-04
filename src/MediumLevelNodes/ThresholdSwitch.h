@@ -13,8 +13,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Simulink style switch (2mux) where the select line is compared to a threshold
@@ -123,6 +123,6 @@ public:
 };
 
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_THRESHOLDSWITCH_H

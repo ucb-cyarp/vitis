@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A container class to represent C expressions returned by the @ref Node::emitCExpr function
@@ -30,6 +30,6 @@ public:
     void setOutputVariable(bool outputVariable);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CEXPR_H

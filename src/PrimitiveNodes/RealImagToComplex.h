@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Real/Imag to Complex Block.
@@ -91,6 +91,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_REALIMAGTOCOMPLEX_H

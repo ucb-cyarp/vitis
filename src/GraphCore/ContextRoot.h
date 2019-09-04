@@ -19,8 +19,8 @@ class ContextFamilyContainer;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A class containing information and helper methods for nodes that create contexts
@@ -173,6 +173,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTROOT_H

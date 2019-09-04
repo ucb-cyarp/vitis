@@ -14,8 +14,8 @@
  * \addtogroup BusNodes Bus Nodes
  *
  * @brief Nodes which act on buses and convert to/from buses and standard arcs
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief An abstract class for Vector Concatenate objects
@@ -88,5 +88,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_CONCATENATE_H

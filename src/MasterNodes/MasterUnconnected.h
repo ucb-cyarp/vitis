@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup MasterNodes Master Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents unconnected ports in the dataflow graph
@@ -31,6 +31,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_MASTERUNCONNECTED_H

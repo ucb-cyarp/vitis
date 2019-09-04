@@ -13,8 +13,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A container class used to contain nodes within a context.
@@ -74,6 +74,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTCONTAINER_H

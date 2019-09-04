@@ -12,8 +12,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Simulink Multi-port Switch
@@ -127,6 +127,6 @@ public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SIMULINKMULTIPORTSWITCH_H

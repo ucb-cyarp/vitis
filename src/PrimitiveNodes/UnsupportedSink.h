@@ -16,8 +16,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Unsupported Sink Block.  This block may represent a sink in Simulink/Matlab that is
@@ -113,7 +113,7 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_UNSUPPORTEDSINK_H

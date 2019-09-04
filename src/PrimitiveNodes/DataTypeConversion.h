@@ -17,8 +17,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a data type conversion occurring between 2 arcs
@@ -122,6 +122,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DATATYPECONVERSION_H

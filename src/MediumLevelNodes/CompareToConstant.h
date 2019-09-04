@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a compare to constant block.
@@ -121,6 +121,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_COMPARETOCONSTANT_H

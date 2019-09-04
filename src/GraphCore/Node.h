@@ -42,8 +42,8 @@ class MasterUnconnected;
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief Generic Node in a data flow graph DSP design
@@ -966,6 +966,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_NODE_H

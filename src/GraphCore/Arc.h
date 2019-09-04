@@ -26,8 +26,8 @@ class Mux;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents Arcs in the data flow graph of a DSP design
@@ -321,6 +321,6 @@ public:
     void setId(int id);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ARC_H

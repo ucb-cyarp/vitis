@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Numerically Controlled Oscillator (NCO)
@@ -123,5 +123,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_NCO_H

@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 #define VITIS_C_VAR_NAME_RE_SUFFIX "_re" ///<The suffix for the real component of C var names
 #define VITIS_C_VAR_NAME_IM_SUFFIX "_im" ///<The suffix for the imag component of C var names
@@ -70,6 +70,6 @@ public:
     void setInitValue(const std::vector<NumericValue> &initValue);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VARIABLE_H

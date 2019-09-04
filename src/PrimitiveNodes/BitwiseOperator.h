@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a bitwise operator block.
@@ -147,6 +147,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_BITWISEOPERATOR_H

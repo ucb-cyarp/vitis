@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents data types within the DSP design
@@ -149,6 +149,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DATATYPE_H

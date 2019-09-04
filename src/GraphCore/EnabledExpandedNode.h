@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a node which, when expanded, became an enabled subsystem.
@@ -74,6 +74,6 @@ protected:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEDEXPANDEDNODE_H

@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Digital Modulator
@@ -140,6 +140,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DIGITALMODULATOR_H

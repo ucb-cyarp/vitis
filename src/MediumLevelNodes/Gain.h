@@ -18,8 +18,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a gain (multiply by constant) block
@@ -114,6 +114,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_GAIN_H

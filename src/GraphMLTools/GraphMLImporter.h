@@ -22,8 +22,8 @@ class EnableOutput;
  * \addtogroup GraphMLTools GraphML Import/Export Tools
  *
  * @brief A set of classes which handle the import/export of a design from/to a GraphML file.
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Contains logic for importing a GraphML description of a Simulink Design
@@ -220,6 +220,6 @@ public:
     static void importNodePortNames(std::shared_ptr<Node> node, std::map<std::string, std::string> dataKeyValueMap, GraphMLDialect dialect);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SIMULINKGRAPHMLIMPORTER_H

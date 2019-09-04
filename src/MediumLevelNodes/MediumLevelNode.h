@@ -13,8 +13,8 @@
  * @brief Expandable to Primitives But Typically has a Single Implementation Type
  *
  * A Convenience For Referring to a Common Structure
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Medium Level Node which is Expandable to Primitives But Typically has a Single Implementation Type
@@ -54,6 +54,6 @@ public:
     bool canExpand() override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_MEDIUMLEVELNODE_H

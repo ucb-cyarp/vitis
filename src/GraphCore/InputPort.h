@@ -10,8 +10,8 @@
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief The representation of a node's input port
@@ -71,7 +71,7 @@ public:
     virtual bool hasInternalFanout(bool imag = false);
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_INPUTPORT_H

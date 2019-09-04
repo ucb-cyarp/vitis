@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup BusNodes Bus Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A an adapter between standard arcs and bus arcs where a single bus arc is fanned-out into multiple standard arcs
@@ -85,6 +85,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VECTORFANOUT_H

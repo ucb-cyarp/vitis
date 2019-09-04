@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief This represents a call to an external C/C++ function.  This function is treated like a black box from
@@ -244,6 +244,6 @@ public:
     //TODO: If has state -> do state update node creation like delays
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_BLACKBOX_H

@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Digital Demodulator
@@ -141,6 +141,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DIGITALDEMODULATOR_H

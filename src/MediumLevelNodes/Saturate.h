@@ -18,8 +18,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a saturate block
@@ -117,6 +117,6 @@ public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SATURATE_H

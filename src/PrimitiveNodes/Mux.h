@@ -16,8 +16,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a mux block.
@@ -265,6 +265,6 @@ public:
     void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_MUX_H

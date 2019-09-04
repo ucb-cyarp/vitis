@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a subsystem whose execution can be enabled or disabled via an enable line
@@ -223,6 +223,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEDSUBSYSTEM_H

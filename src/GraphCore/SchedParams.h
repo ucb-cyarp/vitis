@@ -11,8 +11,8 @@
 * \addtogroup GraphCore Graph Core
 *
 * @brief Core Classes for Representing a Data Flow Graph
+* @{
 */
-/*@{*/
 
 /**
  * @brief Class for representing scheduling parameters.
@@ -50,6 +50,6 @@ public:
     static bool isContextAware(SchedType schedType);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SCHEDPARAMS_H

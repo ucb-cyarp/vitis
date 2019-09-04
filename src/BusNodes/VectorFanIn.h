@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup BusNodes Bus Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A an adapter between standard arcs and bus arcs where multiple standard arcs are grouped into a single bus arc (fan-in)
@@ -87,6 +87,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VECTORFANIN_H

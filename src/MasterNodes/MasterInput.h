@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup MasterNodes Master Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents the inputs to the data flow graph
@@ -58,6 +58,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_MASTERINPUT_H

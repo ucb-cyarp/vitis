@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a logical operator block.
@@ -173,6 +173,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_LOGICOPERATOR_H

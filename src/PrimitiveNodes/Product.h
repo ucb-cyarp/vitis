@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Product Block.  Parameters dictate the position of the inputs.
@@ -152,6 +152,6 @@ public:
                     bool imag = false) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_PRODUCT_H

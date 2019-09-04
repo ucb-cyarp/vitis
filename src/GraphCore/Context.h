@@ -14,8 +14,8 @@ class ContextRoot;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a context identifier.  Contains the node which is the root of the context and the subContext number.
@@ -99,6 +99,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXT_H

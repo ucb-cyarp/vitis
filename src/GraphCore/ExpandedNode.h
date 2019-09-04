@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a node that has been expanded.
@@ -88,6 +88,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_EXPANDEDNODE_H

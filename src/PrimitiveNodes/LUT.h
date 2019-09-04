@@ -12,8 +12,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Lookup table
@@ -170,6 +170,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_LUT_H

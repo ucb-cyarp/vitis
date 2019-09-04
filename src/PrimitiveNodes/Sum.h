@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Sum Block.  Parameters dictate the signs of the inputs.
@@ -113,6 +113,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SUM_H

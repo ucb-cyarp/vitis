@@ -19,8 +19,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Delay (z^-1) Block
@@ -133,7 +133,7 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_DELAY_H

@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Container for context containers that should be scheduled with some order
@@ -88,6 +88,6 @@ public:
     void rewireArcsToContextFamilyContainerAndRecurse(std::vector<std::shared_ptr<Arc>> &arcs_to_delete);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTFAMILYCONTAINER_H

@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a special output port at the interface of an enabled subsystem.
@@ -150,6 +150,6 @@ public:
     void setInitCondition(const std::vector<NumericValue> &initCondition);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEOUTPUT_H

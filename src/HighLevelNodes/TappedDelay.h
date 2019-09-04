@@ -15,8 +15,8 @@
  * @brief Expandable to primitives and may have multiple implementation possibilities
  *
  * A Convenience For Referring to a Common Structure
- */
-/*@{*/
+ * @{
+*/
 
 class TappedDelay : public HighLevelNode {
     friend NodeFactory;
@@ -106,6 +106,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_TAPPEDDELAY_H

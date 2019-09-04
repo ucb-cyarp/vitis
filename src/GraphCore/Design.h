@@ -34,8 +34,8 @@ class BlackBox;
 * \addtogroup GraphCore Graph Core
 *
 * @brief Core Classes for Representing a Data Flow Graph
+* @{
 */
-/*@{*/
 
 /**
 * @brief Represents a Streaming DSP Flow Graph Design
@@ -710,6 +710,6 @@ public:
     void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::shared_ptr<Arc>> &contextArcs);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DESIGN_H

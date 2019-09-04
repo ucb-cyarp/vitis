@@ -15,8 +15,8 @@
  * \addtogroup General General Helper Classes
  *
  * @brief A set of general helper classes.
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Provides general helper functions
@@ -195,7 +195,7 @@ public:
     static unsigned long intPow(unsigned long base, unsigned long exp);
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_GENERALHELPER_H

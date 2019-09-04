@@ -15,8 +15,8 @@
  * @brief Expandable to primitives and may have multiple implementation possibilities
  *
  * A Convenience For Referring to a Common Structure
- */
-/*@{*/
+ * @{
+*/
 
 class DiscreteFIR : public HighLevelNode {
     friend NodeFactory;
@@ -120,6 +120,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DISCRETEFIR_H

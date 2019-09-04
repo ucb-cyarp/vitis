@@ -17,8 +17,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a reinterpret cast between data types.  This is not a true datatype conversion but rather a cast
@@ -112,6 +112,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_REINTERPRETCAST_H

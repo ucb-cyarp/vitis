@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief This handles the special case of importing Simulink Coder Generated Stateflow FSMs
@@ -94,7 +94,7 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_SIMULINKCODERFSM_H

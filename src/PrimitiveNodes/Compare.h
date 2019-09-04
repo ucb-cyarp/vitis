@@ -14,8 +14,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a comparison (relational operator) block.
@@ -136,7 +136,7 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_COMPARE_H

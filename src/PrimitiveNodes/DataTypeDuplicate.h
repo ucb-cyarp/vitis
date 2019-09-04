@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a DataTypeDuplicateBlock
@@ -94,6 +94,6 @@ public:
                     bool imag = false) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DATATYPEDUPLICATE_H

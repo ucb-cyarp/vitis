@@ -16,8 +16,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a block storing a constant value
@@ -107,6 +107,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONSTANT_H
