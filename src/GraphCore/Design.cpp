@@ -963,9 +963,9 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
             }
 
             //Check to see if this is the first, last, or other conditional being emitted (if there is only 1 context, default to first call)
-            //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
-            //Check the count
-            //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
+                //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
+                    //Check the count
+                //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
 
             //If the first time, call the context preparation function (ie. for declaring outputs outside of context)
 
