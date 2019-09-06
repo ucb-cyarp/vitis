@@ -818,7 +818,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
     auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0)
 
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
-    std::copy(schedIt, orderedNodes.end(), toBeEmittedInThisOrder.begin());
+    std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
     emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, blockSize, indVarName);
 }
