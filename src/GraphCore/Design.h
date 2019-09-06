@@ -373,11 +373,20 @@ public:
     /**
      * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
      * @param cFile the cFile to emit to
-     * @param nodesWithState nodes with state in the design
      * @param blockSize the size of the block (in samples) that are processed in each call to the function
      * @param indVarName the variable that specifies the index in the block that is being computed
      */
     void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, int blockSize = 1, std::string indVarName = "");
+
+    /**
+     * @brief Emits operators for the given nodes (in the order given).  Does not emit function prototypes.  This emitter is context aware
+     * @param cFile the cFile to emit to
+     * @param schedType the scheduler being used.  Is passed to downstream context emit functions
+     * @param orderedNodes the nodes to emit, given in the order they should be emitted
+     * @param blockSize the size of the block (in samples) that are processed in each call to the function
+     * @param indVarName the variable that specifies the index in the block that is being computed
+     */
+    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, int blockSize = 1, std::string indVarName = "");
 
     /**
      * @brief Emits the design as a single threaded C function

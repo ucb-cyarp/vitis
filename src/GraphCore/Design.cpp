@@ -817,6 +817,14 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 
     auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0)
 
+    std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
+    std::copy(schedIt, orderedNodes.end(), toBeEmittedInThisOrder.begin());
+
+    emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, blockSize, indVarName);
+}
+
+void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, int blockSize,
+                                       std::string indVarName) {
     //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
     std::vector<Context> lastEmittedContext;
 
@@ -830,7 +838,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
     std::map<std::shared_ptr<ContextRoot>, int> subContextEmittedCount;
 
     //Itterate through the schedule and emit
-    for(auto it = schedIt; it != orderedNodes.end(); it++){
+    for(auto it = orderedNodes.begin(); it != orderedNodes.end(); it++){
 
 //        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
 
@@ -954,10 +962,10 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
                 //Else, we have not yet found where the context stacks diverge (if they in fact do) --> continue
             }
 
-                //Check to see if this is the first, last, or other conditional being emitted (if there is only 1 context, default to first call)
-                    //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
-                        //Check the count
-                    //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
+            //Check to see if this is the first, last, or other conditional being emitted (if there is only 1 context, default to first call)
+            //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
+            //Check the count
+            //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
 
             //If the first time, call the context preparation function (ie. for declaring outputs outside of context)
 
@@ -1110,6 +1118,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 
     }
 }
+
 
 void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched, unsigned long blockSize) {
     std::string blockIndVar = "";
@@ -3234,6 +3243,5 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 SchedParams::SchedType schedType) {
 
 }
-
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.
