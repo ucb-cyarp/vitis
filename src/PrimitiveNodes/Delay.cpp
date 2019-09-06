@@ -261,7 +261,7 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
     Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
     cStateInputVar = stateInputVar;
 
-    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
+    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
 
     std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
     cStatementQueue.push_back(stateInputDeclAssignRe);

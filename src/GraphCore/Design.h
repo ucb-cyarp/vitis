@@ -445,6 +445,7 @@ public:
      *          Partitioning will probably happen after expansion but it would be a good thing to include (ie. for the case when hand partitioning is performed)
      *          TODO: perhaps modify factory functions
      * Discover function prototypes for each partition (the I/O is the FIFO inputs)
+     *     Can likley do this with
      * Identify which FIFOs are contained within contexts and what FIFO contains information about the context's execution mode
      *      Note: Only FIFOs entirely within a context may not need a value.
      *          Note: there is an optimization for inputs into a context where values do not need to be communicated to the next thread if the
@@ -654,9 +655,13 @@ public:
      * to be aware of whether or not a context executes to decide if it needs to wait on data on particular FIFOs.  An
      * alternate to this is for the cross parition boundaries to be
      *
+     * @warning: This function searches both direct and order constraint arcs.  This function may return crossings that do
+     * not effectively exist because of these order constraints (ex. order constraint for state update).  It is advisable
+     * to use this function before
+     *
      * @return A map of vectors which contain the arcs that go from the nodes in one partition to nodes in another partition.
      */
-    std::map<std::pair<int, int>, std::shared_ptr<Arc>> getPartitionCrossings();
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> getPartitionCrossings();
 
     /**
      * @brief Discovers partition crossing arcs that can be grouped together

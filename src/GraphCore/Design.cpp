@@ -1061,7 +1061,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 
         }else if((*it)->hasState()){
             //Call emit for state element input
-            //The state element output is treateded similarly to a constant and a variable name is always returned
+            //The state element output is treated similarly to a constant and a variable name is always returned
             //The output has no dependencies within the cycle
             //The input can have dependencies
 
@@ -3164,6 +3164,75 @@ void Design::createEnabledOutputsForEnabledSubsysVisualization() {
         (*driverArc)->setSrcPortUpdateNewUpdatePrev(portToRewireTo);
 
     }
+}
+
+std::map<int, std::vector<std::shared_ptr<Node>>> Design::findPartitions() {
+    //Go through the list of nodes in the design and place them in the appropriate partition
+    std::map<int, std::vector<std::shared_ptr<Node>>> partitions;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        int nodePartition = nodes[i]->getPartitionNum();
+        partitions[nodePartition].push_back(nodes[i]); //The map returns a reference to the vector
+    }
+
+    return partitions;
+}
+
+std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> Design::getPartitionCrossings() {
+    //Iterate through nodes and their out - arcs to discover partition crossings
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> partitionCrossings;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        int srcPartition = nodes[i]->getPartitionNum();
+
+        std::set<std::shared_ptr<Arc>> outArcs = nodes[i]->getOutputArcs();
+        for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
+            int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
+            if(srcPartition != dstPartition){
+                partitionCrossings[std::pair<int, int>(srcPartition, dstPartition)].push_back(*outArc);
+            }
+        }
+    }
+
+    return partitionCrossings;
+}
+
+std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> Design::getGroupableCrossings() {
+    //Iterate through nodes and their out - arcs to discover partition crossings
+    //Check for multiple destinations in a particular partition which could be grouped
+
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        int srcPartition = nodes[i]->getPartitionNum();
+
+        std::set<std::shared_ptr<Arc>> outArcs = nodes[i]->getOutputArcs();
+
+        //For each node, we create a map of other partitions which contains a vector of the arcs to that partition
+        //Arcs from a given node to the same partition can be grouped
+        std::map<int, std::vector<std::shared_ptr<Arc>>> currentGroups;
+
+        for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
+            //Note that arcs are not necessarily ordered according to partitions
+            int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
+            if(srcPartition != dstPartition){
+                currentGroups[dstPartition].push_back(*outArc);
+            }
+        }
+
+        //Add discovered groups to partitionCrossing map
+        for(auto it = currentGroups.begin(); it != currentGroups.end(); it++){
+            int dstPartition = it->first;
+            partitionCrossings[std::pair<int, int>(srcPartition, dstPartition)].push_back(it->second);
+        }
+    }
+
+    return partitionCrossings;
+}
+
+void Design::emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
+                                SchedParams::SchedType schedType) {
+
 }
 
 

@@ -193,6 +193,8 @@ public:
      * @return base^exp
      */
     static unsigned long intPow(unsigned long base, unsigned long exp);
+
+    static bool parseBool(std::string boolStr);
 };
 
 /*! @} */

@@ -180,6 +180,10 @@ set(COMMON_SRCS
         src/HighLevelNodes/DiscreteFIR.h
         src/HighLevelNodes/TappedDelay.cpp
         src/HighLevelNodes/TappedDelay.h
+        src/MultiThread/ThreadCrossingFIFO.cpp
+        src/MultiThread/ThreadCrossingFIFO.h
+        src/MultiThread/LocklessThreadCrossingFIFO.cpp
+        src/MultiThread/LocklessThreadCrossingFIFO.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
