@@ -90,7 +90,7 @@ public:
     static bool isEqOrSubContext(std::vector<Context> a, std::vector<Context> b);
 
     /**
-     * @brief Finds the most specific common context between 2 context statcls
+     * @brief Finds the most specific common context between 2 context stacks
      * @param a
      * @param b
      * @return how deep the most common context is.  Ie. the index of the most specific common context.  This index is valid for both a and b.  If no common context, -1 is returned;

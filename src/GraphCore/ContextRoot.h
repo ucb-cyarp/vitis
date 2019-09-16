@@ -29,7 +29,7 @@ class ContextRoot {
 private:
     std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
-    std::shared_ptr<ContextFamilyContainer> contextFamilyContainer; ///<The corresponding context family container (if it exists) for this ContextRoot
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers; ///<The corresponding context family containers (if any exists) for this ContextRoot
 
 public:
     /**
@@ -75,8 +75,8 @@ public:
      */
     virtual std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() = 0;
 
-    std::shared_ptr<ContextFamilyContainer> getContextFamilyContainer() const;
-    void setContextFamilyContainer(const std::shared_ptr<ContextFamilyContainer> &contextFamilyContainer);
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> getContextFamilyContainers() const;
+    void setContextFamilyContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &contextFamilyContainers);
 
     //==== Emit Functions ====
 

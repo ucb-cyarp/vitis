@@ -24,6 +24,7 @@
 #include "PrimitiveNodes/BlackBox.h"
 #include "ContextContainer.h"
 #include "ContextFamilyContainer.h"
+#include "ContextRoot.h"
 
 #include "GraphCore/StateUpdate.h"
 
@@ -2121,13 +2122,15 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
             if(origNodeAsContextRoot){
 
-                //Copy ContextFamilyContainer Pointer
-                std::shared_ptr<ContextFamilyContainer> origContextFamilyContainer = origNodeAsContextRoot->getContextFamilyContainer();
-                if(origContextFamilyContainer){
-                    std::shared_ptr<Node> copyContextFamilyContainerAsNode = origToCopyNode[origContextFamilyContainer];
+                //Copy ContextFamilyContainerMap
+                std::map<int, std::shared_ptr<ContextFamilyContainer>> origContextFamilyContainerMap = origNodeAsContextRoot->getContextFamilyContainers();
+                std::map<int, std::shared_ptr<ContextFamilyContainer>> copyContextFamilyContainerMap;
+                for(auto it = origContextFamilyContainerMap.begin(); it != origContextFamilyContainerMap.end(); it++){
+                    std::shared_ptr<Node> copyContextFamilyContainerAsNode = origToCopyNode[it->second];
                     std::shared_ptr<ContextFamilyContainer> copyContextFamilyContainer = GeneralHelper::isType<Node, ContextFamilyContainer>(copyContextFamilyContainerAsNode);
-                    nodeCopyAsContextRoot->setContextFamilyContainer(copyContextFamilyContainer);
+                    copyContextFamilyContainerMap[it->first] = copyContextFamilyContainer;
                 }
+                nodeCopyAsContextRoot->setContextFamilyContainers(copyContextFamilyContainerMap);
 
                 //Copy SubContextNodes
                 int numSubContexts = nodeCopyAsContextRoot->getNumSubContexts();
@@ -2624,9 +2627,16 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
     //Rewire the remaining arcs in the designClone
     if(rewireContexts){
         std::vector<std::shared_ptr<Arc>> origArcs;
-        std::vector<std::shared_ptr<Arc>> newArcs;
+        std::vector<std::vector<std::shared_ptr<Arc>>> newArcsGrouped;
 
-        designClone.rewireArcsToContexts(origArcs, newArcs);
+        designClone.rewireArcsToContexts(origArcs, newArcsGrouped);
+
+        std::vector<std::shared_ptr<Arc>> newArcs;
+        for(unsigned long i = 0; i<newArcsGrouped.size(); i++){
+            for(unsigned long j = 0; j<newArcsGrouped[i].size(); j++){
+                newArcs.push_back(newArcsGrouped[i][j]);
+            }
+        }
 
         //Dicsonnect and Remove the orig arcs for scheduling
         std::vector<std::shared_ptr<Node>> emptyNodeVector;
@@ -2777,6 +2787,7 @@ std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
     return nodesWithGlobalDecl;
 }
 
+//TODO: Check
 void Design::encapsulateContexts() {
     //context expansion stops at enabled subsystem boundaries.  Therefore, we cannot have enabled subsystems nested in muxes
     //However, we can have enabled subsystems nested in enabled subsystems, muxes nested in enabled subsystems, and muxes nested in muxes
@@ -2796,61 +2807,6 @@ void Design::encapsulateContexts() {
         //A context root can also be in a context
         if(nodes[i]->getContext().size() > 0){
             nodesInContext.push_back(nodes[i]);
-        }
-    }
-
-    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
-        std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
-        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRootNodes[i]); //TODO: Fix inheritance diamond issue
-
-        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::"));
-        nodes.push_back(familyContainer);
-        contextRootNodes[i]->setContextFamilyContainer(familyContainer);
-
-        //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
-        std::vector<Context> origContext = asNode->getContext();
-        familyContainer->setContext(origContext);
-
-        //Create Context Containers inside of the context Family container;
-        int numContexts = contextRootNodes[i]->getNumSubContexts();
-
-        std::vector<std::shared_ptr<ContextContainer>> subContexts;
-
-        for(unsigned long j = 0; j<numContexts; j++){
-            std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
-            contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Subcontext_"+GeneralHelper::to_string(j));
-            nodes.push_back(contextContainer);
-            //Add this to the container order
-            subContexts.push_back(contextContainer);
-
-            Context context = Context(contextRootNodes[i], j);
-            contextContainer->setContainerContext(context);
-            contextContainer->setContext(origContext); //We give the ContextContainer the same Context stack as the ContextFamily container, the containerContext sets the next level of the context for the nodes contained within it
-        }
-        familyContainer->setSubContextContainers(subContexts);
-    }
-
-    //Itterate through them again and set the parent based on the context.  Use the map to find the corresponding context node
-    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
-        //Get the context stack
-        std::shared_ptr<ContextRoot> asContextRoot = contextRootNodes[i];
-        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(asContextRoot); //TODO: Fix inheritance diamond issue
-
-        std::vector<Context> context = asNode->getContext();
-        if(context.size() > 0){
-            //This node is in a context, move it's container under the appropriate container.
-            Context innerContext = context[context.size()-1];
-
-            std::shared_ptr<ContextFamilyContainer> familyContainer = innerContext.getContextRoot()->getContextFamilyContainer();
-            std::shared_ptr<ContextContainer> newParent = familyContainer->getSubContextContainer(innerContext.getSubContext());
-
-            std::shared_ptr<ContextFamilyContainer> toBeMoved = asContextRoot->getContextFamilyContainer();
-
-            toBeMoved->setParent(newParent);
-            newParent->addChild(toBeMoved);
-        }else{
-            //This node is not in a context, its ContextFamily container should exist at the top level
-            topLevelNodes.push_back(contextRootNodes[i]->getContextFamilyContainer());
         }
     }
 
@@ -2888,9 +2844,15 @@ void Design::encapsulateContexts() {
 
         //Discover appropriate (sub)context container
         std::vector<Context> contextStack = nodesInContext[i]->getContext();
-        Context innerContext = contextStack[contextStack.size()-1];
 
-        std::shared_ptr<ContextFamilyContainer> contextFamily = innerContext.getContextRoot()->getContextFamilyContainer();
+        //Create a ContextFamilyContainer for this partition at each level of the context stack if one has not already been created
+        //TODO: refactor
+        for(int j = 0; j<contextStack.size()-1; j++){ //-1 because the inner context is handled explicitally below
+            getContextFamilyContainerCreateIfNotNoParent(contextStack[j].getContextRoot(), nodesInContext[i]->getPartitionNum());
+        }
+
+        Context innerContext = contextStack[contextStack.size()-1];
+        std::shared_ptr<ContextFamilyContainer> contextFamily = getContextFamilyContainerCreateIfNotNoParent(innerContext.getContextRoot(), nodesInContext[i]->getPartitionNum());
         std::shared_ptr<ContextContainer> contextContainer = contextFamily->getSubContextContainer(innerContext.getSubContext());
 
         //Set new parent to be the context container.  Also add it as a child of the context container.
@@ -2907,10 +2869,45 @@ void Design::encapsulateContexts() {
             origParent->removeChild(asNode);
         }
 
-        std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = contextRootNodes[i]->getContextFamilyContainer();
+        std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = getContextFamilyContainerCreateIfNotNoParent(contextRootNodes[i], asNode->getPartitionNum());
         contextFamilyContainer->addChild(asNode);
         contextFamilyContainer->setContextRoot(contextRootNodes[i]);
         asNode->setParent(contextFamilyContainer);
+    }
+
+    //Iterate through the ContextFamilyContainers (which should all be created now) and set the parent based on the context.
+    for(unsigned long i = 0; i<contextRootNodes.size(); i++){
+        //Get the context stack
+        std::shared_ptr<ContextRoot> asContextRoot = contextRootNodes[i];
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(asContextRoot); //TODO: Fix inheritance diamond issue
+
+        std::vector<Context> context = asNode->getContext();
+        if(context.size() > 0){
+            //This node is in a context, move it's containers under the appropriate container.
+            Context innerContext = context[context.size()-1];
+
+            //Itterate through the ContextFamilyContainers for this ContextRoot
+            std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers = asContextRoot->getContextFamilyContainers();
+            for(auto it = contextFamilyContainers.begin(); it != contextFamilyContainers.end(); it++){
+                std::map<int, std::shared_ptr<ContextFamilyContainer>> newParentFamilyContainers = innerContext.getContextRoot()->getContextFamilyContainers();
+                if(newParentFamilyContainers.find(it->second->getPartition()) == newParentFamilyContainers.end()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error while encapsulating contexts.  Unable to find parent ContextFamilyContainer for specified partition", asNode));
+                }
+                std::shared_ptr<ContextContainer> newParent = newParentFamilyContainers[it->second->getPartition()]->getSubContextContainer(innerContext.getSubContext());
+
+                std::shared_ptr<ContextFamilyContainer> toBeMoved = it->second;
+
+                toBeMoved->setParent(newParent);
+                newParent->addChild(toBeMoved);
+            }
+
+        }else{
+            //This node is not in a context, its ContextFamily containers should exist at the top level
+            std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers = asContextRoot->getContextFamilyContainers();
+            for(auto it = contextFamilyContainers.begin(); it != contextFamilyContainers.end(); it++) {
+                topLevelNodes.push_back(it->second);
+            }
+        }
     }
 }
 
@@ -2962,17 +2959,20 @@ std::vector<std::shared_ptr<BlackBox>> Design::findBlackBoxes(){
     return blackBoxes;
 }
 
+//TODO: Check
 void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
-                                  std::vector<std::shared_ptr<Arc>> &contextArcs) {
+                                  std::vector<std::vector<std::shared_ptr<Arc>>> &contextArcs) {
     //First, let's rewire the ContextRoot driver arcs
     std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
     std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> contextRootOrigArcs, contextRootRewiredArcs; //Want Arc orders to be consistent across runs
 
+    //For each discovered context root
     for(unsigned long i = 0; i<contextRoots.size(); i++){
         //Rewire Drivers
         std::vector<std::shared_ptr<Arc>> driverArcs = contextRoots[i]->getContextDecisionDriver();
 
-        std::map<std::shared_ptr<OutputPort>, std::shared_ptr<Arc>> srcPortToNewArc; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.
+        //Note: All of these share the same destination context root, so checking the destination context root is not required
+        std::map<std::shared_ptr<OutputPort>, std::vector<std::shared_ptr<Arc>>> srcPortToNewArcs; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.  This is used when
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
             //The driver arcs must have the destination re-wired.  At a minimum, they should be rewired to
@@ -2982,15 +2982,17 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
 
-            //Check if the driver src has been encountered before
+            //Check if the driver src / destination contextRoot pair have been encountered before
             std::shared_ptr<OutputPort> driverSrc = driverArcs[j]->getSrcPort();
 
-            std::shared_ptr<Arc> rewiredArc;
-            if(srcPortToNewArc.find(driverSrc) != srcPortToNewArc.end()){
-                //The particular source has already been wired to this
-                rewiredArc = srcPortToNewArc[driverSrc];
+            std::vector<std::shared_ptr<Arc>> rewiredArcs;
+            if(srcPortToNewArcs.find(driverSrc) != srcPortToNewArcs.end()){
+                //This src port has been seen before and has already been re-wired to the context family containers
+                //return the new arcs
+                rewiredArcs = srcPortToNewArcs[driverSrc];
             }else{
-                //Create a new rewiredArc
+                //Have not seen this driver source for this particular ContextRoot before
+                //Create new rewiredArcs, one for each ContextFamilyContainer associated with this ContextRoot
                 std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoots[i]);
 
                 std::vector<Context> srcContext = driverSrc->getParent()->getContext();
@@ -2998,39 +3000,85 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                 //Add the context family container to the context stack of the destination (the context root is not in its own context
                 dstContext.push_back(Context(contextRoots[i], -1)); //The subcontext number is a dummy
 
-                std::shared_ptr<Node> newSrc = driverSrc->getParent(); //Default to orig
-                //Check if the src should be changed
-                if(!Context::isEqOrSubContext(dstContext, srcContext)){
-                    //Need to pick new src
-                    long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
-                    if(commonContextInd+1 > srcContext.size()){
-                        throw std::runtime_error("When rewiring context arc, got unexpected result for new src");
+                //Note, the src may be different for different ContextFamilyContainers due to partition differences
+                std::map<int, std::shared_ptr<ContextFamilyContainer>> dstContextFamilyContainers = contextRoots[i]->getContextFamilyContainers();
+                for(auto it = dstContextFamilyContainers.begin(); it != dstContextFamilyContainers.end(); it++) {
+                    std::shared_ptr<Node> newSrc = driverSrc->getParent(); //Default to orig
+                    //Check if the src should be changed
+                    if ((!Context::isEqOrSubContext(dstContext, srcContext)) ||
+                        (driverSrc->getParent()->getPartitionNum() != it->first)) { //it->first is the partition number
+                        //Need to pick new src
+                        /* Since we are now checking for partitions, it is possible for the source and destination to
+                         * actually be in the same context but in different partitions (different ContextFamilyContainers)
+                         * We need to pick the appropriate ContextFamilyContainer partition
+                         */
+                        long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+
+                        std::shared_ptr<ContextRoot> newSrcAsContextRoot;
+
+                        if(commonContextInd == -1 && srcContext.empty()){
+                            //These nodes have no common context and the src node is not even in a context
+                            //This only happens if the nodes are in different partitions.  Otherwise, the destination
+                            //would be in an equal or sub context of the source
+
+                            //Leave the src unchanged.
+                        }
+                        else {
+                            if (commonContextInd + 1 == srcContext.size()) {
+                                //The destination is in the same context or below as the src, just in a different partiton
+                                //Will re-wire the src to the ContextFamilyContainer of the src
+                                newSrcAsContextRoot = srcContext[commonContextInd].getContextRoot();
+                            }else if (commonContextInd + 1 > srcContext.size()) {
+                                throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected common context found when re-wiring arcs to source", contextRootAsNode));
+                            }else {
+                                //The nodes share a context at a higher level of the context stack.
+                                //Set the source to be the ContextFamilyContainer one level down in the context stack
+                                //(the src node's context must finish executing before the result is ready to drive this context)
+                                newSrcAsContextRoot = srcContext[commonContextInd + 1].getContextRoot();
+                            }
+
+                            //TODO: fix diamond inheritcance
+
+                            newSrc = newSrcAsContextRoot->getContextFamilyContainers()[driverSrc->getParent()->getPartitionNum()]; //Get the src ContextFamilyContainer corresponding to the src partition
+                        }
                     }
-                    std::shared_ptr<ContextRoot> newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
+
+                    //The dst needs to be rewired (at least to the ContextFamily container of the context root
+                    //However, may be higher up in the higherarchy.
+                    //Determine new dst node
+                    long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+
+                    std::shared_ptr<ContextRoot> newDstAsContextRoot;
+
+                    if (commonContextInd + 1 > dstContext.size()) {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected common context found when re-wiring arcs to destination", contextRootAsNode));
+                    }else if(commonContextInd + 1 == dstContext.size()){
+                        //The src is in the same context or below as the dst, just in a different partiton
+                        //Will re-wire the dst to the ContextFamilyContainer of the dst
+
+                        newDstAsContextRoot = dstContext[commonContextInd].getContextRoot();
+                    }else{
+                        newDstAsContextRoot = dstContext[commonContextInd + 1].getContextRoot();
+                    }
+
                     //TODO: fix diamond inheritcance
 
-                    newSrc = newSrcAsContextRoot->getContextFamilyContainer();
+                    std::shared_ptr<Node> newDest = newDstAsContextRoot->getContextFamilyContainers()[it->first]; //it->first is the partition of the origional ContextFamilyContainer destination for this ContextRoot
+
+                    std::shared_ptr<Arc> rewiredArc = Arc::connectNodesOrderConstraint(newSrc, newDest, driverArcs[j]->getDataType(),
+                                                                  driverArcs[j]->getSampleTime());
+                    rewiredArcs.push_back(rewiredArc);
                 }
-
-                //The dst needs to be rewired (at least to the ContextFamily container of the context root
-                //Determine new dst node
-                long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
-                if(commonContextInd+1 > dstContext.size()){
-                    throw std::runtime_error("When rewiring context arc, got unexpected result for new dst");
-                }
-
-                std::shared_ptr<ContextRoot> newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
-                //TODO: fix diamond inheritcance
-
-                std::shared_ptr<Node> newDest = newDstAsContextRoot->getContextFamilyContainer();
-
-                rewiredArc = Arc::connectNodesOrderConstraint(newSrc, newDest, driverArcs[j]->getDataType(), driverArcs[j]->getSampleTime());
-                //Add to the map and the set of contextRootRewiredArcs
-                srcPortToNewArc[driverSrc] = rewiredArc;
-                contextRootRewiredArcs.insert(rewiredArc);
             }
 
-            contextArcs.push_back(rewiredArc);
+            //Add to the map and the set of contextRootRewiredArcs
+            srcPortToNewArcs[driverSrc] = rewiredArcs;
+
+            for(int rewiredArcInd = 0; rewiredArcInd < rewiredArcs.size(); rewiredArcInd++) {
+                contextRootRewiredArcs.insert(rewiredArcs[rewiredArcInd]);
+            }
+
+            contextArcs.push_back(rewiredArcs);
         }
     }
 
@@ -3038,10 +3086,12 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     std::vector<std::shared_ptr<Arc>> candidateArcs = arcs;
     GeneralHelper::removeAll(candidateArcs, contextRootOrigArcs);
 
-    //Add the contextRootRewiredArcs to the design (we do not need to rewire these again so they are not included in the candidate arcs)
-    for(auto rewiredIt = contextRootRewiredArcs.begin(); rewiredIt != contextRootRewiredArcs.end(); rewiredIt++){
-        arcs.push_back(*rewiredIt);
-    }
+    //This is redundant with the add/remove method that occurs outside of the function.  This function does not add the other
+    //arcs re-wired below so it does not make much sense to add the re-wired drivers here.
+//    //Add the contextRootRewiredArcs to the design (we do not need to rewire these again so they are not included in the candidate arcs)
+//    for(auto rewiredIt = contextRootRewiredArcs.begin(); rewiredIt != contextRootRewiredArcs.end(); rewiredIt++){
+//        arcs.push_back(*rewiredIt);
+//    }
 
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
@@ -3065,13 +3115,22 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
         bool rewireSrc = false;
         bool rewireDst = false;
 
+        /* Since we are now checking for partitions, it is possible for the source and destination to
+         * actually be in the same context but in different partitions (different ContextFamilyContainers)
+         * We need to pick the appropriate ContextFamilyContainer partition
+         */
+
         //Check if the src should be rewired
-        if(!Context::isEqOrSubContext(dstContext, srcContext)){
+        //TODO: Refactor since we may not actually re-wire one of the sides if the partitions don't match
+        //We do not re-wire the src if the src in dst are in different partitions if the src is not in a context.  In this case, the src remains the same (the origional node in the general context)
+        //We do re-wire the src if it is in a different partition and is in a context.  We then need to elevate the arc to the ContextFamilyContainer of the particular partition
+        if((!Context::isEqOrSubContext(dstContext, srcContext)) || ((candidateArc->getSrcPort()->getParent()->getPartitionNum() != candidateArc->getDstPort()->getParent()->getPartitionNum()) && !srcContext.empty())){
             rewireSrc = true;
         }
 
         //Check if the dst should be rewired
-        if(!Context::isEqOrSubContext(srcContext, dstContext)){
+        //Similarly to the src, the dest is not re-wired if is in a different partition but is not within a context
+        if((!Context::isEqOrSubContext(srcContext, dstContext)) || ((candidateArc->getSrcPort()->getParent()->getPartitionNum() != candidateArc->getDstPort()->getParent()->getPartitionNum()) && !dstContext.empty())){
             rewireDst = true;
         }
 
@@ -3081,28 +3140,44 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
             if(rewireSrc){
                 long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
-                if(commonContextInd+1 > srcContext.size()){
-                    throw std::runtime_error("When rewiring context arc, got unexpected result for new src");
-                }
+                std::shared_ptr<ContextRoot> newSrcAsContextRoot;
 
-                std::shared_ptr<ContextRoot> newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
+                if(commonContextInd+1 > srcContext.size()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected common context found when re-wiring arcs to src", candidateArc->getSrcPort()->getParent()));
+                }else if(commonContextInd+1 == srcContext.size()){
+                    //The dst is at or below the src context but they are in different partitions
+                    //Need to re-wire the src to be the ContextFamilyContainer for its particular
+                    newSrcAsContextRoot = srcContext[commonContextInd].getContextRoot();
+                }else{
+                    //The dst is above the src in context, need to rewire
+                    newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
+                }//The case of the src not having a context is handled when checking if src rewiring is needed
+
+
                 //TODO: fix diamond inheritcance
 
-                srcPort = newSrcAsContextRoot->getContextFamilyContainer()->getOrderConstraintOutputPort();
+                srcPort = newSrcAsContextRoot->getContextFamilyContainers()[candidateArc->getSrcPort()->getParent()->getPartitionNum()]->getOrderConstraintOutputPort();
             }else{
                 srcPort = candidateArc->getSrcPort();
             }
 
             if(rewireDst){
                 long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
+
+                std::shared_ptr<ContextRoot> newDstAsContextRoot;
                 if(commonContextInd+1 > dstContext.size()){
-                    throw std::runtime_error("When rewiring context arc, got unexpected result for new dst");
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected common context found when re-wiring arcs to dst", candidateArc->getDstPort()->getParent()));
+                }else if(commonContextInd+1 == dstContext.size()){
+                    //The src is at or below the dest context but they are in different partitions
+                    //Need to re-wire to the ContextFamilyContainer for the partition
+                    newDstAsContextRoot = dstContext[commonContextInd].getContextRoot();
+                }else{
+                    newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
                 }
 
-                std::shared_ptr<ContextRoot> newDstAsContextRoot = dstContext[commonContextInd+1].getContextRoot();
                 //TODO: fix diamond inheritcance
 
-                dstPort = newDstAsContextRoot->getContextFamilyContainer()->getOrderConstraintInputPort();
+                dstPort = newDstAsContextRoot->getContextFamilyContainers()[candidateArc->getDstPort()->getParent()->getPartitionNum()]->getOrderConstraintInputPort();
             }else{
                 dstPort = candidateArc->getDstPort();
             }
@@ -3115,7 +3190,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                     throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
                 }
 
-                if(origDstAsContextRoot->getContextFamilyContainer() != dstPort->getParent()){
+                if(origDstAsContextRoot->getContextFamilyContainers()[candidateArc->getDstPort()->getParent()->getPartitionNum()] != dstPort->getParent()){
                     throw std::runtime_error("Attempted to Rewire a Context Arc into a Self Loop");
                 }
             }else {
@@ -3124,7 +3199,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
                 //Add the orig and rewired arcs to the vectors to return
                 origArcs.push_back(candidateArc);
-                contextArcs.push_back(rewiredArc);
+                contextArcs.push_back({rewiredArc});
             }
         }
     }
@@ -3187,7 +3262,7 @@ std::map<int, std::vector<std::shared_ptr<Node>>> Design::findPartitions() {
     return partitions;
 }
 
-std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> Design::getPartitionCrossings() {
+std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> Design::getPartitionCrossings(bool checkForToFromNoPartition) {
     //Iterate through nodes and their out - arcs to discover partition crossings
     std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> partitionCrossings;
 
@@ -3198,6 +3273,10 @@ std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> Design::getPart
         for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
             int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
             if(srcPartition != dstPartition){
+                if(checkForToFromNoPartition && (srcPartition == -1 || dstPartition == -1)){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1"));
+                }
+
                 partitionCrossings[std::pair<int, int>(srcPartition, dstPartition)].push_back(*outArc);
             }
         }
@@ -3206,7 +3285,7 @@ std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> Design::getPart
     return partitionCrossings;
 }
 
-std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> Design::getGroupableCrossings() {
+std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> Design::getGroupableCrossings(bool checkForToFromNoPartition) {
     //Iterate through nodes and their out - arcs to discover partition crossings
     //Check for multiple destinations in a particular partition which could be grouped
 
@@ -3225,6 +3304,10 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
             //Note that arcs are not necessarily ordered according to partitions
             int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
             if(srcPartition != dstPartition){
+                if(checkForToFromNoPartition && (srcPartition == -1 || dstPartition == -1)){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1"));
+                }
+
                 currentGroups[dstPartition].push_back(*outArc);
             }
         }
@@ -3242,6 +3325,134 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 void Design::emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
                                 SchedParams::SchedType schedType) {
 
+    //The code below if adapted from the single threaded emitter
+
+    prune(true);
+    expandEnabledSubsystemContexts();
+    //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
+    //Is ok for them to exist (specifically order constraint arcs) after state update node and context encapsulation
+    if(visMaster->outDegree() > 0){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Visualization Master is Not Expected to Have an Out Degree > 0, has " + GeneralHelper::to_string(visMaster->outDegree())));
+    }
+    createEnabledOutputsForEnabledSubsysVisualization();
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
+    //Partition Here
+
+    //FIFO insert Here (before context variable updates or state variable updates created
+
+    createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
+    createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
+    //TODO: Modify to not stop at FIFOs for
+    discoverAndMarkContexts();
+//        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+//        assignArcIDs();
+
+    //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
+    //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
+    //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
+    //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
+
+    encapsulateContexts();
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
+    //Multithreaded specific
+
+    //This function needs to perform the expansion, context expansion, and context encapsulation that the single threaded
+    //emitters already do.  Note that the encapsulation into ContextFamilyContainers now needs to be partition aware.
+    //Seperate ContextFamilyContainers should be created for each partition.
+    //Context family containers should also be in the partition they are assigned to and should be included in the list
+    //of nodes to schedule when a particular partition is being scheduled
+    //When arcs are elevated for scheduling, the context/partition pair should now be considered rather than just the partition (this happens in the scheduler method by calling rewireArcsToContexts)
+    //Also, the context driver arc should also be duplicated for each ContextFamilyContainer
+
+    //These changes should not effect the single thread
+
+    //Need to modify discover and mark contexts to not stop at FIFOs even though they have state (special case
+
+    //Discover partitions
+    std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
+
+    //Discover groupable partition crossings
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings = getGroupableCrossings();
+
+    //Insert FIFOs into the crossings.  Note, the FIFO's partition should reside in the upstream partition of the arc(s) it is being placed in the middle of.
+    //They should also reside inside of the source context family container (double check)
+
+    //We've added nodes and arcs and therefore need to assign their ID numbers
+    assignNodeIDs();
+    assignArcIDs();
+
+        //Emit each partition's function (except partition -1)
+            //Discover partition function prototype from crossing FIFOs
+            //Need to emit the output seperatly? (No, by supplying the correct emitCNextState statement, the output can be set
+
+        //Emit each partition's driver function
+
+    //Emit I/O
+        //For now, is a seperate partition (0)
+        //Get function prototype from Input/Output master and FIFOs
+
+        //For now, provide a constant test case
+
+    //Emit startup function
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.
+
+std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateIfNotNoParent(std::shared_ptr<ContextRoot> contextRoot, int partition){
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers = contextRoot->getContextFamilyContainers();
+
+    if(contextFamilyContainers.find(partition) == contextFamilyContainers.end()){
+        //Does not exist for given partition
+        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRoot);
+        std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
+        nodes.push_back(familyContainer);
+        familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition));
+        familyContainer->setPartition(partition);
+
+        //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
+        std::vector<Context> origContext = asNode->getContext();
+        familyContainer->setContext(origContext);
+
+        //Connect to ContextRoot and to siblings
+        familyContainer->setSiblingContainers(contextFamilyContainers);
+        for(auto it = contextFamilyContainers.begin(); it != contextFamilyContainers.end(); it++){
+            std::map<int, std::shared_ptr<ContextFamilyContainer>> siblingMap = it->second->getSiblingContainers();
+            siblingMap[partition] = familyContainer;
+            it->second->setSiblingContainers(siblingMap);
+        }
+        contextFamilyContainers[partition] = familyContainer;
+        contextRoot->setContextFamilyContainers(contextFamilyContainers);
+
+        //Create Context Containers inside of the context Family container;
+        int numContexts = contextRoot->getNumSubContexts();
+
+        std::vector<std::shared_ptr<ContextContainer>> subContexts;
+
+        for(unsigned long j = 0; j<numContexts; j++){
+            std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
+            contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition)+"_Subcontext_"+GeneralHelper::to_string(j));
+            nodes.push_back(contextContainer);
+            //Add this to the container order
+            subContexts.push_back(contextContainer);
+
+            Context context = Context(contextRoot, j);
+            contextContainer->setContainerContext(context);
+            contextContainer->setContext(origContext); //We give the ContextContainer the same Context stack as the ContextFamily container, the containerContext sets the next level of the context for the nodes contained within it
+        }
+        familyContainer->setSubContextContainers(subContexts);
+
+        return familyContainer;
+    }else{
+        return contextFamilyContainers[partition];
+    }
+}

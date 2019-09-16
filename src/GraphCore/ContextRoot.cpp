@@ -45,10 +45,10 @@ void ContextRoot::addContextVariableUpdateNode(std::shared_ptr<ContextVariableUp
     contextVariableUpdateNodes.push_back(contextVariableUpdateNode);
 }
 
-std::shared_ptr<ContextFamilyContainer> ContextRoot::getContextFamilyContainer() const {
-    return contextFamilyContainer;
+std::map<int, std::shared_ptr<ContextFamilyContainer>> ContextRoot::getContextFamilyContainers() const {
+    return contextFamilyContainers;
 }
 
-void ContextRoot::setContextFamilyContainer(const std::shared_ptr<ContextFamilyContainer> &contextFamilyContainer) {
-    ContextRoot::contextFamilyContainer = contextFamilyContainer;
+void ContextRoot::setContextFamilyContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &contextFamilyContainers) {
+    ContextRoot::contextFamilyContainers = contextFamilyContainers;
 }

@@ -27,6 +27,8 @@ class Node;
 class Arc;
 class ContextRoot;
 class BlackBox;
+class ContextFamilyContainer;
+class ContextContainer;
 
 //This Class
 
@@ -439,11 +441,9 @@ public:
      * Discover Partition Crossings
      * Discover Group-able Partition Crossings
      * Insert Inter-Partition FIFOs
-     *      FIFO module will have a similar structure to a delay or latch (EnableOutput).  Will create a context update node
-     *      and will de-couple itself.  However, will be less restrictive than delay because state update because dependencies
-     *      arcs are not drawn from outputs of delay back to the context update node (which in delays prevents an update from occurring
-     *      before the current value is being used).  This job now gets implicitly handled by the thread schedulers and the FIFO
-     *      itself.  Also, the context update and the FIFO output will be placed in their respective partitions.  For now, all FIFOs
+     *      FIFO module will have a similar structure to a delay or latch (EnableOutput).  FIFOs are placed in the partition of the source
+     *      because of the scheduling semantics for nodes with state.  They have no explicit state update emitter as this is handled by the
+     *      core scheduler.  For now, all FIFOs
      *      are assumed to be at the boundaries
      * Simple re-timing
      *      We need to do proper re-timing but, as a first step, allow delays next to a FIFO to be re-timed into it if they are the
@@ -668,9 +668,11 @@ public:
      * not effectively exist because of these order constraints (ex. order constraint for state update).  It is advisable
      * to use this function before
      *
+     * @param checkForToFromNoPartition if true, checks for arcs going to/from nodes in partition -1 and throws an error if this is encountered.  Arcs between 2 nodes in partition -1 will not cause an error
+     *
      * @return A map of vectors which contain the arcs that go from the nodes in one partition to nodes in another partition.
      */
-    std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> getPartitionCrossings();
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> getPartitionCrossings(bool checkForToFromNoPartition = true);
 
     /**
      * @brief Discovers partition crossing arcs that can be grouped together
@@ -679,9 +681,11 @@ public:
      * parition.  Instead of creating a FIFO for each arc, a single FIFO should be created with the fanout occuring within
      * the second parition.  This function finds arcs which can be combined into single FIFOs in this manner.
      *
+     * @param checkForToFromNoPartition if true, checks for arcs going to/from nodes in partition -1 and throws an error if this is encountered.  Arcs between 2 nodes in partition -1 will not cause an error
+     *
      * @return A map of vectors which contain groups arcs that go from the nodes in one partition to nodes in another partition.  Groups can contain one or several arcs
      */
-    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> getGroupableCrossings();
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> getGroupableCrossings(bool checkForToFromNoPartition = true);
 
     //TODO: Validate that mux contexts do not contain state elements
 
@@ -712,8 +716,11 @@ public:
      * be a single rewired arc for several original arcs.  In this case, the same ptr to the rewired arc will be returned
      * for each of the corresponding original arcs.
      *
+     * Arcs that are drivers of context roots may be re-wired into multiple arc to ContextFamilyContainers since a given
+     * context has a ContextFamilyContainer for each partition it is present in.
+     *
      * @note This function does not actually rewire existing arcs but creates a new arcs representing how the given
-     * arcs should be rewired.  The two returned vectors have a 1-1 relationship between an arc to be rewired and an arc
+     * arcs should be rewired.  The two returned vectors have a 1-many relationship between an arc to be rewired and the arcs
      * representing the result of that rewiring.  To rewire, simply disconnect the arcs from the origArcs vector.  The
      * arcs returned in contextArcs are already added to the design.
      *
@@ -721,7 +728,22 @@ public:
      * or not a context should be scheduled in the next iteration of the scheduler
      *
      */
-    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::shared_ptr<Arc>> &contextArcs);
+    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::vector<std::shared_ptr<Arc>>> &contextArcs);
+
+    /**
+     * @brief Gets the ContextFamilyContainer for the provided context root if one exists (is in the ContextRoot's map of ContextFamilyContainers).
+     *
+     * If the ContextFamilyContainer does not exist for the given partition, one is created and is added to the ContextRoot's map of ContextFamilyContainers.
+     * The existing ContextFamilyContainers for the given ContextRoot have their sibling maps updated.  The new ContextFamilyContainer has its sibling map set
+     * to include all other ContextFamilyContainers belonging to the given ContextRoot
+     *
+     * @warning The created ContextFamilyContainer does not have its parent set.  This needs to be performed outside of this helper function
+     *
+     * @param contextRoot
+     * @param partition
+     * @return
+     */
+    std::shared_ptr<ContextFamilyContainer> getContextFamilyContainerCreateIfNotNoParent(std::shared_ptr<ContextRoot> contextRoot, int partition);
 };
 
 /*! @} */
