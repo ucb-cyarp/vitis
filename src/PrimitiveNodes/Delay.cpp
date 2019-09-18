@@ -207,7 +207,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             //Return the simple name (no index needed as it is not an array_
             return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
         }else{
-            return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(delayValue-1) + "]", true);
+            return CExpr(cStateVar.getCVarName(imag) + "[0]", true);
         }
     }
 }
@@ -228,14 +228,14 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
         //Emit a for loop to perform the shift for each
         std::string loopVarName = name+"_n"+GeneralHelper::to_string(id)+"_loopCounter";
 
-        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
-        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "-1];}");
-        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[0] = " + cStateInputVar.getCVarName(false) + ";");
+        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = 0; " + loopVarName + " < " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + "++){");
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "+1];}");
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue-1) + "] = " + cStateInputVar.getCVarName(false) + ";");
 
         if(cStateVar.getDataType().isComplex()){
-            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
-            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "-1];}");
-            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[0] = " + cStateInputVar.getCVarName(true) + ";");
+            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = 0; " + loopVarName + " < " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + "++){");
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "+1];}");
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue-1) + "] = " + cStateInputVar.getCVarName(true) + ";");
         }
     }
 
