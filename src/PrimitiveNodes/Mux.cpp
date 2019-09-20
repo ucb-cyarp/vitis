@@ -8,6 +8,7 @@
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
 #include "GraphCore/ContextRoot.h"
+#include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextVariableUpdate.h"
 #include "General/ErrorHelpers.h"
 #include <iostream>
@@ -423,10 +424,24 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
     for(unsigned long i = 0; i<inputPorts.size(); i++) {
         int subContextNumber = inputPorts[i]->getPortNum();
 
+        std::shared_ptr<SubSystem> updateNodeParent;
+        if(setContext){
+            //Should rside in the same context as the context root mux
+            if(contextFamilyContainers.find(partitionNum) != contextFamilyContainers.end()){
+                //Context family container exists
+                updateNodeParent = contextFamilyContainers[partitionNum];
+            }else{
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot create ContextUpdateNode when in setContext mode unless ContextFamilyContainers are already created"));
+            }
+        }else{
+            updateNodeParent = getParent();
+        }
+
         std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode = NodeFactory::createNode<ContextVariableUpdate>(
                 getParent());
         contextVariableUpdateNode->setName("ContextVariableUpdate-For-" + getName() + "-Input" + GeneralHelper::to_string(subContextNumber));
         contextVariableUpdateNode->setContextRoot(sharedPtrToThis);
+        contextVariableUpdateNode->setPartitionNum(partitionNum); //Copy the same partition number as the context root
         addContextVariableUpdateNode(contextVariableUpdateNode);
         contextVariableUpdateNode->setContextVarIndex(0); //There is only 1 output per mux, set the variable to it
         new_nodes.push_back(contextVariableUpdateNode);
@@ -596,12 +611,20 @@ Variable Mux::getCContextVar(int contextVarIndex) {
     return muxContextOutputVar;
 }
 
-void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
+void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
+    //Note: For single threaded operation, this is simply getSelectorPort()->getSrcOutputPort()
+    //However, in a multi-threaded context, the select driver may come from a FIFO (which will be different depending on the partition)
+    //There should only be 1 driver arc for a mux in a given partition
+    std::vector<std::shared_ptr<Arc>> driverArcs = getContextDriversForPartition(partitionNum);
+    if(driverArcs.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - There should be exactly 1 driver arc for a mux", getSharedPointer()));
+    }
+
+    std::shared_ptr<OutputPort> selectSrcOutputPort = driverArcs[0]->getSrcPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
     std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
@@ -659,12 +682,20 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
 
 }
 
-void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
+void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
+    //Note: For single threaded operation, this is simply getSelectorPort()->getSrcOutputPort()
+    //However, in a multi-threaded context, the select driver may come from a FIFO (which will be different depending on the partition)
+    //There should only be 1 driver arc for a mux in a given partition
+    std::vector<std::shared_ptr<Arc>> driverArcs = getContextDriversForPartition(partitionNum);
+    if(driverArcs.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - There should be exactly 1 driver arc for a mux", getSharedPointer()));
+    }
+
+    std::shared_ptr<OutputPort> selectSrcOutputPort = driverArcs[0]->getSrcPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
     std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
@@ -689,12 +720,20 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
     }
 }
 
-void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
+void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
     if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
+    //Note: For single threaded operation, this is simply getSelectorPort()->getSrcOutputPort()
+    //However, in a multi-threaded context, the select driver may come from a FIFO (which will be different depending on the partition)
+    //There should only be 1 driver arc for a mux in a given partition
+    std::vector<std::shared_ptr<Arc>> driverArcs = getContextDriversForPartition(partitionNum);
+    if(driverArcs.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - There should be exactly 1 driver arc for a mux", getSharedPointer()));
+    }
+
+    std::shared_ptr<OutputPort> selectSrcOutputPort = driverArcs[0]->getSrcPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
     std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
@@ -713,8 +752,13 @@ void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedP
     }
 }
 
-void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
-    DataType selectDataType = getSelectorPort()->getDataType();
+void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
+    std::vector<std::shared_ptr<Arc>> driverArcs = getContextDriversForPartition(partitionNum);
+    if(driverArcs.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - There should be exactly 1 driver arc for a mux", getSharedPointer()));
+    }
+
+    DataType selectDataType = driverArcs[0]->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
         //If/Else style
 
@@ -729,8 +773,13 @@ void Mux::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, Sche
     }
 }
 
-void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
-    DataType selectDataType = getSelectorPort()->getDataType();
+void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
+    std::vector<std::shared_ptr<Arc>> driverArcs = getContextDriversForPartition(partitionNum);
+    if(driverArcs.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - There should be exactly 1 driver arc for a mux", getSharedPointer()));
+    }
+
+    DataType selectDataType = driverArcs[0]->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
         //If/Else style
 
@@ -745,8 +794,13 @@ void Mux::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedP
     }
 }
 
-void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) {
-    DataType selectDataType = getSelectorPort()->getDataType();
+void Mux::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
+    std::vector<std::shared_ptr<Arc>> driverArcs = getContextDriversForPartition(partitionNum);
+    if(driverArcs.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - There should be exactly 1 driver arc for a mux", getSharedPointer()));
+    }
+
+    DataType selectDataType = driverArcs[0]->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
         //If/Else style
 

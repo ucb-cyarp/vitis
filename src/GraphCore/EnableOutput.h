@@ -111,7 +111,8 @@ public:
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
-                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                               bool includeContext) override;
 
     /**
      * @brief Generate the C expression for the EnableOutput

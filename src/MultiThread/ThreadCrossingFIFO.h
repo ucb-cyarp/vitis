@@ -36,7 +36,7 @@
 class ThreadCrossingFIFO : public Node {
     friend NodeFactory;
 protected:
-    int fifoLength; ///<The length of this FIFO (in elements)
+    int fifoLength; ///<The length of this FIFO (in blocks)
     std::vector<NumericValue> initConditions; ///<Initial values for this FIFO.  The FIFO will be initialized to contain these values
     int blockSize; ///<The block size (in elements) of transactions to/from FIFO
     Variable cStateVar; ///<The C variable from which values are read
@@ -47,7 +47,7 @@ protected:
 
     //==== Constructors ====
     /**
-     * @brief Constructs an empty delay node
+     * @brief Constructs an empty ThreadCrossing FIFO node
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
@@ -75,6 +75,9 @@ protected:
      * @param orig The origional node from which a shallow copy is being made
      */
     ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent, ThreadCrossingFIFO *orig);
+
+    //====Helpers====
+    static void initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix);
 
 public:
     //====Getters/Setters====
@@ -111,6 +114,11 @@ public:
     std::set<GraphMLParameter> graphMLParameters() override;
 
     //A seperate class function will write properties to graphml
+    /**
+     * @brief Emit the graphML data entries for this abstract class.  Can be called by the emitGraphML method in subclasses
+     * @param doc the XML DOM Document
+     * @param graphNode the DOM Element for the GraphNode
+     */
     void emitPropertiesToGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode);
 
     /**
@@ -178,7 +186,10 @@ public:
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
-                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                               bool includeContext) override;
+
+    bool canExpand() override;
 
     //==== Thread Crossing FIFO Specific Functions ====
 

@@ -23,18 +23,7 @@ void ThreadCrossingFIFO::setInitConditions(const std::vector<NumericValue> &init
 }
 
 Variable ThreadCrossingFIFO::getCStateVar() {
-    //If not yet initialized, initialize
-    if(!cStateVarInitialized){
-        std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_src";
-        cStateVar.setName(varName);
-
-        if(getOutputPorts().size() == 1 && getOutputPort(0)->getArcs().size() >= 1){
-            cStateVar.setDataType((*getOutputPort(0)->getArcs().begin())->getDataType());
-        }else{
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should Have >= 1 Output Arc", getSharedPointer()));
-        }
-        cStateVarInitialized = true;
-    }
+    ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateVar, cStateVarInitialized, "src");
 
     return cStateVar;
 }
@@ -45,18 +34,7 @@ void ThreadCrossingFIFO::setCStateVar(const Variable &cStateVar) {
 }
 
 Variable ThreadCrossingFIFO::getCStateInputVar() {
-    //If not yet initialized, initialize
-    if(!cStateInputVarInitialized){
-        std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_dst";
-        cStateInputVar.setName(varName);
-
-        if(getInputPorts().size() == 1 && getInputPort(0)->getArcs().size() == 1){
-            cStateInputVar.setDataType((*getInputPort(0)->getArcs().begin())->getDataType());
-        }else{
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should Have 1 Input Arc", getSharedPointer()));
-        }
-        cStateInputVarInitialized = true;
-    }
+    ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateInputVar, cStateInputVarInitialized, "dst");
 
     return cStateInputVar;
 }
@@ -190,7 +168,9 @@ void ThreadCrossingFIFO::emitPropertiesToGraphML(xercesc::DOMDocument *doc, xerc
 }
 
 std::string ThreadCrossingFIFO::labelStr() {
-    return "\nFIFO_Length:" + GeneralHelper::to_string(fifoLength) +
+    std::string label = Node::labelStr();
+
+    return label + "\nFIFO_Length:" + GeneralHelper::to_string(fifoLength) +
            "\nInitialCondition: " + NumericValue::toString(initConditions) +
            "\nBlockSize: " + GeneralHelper::to_string(blockSize);
 }
@@ -236,6 +216,10 @@ void ThreadCrossingFIFO::validate() {
 
     if(partitionIn == partitionOut){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Input and Output Partitions are the Same", getSharedPointer()));
+    }
+
+        if(initConditions.size() > (fifoLength*blockSize - blockSize)){ // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occure
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - The number of initial conditions cannot be larger than the FIFO - 1 block", getSharedPointer()));
     }
 }
 
@@ -290,7 +274,26 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
 bool ThreadCrossingFIFO::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                               bool includeContext) {
     return false;
 }
 
+bool ThreadCrossingFIFO::canExpand() {
+    return false;
+}
+
+void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix){
+    //If not yet initialized, initialize
+    if(!init){
+        std::string varName = node->getName()+"_n"+GeneralHelper::to_string(node->getId())+"_" +suffix;
+        var.setName(varName);
+
+        if(node->getOutputPorts().size() == 1 && node->getOutputPort(0)->getArcs().size() >= 1){
+            var.setDataType((*node->getOutputPort(0)->getArcs().begin())->getDataType());
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Should Have >= 1 Output Arc", node));
+        }
+        init = true;
+    }
+}

@@ -448,20 +448,25 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
                                                 std::vector<std::shared_ptr<Node>> &new_nodes,
                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                bool includeContext) {
     //Create a state update node for this delay
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(statefulNode->getParent());
     stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
+    stateUpdate->setPartitionNum(statefulNode->getPartitionNum());
     stateUpdate->setPrimaryNode(statefulNode);
     statefulNode->setStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
-    //Set context to be the same as the primary node
-    std::vector<Context> primarayContex = statefulNode->getContext();
-    stateUpdate->setContext(primarayContex);
 
-    //Add node to the lowest level context (if such a context exists
-    if(!primarayContex.empty()){
-        Context specificContext = primarayContex[primarayContex.size()-1];
-        specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+    if(includeContext) {
+        //Set context to be the same as the primary node
+        std::vector<Context> primarayContex = statefulNode->getContext();
+        stateUpdate->setContext(primarayContex);
+
+        //Add node to the lowest level context (if such a context exists
+        if (!primarayContex.empty()) {
+            Context specificContext = primarayContex[primarayContex.size() - 1];
+            specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+        }
     }
 
     new_nodes.push_back(stateUpdate);

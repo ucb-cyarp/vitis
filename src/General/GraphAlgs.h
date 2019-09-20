@@ -22,6 +22,16 @@
 class EnabledSubSystem;
 class EnabledNode;
 
+/**
+ * \addtogroup General General Helper Classes
+ *
+ * @brief A set of general helper classes.
+ * @{
+*/
+
+/**
+ * @brief Helper class to contain graph algorithms
+ */
 class GraphAlgs {
 public:
 
@@ -150,13 +160,17 @@ public:
      *        a temporary variable is not
      *   - Each node dependent on the output of the delay (order constraint only)
      *
+     *   The partition of the StateUpdate node is set to be the same as the stateful node
+     *
      */
     static bool createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNode,
                                                 std::vector<std::shared_ptr<Node>> &new_nodes,
                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                bool includeContext);
 };
 
+/*! @} */
 
 #endif //VITIS_GRAPHALGS_H

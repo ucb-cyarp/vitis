@@ -13,11 +13,15 @@ Variable::Variable() : name("") {
 
 }
 
-Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType) {
+Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType), volatileVar(false) {
 
 }
 
-Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue){
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue), volatileVar(false){
+
+}
+
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar) : name(name), dataType(dataType), initValue(initValue), volatileVar(volatileVar){
 
 }
 
@@ -49,7 +53,7 @@ std::string Variable::getCVarName(bool imag) {
 std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
-    std::string decl = cpuStorageType.toString(DataType::StringStyle::C, false, false) + " " + getCVarName(imag);
+    std::string decl = (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " " + getCVarName(imag);
 
     if(dataType.getWidth() > 1 && includeArray){
         decl += "[";
@@ -122,5 +126,13 @@ std::vector<NumericValue> Variable::getInitValue() const {
 
 void Variable::setInitValue(const std::vector<NumericValue> &initValue) {
     Variable::initValue = initValue;
+}
+
+bool Variable::isVolatileVar() const {
+    return volatileVar;
+}
+
+void Variable::setVolatileVar(bool volatileVar) {
+    Variable::volatileVar = volatileVar;
 }
 

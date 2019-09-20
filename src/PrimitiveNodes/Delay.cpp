@@ -282,9 +282,10 @@ std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
 bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                  bool includeContext) {
 
-    return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+    return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs, includeContext);
 }
 
 bool Delay::hasCombinationalPath() {

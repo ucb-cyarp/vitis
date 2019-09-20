@@ -42,6 +42,8 @@ set(COMMON_SRCS
         src/General/TopologicalSortParameters.h
         src/General/DSPHelpers.cpp
         src/General/DSPHelpers.h
+        src/General/EmitterHelpers.cpp
+        src/General/EmitterHelpers.h
         src/General/ErrorHelpers.cpp
         src/General/ErrorHelpers.h
         src/GraphCore/SchedParams.cpp
@@ -184,6 +186,8 @@ set(COMMON_SRCS
         src/MultiThread/ThreadCrossingFIFO.h
         src/MultiThread/LocklessThreadCrossingFIFO.cpp
         src/MultiThread/LocklessThreadCrossingFIFO.h
+        src/General/ThreadCrossingFIFOParameters.cpp
+        src/General/ThreadCrossingFIFOParameters.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp

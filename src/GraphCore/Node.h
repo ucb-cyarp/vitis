@@ -831,13 +831,15 @@ public:
      * @param deleted_nodes a vector of nodes to be deleted in the design
      * @param new_arcs a vector of new arcs added to the design
      * @param deleted_arcs a vector of arcs to be deleted from the design
+     * @param includeContext if true, the state update node is included in the same context (and partition) as the root node
      *
      * @return true if the StateUpdate node was created and inserted into the graph, false if it was not
      */
     virtual bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                        std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                        std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                       bool includeContext);
 
     /**
      * @brief Identifies if the node requires a global declaration.

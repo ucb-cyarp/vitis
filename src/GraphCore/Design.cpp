@@ -30,6 +30,10 @@
 
 #include "GraphMLTools/GraphMLExporter.h"
 
+#include "MultiThread/ThreadCrossingFIFO.h"
+#include "MultiThread/LocklessThreadCrossingFIFO.h"
+#include "General/EmitterHelpers.h"
+
 //==== Constructors
 Design::Design() {
     inputMaster = NodeFactory::createNode<MasterInput>();
@@ -825,7 +829,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 }
 
 void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, int blockSize,
-                                       std::string indVarName) {
+                                       std::string indVarName, bool checkForPartitionChange) {
     //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
     std::vector<Context> lastEmittedContext;
 
@@ -838,10 +842,25 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
     //Keep a count of how many subContexts of a contextRoot have been emitted, allows if/else if/else statements to not be contiguous
     std::map<std::shared_ptr<ContextRoot>, int> subContextEmittedCount;
 
+    //Check if a new partition has been entered
+    int partition = -1;
+    bool firstNode = true;
+
     //Itterate through the schedule and emit
     for(auto it = orderedNodes.begin(); it != orderedNodes.end(); it++){
 
 //        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
+
+        if(firstNode){
+            firstNode = false;
+            partition = (*it)->getPartitionNum();
+        }else if(checkForPartitionChange){
+            if(partition != (*it)->getPartitionNum()){
+                //It is unclear what the implication would be for how to open and close contexts if the partition changes in the middle of op emit
+                //Therefore, this condition should be checked for
+                throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Partition change occurred when emitting ops", *it));
+            }
+        }
 
         //Check if the context has changed
         std::vector<Context> nodeContext = (*it)->getContext();
@@ -862,11 +881,11 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
 
                     if(contextFirst.size() - 1 < ind || contextFirst[ind]){
                         //This context was created with a call to first
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext(), (*it)->getPartitionNum());
                     }else if(subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >= lastEmittedContext[ind].getContextRoot()->getNumSubContexts()-1 ){
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext(), (*it)->getPartitionNum());
                     }else{
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext(), (*it)->getPartitionNum());
                     }
 
                     //Remove this level of the contextFirst stack because the family was exited
@@ -882,11 +901,11 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
                     //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context closes up to that point
                     //could be either a first, mid, or last
                     if(contextFirst[ind]) { //contextFirst is guarenteed to exist because this level existed in the last emitted context
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType, lastEmittedContext[ind].getSubContext(), (*it)->getPartitionNum());
                     }else if(subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >= lastEmittedContext[ind].getContextRoot()->getNumSubContexts()-1 ){
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType, lastEmittedContext[ind].getSubContext(), (*it)->getPartitionNum());
                     }else{
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext());
+                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType, lastEmittedContext[ind].getSubContext(), (*it)->getPartitionNum());
                     }
 
                     if(lastEmittedContext[ind].getContextRoot() == nodeContext[ind].getContextRoot()){
@@ -923,7 +942,7 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
                     }
 
                     //Emit context
-                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
+                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext(), (*it)->getPartitionNum());
 
                     //push back onto contextFirst
                     contextFirst.push_back(true);
@@ -944,15 +963,15 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
                         }
 
                         //Emit context
-                        nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext());
+                        nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType, nodeContext[i].getSubContext(), (*it)->getPartitionNum());
 
                         //This is a new family, push back
                         contextFirst.push_back(true);
                     }else{
                         if(subContextEmittedCount[nodeContext[i].getContextRoot()] >= nodeContext[i].getContextRoot()->getNumSubContexts()-1){ //Check if this is the last in the context family
-                            nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType, nodeContext[i].getSubContext());
+                            nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType, nodeContext[i].getSubContext(), (*it)->getPartitionNum());
                         }else{
-                            nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType, nodeContext[i].getSubContext());
+                            nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType, nodeContext[i].getSubContext(), (*it)->getPartitionNum());
                         }
 
                         //Contexts are in the same family
@@ -2731,7 +2750,7 @@ void Design::discoverAndMarkContexts() {
     }
 }
 
-void Design::createStateUpdateNodes() {
+void Design::createStateUpdateNodes(bool includeContext) {
     //Find nodes with state in design
     std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
 
@@ -2741,13 +2760,13 @@ void Design::createStateUpdateNodes() {
         std::vector<std::shared_ptr<Arc>> newArcs;
         std::vector<std::shared_ptr<Arc>> deletedArcs;
 
-        nodesWithState[i]->createStateUpdateNode(newNodes, deletedNodes, newArcs, deletedArcs);
+        nodesWithState[i]->createStateUpdateNode(newNodes, deletedNodes, newArcs, deletedArcs, includeContext);
 
         addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
     }
 }
 
-void Design::createContextVariableUpdateNodes() {
+void Design::createContextVariableUpdateNodes(bool includeContext) {
     //Find nodes with state in design
     std::vector<std::shared_ptr<ContextRoot>> contextRoots = findContextRoots();
 
@@ -2757,7 +2776,7 @@ void Design::createContextVariableUpdateNodes() {
         std::vector<std::shared_ptr<Arc>> newArcs;
         std::vector<std::shared_ptr<Arc>> deletedArcs;
 
-        contextRoots[i]->createContextVariableUpdateNodes(newNodes, deletedNodes, newArcs, deletedArcs);
+        contextRoots[i]->createContextVariableUpdateNodes(newNodes, deletedNodes, newArcs, deletedArcs, includeContext);
 
         addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
     }
@@ -3323,9 +3342,15 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 }
 
 void Design::emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
-                                SchedParams::SchedType schedType) {
+                                SchedParams::SchedType schedType, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType) {
 
-    //The code below if adapted from the single threaded emitter
+    //The code below is adapted from the single threaded emitter
+
+    //Change the I/O masters to be in partition -2
+    //This is a special partition.  Even if they I/O exists on the same node as a process thread, want to handle it seperatly
+    inputMaster->setPartitionNum(-2);
+    outputMaster->setPartitionNum(-2);
+    visMaster->setPartitionNum(-2);
 
     prune(true);
     expandEnabledSubsystemContexts();
@@ -3338,19 +3363,16 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-    //Partition Here
+    //TODO: Partition Here
 
-    //FIFO insert Here (before context variable updates or state variable updates created
-
-    createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
-    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    //TODO: Ingest Delays Here (only adjacent delays for now)
+    //Should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
+    //Currently, only nodes that are soley connected to FIFOs are absorbed.  It is possible to absorb other nodes but delay matching
+    //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
     assignArcIDs();
 
-    createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
-    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
-    assignArcIDs();
-
-    //TODO: Modify to not stop at FIFOs for
+    //TODO: Modify to not stop at FIFOs with no initial state when finding Mux contexts.  FIFOs with initial state are are treated as containing delays.  FIFOs without initial state treated like wires.
+    //Do this after FIFO insertion so that FIFOs are properly marked
     discoverAndMarkContexts();
 //        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
 //        assignArcIDs();
@@ -3360,11 +3382,60 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
     //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
 
+    //Do this after FIFO insertion so that FIFOs are properly encapsulated in contexts
+    //TODO: fix encapsuleate to duplicate driver arc for each ContextFamilyContainer in other partitions
+    //to the given partition and add an out
     encapsulateContexts();
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-    //Multithreaded specific
+    //TODO: investigate moving
+    //*** Creating context variable update nodes can be moved to after partitioning since it should inherit the partition
+    //of its context master (in the case of Mux).  Note that includeContext should be set to false
+    createContextVariableUpdateNodes(true); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes (is placed in the same partition as the ContextRoot)
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
+    //*** FIFO insert Here (before state variable updates created)
+    //Also should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
+    //Insert FIFOs into the crossings.  Note, the FIFO's partition should reside in the upstream partition of the arc(s) it is being placed in the middle of.
+    //They should also reside inside of the source context family container
+    //
+    //This should also be done after encapsulation as the driver arcs of contexts are duplicated for each ContextFamilyContainer
+
+    //Discover groupable partition crossings
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings = getGroupableCrossings();
+
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap;
+
+    std::vector<std::shared_ptr<Node>> new_nodes;
+    std::vector<std::shared_ptr<Node>> deleted_nodes;
+    std::vector<std::shared_ptr<Arc>> new_arcs;
+    std::vector<std::shared_ptr<Arc>> deleted_arcs;
+
+    switch(fifoType){
+        case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
+            fifoMap = EmitterHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+            break;
+        default:
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Thread Crossing FIFO Type for Multithreaded Emit"));
+    }
+    addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
+    //TODO: Set FIFO length here (do before delay ingest)
+
+    //TODO: Retime Here
+
+    //TODO: Absorb here
+
+
+    //Create state update nodes after delay absorption to avoid
+    createStateUpdateNodes(true); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
 
     //This function needs to perform the expansion, context expansion, and context encapsulation that the single threaded
     //emitters already do.  Note that the encapsulation into ContextFamilyContainers now needs to be partition aware.
@@ -3376,29 +3447,23 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //These changes should not effect the single thread
 
-    //Need to modify discover and mark contexts to not stop at FIFOs even though they have state (special case
-
-    //Discover partitions
-    std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
-
-    //Discover groupable partition crossings
-    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings = getGroupableCrossings();
-
-    //Insert FIFOs into the crossings.  Note, the FIFO's partition should reside in the upstream partition of the arc(s) it is being placed in the middle of.
-    //They should also reside inside of the source context family container (double check)
-
     //We've added nodes and arcs and therefore need to assign their ID numbers
     assignNodeIDs();
     assignArcIDs();
 
-        //Emit each partition's function (except partition -1)
+    //TODO: Re-discover partitions since nodes may have been inserted (state and context update nodes, and may have been removed
+    std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
+
+
+        //Emit each partition's function (except partition -1 and -2 [I/O])
             //Discover partition function prototype from crossing FIFOs
             //Need to emit the output seperatly? (No, by supplying the correct emitCNextState statement, the output can be set
 
         //Emit each partition's driver function
 
+    //TODO: Refine/Cleanup I/O
     //Emit I/O
-        //For now, is a seperate partition (0)
+        //For now, is a special seperate partition (-2) which will be mapped onto core 0 (special case in the core0 scheduler - will either be a seperate thread or a sequential call at the beginning or each thread 0 function call)
         //Get function prototype from Input/Output master and FIFOs
 
         //For now, provide a constant test case
@@ -3432,6 +3497,16 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
         }
         contextFamilyContainers[partition] = familyContainer;
         contextRoot->setContextFamilyContainers(contextFamilyContainers);
+
+        //Create an order constraint arcs based on the context driver arcs.  This ensures that the context driver will be
+        //Available in each partition that the context resides in (so long as FIFOs are inserted after this).
+        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
+        std::vector<std::shared_ptr<Arc>> partitionDrivers;
+        for(int i = 0; i<driverArcs.size(); i++){
+            std::shared_ptr<Arc> partitionDriver = Arc::connectNodes(driverArcs[i]->getSrcPort(), familyContainer->getOrderConstraintInputPortCreateIfNot(), driverArcs[i]->getDataType(), driverArcs[i]->getSampleTime());
+            partitionDrivers.push_back(partitionDriver);
+        }
+        contextRoot->addContextDriverArcsForPartition(partitionDrivers, partition);
 
         //Create Context Containers inside of the context Family container;
         int numContexts = contextRoot->getNumSubContexts();

@@ -90,6 +90,14 @@ public:
     static bool isEqOrSubContext(std::vector<Context> a, std::vector<Context> b);
 
     /**
+     * @brief Checks if contexts a and b are the same
+     * @param a
+     * @param b
+     * @return true if a and b are equal
+     */
+    static bool isEqContext(std::vector<Context> a, std::vector<Context> b);
+
+    /**
      * @brief Finds the most specific common context between 2 context stacks
      * @param a
      * @param b

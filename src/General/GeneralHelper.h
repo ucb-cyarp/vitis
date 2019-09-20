@@ -195,6 +195,70 @@ public:
     static unsigned long intPow(unsigned long base, unsigned long exp);
 
     static bool parseBool(std::string boolStr);
+
+    /**
+     * @brief Finds the longest prefix shared by vectors a and b (starting from index 0)
+     *
+     * For example:
+     * a = {1, 2, 3, 4, 5, 6}
+     * b = {1, 2, 3, 9, 8}
+     *
+     * p = {1, 2, 3}
+     *
+     * @tparam T
+     * @param a
+     * @param b
+     * @return
+     */
+    template <typename T>
+    static std::vector<T> longestPrefix(std::vector<T> a, std::vector<T> b){
+        std::vector<T> prefix;
+
+        int longestPossiblePrefix = std::min(a.size(), b.size());
+
+        for(int i = 0; i<longestPossiblePrefix; i++){
+            if(a[i] == b[i]){
+                prefix.push_back(a[i]);
+            }else{
+                //found a difference, stop looking
+                break;
+            }
+        }
+
+        return prefix;
+    }
+
+    /**
+     * @brief Finds the longest postfix shared by vectors a and b (starting from indexs n-1, arrays are aligned with their largest index)
+     *
+     * For example:
+     * a = {5, 4, 3, 2, 1}
+     * b = {6, 7, 2, 1}
+     *
+     * p = {2, 1}
+     *
+     * @tparam T
+     * @param a
+     * @param b
+     * @return
+     */
+    template <typename T>
+    static std::vector<T> longestPostfix(std::vector<T> a, std::vector<T> b){
+        std::vector<T> postfix;
+
+        int longestPossiblePrefix = std::min(a.size(), b.size());
+
+        for(int i = 0; i<longestPossiblePrefix; i++){
+            if(a[a.size()-1-i] == b[b.size()-1-i]){
+                postfix.insert(postfix.begin(), a[a.size()-1-i]);
+            }else{
+                //found a difference, stop looking
+                break;
+            }
+        }
+
+        return postfix;
+    }
 };
 
 /*! @} */

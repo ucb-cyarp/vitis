@@ -15,6 +15,7 @@
 #include "General/TopologicalSortParameters.h"
 #include "Variable.h"
 #include "SchedParams.h"
+#include "General/ThreadCrossingFIFOParameters.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -387,8 +388,9 @@ public:
      * @param orderedNodes the nodes to emit, given in the order they should be emitted
      * @param blockSize the size of the block (in samples) that are processed in each call to the function
      * @param indVarName the variable that specifies the index in the block that is being computed
+     * @param checkForPartitionChange if true, checks if the partition changes while emitting and throws an error if it does
      */
-    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, int blockSize = 1, std::string indVarName = "");
+    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
 
     /**
      * @brief Emits the design as a single threaded C function
@@ -430,7 +432,7 @@ public:
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType);
     /*
      * Discover Partitions
      *      The I/O in/out of the design needs to be handled in some way.  For now, we will probably want to keep them
@@ -546,7 +548,7 @@ public:
     void createEnabledOutputsForEnabledSubsysVisualization();
 
     /**
-     * @brief Discover and mark contexts for nodes in the design.
+     * @brief Discover and mark contexts for nodes in the design (ie. sets the context stack of nodes).
      *
      * Propogates enabled subsystem contexts to its nodes (and recursively to nested enabled subsystems.
      *
@@ -558,7 +560,7 @@ public:
      *     Hierarchy is discovered by tracing decending layers of the hierarchy tree based on the number of contexts
      *     a mux is in.
      *
-     * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxess
+     * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxes
      * have been handled)
      *
      * Also updates the topLevelContextRoots for discovered context nodes
@@ -568,6 +570,7 @@ public:
 
     /**
      * @brief Encapsulate contexts inside ContextContainers and ContextFamilyContainers for the purpose of scheduling
+     * and inter-thread dependency handling for contexts
      *
      * Nodes should exist in the lowest level context they are a member of.
      *
@@ -590,8 +593,9 @@ public:
      * from the mux and will therefore cause the node to not be included in the mux context even if it should be.  It
      * is therefore reccomended to insert the state update nodes after context discovery but before scheduling
      *
+     * @param includeContext if true, the state update node is included in the same context (and partition) as the root node
      */
-    void createStateUpdateNodes();
+    void createStateUpdateNodes(bool includeContext = false);
 
     /**
      * @brief Discovers contextRoots in the design and creates ContextVariableUpdate update nodes for them.
@@ -600,8 +604,9 @@ public:
      * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
      * when the next state update variable is assigned).
      *
+     * @param includeContext if true, inserts the new contect varaible update nodes into the subcontext they reside in, otherwise does not (handled in a later step)
      */
-    void createContextVariableUpdateNodes();
+    void createContextVariableUpdateNodes(bool includeContext = false);
 
     /**
      * @brief Find nodes with state in the design
@@ -736,6 +741,9 @@ public:
      * If the ContextFamilyContainer does not exist for the given partition, one is created and is added to the ContextRoot's map of ContextFamilyContainers.
      * The existing ContextFamilyContainers for the given ContextRoot have their sibling maps updated.  The new ContextFamilyContainer has its sibling map set
      * to include all other ContextFamilyContainers belonging to the given ContextRoot
+     *
+     * When the ContextFamilyContainer is created, an order constraint arc from the context driver is created.  This ensures that the context driver
+     * will be available in each partition that the context resides in (so long as FIFO insertion occurs after this point).
      *
      * @warning The created ContextFamilyContainer does not have its parent set.  This needs to be performed outside of this helper function
      *

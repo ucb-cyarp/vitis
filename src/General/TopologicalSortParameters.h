@@ -8,6 +8,13 @@
 #include <string>
 
 /**
+ * \addtogroup General General Helper Classes
+ *
+ * @brief A set of general helper classes.
+ * @{
+*/
+
+/**
  * @brief A container for parameters that can be passed to the topological ordering scheduler
  */
 class TopologicalSortParameters {
@@ -63,5 +70,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_TOPOLOGICALSORTPARAMETERS_H

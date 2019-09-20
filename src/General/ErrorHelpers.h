@@ -11,6 +11,13 @@
 #define VITIS_STD_ERROR_PREAMBLE "vitis"
 
 /**
+ * \addtogroup General General Helper Classes
+ *
+ * @brief A set of general helper classes.
+ * @{
+*/
+
+/**
  * @brief Helpers for handling and reporting errors
  */
 class ErrorHelpers {
@@ -33,5 +40,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_ERRORHELPERS_H
