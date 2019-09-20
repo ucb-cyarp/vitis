@@ -132,8 +132,8 @@ class LocklessThreadCrossingFIFO : public ThreadCrossingFIFO {
     friend NodeFactory;
 
 protected:
-    Variable cWriteOffsetPtr; ///<The C variable corresponding to the write pointer offset
-    Variable cReadOffsetPtr; ///<The C variable corresponding to the read pointer offset
+    Variable cWriteOffsetPtr; ///<The C variable corresponding to the write pointer offset (in blocks)
+    Variable cReadOffsetPtr; ///<The C variable corresponding to the read pointer offset (in blocks)
     Variable cArrayPtr; ///<The C variable corresponding to the FIFO array
 
     bool cWriteOffsetPtrInitialized;
@@ -228,6 +228,8 @@ public:
     std::vector<Variable> getFIFOSharedVariables() override;
 
     void createSharedVariables(std::vector<std::string> &cStatementQueue) override;
+
+    void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) override ;
 
 };
 

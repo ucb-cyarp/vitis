@@ -243,12 +243,18 @@ public:
     /**
      * @brief Emits C statements that declare and allocate the shared variables for the FIFO
      *
-     * This function should be called by the function creating threads.  References to these variables should be passed
-     * to threads using the getFIFOSharedVariables() method.
+     * This function should be called by the function creating threads.  These variables should be passed to threads.
      *
      * @param cStatementQueue The C statements will be written to this queue
      */
     virtual void createSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+
+    /**
+     * @brief Emits C statements that cleanup (de-allocate) shared variables for the FIFO
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     */
+    virtual void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
 };
 
 
