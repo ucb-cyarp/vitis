@@ -42,6 +42,10 @@ protected:
     Variable cStateVar; ///<The C variable from which values are read
     Variable cStateInputVar; ///<the C temporary variable holding data to be writen
 
+    //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
+    //Special casing may be preferrable for now
+    std::string cBlockIndexVarName; ///The C variable used in the compute loop for indexing into a block.  Is set by the emitter
+
     bool cStateVarInitialized;
     bool cStateInputVarInitialized;
 
@@ -86,6 +90,9 @@ public:
 
     std::vector<NumericValue> getInitConditions() const;
     void setInitConditions(const std::vector<NumericValue> &initConditions);
+
+    std::string getCBlockIndexVarName() const;
+    void setCBlockIndexVarName(const std::string &cBlockIndexVarName);
 
     /**
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
@@ -223,7 +230,7 @@ public:
      * @param src The src for data to be written into the FIFO
      * @param numBlocks The number of blocks of data to write into the FIFO
      */
-    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, Variable src, int numBlocks) = 0;
+    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) = 0;
 
     /**
      * @brief Emits C statements which read data from the FIFO
@@ -231,7 +238,7 @@ public:
      * @param dst The destination for data which will be read from the FIFO
      * @param numBlocks The number of blocks to read
      */
-    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, Variable dst, int numBlocks) = 0;
+    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) = 0;
 
     /**
      * @brief Get a list of shared variables for the given FIFO.  These variables should be passed to the threads which
@@ -239,6 +246,17 @@ public:
      * @return a list of shared variables
      */
     virtual std::vector<Variable> getFIFOSharedVariables() = 0;
+
+    /**
+     * @brief Creates a structure which is the format for entries in the FIFO.  Each structure contains a block of samples
+     */
+    virtual std::string createFIFOStruct();
+
+    /**
+     * @brief Returns the type name of the FIFO structure.  Structures are used to store blocks in the FIFO
+     * @return
+     */
+    virtual std::string getFIFOStructTypeName();
 
     /**
      * @brief Emits C statements that declare and allocate the shared variables for the FIFO

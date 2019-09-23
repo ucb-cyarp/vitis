@@ -65,6 +65,8 @@ public:
      */
     std::string getCVarDecl(bool imag = false, bool includeWidth = false, bool includeInit = false, bool includeArray = false);
 
+    std::string getCPtrDecl(bool imag = false);
+
     std::string getName() const;
     void setName(const std::string &name);
     DataType getDataType() const;

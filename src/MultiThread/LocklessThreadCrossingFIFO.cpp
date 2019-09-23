@@ -28,18 +28,40 @@ void LocklessThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node>
 }
 
 Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
-    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cWriteOffsetPtr, cWriteOffsetPtrInitialized, "writeOffsetPtr");
+    if(!cWriteOffsetPtrInitialized) {
+        int elementLength = fifoLength*blockSize;
 
+        DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
+        newDT = newDT.getCPUStorageType();
+        cWriteOffsetPtr.setDataType(newDT);
+    }
+
+    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cWriteOffsetPtr, cWriteOffsetPtrInitialized, "writeOffsetPtr");
     return cWriteOffsetPtr;
 }
 
 Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
-    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cReadOffsetPtr, cReadOffsetPtrInitialized, "readOffsetPtr");
+    if(!cReadOffsetPtrInitialized){
+        int elementLength = fifoLength*blockSize;
 
+        DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
+        newDT = newDT.getCPUStorageType();
+        cReadOffsetPtr.setDataType(newDT);
+    }
+
+    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cReadOffsetPtr, cReadOffsetPtrInitialized, "readOffsetPtr");
     return cReadOffsetPtr;
 }
 
 Variable LocklessThreadCrossingFIFO::getCArrayPtr() {
+    if (!cArrayPtrInitialized){
+        if (getOutputPorts().size() == 1 && getOutputPort(0)->getArcs().size() >= 1) {
+            cArrayPtr.setDataType((*(getOutputPort(0)->getArcs().begin()))->getDataType());
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Should Have >= 1 Output Arc", getSharedPointer()));
+        }
+    }
+
     LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cArrayPtr, cArrayPtrInitialized, "arrayPtr");
 
     return cArrayPtr;
@@ -148,7 +170,7 @@ std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite() {
 }
 
 void
-LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, Variable src, int numBlocks) {
+LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -157,10 +179,11 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
     std::string localWriteOffsetBlocks = cWriteOffsetPtr.getCVarName(false)+"_local";
     std::string derefSharedWriteOffsetBlocks = "*" + cWriteOffsetPtr.getCVarName(false);
     std::string arrayName = cArrayPtr.getCVarName(false);
-    std::string srcName = src.getCVarName(false);
+    std::string srcName = src;
 
-    if(src.getDataType().getWidth() == 1 && numBlocks == 1 && blockSize == 1){
-        //Simplified write which does not de-reference the src variable
+    if(numBlocks == 1){
+        //Read 1 full block
+        //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{");
         cStatementQueue.push_back("//Load Write Ptr");
         cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + derefSharedWriteOffsetBlocks + ";"); //Elements and blocks are the same
@@ -176,8 +199,6 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         cStatementQueue.push_back(derefSharedWriteOffsetBlocks + " = " + localWriteOffsetBlocks + ";"); //Elements and blocks are the same
         cStatementQueue.push_back("}");
     }else{
-        //The src needs to be an array to
-
         //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{");
         cStatementQueue.push_back("//Load Write Ptr");
@@ -185,9 +206,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         cStatementQueue.push_back("");
         cStatementQueue.push_back("//Write into array");
         cStatementQueue.push_back("for (int32_t i = 0; i < " + GeneralHelper::to_string(numBlocks) + "; i++){");
-        cStatementQueue.push_back("for (int32_t j = 0; j < " + GeneralHelper::to_string(blockSize) + "; j++){");
-        cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks + "*" + GeneralHelper::to_string(blockSize) + "+j] = " + srcName + "[i*" + GeneralHelper::to_string(blockSize) + "+j];");
-        cStatementQueue.push_back("}");
+        cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks +"] = " + srcName + "[i];");
         //Handle the mod with a branch as it should be cheaper
         cStatementQueue.push_back("if (" + localWriteOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {");
         cStatementQueue.push_back(localWriteOffsetBlocks + " = 0;");
@@ -203,7 +222,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
 }
 
 void
-LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, Variable dst, int numBlocks) {
+LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -215,10 +234,11 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
     std::string localReadOffsetBlocks = cReadOffsetPtr.getCVarName(false)+"_local";
     std::string derefSharedReadOffsetBlocks = "*" + cReadOffsetPtr.getCVarName(false);
     std::string arrayName = cArrayPtr.getCVarName(false);
-    std::string dstName = dst.getCVarName(false);
+    std::string dstName = dst;
 
-    if(dst.getDataType().getWidth() == 1 && numBlocks == 1 && blockSize == 1){
-        //Simplified write which does not de-reference the src variable
+    if(numBlocks == 1){
+        //Read an entire blocks
+        //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{");
         cStatementQueue.push_back("//Load Read Ptr");
         cStatementQueue.push_back("int " + localReadOffsetBlocks + " = " + derefSharedReadOffsetBlocks + ";"); //Elements and blocks are the same
@@ -235,8 +255,6 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         cStatementQueue.push_back(derefSharedReadOffsetBlocks + " = " + localReadOffsetBlocks + ";"); //Elements and blocks are the same
         cStatementQueue.push_back("}");
     }else{
-        //The src needs to be an array to
-
         //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{");
         cStatementQueue.push_back("//Load Read Ptr");
@@ -245,16 +263,13 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         cStatementQueue.push_back("//Read from array");
         cStatementQueue.push_back("for (int32_t i = 0; i < " + GeneralHelper::to_string(numBlocks) + "; i++){");
         //Read pointer is at the position of the last read value. Needs to be incremented before read
+        //Handle the mod with a branch as it should be cheaper
         cStatementQueue.push_back("if (" + localReadOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {");
         cStatementQueue.push_back(localReadOffsetBlocks + " = 0;");
         cStatementQueue.push_back("} else {");
         cStatementQueue.push_back(localReadOffsetBlocks + "++;");
         cStatementQueue.push_back("}");
-
-        cStatementQueue.push_back("for (int32_t j = 0; j < " + GeneralHelper::to_string(blockSize) + "; j++){");
-        cStatementQueue.push_back(dstName + "[i*" + GeneralHelper::to_string(blockSize) + "+j] = " + arrayName + "[" + localReadOffsetBlocks + "*" + GeneralHelper::to_string(blockSize) + "+j];");
-        cStatementQueue.push_back("}");
-        //Handle the mod with a branch as it should be cheaper
+        cStatementQueue.push_back(dstName + "[i] = " + arrayName + "[" + localReadOffsetBlocks + "];");
         cStatementQueue.push_back("}");
         cStatementQueue.push_back("");
         cStatementQueue.push_back("//Update Read Ptr");
@@ -275,14 +290,17 @@ std::vector<Variable> LocklessThreadCrossingFIFO::getFIFOSharedVariables() {
 void LocklessThreadCrossingFIFO::createSharedVariables(std::vector<std::string> &cStatementQueue) {
     //Will declare the shared vars.  References to these should be passed (using & for the pointers and directly for the )
 
-    std::string cReadOffsetDT = cReadOffsetPtr.getDataType().toString(DataType::StringStyle::C, false, false);
+    std::string cReadOffsetDT = cReadOffsetPtr.getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
     cStatementQueue.push_back(cReadOffsetDT + "* " + cReadOffsetPtr.getCVarName(false) + " = new " + cReadOffsetDT + ";");
 
-    std::string cWriteOffsetDT = cWriteOffsetPtr.getDataType().toString(DataType::StringStyle::C, false, false);
+    std::string cWriteOffsetDT = cWriteOffsetPtr.getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
     cStatementQueue.push_back(cWriteOffsetDT + "* " + cWriteOffsetPtr.getCVarName(false) + " = new " + cWriteOffsetDT + ";");
 
-    std::string cArrayDT = cArrayPtr.getDataType().toString(DataType::StringStyle::C, false, false);
-    std::string cArrayDTWithSize = cArrayPtr.getDataType().toString(DataType::StringStyle::C, true, true);
+    std::string cArrayDT;
+    std::string cArrayDTWithSize;
+
+    cArrayDT = getFIFOStructTypeName();
+    cArrayDTWithSize = cArrayDT + "[" + GeneralHelper::to_string(fifoLength) + "]";
     cStatementQueue.push_back(cArrayDT + "* " + cArrayPtr.getCVarName(false) + " = new " + cArrayDTWithSize + ";");
 }
 

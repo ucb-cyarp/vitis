@@ -4,6 +4,8 @@
 
 #include "EmitterHelpers.h"
 #include "PrimitiveNodes/Delay.h"
+#include "PrimitiveNodes/BlackBox.h"
+#include "GraphCore/ContextRoot.h"
 #include <iostream>
 
 void EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
@@ -305,4 +307,264 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
     }//else, fifo full
 
     return AbsorptionStatus::NO_ABSORPTION;
+}
+
+void EmitterHelpers::findPartitionInputAndOutputFIFOs(
+        std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum,
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> &inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &outputFIFOs) {
+
+    //TODO: Optimize
+
+    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
+        if(it->first.first == partitionNum && it->first.second == partitionNum){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a partition crossing map entry from a partition to itself"));
+        }
+
+        if(it->first.first == partitionNum){
+            //This is an outgoing FIFO
+            outputFIFOs.insert(outputFIFOs.end(), it->second.begin(), it->second.end());
+        }else if(it->first.second == partitionNum){
+            //This is an incoming FIFO
+            inputFIFOs.insert(inputFIFOs.end(), it->second.begin(), it->second.end());
+        }
+    }
+}
+
+std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
+    std::vector<std::shared_ptr<Node>> nodesWithState;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++) {
+        if (nodesToSearch[i]->hasState()) {
+            nodesWithState.push_back(nodesToSearch[i]);
+        }
+    }
+
+    return nodesWithState;
+}
+
+std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithGlobalDecl(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        if(nodesToSearch[i]->hasGlobalDecl()){
+            nodesWithGlobalDecl.push_back(nodesToSearch[i]);
+        }
+    }
+
+    return nodesWithGlobalDecl;
+}
+
+std::vector<std::shared_ptr<ContextRoot>> EmitterHelpers::findContextRoots(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
+    std::vector<std::shared_ptr<ContextRoot>> contextRoots;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        std::shared_ptr<ContextRoot> nodeAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodesToSearch[i]);
+
+        if(nodeAsContextRoot){
+            contextRoots.push_back(nodeAsContextRoot);
+        }
+    }
+
+    return contextRoots;
+}
+
+std::vector<std::shared_ptr<BlackBox>> EmitterHelpers::findBlackBoxes(std::vector<std::shared_ptr<Node>> &nodesToSearch){
+    std::vector<std::shared_ptr<BlackBox>> blackBoxes;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        std::shared_ptr<BlackBox> nodeAsBlackBox = GeneralHelper::isType<Node, BlackBox>(nodesToSearch[i]);
+
+        if(nodeAsBlackBox){
+            blackBoxes.push_back(nodeAsBlackBox);
+        }
+    }
+
+    return blackBoxes;
+}
+
+std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName){
+    std::string statements;
+    //Cast the input structure
+    std::string castStructName = structName + "_cast";
+    statements += structTypeName + " *" + castStructName + " = (*" + structTypeName + ") " + structName + ";\n";
+
+    statements += "\t//Input FIFOs";
+    for(unsigned long i = 0; i<inputFIFOs.size(); i++){
+        std::vector<Variable> fifoSharedVars = inputFIFOs[i]->getFIFOSharedVariables();
+
+        for(int j = 0; j<fifoSharedVars.size(); j++){
+            //All should be pointers
+            Variable var = fifoSharedVars[j];
+//            DataType varType = var.getDataType();
+//            varType.setWidth(varType.getWidth()*blockSize);
+//            var.setDataType(varType);
+            //Pass as not volatile
+            var.setVolatileVar(false);
+
+            statements += var.getCPtrDecl(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                statements += var.getCPtrDecl(true) + " = " + castStructName + "->" + var.getCVarName(true) + ";\n";
+            }
+        }
+    }
+
+    statements += "\t//Output FIFOs";
+    for(unsigned long i = 0; i<outputFIFOs.size(); i++){
+        std::vector<Variable> fifoSharedVars = outputFIFOs[i]->getFIFOSharedVariables();
+
+        for(int j = 0; j<fifoSharedVars.size(); j++){
+            //All should be pointers
+            Variable var = fifoSharedVars[j];
+//            DataType varType = var.getDataType();
+//            varType.setWidth(varType.getWidth()*blockSize);
+//            var.setDataType(varType);
+            //Pass as not volatile
+            var.setVolatileVar(false);
+
+            statements += var.getCPtrDecl(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                statements += var.getCPtrDecl(true) + " = " + castStructName + "->" + var.getCVarName(true) + ";\n";
+            }
+        }
+    }
+
+    return statements;
+}
+
+std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
+    //Began work on version which replicates context check below.  Requires context check to be replicated
+    //This version simply checks
+
+    //Now, emit the beginning of the check
+    std::string check = "bool " + checkVarName +" = false;\n";
+    check += "while(!" + checkVarName + "){\n";
+    check += "\t" + checkVarName + " =  true;\n";
+
+    //Emit the actual FIFO checks
+    for(int i = 0; i<fifos.size(); i++) {
+        //Note: do not need to check if complex since complex values come via the same FIFO as a struct
+        check += "\t" + checkVarName + " &= " + (checkFull ? fifos[i]->emitCIsNotFull() : fifos[i]->emitCIsNotEmpty()) + ";\n";
+        if(shortCircuit){
+            check += "\tif(!" + checkVarName + "){\n";
+            check += "\t\tcontinue;\n";
+            check += "}\n";
+        }
+    }
+
+    //Close the check
+    check += "}\n";
+
+    return check;
+}
+
+//Version with scheduling
+//std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
+//    //create a map of nodes to parents
+//
+//    std::set<std::shared_ptr<Node>> fifoSet;
+//    fifoSet.insert(fifos.begin(), fifos.end());
+//
+//    std::map<std::shared_ptr<ThreadCrossingFIFO>, std::shared_ptr<ThreadCrossingFIFO>> fifoParentMap;
+//    std::map<std::shared_ptr<ThreadCrossingFIFO>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoChildrenMap;
+//
+//    for(int i = 0; i<fifos.size(); i++){
+//        std::vector<Context> fifoContext = fifos[i]->getContext(); //FIFO should be in the context of the source
+//        if(fifoContext.empty()){
+//            fifoParentMap[fifos[i]] = nullptr;
+//        }else{
+//            Context lowestLevelContext = fifoContext[fifoContext.size()-1];
+//
+//            //find the driver of the lowest level context
+//            std::map<int, std::vector<std::shared_ptr<Arc>>> driversPerPartition = lowestLevelContext.getContextRoot()->getContextDriversPerPartition();
+//
+//            if(driversPerPartition[partition].empty()){
+//                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO which did not have a driver for partition" + GeneralHelper::to_string(partition), fifos[i]));
+//            }
+//
+//            //Get one of the drivers, they should all have the same source
+//            std::shared_ptr<Node> driverNode =  driversPerPartition[partition][0]->getSrcPort()->getParent();
+//
+//            if(fifoSet.find(driverNode) == fifoSet.end()){
+//                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO whose driver is not another FIFO into the partition" + GeneralHelper::to_string(partition), fifos[i]));
+//            }
+//
+//            std::shared_ptr<ThreadCrossingFIFO> driverFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(driverNode);
+//            fifoParentMap[fifos[i]] = driverFIFO;
+//            fifoChildrenMap[driverFIFO].push_back(fifos[i]);
+//        }
+//    }
+//
+//    std::set<std::shared_ptr<ThreadCrossingFIFO>> traversed;
+//    //This should form a tree
+//
+//    //Now, emit the beginning of the check
+//    std::string check = "bool " + checkVarName +" = false;\n";
+//    check += "while(!" + checkVarName + "){\n";
+//    check += "\t" + checkVarName + " =  true;\n";
+//
+//    //Emit the actual FIFO checks
+//    DFS traversal replicating context checks
+//
+//    //Close the check
+//    check += "}\n";
+//}
+
+std::vector<std::string> EmitterHelpers::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+    std::vector<std::string> exprs;
+    for(int i = 0; i<fifos.size(); i++) {
+        Variable fifoSrcVar = fifos[i]->getCStateVar(); //This is the temp we are creating for.
+        std::string tmpName = fifoSrcVar.getName() + "_tmp";
+        std::string structType = fifos[i]->getFIFOStructTypeName();
+        exprs.push_back(structType + " " + tmpName + ";");
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> EmitterHelpers::createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+    std::vector<std::string> exprs;
+    for(int i = 0; i<fifos.size(); i++) {
+        Variable fifoDstVar = fifos[i]->getCStateInputVar(); //This is the temp we are creating for.
+        std::string tmpName = fifoDstVar.getName() + "_tmp";
+        std::string structType = fifos[i]->getFIFOStructTypeName();
+        exprs.push_back(structType + " " + tmpName + ";");
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> EmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+    std::vector<std::string> exprs;
+
+    for(int i = 0; i<fifos.size(); i++){
+        Variable fifoSrcVar = fifos[i]->getCStateVar(); //This is the temp we are creating for.
+        std::string tmpName = fifoSrcVar.getName() + "_tmp";
+        //However, the type will be the FIFO structure rather than the variable type directly.
+        //The fifo reads in terms of blocks with the components stored in a structure
+        //When calling the function, the relavent component of the structure is passed as an argument
+
+        fifos[i]->emitCReadFromFIFO(exprs, tmpName, 1);
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> EmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+    std::vector<std::string> exprs;
+
+    for(int i = 0; i<fifos.size(); i++){
+        Variable fifoDstVar = fifos[i]->getCStateInputVar(); //This is the temp we are creating for.
+        std::string tmpName = fifoDstVar.getName() + "_tmp";
+        //However, the type will be the FIFO structure rather than the variable type directly.
+        //The fifo reads in terms of blocks with the components stored in a structure
+        //When calling the function, the relavent component of the structure is passed as an argument
+
+        fifos[i]->emitCWriteToFIFO(exprs, tmpName, 1);
+    }
+
+    return exprs;
 }

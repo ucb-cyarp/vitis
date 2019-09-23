@@ -13,6 +13,7 @@
 #include <General/ErrorHelpers.h>
 #include "GeneralHelper.h"
 #include <GraphCore/EnableOutput.h>
+#include <PrimitiveNodes/BlackBox.h>
 
 /**
  * \addtogroup General General Helper Classes
@@ -211,6 +212,52 @@ public:
                                                         std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                         std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                         bool printActions = true);
+
+    /**
+     * @brief Finds the input and output FIFOs for a partition given a partition crossing to FIFO map
+     * @param fifoMap
+     * @param partitionNum
+     * @param inputFIFOs
+     * @param outputFIFOs
+     */
+    static void findPartitionInputAndOutputFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &outputFIFOs);
+
+    static std::vector<std::shared_ptr<Node>> findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+
+    static std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+
+    static std::vector<std::shared_ptr<ContextRoot>> findContextRoots(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+
+    static std::vector<std::shared_ptr<BlackBox>> findBlackBoxes(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+
+    /**
+     * @brief Emits cStatements copying from the thread argument structure to local variables
+     * @param inputFIFOs
+     * @param outputFIFOs
+     * @param structName
+     * @return
+     */
+    static std::string emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName);
+
+    /**
+     * @brief Emits C code to check the state of FIFOs
+     *
+     * @param fifos
+     * @param partition
+     * @param checkFull if true, checks if the FIFO is full, if false, checks if the FIFO is empty
+     * @param checkVarName the name of the variable used to identify if the FIFO check succedded or not.  This should be unique
+     * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false,
+     * @return
+     */
+    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit);
+
+    static std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    static std::vector<std::string> createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 };
 
 /*! @} */

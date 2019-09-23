@@ -20,6 +20,8 @@
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
 
+#define IO_PARTITION_NUM -2
+
 //Forward Declaration of Classes
 class MasterInput;
 class MasterOutput;
@@ -30,6 +32,7 @@ class ContextRoot;
 class BlackBox;
 class ContextFamilyContainer;
 class ContextContainer;
+class ThreadCrossingFIFO;
 
 //This Class
 
@@ -233,10 +236,11 @@ public:
      * @param designName the name of the design (used when dumping a partially scheduled graph in the event an error is encountered)
      * @param dir the directory to dump any error report files into
      * @param printNodeSched if true, print the node schedule to the console
+     * @param schedulePartitions if true, each partition in the design is scheduled seperatly
      *
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched);
+    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched, bool schedulePartitions);
 
     /**
      * @brief Topological sort the current graph.
@@ -251,6 +255,23 @@ public:
      * @return A vector of nodes arranged in topological order
      */
     std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params);
+
+    /**
+     * @brief Topological sort of a given partition in the the current graph.
+     *
+     * @warning This does not schedule the output node except for partition -2 (I/O)
+     *
+     * @warning This destroys the graph by removing arcs from the nodes.
+     * It is reccomended to run on a copy of the graph and to back propagate the results
+     *
+     * @param designName name of the design used in the working graph export at part of the file name
+     * @param dir location to export working graph in the event of a cycle or error
+     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
+     * @param partition the partitions
+     *
+     * @return A vector of nodes arranged in topological order
+     */
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params, int partitionNum);
 
     /**
      * @brief Verify that the graph has topological ordering
@@ -307,6 +328,57 @@ public:
      * @return argument portion of the C function prototype for this design
      */
     std::string getCFunctionArgPrototype(bool forceArray);
+
+    /**
+     * @brief Get the argument portion of the C function prototype for the partition compute function
+     *
+     * For partition compute functions, there is no returned output. Outputs are passed as references (scalar) or pointers (arrays) to the function.
+     *
+     * The inputs come from input FIFOs to the partition and outputs come from ouputFIFOs
+     *
+     * An example function prototype would be designName(double In_0_re, double In_0_im, bool &out_1)
+     *
+     * This function returns "double In_0_re, double In_0_im, bool &out_1"
+     *
+     * Complex types are split into 2 arguments, each is prepended with _re or _im for real and imagionary component respectivly.
+     *
+     * The DataType is converted to the smallest standard CPU type that can contain the type
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return argument portion of the C function prototype for this partition's compute function
+     */
+    std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+
+    /**
+     * @brief Gets the statement calling the partition compute function
+     * @param computeFctnName
+     * @param inputFIFOs
+     * @param outputFIFOs
+     * @return
+     */
+    std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs);
+
+    /**
+     * @brief Get the structure definition for a particular partition's thread
+     *
+     * It includes the shared pointers for each FIFO into and out of the partition
+     *
+     * The structure definition takes the form of:
+     *
+     * typedef struct {
+     *     type1 var1;
+     *     type2 var2;
+     *     ...
+     * } designName_partition#_threadArgs_t
+     *
+     * @warning these pointers should likely be copied in the thread function with the proper volatile property
+     *
+     * @warning the variables for the FIFOs are expected to have unique names
+     *
+     * @return a pair of stringsn (C structure definition, structure type name)
+     */
+    std::pair<std::string, std::string> getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum);
 
     /**
      * @brief Get the structure definition for the Input ports
@@ -382,6 +454,18 @@ public:
     void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, int blockSize = 1, std::string indVarName = "");
 
     /**
+     * @brief Emits a given set operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
+     *
+     * @warning Unlike emitSingleThreadedOpsSchedStateUpdateContext, this function does not include the output node automatically.  If you would
+     * like to schedule
+     *
+     * @param cFile the cFile to emit to
+     * @param blockSize the size of the block (in samples) that are processed in each call to the function
+     * @param indVarName the variable that specifies the index in the block that is being computed
+     */
+    void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, int blockSize = 1, std::string indVarName = "");
+
+    /**
      * @brief Emits operators for the given nodes (in the order given).  Does not emit function prototypes.  This emitter is context aware
      * @param cFile the cFile to emit to
      * @param schedType the scheduler being used.  Is passed to downstream context emit functions
@@ -408,6 +492,27 @@ public:
     void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize);
 
     /**
+     * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)
+     *
+     * This includes the thread function itself as well as the core scheduler which checks FIFO status and calls the
+     * thread function.
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @note To avoid dead code being emitted, prune the design before calling this function
+     *
+     * @param partitionNum the partition number being emitted
+     * @param nodesToEmit a vector of nodes in the partition to be emitted
+     * @param path path to where the output files will be generated
+     * @param filenamePrefix prefix of the output files (.h and a .c file will be created).  _partition# will be appended to the filename
+     * @param designName The name of the design (used as the function name)
+     * @param schedType Schedule type
+     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
+     * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
+     */
+    void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize, std::string fifoHeaderFile);
+
+    /**
      * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C
      * function.  A function is created for each thread which includes the intra-thread scheduler.  This scheduler is
      * responsible for calling the partition functions as appropriate.  The scheduler also has access to the input and
@@ -432,7 +537,7 @@ public:
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched);
     /*
      * Discover Partitions
      *      The I/O in/out of the design needs to be handled in some way.  For now, we will probably want to keep them
@@ -752,6 +857,8 @@ public:
      * @return
      */
     std::shared_ptr<ContextFamilyContainer> getContextFamilyContainerCreateIfNotNoParent(std::shared_ptr<ContextRoot> contextRoot, int partition);
+
+    std::set<int> listPresentPartitions();
 };
 
 /*! @} */

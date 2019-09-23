@@ -104,6 +104,11 @@ std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit
     return decl;
 }
 
+std::string Variable::getCPtrDecl(bool imag) {
+    DataType cpuStorageType = dataType.getCPUStorageType();
+    return (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " *" + getCVarName(imag);
+}
+
 std::string Variable::getName() const {
     return name;
 }

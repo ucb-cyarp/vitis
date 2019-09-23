@@ -508,6 +508,176 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
     return prototype;
 }
 
+std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
+    std::string prototype = "";
+
+    unsigned long numInputVars = inputFIFOs.size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numInputVars>0){
+        Variable var = inputFIFOs[0]->getCStateVar();
+
+        if(blockSize>1){
+            DataType varType = var.getDataType();
+            varType.setWidth(varType.getWidth()*blockSize);
+            var.setDataType(varType);
+        }
+
+        prototype += "const " + var.getCVarDecl(false, false, false, true);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ", const " + var.getCVarDecl(true, false, false, true);
+        }
+    }
+
+    for(unsigned long i = 1; i<numInputVars; i++){
+        Variable var = inputFIFOs[i]->getCStateVar();
+
+        if(blockSize>1){
+            DataType varType = var.getDataType();
+            varType.setWidth(varType.getWidth()*blockSize);
+            var.setDataType(varType);
+        }
+
+        prototype += ", const " + var.getCVarDecl(false);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ", const " + var.getCVarDecl(true);
+        }
+    }
+
+    //Add output
+    if(numInputVars>0){
+        prototype += ", ";
+    }
+
+    unsigned long numOutputVars = outputFIFOs.size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numOutputVars>0){
+        Variable var = outputFIFOs[0]->getCStateInputVar();
+
+        if(blockSize>1){
+            DataType varType = var.getDataType();
+            varType.setWidth(varType.getWidth()*blockSize);
+            var.setDataType(varType);
+        }
+
+        if(var.getDataType().getWidth() == 1){
+            prototype += "&";
+        }
+        prototype += var.getCVarDecl(false, false, false, true);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ", ";
+            if(var.getDataType().getWidth() == 1){
+                prototype += "&";
+            }
+            prototype += var.getCVarDecl(true, false, false, true);
+        }
+    }
+
+    for(unsigned long i = 1; i<numOutputVars; i++){
+        Variable var = outputFIFOs[i]->getCStateInputVar();
+
+        if(blockSize>1){
+            DataType varType = var.getDataType();
+            varType.setWidth(varType.getWidth()*blockSize);
+            var.setDataType(varType);
+        }
+
+        prototype += ", ";
+        if(var.getDataType().getWidth() == 1){
+            prototype += "&";
+        }
+        prototype += var.getCVarDecl(false);
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += ", ";
+            if(var.getDataType().getWidth() == 1){
+                prototype += "&";
+            }
+            prototype += var.getCVarDecl(true);
+        }
+    }
+
+    return prototype;
+}
+
+std::string Design::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs){
+    std::string call = computeFctnName + "(";
+
+    unsigned long numInputVars = inputFIFOs.size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numInputVars>0){
+        Variable var = inputFIFOs[0]->getCStateVar();
+        //Get the temp var name
+        std::string tmpName = var.getName() + "_tmp";
+
+        call += tmpName + ".real";
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            call += ", " + tmpName + ".imag";
+        }
+    }
+
+    for(unsigned long i = 1; i<numInputVars; i++){
+        Variable var = inputFIFOs[i]->getCStateVar();
+        std::string tmpName = var.getName() + "_tmp";
+
+        call += ", " + tmpName + ".real";
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            call += ", " + tmpName + ".imag";
+        }
+    }
+
+    //Add output
+    if(numInputVars>0){
+        call += ", ";
+    }
+
+    unsigned long numOutputVars = outputFIFOs.size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    if(numOutputVars>0){
+        Variable var = outputFIFOs[0]->getCStateInputVar();
+        std::string tmpName = var.getName() + "_tmp";
+
+        call += tmpName + ".real";
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            call += ", " + tmpName + ".imag";
+        }
+    }
+
+    for(unsigned long i = 1; i<numOutputVars; i++){
+        Variable var = outputFIFOs[i]->getCStateInputVar();
+        std::string tmpName = var.getName() + "_tmp";
+
+        call += ", ";
+
+        call += tmpName + ".real";
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            call += ", " + tmpName + ".imag";
+        }
+    }
+
+    call += ");\n";
+
+    return call;
+}
+
 std::string Design::getCInputPortStructDefn(int blockSize){
     std::string prototype = "typedef struct {\n";
 
@@ -532,6 +702,59 @@ std::string Design::getCInputPortStructDefn(int blockSize){
     prototype += "} InputType;";
 
     return prototype;
+}
+
+std::pair<std::string, std::string> Design::getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum){
+    std::string structureType = designName + "_partition" + GeneralHelper::to_string(partitionNum) + "_threadArgs_t";
+    std::string prototype = "typedef struct {\n";
+
+    prototype += "\t//Input FIFOs";
+    for(unsigned long i = 0; i<inputFIFOs.size(); i++){
+        std::vector<Variable> fifoSharedVars = inputFIFOs[i]->getFIFOSharedVariables();
+
+        for(int j = 0; j<fifoSharedVars.size(); j++){
+            //All should be pointers
+            Variable var = fifoSharedVars[j];
+//            DataType varType = var.getDataType();
+//            varType.setWidth(varType.getWidth()*blockSize);
+//            var.setDataType(varType);
+            //Pass as not volatile
+            var.setVolatileVar(false);
+
+            prototype += "\t" + var.getCPtrDecl(false) + ";\n";
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                prototype += "\t" + var.getCPtrDecl(true) + ";\n";
+            }
+        }
+    }
+
+    prototype += "\t//Output FIFOs";
+    for(unsigned long i = 0; i<outputFIFOs.size(); i++){
+        std::vector<Variable> fifoSharedVars = outputFIFOs[i]->getFIFOSharedVariables();
+
+        for(int j = 0; j<fifoSharedVars.size(); j++){
+            //All should be pointers
+            Variable var = fifoSharedVars[j];
+//            DataType varType = var.getDataType();
+//            varType.setWidth(varType.getWidth()*blockSize);
+//            var.setDataType(varType);
+            //Pass as not volatile
+            var.setVolatileVar(false);
+
+            prototype += "\t" + var.getCPtrDecl(false) + ";\n";
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                prototype += "\t" + var.getCPtrDecl(true) + ";\n";
+            }
+        }
+    }
+
+    prototype += "} " + structureType + ";";
+
+    return std::pair<std::string, std::string> (prototype, structureType);
 }
 
 std::string Design::getCOutputStructDefn(int blockSize) {
@@ -566,7 +789,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched);
+        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched, false);
         verifyTopologicalOrder();
 
         if(emitGraphMLSched) {
@@ -614,7 +837,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
 //        std::cout << "Emitting GraphML pre-Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
-        scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched); //Pruned before inserting state update nodes
+        scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched, false); //Pruned before inserting state update nodes
         verifyTopologicalOrder();
 
         if(emitGraphMLSched) {
@@ -821,6 +1044,26 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
     zeroSchedNodeCmp->setSchedOrder(0);
 
     auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0)
+
+    std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
+    std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
+
+    emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, blockSize, indVarName);
+}
+
+//NOTE: if scheduling the output master is desired, it must be included in the nodes to emit
+void Design::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, int blockSize, std::string indVarName){
+
+    cFile << std::endl << "//==== Compute Operators ====" << std::endl;
+
+    //Sort nodes by schedOrder.
+    std::vector<std::shared_ptr<Node>> orderedNodes = nodesToEmit;
+    std::sort(orderedNodes.begin(), orderedNodes.end(), Node::lessThanSchedOrder);
+
+    std::shared_ptr<Node> zeroSchedNodeCmp = NodeFactory::createNode<MasterUnconnected>(); //Need a node to compare to
+    zeroSchedNodeCmp->setSchedOrder(0);
+
+    auto schedIt = std::lower_bound(orderedNodes.begin(), orderedNodes.end(), zeroSchedNodeCmp, Node::lessThanSchedOrder); //Binary search for the first node to be emitted (schedOrder 0 or greater)
 
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
@@ -1170,7 +1413,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     std::string fctnProto = "void " + designName + "(" + fctnProtoArgs + ")";
 
-    std::cout << "Emitting C File: " << path << "/" << designName << ".h" << std::endl;
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
     std::ofstream headerFile;
     headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
@@ -1235,7 +1478,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
 
     headerFile.close();
 
-    std::cout << "Emitting C File: " << path << "/" << designName << ".c" << std::endl;
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
@@ -1374,8 +1617,275 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile.close();
 }
 
+void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize, std::string fifoHeaderFile){
+    std::string blockIndVar = "";
+
+    if(blockSize > 1) {
+        blockIndVar = "blkInd";
+    }
+
+    //Set the index variable in the input FIFOs
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        inputFIFOs[i]->setCBlockIndexVarName(blockIndVar);
+    }
+
+    //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
+    //types are allowed since multiple values are being passed
+
+    //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
+
+    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize);
+    std::string computeFctnName = designName + "_partition"+GeneralHelper::to_string(partitionNum) + "_compute";
+    std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
+
+    std::string fileName = fileNamePrefix+"_partition"+GeneralHelper::to_string(partitionNum);
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
+    //headerFile << "#include <thread.h>" << std::endl;
+    headerFile << std::endl;
+
+    //Output the Function Definition
+    headerFile << computeFctnProto << ";" << std::endl;
+    headerFile << std::endl;
+
+    //Create the threadFunction argument structure
+    std::pair<std::string, std::string> threadArgStructAndTypeName = getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, partitionNum);
+    std::string threadArgStruct = threadArgStructAndTypeName.first;
+    std::string threadArgTypeName = threadArgStructAndTypeName.second;
+    headerFile << threadArgStruct << std::endl;
+    headerFile << std::endl;
+
+    //Output the thread function definition
+    std::string threadFctnDecl = "void* " + designName + "_partition" + GeneralHelper::to_string(partitionNum) + "_thread(void *args)";
+    headerFile << threadFctnDecl << ";" << std::endl;
+
+    //Output the reset function definition
+    headerFile << "void " << designName + "_partition" << partitionNum << "_reset();" << std::endl;
+    headerFile << std::endl;
+
+    //Find nodes with state & global decls
+    std::vector<std::shared_ptr<Node>> nodesWithState = EmitterHelpers::findNodesWithState(nodesToEmit);
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = EmitterHelpers::findNodesWithGlobalDecl(nodesToEmit);
+    unsigned long numNodes = nodesToEmit.size();
+
+    headerFile << "//==== State Variable Definitions ====" << std::endl;
+    //We also need to declare the state variables here as extern;
+
+    //Emit Definition
+    unsigned long nodesWithStateCount = nodesWithState.size();
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+        //Emit State Vars
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++){
+            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            headerFile << "extern " << stateVars[j].getCVarDecl(false, true, false, true) << ";" << std::endl;
+
+            if(stateVars[j].getDataType().isComplex()){
+                headerFile << "extern " << stateVars[j].getCVarDecl(true, true, false, true) << ";" << std::endl;
+            }
+        }
+    }
+
+    headerFile << std::endl;
+
+    //Insert BlackBox Headers
+    std::vector<std::shared_ptr<BlackBox>> blackBoxes = EmitterHelpers::findBlackBoxes(nodesToEmit);
+    if(blackBoxes.size() > 0) {
+        headerFile << "//==== BlackBox Headers ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            headerFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
+            headerFile << blackBoxes[i]->getCppHeaderContent() << std::endl;
+            headerFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
+        }
+    }
+
+    headerFile << "#endif" << std::endl;
+
+    headerFile.close();
+
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    //#### Emit .c file ####
+    std::ofstream cFile;
+    cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << std::endl;
+
+    //Find nodes with state & Emit state variable declarations
+    cFile << "//==== Init State Vars ====" << std::endl;
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+        //Emit State Vars
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++){
+            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            cFile << stateVars[j].getCVarDecl(false, true, true, true) << ";" << std::endl;
+
+            if(stateVars[j].getDataType().isComplex()){
+                cFile << stateVars[j].getCVarDecl(true, true, true, true) << ";" << std::endl;
+            }
+        }
+    }
+
+    cFile << std::endl;
+
+    cFile << "//==== Global Declarations ====" << std::endl;
+    unsigned long nodesWithGlobalDeclCount = nodesWithGlobalDecl.size();
+    for(unsigned long i = 0; i<nodesWithGlobalDeclCount; i++){
+        cFile << nodesWithGlobalDecl[i]->getGlobalDecl() << std::endl;
+    }
+
+    cFile << std::endl;
+
+    //Emit BlackBox C++ functions
+    if(blackBoxes.size() > 0) {
+        cFile << "//==== BlackBox Functions ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            cFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Functions ****" << std::endl;
+            cFile << blackBoxes[i]->getCppBodyContent() << std::endl;
+            cFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Functions ****" << std::endl;
+        }
+    }
+
+    cFile << std::endl;
+
+    cFile << "//==== Functions ====" << std::endl;
+
+    //Emit the compute function
+
+    cFile << computeFctnProto << "{" << std::endl;
+
+    //emit inner loop
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
+    if(blockSize > 1) {
+        cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
+    }
+
+    //Emit operators
+    if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
+        emitSelectOpsSchedStateUpdateContext(cFile, nodesToEmit, schedType, blockSize, blockIndVar);
+    }else{
+        throw std::runtime_error("Only TOPOLOGICAL_CONTEXT scheduler varient is supported for multi-threaded emit");
+    }
+
+    if(blockSize > 1) {
+        cFile << "}" << std::endl;
+    }
+
+    //There is no return for the thread
+
+    cFile << "}" << std::endl;
+
+    cFile << std::endl;
+
+    cFile << "void " << designName + "_partition" << partitionNum << "_reset(){" << std::endl;
+    cFile << "//==== Reset State Vars ====" << std::endl;
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+        //Emit State Vars
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++){
+            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+            DataType initDataType = stateVars[j].getDataType();
+            std::vector<NumericValue> initVals = stateVars[j].getInitValue();
+            unsigned long initValsLen = initVals.size();
+            if(initValsLen == 1){
+                cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
+            }else{
+                for(unsigned long k = 0; k < initValsLen; k++){
+                    cFile << stateVars[j].getCVarName(false) << "[" << k << "] = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
+                }
+            }
+
+            if(stateVars[j].getDataType().isComplex()){
+                if(initValsLen == 1){
+                    cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
+                }else{
+                    for(unsigned long k = 0; k < initValsLen; k++){
+                        cFile << stateVars[j].getCVarName(true) << "[" << k << "] = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
+                    }
+                }
+            }
+        }
+    }
+
+    //Call the reset functions of blackboxes if they have state
+    if(blackBoxes.size() > 0) {
+        cFile << "//==== Reset BlackBoxes ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            cFile << blackBoxes[i]->getResetName() << "();" << std::endl;
+        }
+    }
+
+    cFile << "}" << std::endl;
+    cFile << std::endl;
+
+    //Emit thread function
+    cFile << threadFctnDecl << "{" << std::endl;
+    //Copy ptrs from struct argument
+    cFile << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, threadArgTypeName, "args");
+
+    //Create Loop
+    cFile << "while(1){" << std::endl;
+
+    //Check FIFO input FIFOs (will spin until ready)
+    cFile << EmitterHelpers::emitFIFOChecks(inputFIFOs, partitionNum, false, "inputFIFOsReady", false);
+
+    //Create temp entries for FIFO inputs
+    std::vector<std::string> tmpReadDecls = EmitterHelpers::createFIFOReadTemps(inputFIFOs);
+    for(int i = 0; i<tmpReadDecls.size(); i++){
+        cFile << tmpReadDecls[i] << std::endl;
+    }
+
+    //Read input FIFOs
+    std::vector<std::string> readFIFOExprs = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    for(int i = 0; i<readFIFOExprs.size(); i++){
+        cFile << readFIFOExprs[i] << std::endl;
+    }
+
+    //Create temp entries for outputs
+    std::vector<std::string> tmpWriteDecls = EmitterHelpers::createFIFOWriteTemps(outputFIFOs);
+    for(int i = 0; i<tmpWriteDecls.size(); i++){
+        cFile << tmpWriteDecls[i] << std::endl;
+    }
+
+    //Call compute function (recall that the compute function is declared with outputs as references)
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs);
+    cFile << call << std::endl;
+
+    //Check output FIFOs (will spin until ready)
+    cFile << EmitterHelpers::emitFIFOChecks(outputFIFOs, partitionNum, true, "outputFIFOsReady", false);
+
+    //Write result to FIFOs
+    std::vector<std::string> writeFIFOExprs = EmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
+    for(int i = 0; i<writeFIFOExprs.size(); i++){
+        cFile << writeFIFOExprs[i] << std::endl;
+    }
+
+    //Close loop
+    cFile << "}" << std::endl;
+
+    //Close function
+    cFile << "}" << std::endl;
+
+    cFile.close();
+}
+
 void Design::emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName, int blockSize) {
-    //TODO: emit blocked versions
     emitSingleThreadedCBenchmarkingDriverConst(path, fileName, designName, blockSize);
     emitSingleThreadedCBenchmarkingDriverMem(path, fileName, designName, blockSize);
 }
@@ -2555,7 +3065,44 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     return sortedNodes;
 }
 
-unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched) {
+std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params, int partitionNum) {
+    std::vector<std::shared_ptr<Arc>> arcsToDelete;
+    std::vector<std::shared_ptr<Node>> topLevelContextNodesInPartition = GraphAlgs::findNodesStopAtContextFamilyContainers(topLevelNodes, partitionNum);
+
+    if(partitionNum == IO_PARTITION_NUM) {
+        topLevelContextNodesInPartition.push_back(outputMaster);
+    }
+
+    std::vector<std::shared_ptr<Node>> sortedNodes;
+
+    bool failed = false;
+    std::exception err;
+    try {
+        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodesInPartition, arcsToDelete, outputMaster,
+                                                            inputMaster, terminatorMaster, unconnectedMaster,
+                                                            visMaster);
+    }catch(const std::exception &e){
+        failed = true;
+        err = e;
+    }
+
+    //Delete the arcs
+    //TODO: Remove this?  May not be needed for most applications.  We are probably going to distroy the design anyway
+    for(auto it = arcsToDelete.begin(); it != arcsToDelete.end(); it++){
+        arcs.erase(std::remove(arcs.begin(), arcs.end(), *it), arcs.end());
+    }
+
+    if(failed) {
+        std::cout << "Emitting: " + dir + "/" + designName + "_sort_error_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(dir + "/" + designName + "_sort_error_scheduleGraph.graphml", *this);
+
+        throw err;
+    }
+
+    return sortedNodes;
+}
+
+unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched, bool schedulePartitions) {
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2616,6 +3163,8 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
             //Do not disconnect enabled outputs even though they have state.  They are actually more like transparent latches and do pass signals directly (within the same cycle) when the subsystem is enabled.  Otherwise, the pass the previous output
             //Disconnect output arcs (we still need to calculate the inputs to the state element, however the output of the output appears like a constant from a scheduling perspecitve)
 
+            //Thread crossing FIFOs will have their outputs disconnected by this method as they declare that they have state and no combinational path
+
             //Note, arcs to state update nodes should not be removed.
 
             std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
@@ -2671,20 +3220,42 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 //    GraphMLExporter::exportGraphML("./cOut/context_scheduleGraph.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
-    std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir, params);
+    if(schedulePartitions) {
+        std::set<int> partitions = listPresentPartitions();
 
-    if(printNodeSched) {
-        std::cout << "Schedule" << std::endl;
-        for(unsigned long i = 0; i<schedule.size(); i++){
-            std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
+        for(auto partitionBeingScheduled = partitions.begin(); partitionBeingScheduled != partitions.end(); partitionBeingScheduled++) {
+            std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir, params, *partitionBeingScheduled);
+
+            if (printNodeSched) {
+                std::cout << "Schedule [Partition: " << *partitionBeingScheduled << "]" << std::endl;
+                for (unsigned long i = 0; i < schedule.size(); i++) {
+                    std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
+                }
+            }
+
+            //==== Back Propagate Schedule ====
+            for (unsigned long i = 0; i < schedule.size(); i++) {
+                //Index is the schedule number
+                std::shared_ptr<Node> origNode = clonedToOrigNodes[schedule[i]];
+                origNode->setSchedOrder(i);
+            }
         }
-    }
+    }else{
+        std::vector<std::shared_ptr<Node>> schedule = designClone.topologicalSortDestructive(designName, dir, params);
 
-    //==== Back Propagate Schedule ====
-    for(unsigned long i = 0; i<schedule.size(); i++){
-        //Index is the schedule number
-        std::shared_ptr<Node> origNode = clonedToOrigNodes[schedule[i]];
-        origNode->setSchedOrder(i);
+        if (printNodeSched) {
+            std::cout << "Schedule" << std::endl;
+            for (unsigned long i = 0; i < schedule.size(); i++) {
+                std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
+            }
+        }
+
+        //==== Back Propagate Schedule ====
+        for (unsigned long i = 0; i < schedule.size(); i++) {
+            //Index is the schedule number
+            std::shared_ptr<Node> origNode = clonedToOrigNodes[schedule[i]];
+            origNode->setSchedOrder(i);
+        }
     }
 
 //    std::cout << "Schedule - All Nodes" << std::endl;
@@ -2783,27 +3354,11 @@ void Design::createContextVariableUpdateNodes(bool includeContext) {
 }
 
 std::vector<std::shared_ptr<Node>> Design::findNodesWithState() {
-    std::vector<std::shared_ptr<Node>> nodesWithState;
-
-    for(unsigned long i = 0; i<nodes.size(); i++) {
-        if (nodes[i]->hasState()) {
-            nodesWithState.push_back(nodes[i]);
-        }
-    }
-
-    return nodesWithState;
+    return EmitterHelpers::findNodesWithState(nodes);
 }
 
 std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
-    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
-
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        if(nodes[i]->hasGlobalDecl()){
-            nodesWithGlobalDecl.push_back(nodes[i]);
-        }
-    }
-
-    return nodesWithGlobalDecl;
+    return EmitterHelpers::findNodesWithGlobalDecl(nodes);
 }
 
 //TODO: Check
@@ -2951,31 +3506,11 @@ void Design::orderConstrainZeroInputNodes(){
 }
 
 std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
-    std::vector<std::shared_ptr<ContextRoot>> contextRoots;
-
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        std::shared_ptr<ContextRoot> nodeAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
-
-        if(nodeAsContextRoot){
-            contextRoots.push_back(nodeAsContextRoot);
-        }
-    }
-
-    return contextRoots;
+    return EmitterHelpers::findContextRoots(nodes);
 }
 
 std::vector<std::shared_ptr<BlackBox>> Design::findBlackBoxes(){
-    std::vector<std::shared_ptr<BlackBox>> blackBoxes;
-
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        std::shared_ptr<BlackBox> nodeAsBlackBox = GeneralHelper::isType<Node, BlackBox>(nodes[i]);
-
-        if(nodeAsBlackBox){
-            blackBoxes.push_back(nodeAsBlackBox);
-        }
-    }
-
-    return blackBoxes;
+    return EmitterHelpers::findBlackBoxes(nodes);
 }
 
 //TODO: Check
@@ -3342,15 +3877,16 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 }
 
 void Design::emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
-                                SchedParams::SchedType schedType, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType) {
+                                SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
+                                ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched) {
 
     //The code below is adapted from the single threaded emitter
 
     //Change the I/O masters to be in partition -2
     //This is a special partition.  Even if they I/O exists on the same node as a process thread, want to handle it seperatly
-    inputMaster->setPartitionNum(-2);
-    outputMaster->setPartitionNum(-2);
-    visMaster->setPartitionNum(-2);
+    inputMaster->setPartitionNum(IO_PARTITION_NUM);
+    outputMaster->setPartitionNum(IO_PARTITION_NUM);
+    visMaster->setPartitionNum(IO_PARTITION_NUM);
 
     prune(true);
     expandEnabledSubsystemContexts();
@@ -3364,12 +3900,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignArcIDs();
 
     //TODO: Partition Here
-
-    //TODO: Ingest Delays Here (only adjacent delays for now)
-    //Should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
-    //Currently, only nodes that are soley connected to FIFOs are absorbed.  It is possible to absorb other nodes but delay matching
-    //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
-    assignArcIDs();
 
     //TODO: Modify to not stop at FIFOs with no initial state when finding Mux contexts.  FIFOs with initial state are are treated as containing delays.  FIFOs without initial state treated like wires.
     //Do this after FIFO insertion so that FIFOs are properly marked
@@ -3408,19 +3938,22 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap;
 
-    std::vector<std::shared_ptr<Node>> new_nodes;
-    std::vector<std::shared_ptr<Node>> deleted_nodes;
-    std::vector<std::shared_ptr<Arc>> new_arcs;
-    std::vector<std::shared_ptr<Arc>> deleted_arcs;
+    {
+        std::vector<std::shared_ptr<Node>> new_nodes;
+        std::vector<std::shared_ptr<Node>> deleted_nodes;
+        std::vector<std::shared_ptr<Arc>> new_arcs;
+        std::vector<std::shared_ptr<Arc>> deleted_arcs;
 
-    switch(fifoType){
-        case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
-            fifoMap = EmitterHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
-            break;
-        default:
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Thread Crossing FIFO Type for Multithreaded Emit"));
+        switch (fifoType) {
+            case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
+                fifoMap = EmitterHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings,new_nodes,deleted_nodes,new_arcs,deleted_arcs);
+                break;
+            default:
+                throw std::runtime_error(
+                        ErrorHelpers::genErrorStr("Unsupported Thread Crossing FIFO Type for Multithreaded Emit"));
+        }
+        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
     }
-    addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
@@ -3429,37 +3962,53 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //TODO: Retime Here
 
-    //TODO: Absorb here
+    //TODO: Ingest Delays Here (only adjacent delays for now)
+    //Should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
+    //Currently, only nodes that are soley connected to FIFOs are absorbed.  It is possible to absorb other nodes but delay matching
+    //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
+    {
+        std::vector<std::shared_ptr<Node>> new_nodes;
+        std::vector<std::shared_ptr<Node>> deleted_nodes;
+        std::vector<std::shared_ptr<Arc>> new_arcs;
+        std::vector<std::shared_ptr<Arc>> deleted_arcs;
 
+        EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+    }
+    assignNodeIDs();
+    assignArcIDs();
 
-    //Create state update nodes after delay absorption to avoid
+    //Create state update nodes after delay absorption to avoid creating dependencies that would inhibit delay absorption
     createStateUpdateNodes(true); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-    //This function needs to perform the expansion, context expansion, and context encapsulation that the single threaded
-    //emitters already do.  Note that the encapsulation into ContextFamilyContainers now needs to be partition aware.
-    //Seperate ContextFamilyContainers should be created for each partition.
-    //Context family containers should also be in the partition they are assigned to and should be included in the list
-    //of nodes to schedule when a particular partition is being scheduled
-    //When arcs are elevated for scheduling, the context/partition pair should now be considered rather than just the partition (this happens in the scheduler method by calling rewireArcsToContexts)
-    //Also, the context driver arc should also be duplicated for each ContextFamilyContainer
+    //TODO: Validate deadlock free (no cycles with 0 initial fifo state, disallow context driver "cycles")
 
-    //These changes should not effect the single thread
+    //Schedule the partitions
+    scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
 
-    //We've added nodes and arcs and therefore need to assign their ID numbers
-    assignNodeIDs();
-    assignArcIDs();
+    //TODO: May just work because FIFOs declare state and no combination path and thus are treated similarly to delays
+    verifyTopologicalOrder();
 
-    //TODO: Re-discover partitions since nodes may have been inserted (state and context update nodes, and may have been removed
     std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
 
+    //TODO: Emit FIFO header (get struct descriptions from FIFOs
 
-        //Emit each partition's function (except partition -1 and -2 [I/O])
+    for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
+        //Emit each partition (except -2, handle specially)
+        if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
+
+            //Emit each partition's function (except partition -1 and -2 [I/O])
             //Discover partition function prototype from crossing FIFOs
             //Need to emit the output seperatly? (No, by supplying the correct emitCNextState statement, the output can be set
 
-        //Emit each partition's driver function
+            //Emit each partition's driver function
+            //Need hierarchical check of FIFOs if in context.
+            //TODO: Schedule context FIFO reads (note, driver "cycles" should be checked for before this)
+                //Build trees of FIFOs in Contexts
+        }
+    }
 
     //TODO: Refine/Cleanup I/O
     //Emit I/O
@@ -3530,4 +4079,14 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
     }else{
         return contextFamilyContainers[partition];
     }
+}
+
+std::set<int> Design::listPresentPartitions(){
+    std::set<int> partitions;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        partitions.insert(nodes[i]->getPartitionNum());
+    }
+
+    return partitions;
 }

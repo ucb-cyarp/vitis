@@ -239,7 +239,20 @@ std::vector<Variable> ThreadCrossingFIFO::getCStateVars() {
 CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                     int outputPortNum, bool imag) {
     //getCStateVar() will initialize cStateVar if it is not already
-    return CExpr(getCStateVar().getCVarName(imag), true);
+
+    std::string expr;
+    if(blockSize > 1){
+        int width = getCStateVar().getDataType().getWidth();
+        if(width > 1){
+            expr = "(" + getCStateVar().getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + cBlockIndexVarName + ")";
+        }else{
+            expr = "(" +  getCStateVar().getCVarName(imag) + "[" + cBlockIndexVarName + "])";
+        }
+    }else{
+        expr = getCStateVar().getCVarName(imag);
+    }
+
+    return CExpr(expr, true);;
 }
 
 void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
@@ -289,11 +302,41 @@ void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, V
         std::string varName = node->getName()+"_n"+GeneralHelper::to_string(node->getId())+"_" +suffix;
         var.setName(varName);
 
-        if(node->getOutputPorts().size() == 1 && node->getOutputPort(0)->getArcs().size() >= 1){
-            var.setDataType((*node->getOutputPort(0)->getArcs().begin())->getDataType());
-        }else{
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Should Have >= 1 Output Arc", node));
-        }
         init = true;
     }
+}
+
+std::string ThreadCrossingFIFO::getCBlockIndexVarName() const {
+    return cBlockIndexVarName;
+}
+
+void ThreadCrossingFIFO::setCBlockIndexVarName(const std::string &cBlockIndexVarName) {
+    ThreadCrossingFIFO::cBlockIndexVarName = cBlockIndexVarName;
+}
+
+std::string ThreadCrossingFIFO::getFIFOStructTypeName(){
+    if(cStateVar.getDataType().isComplex()){
+        return cStateVar.getName() + "_t";
+    }
+    return "";
+}
+
+std::string ThreadCrossingFIFO::createFIFOStruct(){
+    if(cStateVar.getDataType().isComplex()) {
+        std::string typeName = getFIFOStructTypeName();
+        DataType stateDT = cStateVar.getDataType();
+        int elementWidth = stateDT.getWidth();
+
+        //TODO: Check 2D case
+        std::string structStr = "typedef struct {\n";
+        structStr += stateDT.toString(DataType::StringStyle::C) + " real" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "");
+
+        if(stateDT.isComplex()) {
+            structStr += ",\n" + stateDT.toString(DataType::StringStyle::C) + " imag" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + "\n";
+        }
+        structStr += "} " + typeName + ";";
+        return structStr;
+    }
+
+    return "";
 }

@@ -274,6 +274,31 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
     return foundNodes;
 }
 
+std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch, int partitionNum){
+    std::vector<std::shared_ptr<Node>> foundNodes;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        if(GeneralHelper::isType<Node, ContextFamilyContainer>(nodesToSearch[i]) != nullptr && nodesToSearch[i]->getPartitionNum() == partitionNum){//Check this first because ContextFamilyContainer are SubSystems
+            foundNodes.push_back(nodesToSearch[i]); //Do not recurse
+        }else if(GeneralHelper::isType<Node, SubSystem>(nodesToSearch[i]) != nullptr){ //Do not check for partition in subsystem
+            std::shared_ptr<SubSystem> subSystem = std::static_pointer_cast<SubSystem>(nodesToSearch[i]);
+            foundNodes.push_back(subSystem);
+            std::set<std::shared_ptr<Node>> childrenSetPtrOrder = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+            childrenSet.insert(childrenSetPtrOrder.begin(), childrenSetPtrOrder.end());
+            std::vector<std::shared_ptr<Node>> childrenVector;
+            childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
+
+            std::vector<std::shared_ptr<Node>> moreFoundNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector, partitionNum);
+            foundNodes.insert(foundNodes.end(), moreFoundNodes.begin(), moreFoundNodes.end());
+        }else if(nodesToSearch[i]->getPartitionNum() == partitionNum){
+            foundNodes.push_back(nodesToSearch[i]);
+        }
+    }
+
+    return foundNodes;
+}
+
 std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(TopologicalSortParameters parameters,
                                                                          std::vector<std::shared_ptr<Node>> nodesToSort,
                                                                          std::vector<std::shared_ptr<Arc>> &arcsToDelete,

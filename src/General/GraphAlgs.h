@@ -147,6 +147,21 @@ public:
     static std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch);
 
     /**
+     * @brief Recursively finds nodes in a hierarchy starting from a list of provided nodes.  Subsystems, including EnabledSubystems are searched.  ContexFamilyNodes are included but are not recursed into
+     *
+     * @warning This method expects ContextFamilyContainers to have already been created as enabled subsystems are treated like subsystems
+     *
+     * This version limits the nodes returned to ones in a specified partition
+     *
+     * Note that ContextFamilyContainers for a particular partition cannot include other partitions.  This is because multiple ContextFamilyContainers
+     * can exist for a given context root
+     *
+     * @param nodesToSearch a list of nodes to search
+     * @return a list of found nodes
+     */
+    static std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch, int partitionNum);
+
+    /**
      * @brief Creates a the StateUpdate node for the given node (in the style of Delay)
      *
      *

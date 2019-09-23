@@ -34,10 +34,11 @@ CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
 
     std::string expr;
     if(blockSize > 1){
-        if(outputPort->getDataType().getWidth() > 1){
-            expr = var.getCVarName(imag) + "+" + GeneralHelper::to_string(blockSize) + "*" + indVarName;
+        int width = outputPort->getDataType().getWidth();
+        if(width > 1){
+            expr = "(" + var.getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + indVarName + ")";
         }else{
-            expr = var.getCVarName(imag) + "[" + indVarName + "]";
+            expr = "(" +  var.getCVarName(imag) + "[" + indVarName + "])";
         }
     }else{
         expr = var.getCVarName(imag);

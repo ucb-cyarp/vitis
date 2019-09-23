@@ -221,9 +221,9 @@ public:
 
     std::string emitCNumBlocksAvailToWrite() override;
 
-    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, Variable src, int numBlocks) override;
+    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) override;
 
-    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, Variable dst, int numBlocks) override;
+    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) override;
 
     std::vector<Variable> getFIFOSharedVariables() override;
 
