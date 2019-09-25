@@ -1650,6 +1650,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#include <pthread.h>" << std::endl;
     headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
@@ -1787,6 +1788,8 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
 
     //There is no return for the thread
 
+    cFile << "return NULL;" << std::endl;
+
     cFile << "}" << std::endl;
 
     cFile << std::endl;
@@ -1843,7 +1846,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     cFile << "while(1){" << std::endl;
 
     //Check FIFO input FIFOs (will spin until ready)
-    cFile << EmitterHelpers::emitFIFOChecks(inputFIFOs, partitionNum, false, "inputFIFOsReady", false);
+    cFile << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
     //Create temp entries for FIFO inputs
     std::vector<std::string> tmpReadDecls = EmitterHelpers::createFIFOReadTemps(inputFIFOs);
@@ -1868,7 +1871,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     cFile << call << std::endl;
 
     //Check output FIFOs (will spin until ready)
-    cFile << EmitterHelpers::emitFIFOChecks(outputFIFOs, partitionNum, true, "outputFIFOsReady", false);
+    cFile << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
     //Write result to FIFOs
     std::vector<std::string> writeFIFOExprs = EmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
@@ -1883,6 +1886,322 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     cFile << "}" << std::endl;
 
     cFile.close();
+}
+
+void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile){
+    //Emit a thread for handeling the I/O
+
+    //Note, a single input FIFO may correspond to multiple MasterOutput ports
+    //Will deal with input/output FIFOs only and not MasterNode ports
+    //A mapping of MasterNode ports to FIFOs is required for other drivers
+
+    std::string fileName = fileNamePrefix+"_io_constant";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#include <pthread.h>" << std::endl;
+    headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
+    headerFile << std::endl;
+
+    //Create the threadFunction argument structure for the I/O thread (includes the references to FIFO shared vars)
+    std::pair<std::string, std::string> threadArgStructAndTypeName = getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, IO_PARTITION_NUM);
+    std::string threadArgStruct = threadArgStructAndTypeName.first;
+    std::string threadArgTypeName = threadArgStructAndTypeName.second;
+    headerFile << threadArgStruct << std::endl;
+    headerFile << std::endl;
+
+    //Output the function prototype for the I/O thread function
+    std::string threadFctnDecl = "void* " + designName + "_io_const_thread(void *args)";
+    headerFile << std::endl;
+    headerFile << threadFctnDecl << ";" << std::endl;
+    headerFile << "#endif" << std::endl;
+
+    //#### Emit .c File ####
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    std::ofstream ioThread;
+    ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    ioThread << std::endl;
+
+    ioThread << threadFctnDecl << "{" << std::endl;
+
+    //Copy shared variables from the input argument structure
+    ioThread << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, threadArgTypeName, "args");
+
+    std::vector<NumericValue> defaultArgs;
+    for (unsigned long i = 0; i < outputFIFOs.size(); i++) {
+        DataType type = (*outputFIFOs[i]->getInputArcs().begin())->getDataType(); // should already be validated to have an input port
+        NumericValue val;
+        val.setRealInt(1);
+        val.setImagInt(1);
+        val.setComplex(type.isComplex());
+        val.setFractional(false);
+
+        defaultArgs.push_back(val);
+    }
+
+    //Create temp entries for outputs and initialize them with the constants
+    std::vector<std::string> tmpWriteDecls = EmitterHelpers::createAndInitializeFIFOWriteTemps(outputFIFOs, defaultArgs);
+    for(int i = 0; i<tmpWriteDecls.size(); i++){
+        ioThread << tmpWriteDecls[i] << std::endl;
+    }
+
+    //Create the input FIFO temps
+    std::vector<std::string> tmpReadDecls = EmitterHelpers::createFIFOReadTemps(inputFIFOs);
+    for(int i = 0; i<tmpReadDecls.size(); i++){
+        ioThread << tmpReadDecls[i] << std::endl;
+    }
+
+    ioThread << "int readCount = 0;" << std::endl;
+
+    if(blockSize > 1){
+        ioThread << "int iterLimit = STIM_LEN/" << blockSize << ";" << std::endl;
+    }else{
+        ioThread << "int iterLimit = STIM_LEN;" << std::endl;
+    }
+    ioThread << "for(int i = 0; i<iterLimit; ){" << std::endl;
+    //Check Output FIFOs
+    ioThread << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
+    ioThread << "if(outputFIFOsReady){" << std::endl;
+    //Write FIFOs
+    std::vector<std::string> writeFIFOExprs = EmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
+    for(int i = 0; i<writeFIFOExprs.size(); i++){
+        ioThread << writeFIFOExprs[i] << std::endl;
+    }
+    ioThread << "i++" << std::endl;
+    ioThread << "}" << std::endl;
+
+    //Check input FIFOs
+    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
+    ioThread << "if(inputFIFOsReady){" << std::endl;
+    //Read input FIFOs
+    std::vector<std::string> readFIFOExprs = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    for(int i = 0; i<readFIFOExprs.size(); i++){
+        ioThread << readFIFOExprs[i] << std::endl;
+    }
+    ioThread << "readCount++" << std::endl;
+    ioThread << "}" << std::endl;
+
+    ioThread << "}" << std::endl; //Close for
+
+    //Wait for reading to finish
+    ioThread << "while(readCount<iterLimit){" << std::endl;
+    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here (is blocking)
+    ioThread << "if(inputFIFOsReady){" << std::endl;
+    //Read input FIFOs
+    std::vector<std::string> readFIFOExprsCleanup = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    for(int i = 0; i<readFIFOExprsCleanup.size(); i++){
+        ioThread << readFIFOExprsCleanup[i] << std::endl;
+    }
+    ioThread << "readCount++" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << "}" << std::endl; //end while
+
+    //Done reading
+    ioThread << "return NULL;" << std::endl;
+    ioThread << "}" << std::endl;
+}
+
+void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix){
+    std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#include <pthread.h>" << std::endl;
+    headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
+    headerFile << std::endl;
+
+    //Output the function prototype for the I/O thread function
+    std::string fctnDecl = "void " + designName + "_" + ioBenchmarkSuffix + "_kernel()";
+    headerFile << std::endl;
+    headerFile << fctnDecl << ";" << std::endl;
+    headerFile << "#endif" << std::endl;
+
+    //#### Emit .c File ####
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    std::ofstream cFile;
+    cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    //Include other generated headers
+    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    //Include other thread headers
+    for(auto it = partitions.begin(); it!=partitions.end(); it++){
+        if(*it != IO_PARTITION_NUM){
+            std::string partitionFileName = fileNamePrefix+"_partition"+GeneralHelper::to_string(*it);
+            cFile << "#include \"" << partitionFileName << ".h" << "\"" << std::endl;
+        }
+    }
+    //Include I/O thread header
+    std::string ioThreadFile = fileNamePrefix+"_" + ioBenchmarkSuffix;
+    cFile << "#include \"" << ioThreadFile << ".h" << "\"" << std::endl;
+
+    cFile << std::endl;
+    cFile << fctnDecl << "{" << std::endl;
+
+    cFile << "//Reset" << std::endl;
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        if(*it != IO_PARTITION_NUM){
+            cFile << designName + "_partition" << *it << "_reset();" << std::endl;
+        }
+    }
+
+    cFile << "//Allocate FIFO Shared Variables" << std::endl;
+
+    //For each FIFO, allocate the shared arrays
+    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos = it->second;
+
+        std::vector<std::string> statements;
+        for(int i = 0; i<fifos.size(); i++){
+            fifos[i]->createSharedVariables(statements);
+        }
+
+        for(int i = 0; i<statements.size(); i++){
+            cFile << statements[i] << std::endl;
+        }
+    }
+
+    cFile << std::endl;
+
+    //Create Argument structures for threads
+    cFile << "//Create Thread Arguments" << std::endl;
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        //Including the I/O thread
+        std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(*it) + "_threadArgs";
+        std::string threadArgStructType = threadArgStructName + "_t";
+        cFile << threadArgStructType << " " << threadArgStructName << ";" << std::endl;
+        //Set pointers
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos = inputFIFOMap[*it];
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs = outputFIFOMap[*it];
+        fifos.insert(fifos.end(), outputFIFOs.begin(), outputFIFOs.end());
+
+        for(int i = 0; i<fifos.size(); i++){
+            std::vector<Variable> fifoVars = fifos[i]->getFIFOSharedVariables();
+            for(int j = 0; j<fifoVars.size(); j++){
+                //All should be pointers
+                Variable var = fifoVars[j];
+
+                cFile << threadArgStructName << "." << var.getCVarName(false) << " = " << var.getCVarName(false) << ";" << std::endl;
+
+                //Check if complex
+                if(var.getDataType().isComplex()){
+                    cFile << threadArgStructName << "." << var.getCVarName(true) << " = " << var.getCVarName(true) << ";" << std::endl;
+                }
+            }
+        }
+    }
+
+    //Create Thread Parameters
+    cFile << std::endl;
+    cFile << "//Create Thread Parameters" << std::endl;
+    cFile << "int status;" << std::endl;
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        cFile << "cpu_set_t cpuset_" << *it << ";" << std::endl;
+        cFile << "pthread_t thread_" << *it << ";" << std::endl;
+        cFile << "pthread_attr_t attr_" << *it << ";" << std::endl;
+        //cFile << "void *res_" << *it << ";" << std::endl;
+        cFile << std::endl;
+        cFile << "status = pthread_attr_init(&attr_" << *it << ");" << std::endl;
+        cFile << "if(status != 0)" << std::endl;
+        cFile << "{" << std::endl;
+        cFile << "printf(\"Could not create pthread attributes ... exiting\n\");" << std::endl;
+        cFile << "exit(1);" << std::endl;
+        cFile << "}" << std::endl;
+        cFile << std::endl;
+        cFile << "CPU_ZERO(&cpuset_" << *it << "); //Clear cpuset" << std::endl;
+        int core = *it;
+        if(core < 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
+//            std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
+//            core = 0;
+        }
+        cFile << "CPU_SET(" << core << ", &cpuset_" << *it << "); //Add CPU to cpuset" << std::endl;
+        cFile << "status = pthread_attr_setaffinity_np(&attr_" << *it << ", sizeof(cpu_set_t), &cpuset_" << *it << ");//Set thread CPU affinity" << std::endl;
+        cFile << "if(status != 0)" << std::endl;
+        cFile << "{" << std::endl;
+        cFile << "printf(\"Could not set thread core affinity ... exiting\n\");" << std::endl;
+        cFile << "exit(1);" << std::endl;
+        cFile << "}" << std::endl;
+        cFile << std::endl;
+    }
+
+    //Start all threads except the I/O thread
+    cFile << std::endl;
+    cFile << "//Start Threads" << std::endl;
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        if(*it != IO_PARTITION_NUM) {
+            std::string threadFun = designName + "_partition" + GeneralHelper::to_string(*it) + "_thread";
+            std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(*it) + "_threadArgs";
+            cFile << "status = pthread_create(&thread_" << *it << ", &attr_" << *it << ", " << threadFun << "," << threadArgStructName << ");" << std::endl;
+            cFile << "if(status != 0)" << std::endl;
+            cFile << "{" << std::endl;
+            cFile << "printf(\"Could not create a thread ... exiting\n\");" << std::endl;
+            cFile << "errno = status;" << std::endl;
+            cFile << "perror(NULL);" << std::endl;
+            cFile << "exit(1);" << std::endl;
+            cFile << "}" << std::endl;
+        }
+    }
+
+    //Start I/O thread
+    std::string threadFun = designName + "_" + ioBenchmarkSuffix + "_thread";
+    std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(IO_PARTITION_NUM) + "_threadArgs";
+    cFile << "status = pthread_create(&thread_" << IO_PARTITION_NUM << ", &attr_" << IO_PARTITION_NUM << ", " << threadFun << "," << threadArgStructName << ");" << std::endl;
+    cFile << "if(status != 0)" << std::endl;
+    cFile << "{" << std::endl;
+    cFile << "printf(\"Could not create a thread ... exiting\n\");" << std::endl;
+    cFile << "errno = status;" << std::endl;
+    cFile << "perror(NULL);" << std::endl;
+    cFile << "exit(1);" << std::endl;
+    cFile << "}" << std::endl;
+
+    //Join on the I/O thread
+    cFile << std::endl;
+    cFile << "//Wait for I/O Thread to Finish" << std::endl;
+    cFile << "void *res_" << IO_PARTITION_NUM << ";" << std::endl;
+    cFile << "status = pthread_join(thread_" << IO_PARTITION_NUM << ", &res_" << IO_PARTITION_NUM << ");" << std::endl;
+    cFile << "if(status != 0)" << std::endl;
+    cFile << "{" << std::endl;
+    cFile << "printf(\"Could not join a thread ... exiting\n\");" << std::endl;
+    cFile << "errno = status;" << std::endl;
+    cFile << "perror(NULL);" << std::endl;
+    cFile << "exit(1);" << std::endl;
+    cFile << "}" << std::endl;
+
+    //Cancel the other threads
+    cFile << std::endl;
+    cFile << "//Cancel Other Threads" << std::endl;
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        if(*it != IO_PARTITION_NUM) {
+            cFile << "status = pthread_cancel(&thread_" << *it << ");" << std::endl;
+            cFile << "if(status != 0)" << std::endl;
+            cFile << "{" << std::endl;
+            cFile << "printf(\"Could not cancel a thread ... exiting\n\");" << std::endl;
+            cFile << "errno = status;" << std::endl;
+            cFile << "perror(NULL);" << std::endl;
+            cFile << "exit(1);" << std::endl;
+            cFile << "}" << std::endl;
+        }
+    }
+
+    cFile << "}" << std::endl;
 }
 
 void Design::emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName, int blockSize) {
@@ -1901,8 +2220,12 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
     benchKernel << "#include \"" << fileName << ".h" << "\"" << std::endl;
     benchKernel << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchKernel << "void bench_"+fileName+"()\n"
-                   "{\n"
-                   "\tOutputType output;\n"
+                   "{\n";
+
+    //Reset
+    benchKernel << "\t" << designName << "_reset();\n";
+
+    benchKernel << "\tOutputType output;\n"
                    "\tunsigned long outputCount;\n";
 
     //Generate loop
@@ -2195,6 +2518,9 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     benchKernelMem << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchKernelMem << "void bench_"+fileName+"_mem(void** in, void** out)" << std::endl;
     benchKernelMem << "{\n";
+
+    //Reset
+    benchKernelMem << "\t" << designName << "_reset();\n";
 
     //Cast the input and output arrays to the correct type
     std::vector<Variable> inputVars = getCInputVariables();
@@ -3505,6 +3831,13 @@ void Design::orderConstrainZeroInputNodes(){
     addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 }
 
+void Design::propagatePartitionsFromSubsystemsToChildren(){
+    std::set<std::shared_ptr<Node>> topLevelNodeSet;
+    topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
+
+    EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1, true);
+}
+
 std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
     return EmitterHelpers::findContextRoots(nodes);
 }
@@ -3878,7 +4211,8 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 
 void Design::emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
                                 SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
-                                ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched) {
+                                ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched,
+                                int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems) {
 
     //The code below is adapted from the single threaded emitter
 
@@ -3887,6 +4221,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     inputMaster->setPartitionNum(IO_PARTITION_NUM);
     outputMaster->setPartitionNum(IO_PARTITION_NUM);
     visMaster->setPartitionNum(IO_PARTITION_NUM);
+
+    //Propagate
+    if(propagatePartitionsFromSubsystems){
+        propagatePartitionsFromSubsystemsToChildren();
+    }
 
     prune(true);
     expandEnabledSubsystemContexts();
@@ -3958,11 +4297,31 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-    //TODO: Set FIFO length here (do before delay ingest)
+    std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec;
+    std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOs;
+    std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOs;
+    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
+        int srcPartition = it->first.first;
+        int dstPartition = it->first.second;
+        fifoVec.insert(fifoVec.end(), it->second.begin(), it->second.end());
+
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>>& inputFIFOsRef = inputFIFOs[dstPartition];
+        inputFIFOsRef.insert(inputFIFOsRef.end(), it->second.begin(), it->second.end());
+
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>>& outputFIFOsRef = inputFIFOs[dstPartition];
+        outputFIFOsRef.insert(outputFIFOsRef.end(), it->second.begin(), it->second.end());
+    }
+
+    //Set FIFO length and block size here (do before delay ingest)
+    //TODO: update to be sized on a per FIFO basis
+    for(int i = 0; i<fifoVec.size(); i++){
+        fifoVec[i]->setFifoLength(fifoLength);
+        fifoVec[i]->setBlockSize(blockSize);
+    }
 
     //TODO: Retime Here
 
-    //TODO: Ingest Delays Here (only adjacent delays for now)
+    //Ingest Delays Here (TODO: only adjacent delays for now, extend)
     //Should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
     //Currently, only nodes that are soley connected to FIFOs are absorbed.  It is possible to absorb other nodes but delay matching
     //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
@@ -3988,36 +4347,40 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
 
-    //TODO: May just work because FIFOs declare state and no combination path and thus are treated similarly to delays
-    verifyTopologicalOrder();
+    //Verify
+    verifyTopologicalOrder(); //TODO: May just work as is (unmodified from single threaded version) because FIFOs declare state and no combination path and thus are treated similarly to delays
+
+    //Emit FIFO header (get struct descriptions from FIFOs)
+    std::string fifoHeaderName = emitFIFOStructHeader(path, fileName, fifoVec);
 
     std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
 
-    //TODO: Emit FIFO header (get struct descriptions from FIFOs
-
+    //Emit partition functions (computation function and driver function)
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
-
-            //Emit each partition's function (except partition -1 and -2 [I/O])
-            //Discover partition function prototype from crossing FIFOs
-            //Need to emit the output seperatly? (No, by supplying the correct emitCNextState statement, the output can be set
-
-            //Emit each partition's driver function
-            //Need hierarchical check of FIFOs if in context.
-            //TODO: Schedule context FIFO reads (note, driver "cycles" should be checked for before this)
-                //Build trees of FIFOs in Contexts
+            emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, blockSize, fifoHeaderName);
         }
     }
 
-    //TODO: Refine/Cleanup I/O
-    //Emit I/O
-        //For now, is a special seperate partition (-2) which will be mapped onto core 0 (special case in the core0 scheduler - will either be a seperate thread or a sequential call at the beginning or each thread 0 function call)
-        //Get function prototype from Input/Output master and FIFOs
+    //TODO: Implement Other I/O Drivers
+    //Ideas for I/O Partiton:
+    //Constant
+    //Memory
+    //Named Pipe Server (with client program in matlab)
 
-        //For now, provide a constant test case
+    //Emit I/O Driver
+    emitIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName);
+    std::string ioSuffix = "io_constant";
 
-    //Emit startup function
+    //Emit the startup function
+    std::set<int> partitionSet;
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        partitionSet.insert(it->first);
+    }
+    emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix);
+
+
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.
@@ -4089,4 +4452,28 @@ std::set<int> Design::listPresentPartitions(){
     }
 
     return partitions;
+}
+
+std::string Design::emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+    std::string fileName = fileNamePrefix + "_fifoTypes";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path + "/" + fileName + ".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+
+    for(int i = 0; i<fifos.size(); i++){
+        std::string fifoStruct = fifos[i]->createFIFOStruct();
+        headerFile << fifoStruct << std::endl;
+    }
+
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    return fileName+".h";
 }

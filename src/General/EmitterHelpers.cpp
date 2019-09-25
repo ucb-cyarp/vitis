@@ -435,22 +435,43 @@ std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<Thre
     return statements;
 }
 
-std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
+std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck){
     //Began work on version which replicates context check below.  Requires context check to be replicated
     //This version simply checks
 
+    //TODO: Introduce a mode where each FIFO has an indevidual while loop.  Another Blocking mode
+
     //Now, emit the beginning of the check
-    std::string check = "bool " + checkVarName +" = false;\n";
-    check += "while(!" + checkVarName + "){\n";
-    check += "\t" + checkVarName + " =  true;\n";
+    std::string check = "";
+    if(blocking) {
+        check += "bool " + checkVarName +" = false;\n";
+        check += "while(!" + checkVarName + "){\n";
+        check += checkVarName + " =  true;\n";
+    }else{
+        check += "bool " + checkVarName +" = true;\n";
+    }
+
+    if(includeThreadCancelCheck){
+        check += "pthread_testcancel();\n";
+    }
 
     //Emit the actual FIFO checks
     for(int i = 0; i<fifos.size(); i++) {
         //Note: do not need to check if complex since complex values come via the same FIFO as a struct
-        check += "\t" + checkVarName + " &= " + (checkFull ? fifos[i]->emitCIsNotFull() : fifos[i]->emitCIsNotEmpty()) + ";\n";
-        if(shortCircuit){
-            check += "\tif(!" + checkVarName + "){\n";
-            check += "\t\tcontinue;\n";
+        check += checkVarName + " &= " + (checkFull ? fifos[i]->emitCIsNotFull() : fifos[i]->emitCIsNotEmpty()) + ";\n";
+        if(shortCircuit && blocking){
+            check += "if(!" + checkVarName + "){\n";
+            check += "continue;\n";
+            check += "}\n";
+        }else if(shortCircuit && i < (fifos.size()-1)){ //Short circuit and not blocking (and not the last FIFO)
+            //If still true (ie. all fifos up to this point have been ready) check the next one.  Otherwise, no need to check the rest.
+            check += "if(" + checkVarName + "){\n";
+        }
+    }
+
+    if(shortCircuit && !blocking){
+        //Close conditions
+        for(int i = 0; i<(fifos.size()-1); i++) {
             check += "}\n";
         }
     }
@@ -537,6 +558,87 @@ std::vector<std::string> EmitterHelpers::createFIFOWriteTemps(std::vector<std::s
     return exprs;
 }
 
+std::vector<std::string> EmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<NumericValue> defaultVal){
+    std::vector<std::string> exprs;
+    for(int i = 0; i<fifos.size(); i++) {
+        Variable fifoDstVar = fifos[i]->getCStateInputVar(); //This is the temp we are creating for.
+        std::string tmpName = fifoDstVar.getName() + "_tmp";
+        std::string structType = fifos[i]->getFIFOStructTypeName();
+        exprs.push_back(structType + " " + tmpName + ";");
+
+        int blockSize = fifos[i]->getBlockSize();
+        DataType dt = fifos[i]->getCStateVar().getDataType();
+        int width = dt.getWidth();
+        if(blockSize == 1 && width == 1){
+            exprs.push_back(tmpName + ".real = " + defaultVal[i].toStringComponent(false, dt) + ";");
+            if(dt.isComplex()){
+                exprs.push_back(tmpName + ".imag = " + defaultVal[i].toStringComponent(true, dt) + ";");
+            }
+        }else if((blockSize == 1 && width > 1) || (blockSize > 1 && width == 1)){
+            int entries = std::max(blockSize, width);
+            std::string realInit = tmpName + ".real = {";
+            for(int j = 0; j<entries; j++){
+                if(j>0){
+                    realInit += ", ";
+                }
+                realInit += defaultVal[i].toStringComponent(false, dt);
+            }
+            realInit += "};";
+            exprs.push_back(realInit);
+
+            if(dt.isComplex()) {
+                std::string imagInit = tmpName + ".imag = {";
+                for (int j = 0; j < entries; j++) {
+                    if (j > 0) {
+                        imagInit += ", ";
+                    }
+                    imagInit += defaultVal[i].toStringComponent(true, dt);
+                }
+                imagInit += "};";
+                exprs.push_back(imagInit);
+            }
+        }else{
+            std::string realInit = tmpName + ".real = {";
+            for(int j = 0; j<blockSize; j++){
+                if(j>0){
+                    realInit += ", ";
+                }
+                realInit += "{";
+                for(int k = 0; k<width; k++) {
+                    if(k>0){
+                        realInit += ", ";
+                    }
+                    realInit += defaultVal[i].toStringComponent(false, dt);
+                }
+                realInit += "}";
+            }
+            realInit += "};";
+            exprs.push_back(realInit);
+
+            if(dt.isComplex()) {
+                std::string imagInit = tmpName + ".imag = {";
+                for(int j = 0; j<blockSize; j++){
+                    if(j>0){
+                        imagInit += ", ";
+                    }
+                    realInit += "{";
+                    for(int k = 0; k<width; k++) {
+                        if(k>0){
+                            imagInit += ", ";
+                        }
+                        imagInit += defaultVal[i].toStringComponent(false, dt);
+                    }
+                    imagInit += "}";
+                }
+                imagInit += "};";
+                exprs.push_back(imagInit);
+            }
+        }
+    }
+
+    return exprs;
+}
+
 std::vector<std::string> EmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
     std::vector<std::string> exprs;
 
@@ -567,4 +669,36 @@ std::vector<std::string> EmitterHelpers::writeFIFOsFromTemps(std::vector<std::sh
     }
 
     return exprs;
+}
+
+void EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition, bool firstLevel){
+    for(auto it = nodes.begin(); it != nodes.end(); it++){
+        //Do this first since expanded nodes are also subsystems
+        std::shared_ptr<ExpandedNode> asExpandedNode = GeneralHelper::isType<Node, ExpandedNode>(*it);
+        if(asExpandedNode){
+            //This is a special case where the subsystem takes the partition of the parent and not itself
+            //This is because
+            if((!firstLevel) && (partition != -1)){
+                asExpandedNode->getOrigNode()->setPartitionNum(partition);
+
+                std::set<std::shared_ptr<Node>> children = asExpandedNode->getChildren();
+                propagatePartitionsFromSubsystemsToChildren(children, partition, firstLevel);
+            }
+        }else{
+            std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(*it);
+            if(asSubsystem){
+                int nextPartition = asSubsystem->getPartitionNum();
+                if(nextPartition == -1){
+                    nextPartition = partition;
+                }
+                std::set<std::shared_ptr<Node>> children = asSubsystem->getChildren();
+                propagatePartitionsFromSubsystemsToChildren(children, nextPartition, false);
+            }else{
+                //Standard node, set partition if !firstLevel
+                if(!firstLevel && partition != -1){
+                    (*it)->setPartitionNum(partition);
+                }
+            }
+        }
+    }
 }

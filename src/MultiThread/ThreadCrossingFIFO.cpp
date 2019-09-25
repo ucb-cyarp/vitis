@@ -299,8 +299,19 @@ bool ThreadCrossingFIFO::canExpand() {
 void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix){
     //If not yet initialized, initialize
     if(!init){
+        //Set name
         std::string varName = node->getName()+"_n"+GeneralHelper::to_string(node->getId())+"_" +suffix;
         var.setName(varName);
+
+        //Set datatype
+        std::set<std::shared_ptr<Arc>> arcSet = node->getInputPortCreateIfNot(0)->getArcs();
+        if(arcSet.empty()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when initializing FIFO variable.  Unable to get datatype since no input port connected", node));
+        }
+        DataType dt = (*arcSet.begin())->getDataType();
+
+        //Do not scale for block size.  This is done at the boarder of the compute function (ie. in the structure definition)
+        var.setDataType(dt);
 
         init = true;
     }

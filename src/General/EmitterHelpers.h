@@ -243,21 +243,35 @@ public:
      * @brief Emits C code to check the state of FIFOs
      *
      * @param fifos
-     * @param partition
      * @param checkFull if true, checks if the FIFO is full, if false, checks if the FIFO is empty
-     * @param checkVarName the name of the variable used to identify if the FIFO check succedded or not.  This should be unique
-     * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false,
+     * @param checkVarName the name of the variable used to identify if the FIFO check succeded or not.  This should be unique
+     * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false, all FIFOs are checked
+     * @param blocking if true, the FIFO check will repeat until all are ready.  If false, the FIFO check will not block the execution of the code proceeding it
+     * @param includeThreadCancelCheck if true, includes a call to pthread_testcancel durring the FIFO check (to determine if the thread should exit)
      * @return
      */
-    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit);
+    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
 
     static std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     static std::vector<std::string> createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
+    static std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<NumericValue> defaultVal);
+
     static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    /**
+     * @brief Propgagates partition to nodes and propagates down.  Subsystems can specify a partition for their decendents
+     *
+     * To specify a partition, the partition of the subsystem cannot be -1;
+     *
+     * @param nodes
+     * @param partition
+     * @param firstLevel
+     */
+    static void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition, bool firstLevel);
 };
 
 /*! @} */

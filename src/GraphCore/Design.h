@@ -512,6 +512,15 @@ public:
      */
     void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize, std::string fifoHeaderFile);
 
+    void emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile);
+
+    /**
+     * @brief
+     * @param fifoMap
+     * @param ioBenchmarkSuffix io_constant for constant benchmark
+     */
+    void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix);
+
     /**
      * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C
      * function.  A function is created for each thread which includes the intra-thread scheduler.  This scheduler is
@@ -536,8 +545,13 @@ public:
      * @param fileName name of the output files (.h and a .c file will be created)
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
+     * @param fifoLength the length of the FIFOs in blocks
+     * @param blockSize the block size
+     * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems);
+    //TODO: update fifoLength to be set on a per FIFO basis
+
     /*
      * Discover Partitions
      *      The I/O in/out of the design needs to be handled in some way.  For now, we will probably want to keep them
@@ -595,6 +609,15 @@ public:
      *      - Output FIFO as part of function.  Stall if empty.
      *      - Output FIFO as part of function.  Check for space before function executes.  Allows scheduled write to occur interleaved with computation
      */
+
+    /**
+     * @brief Emits a header file with the structure definitions used by the thread crossing FIFOs
+     * @param path
+     * @param filenamePrefix
+     * @param fifos
+     * @returns the filename of the header file
+     */
+    std::string emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     /**
      * @brief Emits the benchmarking drivers for the design
@@ -682,6 +705,8 @@ public:
      * Also moves the context roots for the ContextFamilyContainers inside the ContextFamilyContainer
      */
     void encapsulateContexts();
+
+    void propagatePartitionsFromSubsystemsToChildren();
 
     /**
      * @brief Discovers nodes with state in the design and creates state update nodes for them.
