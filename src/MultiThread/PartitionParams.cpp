@@ -3,6 +3,7 @@
 //
 
 #include "PartitionParams.h"
+#include <stdexcept>
 
 PartitionParams::PartitionType PartitionParams::parsePartitionTypeStr(std::string str) {
     if(str == "MANUAL" || str == "manual"){
