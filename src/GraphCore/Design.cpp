@@ -2011,7 +2011,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     ioThread << "}" << std::endl;
 }
 
-void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix){
+void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix){
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -2838,6 +2838,210 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
 
     std::ofstream makefile;
     makefile.open(path+"/Makefile_" + fileName + "_mem", std::ofstream::out | std::ofstream::trunc);
+    makefile << makefileContent;
+    makefile.close();
+}
+
+void Design::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix){
+    //#### Emit Driver File ####
+    std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
+    std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    std::ofstream benchDriver;
+    benchDriver.open(path+"/"+fileName+".cpp", std::ofstream::out | std::ofstream::trunc);
+
+    benchDriver << "#include <map>" << std::endl;
+    benchDriver << "#include <string>" << std::endl;
+    benchDriver << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    benchDriver << "#include \"benchmark_throughput_test.h\"" << std::endl;
+    benchDriver << "#include \"kernel_runner.h\"" << std::endl;
+    benchDriver << "#include \"" + kernelFileName + ".h\"" << std::endl;
+
+
+    //Driver will define a zero arg kernel that sets reasonable inputs and repeatedly runs the function.
+    //The function will be compiled in a separate object file and should not be in-lined (potentially resulting in erroneous
+    //optimizations for the purpose of benchmarking since we are feeding dummy data in).  This should be the case so long as
+    //the compiler flag -flto is not used during compile and linking (https://stackoverflow.com/questions/35922966/lto-with-llvm-and-cmake)
+    //(https://llvm.org/docs/LinkTimeOptimization.html), (https://clang.llvm.org/docs/CommandGuide/clang.html),
+    //(https://gcc.gnu.org/wiki/LinkTimeOptimization), (https://gcc.gnu.org/onlinedocs/gccint/LTO-Overview.html).
+
+    //Emit name, file, and units string
+    benchDriver << "std::string getBenchSuiteName(){\n\treturn \"Generated System: " + designName + "\";\n}" << std::endl;
+    benchDriver << "std::string getReportFileName(){\n\treturn \"" + fileName + "_" + ioBenchmarkSuffix + "_benchmarking_report\";\n}" << std::endl;
+    benchDriver << "std::string getReportUnitsName(){\n\treturn \"STIM_LEN: \" + std::to_string(STIM_LEN) + \" (Samples/Vector/Trial), TRIALS: \" + std::to_string(TRIALS);\n}" << std::endl;
+
+    //Emit Benchmark Report Selection
+    benchDriver << "void getBenchmarksToReport(std::vector<std::string> &kernels, std::vector<std::string> &vec_ext){\n"
+                   "\tkernels.push_back(\"" + designName + "\");\tvec_ext.push_back(\"Multi-Threaded (" + ioBenchmarkSuffix + ")\");\n}" << std::endl;
+
+    //Emit Benchmark Type Report Selection
+    std::string typeStr = "";
+    std::vector<Variable> inputVars = getCInputVariables();
+    int numInputVars = inputVars.size();
+    if(numInputVars > 0){
+        typeStr = inputVars[0].getDataType().toString(DataType::StringStyle::C);
+        typeStr += inputVars[0].getDataType().isComplex() ? " (c)" : " (r)";
+    }
+
+    for(unsigned long i = 1; i<numInputVars; i++){
+        typeStr += ", " + inputVars[i].getDataType().toString(DataType::StringStyle::C);
+        typeStr += inputVars[i].getDataType().isComplex() ? " (c)" : " (r)";
+    }
+
+    benchDriver << "std::vector<std::string> getVarientsToReport(){\n"
+                   "\tstd::vector<std::string> types;\n"
+                   "\ttypes.push_back(\"" + typeStr + "\");\n"
+                                                      "\treturn types;\n}" << std::endl;
+
+    //Generate call to loop
+    std::string kernelFctnName = designName + "_" + ioBenchmarkSuffix + "_kernel";
+    benchDriver << "std::map<std::string, std::map<std::string, Results*>*> runBenchSuite(Profiler* profiler, int* cpu_num_int){\n"
+                   "\tstd::map<std::string, std::map<std::string, Results*>*> kernel_results;\n"
+                   "\n"
+                   "\tstd::map<std::string, Results*>* type_result = new std::map<std::string, Results*>;\n"
+                   "\tResults* result = zero_arg_kernel(profiler, &" + kernelFctnName + ", *cpu_num_int, \"===== Generated System: " + designName + " =====\");\n"
+                   "\t(*type_result)[\"" + typeStr + "\"] = result;\n"
+                   "\tkernel_results[\"" + designName + "\"] = type_result;\n"
+                   "\tprintf(\"\\n\");\n"
+                   "\treturn kernel_results;\n}" << std::endl;
+
+    benchDriver << "void initInput(void* ptr, unsigned long index){}" << std::endl;
+
+    benchDriver.close();
+}
+
+void Design::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix){
+    //#### Emit Makefiles ####
+
+    std::string systemSrcs = "";
+
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        if(*it != IO_PARTITION_NUM) {
+            std::string threadFileName = fileNamePrefix + "_partition" + GeneralHelper::to_string(*it) + ".c";
+            systemSrcs += threadFileName + " ";
+        }
+    }
+    std::string ioFileName = fileNamePrefix+"_"+ioBenchmarkSuffix;
+    systemSrcs += ioFileName;
+
+    std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel.c";
+    std::string driverFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver.cpp";
+
+    std::string makefileContent =   "BUILD_DIR=build\n"
+                                    "DEPENDS_DIR=./depends\n"
+                                    "COMMON_DIR=./common\n"
+                                    "SRC_DIR=./intrin\n"
+                                    "LIB_DIR=.\n"
+                                    "\n"
+                                    "#Parameters that can be supplied to this makefile\n"
+                                    "USE_PCM=1\n"
+                                    "USE_AMDuPROF=1\n"
+                                    "\n"
+                                    "UNAME:=$(shell uname)\n"
+                                    "\n"
+                                    "#Compiler Parameters\n"
+                                    "#CXX=g++\n"
+                                    "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
+                                    "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
+                                    "#Generated system should be allowed to optomize - reintepret as c++ file\n"
+                                    "SYSTEM_CFLAGS = -O3 -c -g -x c++ -std=c++11 -march=native -masm=att\n"
+                                    "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
+                                    "KERNEL_CFLAGS = -O3 -c -g -std=c++11 -march=native -masm=att\n"
+                                    "#For kernels that should not be optimized, the following is used\n"
+                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
+                                    "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
+                                    "LIB_DIRS=-L $(COMMON_DIR)\n"
+                                    "LIB=-pthread -lProfilerCommon\n"
+                                    "\n"
+                                    "DEFINES=\n"
+                                    "\n"
+                                    "DEPENDS=\n"
+                                    "DEPENDS_LIB=$(COMMON_DIR)/libProfilerCommon.a\n"
+                                    "\n"
+                                    "ifeq ($(USE_PCM), 1)\n"
+                                    "DEFINES+= -DUSE_PCM=1\n"
+                                    "DEPENDS+= $(DEPENDS_DIR)/pcm/Makefile\n"
+                                    "DEPENDS_LIB+= $(DEPENDS_DIR)/pcm/libPCM.a\n"
+                                    "INC+= -I $(DEPENDS_DIR)/pcm\n"
+                                    "LIB_DIRS+= -L $(DEPENDS_DIR)/pcm\n"
+                                    "#Need an additional include directory if on MacOS.\n"
+                                    "#Using the technique in pcm makefile to detect MacOS\n"
+                                    "UNAME:=$(shell uname)\n"
+                                    "ifeq ($(UNAME), Darwin)\n"
+                                    "INC+= -I $(DEPENDS_DIR)/pcm/MacMSRDriver\n"
+                                    "LIB+= -lPCM -lPcmMsr\n"
+                                    "APPLE_DRIVER = $(DEPENDS_DIR)/pcm/MacMSRDriver/build/Release/libPcmMsr.dylib\n"
+                                    "LIB_DIRS+= -L $(DEPENDS_DIR)/pcm/MacMSRDriver/build/Release\n"
+                                    "else\n"
+                                    "LIB+= -lrt -lPCM\n"
+                                    "APPLE_DRIVER = \n"
+                                    "endif\n"
+                                    "else\n"
+                                    "DEFINES+= -DUSE_PCM=0\n"
+                                    "endif\n"
+                                    "\n"
+                                    "ifeq ($(USE_AMDuPROF), 1)\n"
+                                    "DEFINES+= -DUSE_AMDuPROF=1\n"
+                                    "LIB+= -lAMDPowerProfileAPI\n"
+                                    "else\n"
+                                    "DEFINES+= -DUSE_AMDuPROF=0\n"
+                                    "endif\n"
+                                    "\n"
+                                    "MAIN_FILE = benchmark_throughput_test.cpp\n"
+                                    "LIB_SRCS = " + driverFileName + " #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
+                                    "SYSTEM_SRC = " + systemSrcs + ".c\n"
+                                    "KERNEL_SRCS = " + kernelFileName + "\n"
+                                    "KERNEL_NO_OPT_SRCS = \n"
+                                    "\n"
+                                    "SRCS=$(MAIN_FILE)\n"
+                                    "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
+                                    "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
+                                    "SYSTEM_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SYSTEM_SRC))\n"
+                                    "KERNEL_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))\n"
+                                    "KERNEL_NO_OPT_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_NO_OPT_SRCS))\n"
+                                    "\n"
+                                    "#Production\n"
+                                    "all: benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + "\n"
+                                    "\n"
+                                    "benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + ": $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(DEPENDS_LIB) \n"
+                                    "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + " $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
+                                    "\n"
+                                    "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "\t$(CXX) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\n"
+                                    "$(SYSTEM_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.c | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "\t$(CXX) $(SYSTEM_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\n"
+                                    "$(KERNEL_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "\t$(CXX) $(KERNEL_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\n"
+                                    "$(LIB_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "\t$(CXX) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\n"
+                                    "$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "\t$(CXX) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\n"
+                                    "$(BUILD_DIR)/:\n"
+                                    "\tmkdir -p $@\n"
+                                    "\n"
+                                    "$(DEPENDS_DIR)/pcm/Makefile:\n"
+                                    "\tgit submodule update --init --recursive $(DEPENDS_DIR)/pcm\n"
+                                    "\n"
+                                    "$(DEPENDS_DIR)/pcm/libPCM.a: $(DEPENDS_DIR)/pcm/Makefile\n"
+                                    "\tcd $(DEPENDS_DIR)/pcm; make libPCM.a\n"
+                                    "\n"
+                                    "$(COMMON_DIR)/libProfilerCommon.a:\n"
+                                    "\tcd $(COMMON_DIR); make USE_PCM=$(USE_PCM) USE_AMDuPROF=$(USE_AMDuPROF)\n"
+                                    "\t\n"
+                                    "clean:\n"
+                                    "\trm -f benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + "\n"
+                                    "\trm -rf build/*\n"
+                                    "\n"
+                                    ".PHONY: clean\n";
+
+    std::cout << "Emitting Makefile: " << path << "/Makefile_" << fileNamePrefix << "_" << ioBenchmarkSuffix << ".mk" << std::endl;
+    std::ofstream makefile;
+    makefile.open(path+"/Makefile_" + fileNamePrefix + "_" + ioBenchmarkSuffix + ".mk", std::ofstream::out | std::ofstream::trunc);
     makefile << makefileContent;
     makefile.close();
 }
@@ -4211,8 +4415,9 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 
 void Design::emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
                                 SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
-                                ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched,
-                                int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems) {
+                                ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
+                                bool printSched, int fifoLength, unsigned long blockSize,
+                                bool propagatePartitionsFromSubsystems) {
 
     //The code below is adapted from the single threaded emitter
 
@@ -4350,6 +4555,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Verify
     verifyTopologicalOrder(); //TODO: May just work as is (unmodified from single threaded version) because FIFOs declare state and no combination path and thus are treated similarly to delays
 
+    if(emitGraphMLSched) {
+        //Export GraphML (for debugging)
+        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+                  << "_scheduleGraph.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph.graphml", *this);
+    }
+
     //Emit FIFO header (get struct descriptions from FIFOs)
     std::string fifoHeaderName = emitFIFOStructHeader(path, fileName, fifoVec);
 
@@ -4373,14 +4585,18 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     emitIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName);
     std::string ioSuffix = "io_constant";
 
-    //Emit the startup function
+    //Emit the startup function (aka the benchmark kerne;)
     std::set<int> partitionSet;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         partitionSet.insert(it->first);
     }
     emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix);
 
+    //Emit the benchmark driver
+    emitMultiThreadedDriver(path, fileName, designName, blockSize, ioSuffix);
 
+    //Emit the benchmark makefile
+    emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, ioSuffix);
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

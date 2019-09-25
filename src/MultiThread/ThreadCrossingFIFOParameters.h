@@ -8,11 +8,10 @@
 #include <string>
 
 /**
- * \addtogroup General General Helper Classes
- *
- * @brief A set of general helper classes.
+ * \addtogroup MultiThread Multi-Thread Support Nodes
+ * @brief Nodes which Support Multi-threaded Code Generator
  * @{
-*/
+ */
 
 /**
  * @brief A container class for thread crossing FIFO parameters

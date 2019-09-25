@@ -186,8 +186,10 @@ set(COMMON_SRCS
         src/MultiThread/ThreadCrossingFIFO.h
         src/MultiThread/LocklessThreadCrossingFIFO.cpp
         src/MultiThread/LocklessThreadCrossingFIFO.h
-        src/General/ThreadCrossingFIFOParameters.cpp
-        src/General/ThreadCrossingFIFOParameters.h
+        src/MultiThread/PartitionParams.cpp
+        src/MultiThread/PartitionParams.h
+        src/MultiThread/ThreadCrossingFIFOParameters.cpp
+        src/MultiThread/ThreadCrossingFIFOParameters.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
@@ -222,6 +224,9 @@ target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
 target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+
+add_executable(multiThreadedGenerator src/Tools/multiThreadedGenerator.cpp)
+target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES})
 
 add_executable(checkPlatformDataTypes src/Tools/checkPlatformDataTypes.cpp)
 

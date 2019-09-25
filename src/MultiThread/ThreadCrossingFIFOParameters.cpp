@@ -3,7 +3,7 @@
 //
 
 #include "ThreadCrossingFIFOParameters.h"
-#include "ErrorHelpers.h"
+#include "General/ErrorHelpers.h"
 
 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType
 ThreadCrossingFIFOParameters::parseThreadCrossingFIFOType(std::string str) {

@@ -15,7 +15,7 @@
 #include "General/TopologicalSortParameters.h"
 #include "Variable.h"
 #include "SchedParams.h"
-#include "General/ThreadCrossingFIFOParameters.h"
+#include "MultiThread/ThreadCrossingFIFOParameters.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -512,10 +512,21 @@ public:
      */
     void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize, std::string fifoHeaderFile);
 
+    /**
+     * @brief Emits an I/O handler for multi-threaded emit focused on benchmarking.  This version feeds constant values to the design
+     *
+     * @param inputFIFOs
+     * @param outputFIFOs
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param blockSize
+     * @param fifoHeaderFile
+     */
     void emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile);
 
     /**
-     * @brief
+     * @brief Emits the benchmark kernel function for multi-threaded emit.  This includes allocating FIFOs and creating/starting threads.
      * @param fifoMap
      * @param ioBenchmarkSuffix io_constant for constant benchmark
      */
@@ -549,7 +560,7 @@ public:
      * @param blockSize the block size
      * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
@@ -654,6 +665,33 @@ public:
      * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
      */
     void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName, int blockSize);
+
+    //The following 2 functions can be reused for different I/O drivers
+
+    /**
+     * @brief Emits the benchmarking driver function for multithreaded emits.
+     *
+     * @note This can be used with different types of I/O handlers
+     *
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param blockSize
+     * @param ioBenchmarkSuffix
+     */
+    void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix);
+
+    /**
+     * @brief Emits a makefile for benchmarking multithreaded emits
+     *
+     * @note This can be used with different types of I/O handlers
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param blockSize
+     * @param ioBenchmarkSuffix
+     */
+    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix);
 
     /**
      * @brief Expands the enabled subsystems in the design to include combinational logic at the inputs and outputs of enabled subsystems
