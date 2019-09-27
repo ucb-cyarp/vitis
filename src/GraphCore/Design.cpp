@@ -790,7 +790,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
         scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched, false);
-        verifyTopologicalOrder();
+        verifyTopologicalOrder(true);
 
         if(emitGraphMLSched) {
             //Export GraphML (for debugging)
@@ -838,7 +838,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
         scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched, false); //Pruned before inserting state update nodes
-        verifyTopologicalOrder();
+        verifyTopologicalOrder(true);
 
         if(emitGraphMLSched) {
             //Export GraphML (for debugging)
@@ -1354,25 +1354,33 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
 
             unsigned long numOutputPorts = (*it)->getOutputPorts().size();
             //Emit each output port
-            //TODO: check for unconnected output ports and do not emit them
+            //TODO: now checks for unconnected output ports.  Validate
             for(unsigned long i = 0; i<numOutputPorts; i++){
-                std::vector<std::string> cStatementsRe;
-                //Emit real component (force fanout)
-                (*it)->emitC(cStatementsRe, schedType, i, false, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                std::shared_ptr<OutputPort> outputPortBeingEmitted = (*it)->getOutputPort(i);
+                if(!outputPortBeingEmitted->getArcs().empty()) {
 
-                for(unsigned long j = 0; j<cStatementsRe.size(); j++){
-                    cFile << cStatementsRe[j] << std::endl;
-                }
-
-                if((*it)->getOutputPort(i)->getDataType().isComplex()) {
-                    //Emit imag component (force fanout)
-                    std::vector<std::string> cStatementsIm;
+                    std::vector<std::string> cStatementsRe;
                     //Emit real component (force fanout)
-                    (*it)->emitC(cStatementsIm, schedType, i, true, true, true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+                    (*it)->emitC(cStatementsRe, schedType, i, false, true,
+                                 true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
-                    for(unsigned long j = 0; j<cStatementsIm.size(); j++){
-                        cFile << cStatementsIm[j] << std::endl;
+                    for (unsigned long j = 0; j < cStatementsRe.size(); j++) {
+                        cFile << cStatementsRe[j] << std::endl;
                     }
+
+                    if ((*it)->getOutputPort(i)->getDataType().isComplex()) {
+                        //Emit imag component (force fanout)
+                        std::vector<std::string> cStatementsIm;
+                        //Emit real component (force fanout)
+                        (*it)->emitC(cStatementsIm, schedType, i, true, true,
+                                     true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                        for (unsigned long j = 0; j < cStatementsIm.size(); j++) {
+                            cFile << cStatementsIm[j] << std::endl;
+                        }
+                    }
+                }else{
+                    std::cout << "Output Port " << i << " of " << (*it)->getFullyQualifiedName() << " not emitted because it is unconnected" << std::endl;
                 }
             }
         }
@@ -3222,7 +3230,7 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
                 std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
                 if(copyContextRoot == nullptr){
-                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a Node to a ContextRoot");
+                    throw std::runtime_error("When cloning ContextFamilyContainer " + contextFamilyContainerOrig->getFullyQualifiedName() + ", could not cast a Node to a ContextRoot");
                 }
 
                 contextFamilyContainerCopy->setContextRoot(copyContextRoot);
@@ -3436,9 +3444,9 @@ unsigned long Design::prune(bool includeVisMaster) {
     return nodesDeleted.size();
 }
 
-void Design::verifyTopologicalOrder() {
+void Design::verifyTopologicalOrder(bool checkOutputMaster) {
     //First, check that the output is scheduled (so long as there are output arcs)
-    if(outputMaster->inDegree() > 0){
+    if(checkOutputMaster && outputMaster->inDegree() > 0){
         if(outputMaster->getSchedOrder() == -1){
             throw std::runtime_error("Topological Order Validation: Output was not scheduled even though the system does have outputs.");
         }
@@ -3486,10 +3494,10 @@ void Design::verifyTopologicalOrder() {
                     throw std::runtime_error(
                             "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
                             ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
-                            GeneralHelper::to_string(srcNode->getId()) +
+                            GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
                             "] is Unscheduled but Dst Node (" + dstNode->getFullyQualifiedName() +
                             ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
-                            GeneralHelper::to_string(dstNode->getId()) + "] is Scheduled");
+                            GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "] is Scheduled");
                 }
                 //otherwise, there is no error here as both nodes are unscheduled
             } else {
@@ -3500,10 +3508,10 @@ void Design::verifyTopologicalOrder() {
                         throw std::runtime_error(
                                 "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
                                 ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
-                                GeneralHelper::to_string(srcNode->getId()) +
+                                GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
                                 "] is not Scheduled before Dst Node (" + dstNode->getFullyQualifiedName() +
                                 ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
-                                GeneralHelper::to_string(dstNode->getId()) + "]");
+                                GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "]");
                     }
                 }
                 //Dst node unscheduled is OK
@@ -3539,11 +3547,11 @@ void Design::verifyTopologicalOrder() {
                                     driverSrc->getFullyQualifiedName() +
                                     ") [Sched Order: " + GeneralHelper::to_string(driverSrc->getSchedOrder()) +
                                     ", ID: " +
-                                    GeneralHelper::to_string(driverSrc->getId()) +
+                                    GeneralHelper::to_string(driverSrc->getId()) + ", Part: " + GeneralHelper::to_string(driverSrc->getPartitionNum()) +
                                     "] is not Scheduled before Context Node (" + nodes[i]->getFullyQualifiedName() +
                                     ") [Sched Order: " + GeneralHelper::to_string(nodes[i]->getSchedOrder()) +
                                     ", ID: " +
-                                    GeneralHelper::to_string(nodes[i]->getId()) + "]");
+                                    GeneralHelper::to_string(nodes[i]->getId()) + ", Part: " + GeneralHelper::to_string(nodes[i]->getPartitionNum()) + "]");
                         }
                     }
                 }
@@ -3571,7 +3579,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     bool failed = false;
     std::exception err;
     try {
-        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodes, arcsToDelete, outputMaster,
+        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodes, false, -1, arcsToDelete, outputMaster,
                                                             inputMaster, terminatorMaster, unconnectedMaster,
                                                             visMaster);
     }catch(const std::exception &e){
@@ -3601,6 +3609,7 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
 
     if(partitionNum == IO_PARTITION_NUM) {
         topLevelContextNodesInPartition.push_back(outputMaster);
+        topLevelContextNodesInPartition.push_back(visMaster);
     }
 
     std::vector<std::shared_ptr<Node>> sortedNodes;
@@ -3608,9 +3617,9 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     bool failed = false;
     std::exception err;
     try {
-        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodesInPartition, arcsToDelete, outputMaster,
-                                                            inputMaster, terminatorMaster, unconnectedMaster,
-                                                            visMaster);
+        sortedNodes = GraphAlgs::topologicalSortDestructive(params, topLevelContextNodesInPartition, true, partitionNum,
+                                                            arcsToDelete, outputMaster, inputMaster, terminatorMaster,
+                                                            unconnectedMaster, visMaster);
     }catch(const std::exception &e){
         failed = true;
         err = e;
@@ -3761,6 +3770,7 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
                 for (unsigned long i = 0; i < schedule.size(); i++) {
                     std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
                 }
+                std::cout << std::endl;
             }
 
             //==== Back Propagate Schedule ====
@@ -3778,6 +3788,7 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
             for (unsigned long i = 0; i < schedule.size(); i++) {
                 std::cout << i << ": " << schedule[i]->getFullyQualifiedName() << std::endl;
             }
+            std::cout << std::endl;
         }
 
         //==== Back Propagate Schedule ====
@@ -3855,16 +3866,16 @@ void Design::createStateUpdateNodes(bool includeContext) {
     //Find nodes with state in design
     std::vector<std::shared_ptr<Node>> nodesWithState = findNodesWithState();
 
+    std::vector<std::shared_ptr<Node>> newNodes;
+    std::vector<std::shared_ptr<Node>> deletedNodes;
+    std::vector<std::shared_ptr<Arc>> newArcs;
+    std::vector<std::shared_ptr<Arc>> deletedArcs;
+
     for(unsigned long i = 0; i<nodesWithState.size(); i++){
-        std::vector<std::shared_ptr<Node>> newNodes;
-        std::vector<std::shared_ptr<Node>> deletedNodes;
-        std::vector<std::shared_ptr<Arc>> newArcs;
-        std::vector<std::shared_ptr<Arc>> deletedArcs;
-
         nodesWithState[i]->createStateUpdateNode(newNodes, deletedNodes, newArcs, deletedArcs, includeContext);
-
-        addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
     }
+
+    addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
 }
 
 void Design::createContextVariableUpdateNodes(bool includeContext) {
@@ -3952,7 +3963,8 @@ void Design::encapsulateContexts() {
         //Create a ContextFamilyContainer for this partition at each level of the context stack if one has not already been created
         //TODO: refactor
         for(int j = 0; j<contextStack.size()-1; j++){ //-1 because the inner context is handled explicitally below
-            getContextFamilyContainerCreateIfNotNoParent(contextStack[j].getContextRoot(), nodesInContext[i]->getPartitionNum());
+            int partitionNum = nodesInContext[i]->getPartitionNum();
+            getContextFamilyContainerCreateIfNotNoParent(contextStack[j].getContextRoot(), partitionNum);
         }
 
         Context innerContext = contextStack[contextStack.size()-1];
@@ -3960,6 +3972,7 @@ void Design::encapsulateContexts() {
         std::shared_ptr<ContextContainer> contextContainer = contextFamily->getSubContextContainer(innerContext.getSubContext());
 
         //Set new parent to be the context container.  Also add it as a child of the context container.
+        //Note, removed from previous parent above
         contextContainer->addChild(nodesInContext[i]);
         nodesInContext[i]->setParent(contextContainer);
     }
@@ -3994,13 +4007,16 @@ void Design::encapsulateContexts() {
             std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers = asContextRoot->getContextFamilyContainers();
             for(auto it = contextFamilyContainers.begin(); it != contextFamilyContainers.end(); it++){
                 std::map<int, std::shared_ptr<ContextFamilyContainer>> newParentFamilyContainers = innerContext.getContextRoot()->getContextFamilyContainers();
-                if(newParentFamilyContainers.find(it->second->getPartition()) == newParentFamilyContainers.end()){
+                if(newParentFamilyContainers.find(it->second->getPartitionNum()) == newParentFamilyContainers.end()){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Error while encapsulating contexts.  Unable to find parent ContextFamilyContainer for specified partition", asNode));
                 }
-                std::shared_ptr<ContextContainer> newParent = newParentFamilyContainers[it->second->getPartition()]->getSubContextContainer(innerContext.getSubContext());
+                std::shared_ptr<ContextContainer> newParent = newParentFamilyContainers[it->second->getPartitionNum()]->getSubContextContainer(innerContext.getSubContext());
 
                 std::shared_ptr<ContextFamilyContainer> toBeMoved = it->second;
 
+                if(toBeMoved->getParent()){
+                    toBeMoved->getParent()->removeChild(toBeMoved);
+                }
                 toBeMoved->setParent(newParent);
                 newParent->addChild(toBeMoved);
             }
@@ -4039,7 +4055,7 @@ void Design::propagatePartitionsFromSubsystemsToChildren(){
     std::set<std::shared_ptr<Node>> topLevelNodeSet;
     topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
 
-    EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1, true);
+    EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1);
 }
 
 std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
@@ -4316,6 +4332,7 @@ void Design::createEnabledOutputsForEnabledSubsysVisualization() {
             if(contextAsEnabledSubsys){
                 //This is an enabled subsystem context, create an EnableOutput port for this vis
                 std::shared_ptr<EnableOutput> visOutput = NodeFactory::createNode<EnableOutput>(contextAsEnabledSubsys);
+                visOutput->setPartitionNum(contextAsEnabledSubsys->getPartitionNum());
                 contextAsEnabledSubsys->addEnableOutput(visOutput);
                 addNode(visOutput);
 
@@ -4382,31 +4399,38 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 
     std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings;
 
-    for(unsigned long i = 0; i<nodes.size(); i++){
+    for(unsigned long i = 0; i<nodes.size(); i++) {
         int srcPartition = nodes[i]->getPartitionNum();
 
-        std::set<std::shared_ptr<Arc>> outArcs = nodes[i]->getOutputArcs();
 
-        //For each node, we create a map of other partitions which contains a vector of the arcs to that partition
-        //Arcs from a given node to the same partition can be grouped
-        std::map<int, std::vector<std::shared_ptr<Arc>>> currentGroups;
 
-        for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
-            //Note that arcs are not necessarily ordered according to partitions
-            int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
-            if(srcPartition != dstPartition){
-                if(checkForToFromNoPartition && (srcPartition == -1 || dstPartition == -1)){
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1"));
+        //Note: arcs can only be grouped if they share the same output port
+        std::vector<std::shared_ptr<OutputPort>> outputPorts = nodes[i]->getOutputPortsIncludingOrderConstraint();
+        for (int portIdx = 0; portIdx < outputPorts.size(); portIdx++) {
+            std::map<int, std::vector<std::shared_ptr<Arc>>> currentGroups;
+            //Arcs from a given node output port to the same partition can be grouped
+            std::set<std::shared_ptr<Arc>> outArcs = outputPorts[portIdx]->getArcs();
+
+            for (auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++) {
+                //Note that arcs are not necessarily ordered according to partitions
+                int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
+                if (srcPartition != dstPartition) {
+                    if (checkForToFromNoPartition && (srcPartition == -1 || dstPartition == -1)) {
+                        std::string srcPath = (*outArc)->getSrcPort()->getParent()->getFullyQualifiedName();
+                        std::shared_ptr<Node> dst = (*outArc)->getDstPort()->getParent();
+                        std::string dstPath = dst->getFullyQualifiedName();
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1"));
+                    }
+
+                    currentGroups[dstPartition].push_back(*outArc);
                 }
-
-                currentGroups[dstPartition].push_back(*outArc);
             }
-        }
 
-        //Add discovered groups to partitionCrossing map
-        for(auto it = currentGroups.begin(); it != currentGroups.end(); it++){
-            int dstPartition = it->first;
-            partitionCrossings[std::pair<int, int>(srcPartition, dstPartition)].push_back(it->second);
+            //Add discovered groups to partitionCrossing map
+            for (auto it = currentGroups.begin(); it != currentGroups.end(); it++) {
+                int dstPartition = it->first;
+                partitionCrossings[std::pair<int, int>(srcPartition, dstPartition)].push_back(it->second);
+            }
         }
     }
 
@@ -4433,6 +4457,26 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
 
     prune(true);
+
+    //After pruning, disconnect the terminator master and the unconnected master
+    //The remaining nodes should be used for other things since they were not pruned
+    std::set<std::shared_ptr<Arc>> unconnectedArcsSet = unconnectedMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> unconnectedArcs;
+    unconnectedArcs.insert(unconnectedArcs.end(), unconnectedArcsSet.begin(), unconnectedArcsSet.end());
+    std::vector<std::shared_ptr<Arc>> emptyArcSet;
+    std::vector<std::shared_ptr<Node>> emptyNodeSet;
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, unconnectedArcs);
+
+    std::set<std::shared_ptr<Arc>> terminatedArcsSet = terminatorMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> terminatedArcs;
+    terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
+
+    //Print Nodes
+//    for(int i = 0; i<nodes.size(); i++){
+//        std::cout << "Partition " << nodes[i]->getPartitionNum() << ", " << nodes[i]->getFullyQualifiedName() << std::endl;
+//    }
+
     expandEnabledSubsystemContexts();
     //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
     //Is ok for them to exist (specifically order constraint arcs) after state update node and context encapsulation
@@ -4442,6 +4486,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     createEnabledOutputsForEnabledSubsysVisualization();
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
+
+    //Cleanup empty branches of the hierarchy after nodes moved under enabled subsystem contexts
+//    cleanupEmptyHierarchy("it was empty or all underlying nodes were moved");
 
     //TODO: Partition Here
 
@@ -4456,12 +4503,30 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
     //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
 
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraph_preEncapsulate.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preEncapsulate.graphml", *this);
+//    }
+
     //Do this after FIFO insertion so that FIFOs are properly encapsulated in contexts
     //TODO: fix encapsuleate to duplicate driver arc for each ContextFamilyContainer in other partitions
     //to the given partition and add an out
     encapsulateContexts();
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
+
+    //Cleanup empty branches of the hierarchy after nodes moved under enabled subsystem contexts
+//    cleanupEmptyHierarchy("all underlying nodes were moved durring context encapsulation");
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraph_postEncapsulate.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_postEncapsulate.graphml", *this);
+//    }
 
     //TODO: investigate moving
     //*** Creating context variable update nodes can be moved to after partitioning since it should inherit the partition
@@ -4476,6 +4541,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //They should also reside inside of the source context family container
     //
     //This should also be done after encapsulation as the driver arcs of contexts are duplicated for each ContextFamilyContainer
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraph_preFIFOInsert.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOInsert.graphml", *this);
+//    }
 
     //Discover groupable partition crossings
     std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings = getGroupableCrossings();
@@ -4542,6 +4614,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs();
     assignArcIDs();
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphBeforeStateUpdate.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphBeforeStateUpdate.graphml", *this);
+//    }
+
     //Create state update nodes after delay absorption to avoid creating dependencies that would inhibit delay absorption
     createStateUpdateNodes(true); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
@@ -4552,8 +4631,15 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphPreValidation.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreValidation.graphml", *this);
+//    }
+
     //Verify
-    verifyTopologicalOrder(); //TODO: May just work as is (unmodified from single threaded version) because FIFOs declare state and no combination path and thus are treated similarly to delays
+    verifyTopologicalOrder(false); //TODO: May just work as is (unmodified from single threaded version) because FIFOs declare state and no combination path and thus are treated similarly to delays
 
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
@@ -4610,7 +4696,7 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
         std::shared_ptr<ContextFamilyContainer> familyContainer = NodeFactory::createNode<ContextFamilyContainer>(nullptr); //Temporarily set parent to nullptr
         nodes.push_back(familyContainer);
         familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition));
-        familyContainer->setPartition(partition);
+        familyContainer->setPartitionNum(partition);
 
         //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
         std::vector<Context> origContext = asNode->getContext();
@@ -4644,6 +4730,7 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
         for(unsigned long j = 0; j<numContexts; j++){
             std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
             contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition)+"_Subcontext_"+GeneralHelper::to_string(j));
+            contextContainer->setPartitionNum(partition);
             nodes.push_back(contextContainer);
             //Add this to the container order
             subContexts.push_back(contextContainer);
@@ -4692,4 +4779,41 @@ std::string Design::emitFIFOStructHeader(std::string path, std::string fileNameP
     headerFile.close();
 
     return fileName+".h";
+}
+
+void Design::cleanupEmptyHierarchy(std::string reason){
+    std::vector<std::shared_ptr<SubSystem>> emptySubsystems;
+
+    for(int i = 0; i<nodes.size(); i++){
+        std::shared_ptr<SubSystem> asSubsys = GeneralHelper::isType<Node, SubSystem>(nodes[i]);
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
+        std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<Node, ContextFamilyContainer>(nodes[i]);
+        std::shared_ptr<ContextContainer> asContextContainer = GeneralHelper::isType<Node, ContextContainer>(nodes[i]);
+        if(asSubsys != nullptr && asContextRoot == nullptr && asContextFamilyContainer == nullptr && asContextContainer == nullptr){
+            if(asSubsys->getChildren().empty()){
+                emptySubsystems.push_back(asSubsys);
+            }
+        }
+    }
+
+    std::vector<std::shared_ptr<Node>> emptyNodeVector;
+    std::vector<std::shared_ptr<Arc>> emptyArcVector;
+
+    for(int i = 0; i<emptySubsystems.size(); i++){
+        std::cout << "Subsystem " << emptySubsystems[i]->getFullyQualifiedName() << " was removed because " << reason << std::endl;
+        std::shared_ptr<SubSystem> parent = emptySubsystems[i]->getParent();
+
+        std::vector<std::shared_ptr<Node>> nodesToRemove = {emptySubsystems[i]};
+        addRemoveNodesAndArcs(emptyNodeVector, nodesToRemove, emptyArcVector, emptyArcVector);
+
+        while(parent != nullptr && GeneralHelper::isType<Node, ContextRoot>(parent) == nullptr && GeneralHelper::isType<Node, ContextFamilyContainer>(parent) == nullptr && GeneralHelper::isType<Node, ContextContainer>(parent) == nullptr && parent->getChildren().empty()){//Should short circuit before checking for children if parent is null
+            //This subsystem has no children, it should be removed
+            std::vector<std::shared_ptr<Node>> nodesToRemove = {parent};
+            std::cout << "Subsystem " << parent->getFullyQualifiedName() << " was removed because " << reason << std::endl;
+
+            //Get its parent before removing it
+            parent = parent->getParent();
+            addRemoveNodesAndArcs(emptyNodeVector, nodesToRemove, emptyArcVector, emptyArcVector);
+        }
+    }
 }

@@ -671,31 +671,33 @@ std::vector<std::string> EmitterHelpers::writeFIFOsFromTemps(std::vector<std::sh
     return exprs;
 }
 
-void EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition, bool firstLevel){
+void EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition){
     for(auto it = nodes.begin(); it != nodes.end(); it++){
         //Do this first since expanded nodes are also subsystems
         std::shared_ptr<ExpandedNode> asExpandedNode = GeneralHelper::isType<Node, ExpandedNode>(*it);
         if(asExpandedNode){
             //This is a special case where the subsystem takes the partition of the parent and not itself
             //This is because
-            if((!firstLevel) && (partition != -1)){
+            if(partition != -1) {
                 asExpandedNode->getOrigNode()->setPartitionNum(partition);
-
-                std::set<std::shared_ptr<Node>> children = asExpandedNode->getChildren();
-                propagatePartitionsFromSubsystemsToChildren(children, partition, firstLevel);
+                asExpandedNode->setPartitionNum(partition);
             }
+
+            std::set<std::shared_ptr<Node>> children = asExpandedNode->getChildren();
+            propagatePartitionsFromSubsystemsToChildren(children, partition); //still at same level as before with same partition
         }else{
             std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(*it);
             if(asSubsystem){
                 int nextPartition = asSubsystem->getPartitionNum();
                 if(nextPartition == -1){
                     nextPartition = partition;
+                    asSubsystem->setPartitionNum(partition);
                 }
                 std::set<std::shared_ptr<Node>> children = asSubsystem->getChildren();
-                propagatePartitionsFromSubsystemsToChildren(children, nextPartition, false);
+                propagatePartitionsFromSubsystemsToChildren(children, nextPartition);
             }else{
                 //Standard node, set partition if !firstLevel
-                if(!firstLevel && partition != -1){
+                if(partition != -1){
                     (*it)->setPartitionNum(partition);
                 }
             }

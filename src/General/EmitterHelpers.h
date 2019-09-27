@@ -121,7 +121,9 @@ public:
                 for(int arcInd = 0; arcInd < partitionPairGroups[groupInd].size(); arcInd++){
                     //TODO: Remove Check
                     if(partitionPairGroups[groupInd][arcInd]->getSrcPort() != srcPort){
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when inserting FIFOs. Found the arc of an arc in an arc group which was different from another arc in the group"));
+                        std::string origSrcPort = srcPort->getParent()->getFullyQualifiedName() + " " + GeneralHelper::to_string(srcPort->getPortNum());
+                        std::string newSrcPort = partitionPairGroups[groupInd][arcInd]->getSrcPort()->getParent()->getFullyQualifiedName() + " " + GeneralHelper::to_string(partitionPairGroups[groupInd][arcInd]->getSrcPort()->getPortNum());
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when inserting FIFOs. Found an in a partition crossing arc group which had different source port than another arc in the group"));
                     }
 
                     //TODO: Remove Check
@@ -269,9 +271,8 @@ public:
      *
      * @param nodes
      * @param partition
-     * @param firstLevel
      */
-    static void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition, bool firstLevel);
+    static void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition);
 };
 
 /*! @} */

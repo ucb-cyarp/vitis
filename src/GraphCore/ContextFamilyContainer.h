@@ -28,7 +28,6 @@ class ContextFamilyContainer : public SubSystem {
 private:
     std::vector<std::shared_ptr<ContextContainer>> subContextContainers; ///<An ordered list of context containers, one for each subcontext.  SubContextContainer should also be children
     std::shared_ptr<ContextRoot> contextRoot; ///<The node creating this ContextFamily (should be a child after enacapsulation has completed)
-    int partition; ///<The partition that this context family container belongs to
     std::map<int, std::shared_ptr<ContextFamilyContainer>> siblingContainers;
 
     /**
@@ -61,9 +60,6 @@ public:
 
     std::shared_ptr<ContextRoot> getContextRoot() const;
     void setContextRoot(const std::shared_ptr<ContextRoot>&contextRoot);
-
-    int getPartition() const;
-    void setPartition(int partition);
 
     const std::map<int, std::shared_ptr<ContextFamilyContainer>> getSiblingContainers() const;
     void setSiblingContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &siblingContainers);

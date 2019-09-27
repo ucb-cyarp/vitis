@@ -332,6 +332,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
                     //The src is not in the extended context, create a new input node
                     std::shared_ptr<EnableInput> enableInput = NodeFactory::createNode<EnableInput>(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()));
                     enableInput->setName("Expanded Context Enable Input");
+                    enableInput->setPartitionNum(partitionNum);
                     addEnableInput(enableInput);
                     new_nodes.push_back(enableInput);
 
@@ -467,6 +468,8 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
                     //Check if an enable output has already been created
                     if(enableOutputNode == nullptr){
                         enableOutputNode = NodeFactory::createNode<EnableOutput>(std::dynamic_pointer_cast<SubSystem>(getSharedPointer()));
+                        enableOutputNode->setName("Expanded Context Enable Output");
+                        enableOutputNode->setPartitionNum(partitionNum);
                         enableOutputOutPort = enableOutputNode->getOutputPortCreateIfNot(0);
                         addEnableOutput(enableOutputNode);
                         new_nodes.push_back(enableOutputNode);

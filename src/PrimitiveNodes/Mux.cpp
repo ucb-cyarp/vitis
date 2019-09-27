@@ -429,7 +429,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
             //Should rside in the same context as the context root mux
             if(contextFamilyContainers.find(partitionNum) != contextFamilyContainers.end()){
                 //Context family container exists
-                updateNodeParent = contextFamilyContainers[partitionNum];
+                updateNodeParent = contextFamilyContainers[partitionNum]->getSubContextContainer(subContextNumber);
             }else{
                 throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot create ContextUpdateNode when in setContext mode unless ContextFamilyContainers are already created"));
             }
@@ -438,7 +438,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
         }
 
         std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode = NodeFactory::createNode<ContextVariableUpdate>(
-                getParent());
+                updateNodeParent);
         contextVariableUpdateNode->setName("ContextVariableUpdate-For-" + getName() + "-Input" + GeneralHelper::to_string(subContextNumber));
         contextVariableUpdateNode->setContextRoot(sharedPtrToThis);
         contextVariableUpdateNode->setPartitionNum(partitionNum); //Copy the same partition number as the context root

@@ -27,6 +27,7 @@ class MasterInput;
 class MasterOutput;
 class MasterUnconnected;
 class Node;
+class SubSystem;
 class Arc;
 class ContextRoot;
 class BlackBox;
@@ -275,8 +276,9 @@ public:
 
     /**
      * @brief Verify that the graph has topological ordering
+     * @param checkOutputMaster if true, checks the schedule state of the output master
      */
-    void verifyTopologicalOrder();
+    void verifyTopologicalOrder(bool checkOutputMaster);
 
     /**
      * @brief Get a node by its name path
@@ -922,6 +924,15 @@ public:
     std::shared_ptr<ContextFamilyContainer> getContextFamilyContainerCreateIfNotNoParent(std::shared_ptr<ContextRoot> contextRoot, int partition);
 
     std::set<int> listPresentPartitions();
+
+    /**
+     * @brief This searches the graph for subsystems which have no children (either because they were empty or all of their children had been moved) and can be removed.  Upon removal, it parent subsystem is also checked
+     *
+     * Note, subsystems that are context roots are not removed
+     *
+     * @return
+     */
+    void cleanupEmptyHierarchy(std::string reason);
 };
 
 /*! @} */

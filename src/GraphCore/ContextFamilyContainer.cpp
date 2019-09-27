@@ -24,7 +24,7 @@ ContextFamilyContainer::ContextFamilyContainer(std::shared_ptr<SubSystem> parent
 
 }
 
-ContextFamilyContainer::ContextFamilyContainer(std::shared_ptr<SubSystem> parent, ContextFamilyContainer *orig) : SubSystem(parent, orig), partition(orig->partition){
+ContextFamilyContainer::ContextFamilyContainer(std::shared_ptr<SubSystem> parent, ContextFamilyContainer *orig) : SubSystem(parent, orig){
     //Since the rest of the node data are pointers to nodes, they need to be copied in the clone method where the cloned node pointers are known
 }
 
@@ -245,14 +245,6 @@ ContextFamilyContainer::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEleme
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "ContextFamilyContainer");
 
     return thisNode;
-}
-
-int ContextFamilyContainer::getPartition() const {
-    return partition;
-}
-
-void ContextFamilyContainer::setPartition(int partition) {
-    ContextFamilyContainer::partition = partition;
 }
 
 const std::map<int, std::shared_ptr<ContextFamilyContainer>> ContextFamilyContainer::getSiblingContainers() const {
