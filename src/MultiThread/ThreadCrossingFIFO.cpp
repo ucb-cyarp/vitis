@@ -326,28 +326,21 @@ void ThreadCrossingFIFO::setCBlockIndexVarName(const std::string &cBlockIndexVar
 }
 
 std::string ThreadCrossingFIFO::getFIFOStructTypeName(){
-    if(cStateVar.getDataType().isComplex()){
-        return cStateVar.getName() + "_t";
-    }
-    return "";
+    return getCStateVar().getName() + "_t";
 }
 
 std::string ThreadCrossingFIFO::createFIFOStruct(){
-    if(cStateVar.getDataType().isComplex()) {
-        std::string typeName = getFIFOStructTypeName();
-        DataType stateDT = cStateVar.getDataType();
-        int elementWidth = stateDT.getWidth();
+    std::string typeName = getFIFOStructTypeName();
+    DataType stateDT = cStateVar.getDataType();
+    int elementWidth = stateDT.getWidth();
 
-        //TODO: Check 2D case
-        std::string structStr = "typedef struct {\n";
-        structStr += stateDT.toString(DataType::StringStyle::C) + " real" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "");
+    //TODO: Check 2D case
+    std::string structStr = "typedef struct {\n";
+    structStr += stateDT.toString(DataType::StringStyle::C) + " real" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
 
-        if(stateDT.isComplex()) {
-            structStr += ",\n" + stateDT.toString(DataType::StringStyle::C) + " imag" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + "\n";
-        }
-        structStr += "} " + typeName + ";";
-        return structStr;
+    if(stateDT.isComplex()) {
+        structStr += stateDT.toString(DataType::StringStyle::C) + " imag" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
     }
-
-    return "";
+    structStr += "} " + typeName + ";";
+    return structStr;
 }

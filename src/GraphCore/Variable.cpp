@@ -50,10 +50,10 @@ std::string Variable::getCVarName(bool imag) {
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
-std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray) {
+std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray, bool includeRef) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
-    std::string decl = (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " " + getCVarName(imag);
+    std::string decl = (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
 
     if(dataType.getWidth() > 1 && includeArray){
         decl += "[";

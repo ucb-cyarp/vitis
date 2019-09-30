@@ -566,17 +566,19 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
         }
 
         if(var.getDataType().getWidth() == 1){
-            prototype += "&";
+            prototype += var.getCVarDecl(false, false, false, false, true);
+        }else {
+            prototype += var.getCVarDecl(false, false, false, true, false);
         }
-        prototype += var.getCVarDecl(false, false, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
             prototype += ", ";
             if(var.getDataType().getWidth() == 1){
-                prototype += "&";
+                prototype += var.getCVarDecl(true, false, false, false, true);
+            }else {
+                prototype += var.getCVarDecl(true, false, false, true, false);
             }
-            prototype += var.getCVarDecl(true, false, false, true);
         }
     }
 
@@ -591,17 +593,19 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
 
         prototype += ", ";
         if(var.getDataType().getWidth() == 1){
-            prototype += "&";
+            prototype += var.getCVarDecl(false, false, false, false, true);
+        }else {
+            prototype += var.getCVarDecl(false, false, false, true, false);
         }
-        prototype += var.getCVarDecl(false);
 
         //Check if complex
         if(var.getDataType().isComplex()){
             prototype += ", ";
             if(var.getDataType().getWidth() == 1){
-                prototype += "&";
+                prototype += var.getCVarDecl(true, false, false, false, true);
+            }else {
+                prototype += var.getCVarDecl(true, false, false, true, false);
             }
-            prototype += var.getCVarDecl(true);
         }
     }
 
@@ -705,50 +709,45 @@ std::string Design::getCInputPortStructDefn(int blockSize){
 }
 
 std::pair<std::string, std::string> Design::getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum){
-    std::string structureType = designName + "_partition" + GeneralHelper::to_string(partitionNum) + "_threadArgs_t";
+    std::string structureType = designName + "_partition" + (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_threadArgs_t";
     std::string prototype = "typedef struct {\n";
 
-    prototype += "\t//Input FIFOs";
+    prototype += "//Input FIFOs\n";
     for(unsigned long i = 0; i<inputFIFOs.size(); i++){
-        std::vector<Variable> fifoSharedVars = inputFIFOs[i]->getFIFOSharedVariables();
+        std::vector<std::pair<Variable, std::string>> fifoSharedVars = inputFIFOs[i]->getFIFOSharedVariables();
 
         for(int j = 0; j<fifoSharedVars.size(); j++){
             //All should be pointers
-            Variable var = fifoSharedVars[j];
+            Variable var = fifoSharedVars[j].first;
+            std::string structName = fifoSharedVars[j].second;
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
             //Pass as not volatile
             var.setVolatileVar(false);
 
-            prototype += "\t" + var.getCPtrDecl(false) + ";\n";
+            //prototype += "\t" + inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false) +  + ";\n";
+            prototype += (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + ";\n";
 
-            //Check if complex
-            if(var.getDataType().isComplex()){
-                prototype += "\t" + var.getCPtrDecl(true) + ";\n";
-            }
         }
     }
 
-    prototype += "\t//Output FIFOs";
+    prototype += "//Output FIFOs\n";
     for(unsigned long i = 0; i<outputFIFOs.size(); i++){
-        std::vector<Variable> fifoSharedVars = outputFIFOs[i]->getFIFOSharedVariables();
+        std::vector<std::pair<Variable, std::string>> fifoSharedVars = outputFIFOs[i]->getFIFOSharedVariables();
 
         for(int j = 0; j<fifoSharedVars.size(); j++){
             //All should be pointers
-            Variable var = fifoSharedVars[j];
+            Variable var = fifoSharedVars[j].first;
+            std::string structName = fifoSharedVars[j].second;
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
             //Pass as not volatile
             var.setVolatileVar(false);
 
-            prototype += "\t" + var.getCPtrDecl(false) + ";\n";
-
-            //Check if complex
-            if(var.getDataType().isComplex()){
-                prototype += "\t" + var.getCPtrDecl(true) + ";\n";
-            }
+            //prototype += "\t" + outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false) +  + ";\n";
+            prototype += (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + ";\n";
         }
     }
 
@@ -1643,10 +1642,10 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
 
     std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize);
-    std::string computeFctnName = designName + "_partition"+GeneralHelper::to_string(partitionNum) + "_compute";
+    std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
     std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
 
-    std::string fileName = fileNamePrefix+"_partition"+GeneralHelper::to_string(partitionNum);
+    std::string fileName = fileNamePrefix+"_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum));
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
     std::ofstream headerFile;
@@ -1675,7 +1674,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     headerFile << std::endl;
 
     //Output the thread function definition
-    std::string threadFctnDecl = "void* " + designName + "_partition" + GeneralHelper::to_string(partitionNum) + "_thread(void *args)";
+    std::string threadFctnDecl = "void* " + designName + "_partition" + (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_thread(void *args)";
     headerFile << threadFctnDecl << ";" << std::endl;
 
     //Output the reset function definition
@@ -1848,7 +1847,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     //Emit thread function
     cFile << threadFctnDecl << "{" << std::endl;
     //Copy ptrs from struct argument
-    cFile << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, threadArgTypeName, "args");
+    cFile << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
     //Create Loop
     cFile << "while(1){" << std::endl;
@@ -1943,8 +1942,9 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     ioThread << threadFctnDecl << "{" << std::endl;
 
     //Copy shared variables from the input argument structure
-    ioThread << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, threadArgTypeName, "args");
+    ioThread << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
+    ioThread << "//Set Constant Arguments" << std::endl;
     std::vector<NumericValue> defaultArgs;
     for (unsigned long i = 0; i < outputFIFOs.size(); i++) {
         DataType type = (*outputFIFOs[i]->getInputArcs().begin())->getDataType(); // should already be validated to have an input port
@@ -2092,7 +2092,9 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     cFile << "//Create Thread Arguments" << std::endl;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         //Including the I/O thread
-        std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(*it) + "_threadArgs";
+        int currentPartition = *it;
+        cFile << "//Partition " << currentPartition << " Arguments" << std::endl;
+        std::string threadArgStructName = designName + "_partition" + (currentPartition < 0 ? "N" + GeneralHelper::to_string(-currentPartition) : GeneralHelper::to_string(currentPartition)) + "_threadArgs";
         std::string threadArgStructType = threadArgStructName + "_t";
         cFile << threadArgStructType << " " << threadArgStructName << ";" << std::endl;
         //Set pointers
@@ -2101,17 +2103,16 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
         fifos.insert(fifos.end(), outputFIFOs.begin(), outputFIFOs.end());
 
         for(int i = 0; i<fifos.size(); i++){
-            std::vector<Variable> fifoVars = fifos[i]->getFIFOSharedVariables();
+            std::vector<std::pair<Variable, std::string>> fifoVars = fifos[i]->getFIFOSharedVariables();
             for(int j = 0; j<fifoVars.size(); j++){
                 //All should be pointers
-                Variable var = fifoVars[j];
+                Variable var = fifoVars[j].first;
+                std::string structName = fifoVars[j].second;
 
-                cFile << threadArgStructName << "." << var.getCVarName(false) << " = " << var.getCVarName(false) << ";" << std::endl;
+                //No need to actually check for the struct type name here since this is simply assigning the pointer
 
-                //Check if complex
-                if(var.getDataType().isComplex()){
-                    cFile << threadArgStructName << "." << var.getCVarName(true) << " = " << var.getCVarName(true) << ";" << std::endl;
-                }
+                cFile << threadArgStructName << "." << var.getCVarName(false) << " = " << var.getCVarName(false)
+                      << ";" << std::endl;
             }
         }
     }
@@ -2121,33 +2122,41 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     cFile << "//Create Thread Parameters" << std::endl;
     cFile << "int status;" << std::endl;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
-        cFile << "cpu_set_t cpuset_" << *it << ";" << std::endl;
-        cFile << "pthread_t thread_" << *it << ";" << std::endl;
-        cFile << "pthread_attr_t attr_" << *it << ";" << std::endl;
-        //cFile << "void *res_" << *it << ";" << std::endl;
-        cFile << std::endl;
-        cFile << "status = pthread_attr_init(&attr_" << *it << ");" << std::endl;
-        cFile << "if(status != 0)" << std::endl;
-        cFile << "{" << std::endl;
-        cFile << "printf(\"Could not create pthread attributes ... exiting\n\");" << std::endl;
-        cFile << "exit(1);" << std::endl;
-        cFile << "}" << std::endl;
-        cFile << std::endl;
-        cFile << "CPU_ZERO(&cpuset_" << *it << "); //Clear cpuset" << std::endl;
-        int core = *it;
-        if(core < 0){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
-//            std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
-//            core = 0;
-        }
-        cFile << "CPU_SET(" << core << ", &cpuset_" << *it << "); //Add CPU to cpuset" << std::endl;
-        cFile << "status = pthread_attr_setaffinity_np(&attr_" << *it << ", sizeof(cpu_set_t), &cpuset_" << *it << ");//Set thread CPU affinity" << std::endl;
-        cFile << "if(status != 0)" << std::endl;
-        cFile << "{" << std::endl;
-        cFile << "printf(\"Could not set thread core affinity ... exiting\n\");" << std::endl;
-        cFile << "exit(1);" << std::endl;
-        cFile << "}" << std::endl;
-        cFile << std::endl;
+            std::string partitionSuffix = (*it < 0 ? "N" + GeneralHelper::to_string(-*it) : GeneralHelper::to_string(*it));
+            cFile << "cpu_set_t cpuset_" << partitionSuffix << ";" << std::endl;
+            cFile << "pthread_t thread_" << partitionSuffix << ";" << std::endl;
+            cFile << "pthread_attr_t attr_" << partitionSuffix << ";" << std::endl;
+            //cFile << "void *res_" << *it << ";" << std::endl;
+            cFile << std::endl;
+            cFile << "status = pthread_attr_init(&attr_" << partitionSuffix << ");" << std::endl;
+            cFile << "if(status != 0)" << std::endl;
+            cFile << "{" << std::endl;
+            cFile << "printf(\"Could not create pthread attributes ... exiting\");" << std::endl;
+            cFile << "exit(1);" << std::endl;
+            cFile << "}" << std::endl;
+            cFile << std::endl;
+            cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
+            int core = *it;
+            if(*it == IO_PARTITION_NUM){
+                core = 0;
+                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
+            }else{
+                if (core < 0) {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr(
+                            "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
+//                    std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
+//                    core = 0;
+                }
+            }
+            cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
+            cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_" << partitionSuffix
+                  << ");//Set thread CPU affinity" << std::endl;
+            cFile << "if(status != 0)" << std::endl;
+            cFile << "{" << std::endl;
+            cFile << "printf(\"Could not set thread core affinity ... exiting\");" << std::endl;
+            cFile << "exit(1);" << std::endl;
+            cFile << "}" << std::endl;
+            cFile << std::endl;
     }
 
     //Start all threads except the I/O thread
@@ -2157,10 +2166,10 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
         if(*it != IO_PARTITION_NUM) {
             std::string threadFun = designName + "_partition" + GeneralHelper::to_string(*it) + "_thread";
             std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(*it) + "_threadArgs";
-            cFile << "status = pthread_create(&thread_" << *it << ", &attr_" << *it << ", " << threadFun << "," << threadArgStructName << ");" << std::endl;
+            cFile << "status = pthread_create(&thread_" << *it << ", &attr_" << *it << ", " << threadFun << ", " << threadArgStructName << ");" << std::endl;
             cFile << "if(status != 0)" << std::endl;
             cFile << "{" << std::endl;
-            cFile << "printf(\"Could not create a thread ... exiting\n\");" << std::endl;
+            cFile << "printf(\"Could not create a thread ... exiting\");" << std::endl;
             cFile << "errno = status;" << std::endl;
             cFile << "perror(NULL);" << std::endl;
             cFile << "exit(1);" << std::endl;
@@ -2169,12 +2178,13 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     }
 
     //Start I/O thread
+    std::string partitionSuffix = (IO_PARTITION_NUM < 0 ? "N" + GeneralHelper::to_string(-IO_PARTITION_NUM) : GeneralHelper::to_string(IO_PARTITION_NUM));
     std::string threadFun = designName + "_" + ioBenchmarkSuffix + "_thread";
-    std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(IO_PARTITION_NUM) + "_threadArgs";
-    cFile << "status = pthread_create(&thread_" << IO_PARTITION_NUM << ", &attr_" << IO_PARTITION_NUM << ", " << threadFun << "," << threadArgStructName << ");" << std::endl;
+    std::string threadArgStructName = designName + "_partition" + partitionSuffix + "_threadArgs";
+    cFile << "status = pthread_create(&thread_" << partitionSuffix << ", &attr_" << partitionSuffix << ", " << threadFun << ", " << threadArgStructName << ");" << std::endl;
     cFile << "if(status != 0)" << std::endl;
     cFile << "{" << std::endl;
-    cFile << "printf(\"Could not create a thread ... exiting\n\");" << std::endl;
+    cFile << "printf(\"Could not create a thread ... exiting\");" << std::endl;
     cFile << "errno = status;" << std::endl;
     cFile << "perror(NULL);" << std::endl;
     cFile << "exit(1);" << std::endl;
@@ -2183,11 +2193,11 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     //Join on the I/O thread
     cFile << std::endl;
     cFile << "//Wait for I/O Thread to Finish" << std::endl;
-    cFile << "void *res_" << IO_PARTITION_NUM << ";" << std::endl;
-    cFile << "status = pthread_join(thread_" << IO_PARTITION_NUM << ", &res_" << IO_PARTITION_NUM << ");" << std::endl;
+    cFile << "void *res_" << partitionSuffix << ";" << std::endl;
+    cFile << "status = pthread_join(thread_" << partitionSuffix << ", &res_" << partitionSuffix << ");" << std::endl;
     cFile << "if(status != 0)" << std::endl;
     cFile << "{" << std::endl;
-    cFile << "printf(\"Could not join a thread ... exiting\n\");" << std::endl;
+    cFile << "printf(\"Could not join a thread ... exiting\");" << std::endl;
     cFile << "errno = status;" << std::endl;
     cFile << "perror(NULL);" << std::endl;
     cFile << "exit(1);" << std::endl;
@@ -2201,7 +2211,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
             cFile << "status = pthread_cancel(&thread_" << *it << ");" << std::endl;
             cFile << "if(status != 0)" << std::endl;
             cFile << "{" << std::endl;
-            cFile << "printf(\"Could not cancel a thread ... exiting\n\");" << std::endl;
+            cFile << "printf(\"Could not cancel a thread ... exiting\");" << std::endl;
             cFile << "errno = status;" << std::endl;
             cFile << "perror(NULL);" << std::endl;
             cFile << "exit(1);" << std::endl;
@@ -4362,9 +4372,15 @@ std::map<int, std::vector<std::shared_ptr<Node>>> Design::findPartitions() {
     //Go through the list of nodes in the design and place them in the appropriate partition
     std::map<int, std::vector<std::shared_ptr<Node>>> partitions;
 
-    for(unsigned long i = 0; i<nodes.size(); i++){
-        int nodePartition = nodes[i]->getPartitionNum();
-        partitions[nodePartition].push_back(nodes[i]); //The map returns a reference to the vector
+    std::vector<std::shared_ptr<Node>> nodesToSearch = nodes;
+    //Add the relevent master nodes
+    nodesToSearch.push_back(inputMaster);
+    nodesToSearch.push_back(outputMaster);
+    nodesToSearch.push_back(visMaster);
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        int nodePartition = nodesToSearch[i]->getPartitionNum();
+        partitions[nodePartition].push_back(nodesToSearch[i]); //The map returns a reference to the vector
     }
 
     return partitions;
@@ -4399,13 +4415,14 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
 
     std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings;
 
-    for(unsigned long i = 0; i<nodes.size(); i++) {
-        int srcPartition = nodes[i]->getPartitionNum();
+    std::vector<std::shared_ptr<Node>> nodesToSearch = nodes;
+    nodesToSearch.push_back(inputMaster); //Need to explicitally include the input master
 
-
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++) {
+        int srcPartition = nodesToSearch[i]->getPartitionNum();
 
         //Note: arcs can only be grouped if they share the same output port
-        std::vector<std::shared_ptr<OutputPort>> outputPorts = nodes[i]->getOutputPortsIncludingOrderConstraint();
+        std::vector<std::shared_ptr<OutputPort>> outputPorts = nodesToSearch[i]->getOutputPortsIncludingOrderConstraint();
         for (int portIdx = 0; portIdx < outputPorts.size(); portIdx++) {
             std::map<int, std::vector<std::shared_ptr<Arc>>> currentGroups;
             //Arcs from a given node output port to the same partition can be grouped
@@ -4585,7 +4602,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         std::vector<std::shared_ptr<ThreadCrossingFIFO>>& inputFIFOsRef = inputFIFOs[dstPartition];
         inputFIFOsRef.insert(inputFIFOsRef.end(), it->second.begin(), it->second.end());
 
-        std::vector<std::shared_ptr<ThreadCrossingFIFO>>& outputFIFOsRef = inputFIFOs[dstPartition];
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>>& outputFIFOsRef = outputFIFOs[srcPartition];
         outputFIFOsRef.insert(outputFIFOsRef.end(), it->second.begin(), it->second.end());
     }
 

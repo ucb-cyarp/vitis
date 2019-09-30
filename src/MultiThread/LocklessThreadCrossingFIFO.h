@@ -225,7 +225,7 @@ public:
 
     void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) override;
 
-    std::vector<Variable> getFIFOSharedVariables() override;
+    std::vector<std::pair<Variable, std::string>> getFIFOSharedVariables() override;
 
     void createSharedVariables(std::vector<std::string> &cStatementQueue) override;
 

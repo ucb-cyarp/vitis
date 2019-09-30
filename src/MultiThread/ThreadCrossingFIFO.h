@@ -243,9 +243,9 @@ public:
     /**
      * @brief Get a list of shared variables for the given FIFO.  These variables should be passed to the threads which
      * communicate via this FIFO
-     * @return a list of shared variables
+     * @return a list of shared variables.  If the paired string is not empty, the variable uses a structure whose name is provided in the string.
      */
-    virtual std::vector<Variable> getFIFOSharedVariables() = 0;
+    virtual std::vector<std::pair<Variable, std::string>> getFIFOSharedVariables() = 0;
 
     /**
      * @brief Creates a structure which is the format for entries in the FIFO.  Each structure contains a block of samples

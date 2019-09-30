@@ -28,7 +28,10 @@ void LocklessThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node>
 }
 
 Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
-    if(!cWriteOffsetPtrInitialized) {
+    bool initalized = cWriteOffsetPtrInitialized;
+    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cWriteOffsetPtr, cWriteOffsetPtrInitialized, "writeOffsetPtr");
+
+    if(!initalized) {
         int elementLength = fifoLength*blockSize;
 
         DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
@@ -36,34 +39,34 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
         cWriteOffsetPtr.setDataType(newDT);
     }
 
-    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cWriteOffsetPtr, cWriteOffsetPtrInitialized, "writeOffsetPtr");
     return cWriteOffsetPtr;
 }
 
 Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
-    if(!cReadOffsetPtrInitialized){
+    bool initialized = cReadOffsetPtrInitialized;
+    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cReadOffsetPtr, cReadOffsetPtrInitialized, "readOffsetPtr");
+
+    if(!initialized){
         int elementLength = fifoLength*blockSize;
 
         DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
         newDT = newDT.getCPUStorageType();
         cReadOffsetPtr.setDataType(newDT);
     }
-
-    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cReadOffsetPtr, cReadOffsetPtrInitialized, "readOffsetPtr");
     return cReadOffsetPtr;
 }
 
 Variable LocklessThreadCrossingFIFO::getCArrayPtr() {
-    if (!cArrayPtrInitialized){
+    bool initialized = cArrayPtrInitialized;
+    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cArrayPtr, cArrayPtrInitialized, "arrayPtr");
+
+    if (!initialized){
         if (getOutputPorts().size() == 1 && getOutputPort(0)->getArcs().size() >= 1) {
             cArrayPtr.setDataType((*(getOutputPort(0)->getArcs().begin()))->getDataType());
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Should Have >= 1 Output Arc", getSharedPointer()));
         }
     }
-
-    LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cArrayPtr, cArrayPtrInitialized, "arrayPtr");
-
     return cArrayPtr;
 }
 
@@ -132,8 +135,8 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty() {
     int arrayLength = (fifoLength+1);
     int checkPoint = -(arrayLength-1);
 
-    std::string derefWriteOffset = "*" + cWriteOffsetPtr.getCVarName(false);
-    std::string derefReadOffset = "*" + cReadOffsetPtr.getCVarName(false);
+    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
+    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
 
     return "(!((" + derefWriteOffset + " - " + derefReadOffset + " == 1) || (" + derefWriteOffset + " - " + derefReadOffset + " == " + GeneralHelper::to_string(checkPoint) + ")))";
 }
@@ -142,8 +145,8 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotFull() {
     //Full = (readOffset == writeOffset)
     //Note: This is !Full
 
-    std::string derefWriteOffset = "*" + cWriteOffsetPtr.getCVarName(false);
-    std::string derefReadOffset = "*" + cReadOffsetPtr.getCVarName(false);
+    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
+    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
 
     return "(" + derefReadOffset + " != " + derefWriteOffset + ")";
 }
@@ -151,8 +154,8 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotFull() {
 std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead() {
     //Avail to read: ((readOffset < writeOffset) ? writeOffset - readOffset - 1 : arrayLength - readOffset + writeOffset - 1)
 
-    std::string derefWriteOffset = "*" + cWriteOffsetPtr.getCVarName(false);
-    std::string derefReadOffset = "*" + cReadOffsetPtr.getCVarName(false);
+    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
+    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
 
     int arrayLength = fifoLength+1;
 
@@ -161,8 +164,8 @@ std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead() {
 
 std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite() {
     //Space Left: ((readOffset < writeOffset) ? arrayLength - writeOffset + readOffset : readOffset - writeOffset)
-    std::string derefWriteOffset = "*" + cWriteOffsetPtr.getCVarName(false);
-    std::string derefReadOffset = "*" + cReadOffsetPtr.getCVarName(false);
+    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
+    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
 
     int arrayLength = fifoLength+1;
 
@@ -176,9 +179,9 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
 
     int arrayLengthBlocks = (fifoLength+1);
 
-    std::string localWriteOffsetBlocks = cWriteOffsetPtr.getCVarName(false)+"_local";
-    std::string derefSharedWriteOffsetBlocks = "*" + cWriteOffsetPtr.getCVarName(false);
-    std::string arrayName = cArrayPtr.getCVarName(false);
+    std::string localWriteOffsetBlocks = getCWriteOffsetPtr().getCVarName(false)+"_local";
+    std::string derefSharedWriteOffsetBlocks = "*" + getCWriteOffsetPtr().getCVarName(false);
+    std::string arrayName = getCArrayPtr().getCVarName(false);
     std::string srcName = src;
 
     if(numBlocks == 1){
@@ -231,9 +234,9 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
 
     int arrayLengthBlocks = (fifoLength+1);
 
-    std::string localReadOffsetBlocks = cReadOffsetPtr.getCVarName(false)+"_local";
-    std::string derefSharedReadOffsetBlocks = "*" + cReadOffsetPtr.getCVarName(false);
-    std::string arrayName = cArrayPtr.getCVarName(false);
+    std::string localReadOffsetBlocks = getCReadOffsetPtr().getCVarName(false)+"_local";
+    std::string derefSharedReadOffsetBlocks = "*" + getCReadOffsetPtr().getCVarName(false);
+    std::string arrayName = getCArrayPtr().getCVarName(false);
     std::string dstName = dst;
 
     if(numBlocks == 1){
@@ -278,11 +281,11 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
     }
 }
 
-std::vector<Variable> LocklessThreadCrossingFIFO::getFIFOSharedVariables() {
-    std::vector<Variable> vars;
-    vars.push_back(cReadOffsetPtr);
-    vars.push_back(cWriteOffsetPtr);
-    vars.push_back(cArrayPtr);
+std::vector<std::pair<Variable, std::string>> LocklessThreadCrossingFIFO::getFIFOSharedVariables() {
+    std::vector<std::pair<Variable, std::string>> vars;
+    vars.push_back(std::pair<Variable, std::string>(getCReadOffsetPtr(), ""));
+    vars.push_back(std::pair<Variable, std::string>(getCWriteOffsetPtr(), ""));
+    vars.push_back(std::pair<Variable, std::string>(getCArrayPtr(), getFIFOStructTypeName()));
 
     return vars;
 }
@@ -290,23 +293,19 @@ std::vector<Variable> LocklessThreadCrossingFIFO::getFIFOSharedVariables() {
 void LocklessThreadCrossingFIFO::createSharedVariables(std::vector<std::string> &cStatementQueue) {
     //Will declare the shared vars.  References to these should be passed (using & for the pointers and directly for the )
 
-    std::string cReadOffsetDT = cReadOffsetPtr.getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
-    cStatementQueue.push_back(cReadOffsetDT + "* " + cReadOffsetPtr.getCVarName(false) + " = new " + cReadOffsetDT + ";");
+    std::string cReadOffsetDT = getCReadOffsetPtr().getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
+    cStatementQueue.push_back(cReadOffsetDT + "* " + getCReadOffsetPtr().getCVarName(false) + " = malloc(sizeof(" + cReadOffsetDT + "));");
 
-    std::string cWriteOffsetDT = cWriteOffsetPtr.getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
-    cStatementQueue.push_back(cWriteOffsetDT + "* " + cWriteOffsetPtr.getCVarName(false) + " = new " + cWriteOffsetDT + ";");
+    std::string cWriteOffsetDT = getCWriteOffsetPtr().getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
+    cStatementQueue.push_back(cWriteOffsetDT + "* " + getCWriteOffsetPtr().getCVarName(false) + " = malloc(sizeof(" + cWriteOffsetDT + "));");
 
-    std::string cArrayDT;
-    std::string cArrayDTWithSize;
-
-    cArrayDT = getFIFOStructTypeName();
-    cArrayDTWithSize = cArrayDT + "[" + GeneralHelper::to_string(fifoLength) + "]";
-    cStatementQueue.push_back(cArrayDT + "* " + cArrayPtr.getCVarName(false) + " = new " + cArrayDTWithSize + ";");
+    std::string cArrayDT = getFIFOStructTypeName();
+    cStatementQueue.push_back(cArrayDT + "* " + getCArrayPtr().getCVarName(false) + " = malloc(sizeof(" + cArrayDT + ")*" + GeneralHelper::to_string(fifoLength) +");");
 }
 
 void LocklessThreadCrossingFIFO::cleanupSharedVariables(std::vector<std::string> &cStatementQueue) {
-    cStatementQueue.push_back("delete " + cReadOffsetPtr.getCVarName(false) + ";");
-    cStatementQueue.push_back("delete " + cWriteOffsetPtr.getCVarName(false) + ";");
-    cStatementQueue.push_back("delete[] " + cArrayPtr.getCVarName(false) + ";");
+    cStatementQueue.push_back("delete " + getCReadOffsetPtr().getCVarName(false) + ";");
+    cStatementQueue.push_back("delete " + getCWriteOffsetPtr().getCVarName(false) + ";");
+    cStatementQueue.push_back("delete[] " + getCArrayPtr().getCVarName(false) + ";");
 }
 

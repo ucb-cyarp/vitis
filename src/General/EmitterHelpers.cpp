@@ -386,49 +386,44 @@ std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<Thre
     std::string statements;
     //Cast the input structure
     std::string castStructName = structName + "_cast";
-    statements += structTypeName + " *" + castStructName + " = (*" + structTypeName + ") " + structName + ";\n";
+    statements += structTypeName + " *" + castStructName + " = (" + structTypeName + "*) " + structName + ";\n";
 
-    statements += "\t//Input FIFOs";
+    statements += "//Input FIFOs\n";
     for(unsigned long i = 0; i<inputFIFOs.size(); i++){
-        std::vector<Variable> fifoSharedVars = inputFIFOs[i]->getFIFOSharedVariables();
+        std::vector<std::pair<Variable, std::string>> fifoSharedVars = inputFIFOs[i]->getFIFOSharedVariables();
 
         for(int j = 0; j<fifoSharedVars.size(); j++){
             //All should be pointers
-            Variable var = fifoSharedVars[j];
+            Variable var = fifoSharedVars[j].first;
+            std::string structName = fifoSharedVars[j].second;
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
             //Pass as not volatile
             var.setVolatileVar(false);
 
-            statements += var.getCPtrDecl(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
-
             //Check if complex
-            if(var.getDataType().isComplex()){
-                statements += var.getCPtrDecl(true) + " = " + castStructName + "->" + var.getCVarName(true) + ";\n";
-            }
+            statements += (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
         }
     }
 
-    statements += "\t//Output FIFOs";
+    statements += "//Output FIFOs\n";
     for(unsigned long i = 0; i<outputFIFOs.size(); i++){
-        std::vector<Variable> fifoSharedVars = outputFIFOs[i]->getFIFOSharedVariables();
+        std::vector<std::pair<Variable, std::string>> fifoSharedVars = outputFIFOs[i]->getFIFOSharedVariables();
 
         for(int j = 0; j<fifoSharedVars.size(); j++){
             //All should be pointers
-            Variable var = fifoSharedVars[j];
+            Variable var = fifoSharedVars[j].first;
+            std::string structName = fifoSharedVars[j].second;
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
             //Pass as not volatile
             var.setVolatileVar(false);
 
-            statements += var.getCPtrDecl(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
-
-            //Check if complex
-            if(var.getDataType().isComplex()){
-                statements += var.getCPtrDecl(true) + " = " + castStructName + "->" + var.getCVarName(true) + ";\n";
-            }
+            std::string outputFIFOStatement = (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+            statements += outputFIFOStatement;
+            //statements += outputFIFOs[i]->getFIFOStructTypeName() + "* " +  var.getCVarName(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
         }
     }
 

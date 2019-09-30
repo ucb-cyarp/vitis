@@ -101,7 +101,9 @@ public:
                 }
 
                 std::shared_ptr<ThreadCrossingFIFO> fifo = NodeFactory::createNode<T>(fifoParent); //Create a FIFO of the specified type
-                fifo->setName("PartitionCrossingFIFO_" + GeneralHelper::to_string(partitionPair->first.first) + "->" + GeneralHelper::to_string(partitionPair->first.second) + "_" + GeneralHelper::to_string(groupInd));
+                std::string srcPartitionName = partitionPair->first.first >= 0 ? GeneralHelper::to_string(partitionPair->first.first) : "N"+GeneralHelper::to_string(-partitionPair->first.first);
+                std::string dstPartitionName = partitionPair->first.second >= 0 ? GeneralHelper::to_string(partitionPair->first.second) : "N"+GeneralHelper::to_string(-partitionPair->first.second);
+                fifo->setName("PartitionCrossingFIFO_" + srcPartitionName + "_TO_" + dstPartitionName + "_" + GeneralHelper::to_string(groupInd));
                 fifo->setPartitionNum(fifoPartition);
                 fifo->setContext(fifoContext);
                 new_nodes.push_back(fifo);
@@ -114,7 +116,8 @@ public:
 
                 //Create an arc from the src to the FIFO
 
-                std::shared_ptr<Arc> srcArc = Arc::connectNodes(srcPort, fifo->getInputPortCreateIfNot(0), partitionPairGroups[groupInd][0]->getDataType(), partitionPairGroups[groupInd][0]->getSampleTime());
+                DataType groupDataType = partitionPairGroups[groupInd][0]->getDataType();
+                std::shared_ptr<Arc> srcArc = Arc::connectNodes(srcPort, fifo->getInputPortCreateIfNot(0), groupDataType, partitionPairGroups[groupInd][0]->getSampleTime());
                 new_arcs.push_back(srcArc);
 
                 //Re-wire the arcs in the group to the output of the FIFO
