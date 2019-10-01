@@ -44,7 +44,8 @@ protected:
 
     //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
     //Special casing may be preferrable for now
-    std::string cBlockIndexVarName; ///The C variable used in the compute loop for indexing into a block.  Is set by the emitter
+    std::string cBlockIndexVarInputName; ///The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
+    std::string cBlockIndexVarOutputName; ///The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
 
     bool cStateVarInitialized;
     bool cStateInputVarInitialized;
@@ -91,8 +92,11 @@ public:
     std::vector<NumericValue> getInitConditions() const;
     void setInitConditions(const std::vector<NumericValue> &initConditions);
 
-    std::string getCBlockIndexVarName() const;
-    void setCBlockIndexVarName(const std::string &cBlockIndexVarName);
+    std::string getCBlockIndexVarInputName() const;
+    void setCBlockIndexVarInputName(const std::string &cBlockIndexVarName);
+
+    std::string getCBlockIndexVarOutputName() const;
+    void setCBlockIndexVarOutputName(const std::string &cBlockIndexVarName);
 
     /**
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point

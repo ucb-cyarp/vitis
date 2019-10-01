@@ -472,7 +472,9 @@ std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCro
     }
 
     //Close the check
-    check += "}\n";
+    if(blocking) {
+        check += "}\n";
+    }
 
     return check;
 }
@@ -570,63 +572,29 @@ std::vector<std::string> EmitterHelpers::createAndInitializeFIFOWriteTemps(std::
                 exprs.push_back(tmpName + ".imag = " + defaultVal[i].toStringComponent(true, dt) + ";");
             }
         }else if((blockSize == 1 && width > 1) || (blockSize > 1 && width == 1)){
+            //Cannot initialize with = {} because inside a structure
             int entries = std::max(blockSize, width);
-            std::string realInit = tmpName + ".real = {";
             for(int j = 0; j<entries; j++){
-                if(j>0){
-                    realInit += ", ";
-                }
-                realInit += defaultVal[i].toStringComponent(false, dt);
+                exprs.push_back(tmpName + ".real[" + GeneralHelper::to_string(j) + "] = " + defaultVal[i].toStringComponent(false, dt) + ";");
             }
-            realInit += "};";
-            exprs.push_back(realInit);
-
             if(dt.isComplex()) {
-                std::string imagInit = tmpName + ".imag = {";
                 for (int j = 0; j < entries; j++) {
-                    if (j > 0) {
-                        imagInit += ", ";
-                    }
-                    imagInit += defaultVal[i].toStringComponent(true, dt);
+                    exprs.push_back(tmpName + ".imag[" + GeneralHelper::to_string(j) + "] = " + defaultVal[i].toStringComponent(true, dt) + ";");
                 }
-                imagInit += "};";
-                exprs.push_back(imagInit);
             }
         }else{
-            std::string realInit = tmpName + ".real = {";
             for(int j = 0; j<blockSize; j++){
-                if(j>0){
-                    realInit += ", ";
-                }
-                realInit += "{";
                 for(int k = 0; k<width; k++) {
-                    if(k>0){
-                        realInit += ", ";
-                    }
-                    realInit += defaultVal[i].toStringComponent(false, dt);
+                    exprs.push_back(tmpName + ".real[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) + "] = " + defaultVal[i].toStringComponent(false, dt) + ";");
                 }
-                realInit += "}";
             }
-            realInit += "};";
-            exprs.push_back(realInit);
 
             if(dt.isComplex()) {
-                std::string imagInit = tmpName + ".imag = {";
                 for(int j = 0; j<blockSize; j++){
-                    if(j>0){
-                        imagInit += ", ";
-                    }
-                    realInit += "{";
                     for(int k = 0; k<width; k++) {
-                        if(k>0){
-                            imagInit += ", ";
-                        }
-                        imagInit += defaultVal[i].toStringComponent(false, dt);
+                        exprs.push_back(tmpName + ".imag[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) + "] = " + defaultVal[i].toStringComponent(true, dt) + ";");
                     }
-                    imagInit += "}";
                 }
-                imagInit += "};";
-                exprs.push_back(imagInit);
             }
         }
     }

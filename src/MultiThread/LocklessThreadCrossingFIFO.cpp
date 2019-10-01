@@ -22,14 +22,10 @@ LocklessThreadCrossingFIFO::LocklessThreadCrossingFIFO(std::shared_ptr<SubSystem
 
 }
 
-void LocklessThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix){
-    ThreadCrossingFIFO::initializeVarIfNotAlready(node, var, init, suffix);
-    var.setVolatileVar(true);
-}
-
 Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
     bool initalized = cWriteOffsetPtrInitialized;
     LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cWriteOffsetPtr, cWriteOffsetPtrInitialized, "writeOffsetPtr");
+    cWriteOffsetPtr.setVolatileVar(true);
 
     if(!initalized) {
         int elementLength = fifoLength*blockSize;
@@ -45,6 +41,7 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
 Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
     bool initialized = cReadOffsetPtrInitialized;
     LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cReadOffsetPtr, cReadOffsetPtrInitialized, "readOffsetPtr");
+    cReadOffsetPtr.setVolatileVar(true);
 
     if(!initialized){
         int elementLength = fifoLength*blockSize;
@@ -59,6 +56,7 @@ Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
 Variable LocklessThreadCrossingFIFO::getCArrayPtr() {
     bool initialized = cArrayPtrInitialized;
     LocklessThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cArrayPtr, cArrayPtrInitialized, "arrayPtr");
+    cArrayPtr.setVolatileVar(true);
 
     if (!initialized){
         if (getOutputPorts().size() == 1 && getOutputPort(0)->getArcs().size() >= 1) {
@@ -187,7 +185,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
     if(numBlocks == 1){
         //Read 1 full block
         //Open a block for the write to prevent scoping issues with declared temp
-        cStatementQueue.push_back("{");
+        cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Write");
         cStatementQueue.push_back("//Load Write Ptr");
         cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + derefSharedWriteOffsetBlocks + ";"); //Elements and blocks are the same
         cStatementQueue.push_back("");
@@ -200,10 +198,10 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         cStatementQueue.push_back("}");
         cStatementQueue.push_back("//Update Write Ptr");
         cStatementQueue.push_back(derefSharedWriteOffsetBlocks + " = " + localWriteOffsetBlocks + ";"); //Elements and blocks are the same
-        cStatementQueue.push_back("}");
+        cStatementQueue.push_back("}//End Scope for " + name + " FIFO Write");
     }else{
         //Open a block for the write to prevent scoping issues with declared temp
-        cStatementQueue.push_back("{");
+        cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Write");
         cStatementQueue.push_back("//Load Write Ptr");
         cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + derefSharedWriteOffsetBlocks + ";");
         cStatementQueue.push_back("");
@@ -220,7 +218,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         cStatementQueue.push_back("");
         cStatementQueue.push_back("//Update Write Ptr");
         cStatementQueue.push_back(derefSharedWriteOffsetBlocks + " = " + localWriteOffsetBlocks + ";");
-        cStatementQueue.push_back("}");
+        cStatementQueue.push_back("}//End Scope for " + name + " FIFO Write");
     }
 }
 
@@ -242,7 +240,7 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
     if(numBlocks == 1){
         //Read an entire blocks
         //Open a block for the write to prevent scoping issues with declared temp
-        cStatementQueue.push_back("{");
+        cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Read");
         cStatementQueue.push_back("//Load Read Ptr");
         cStatementQueue.push_back("int " + localReadOffsetBlocks + " = " + derefSharedReadOffsetBlocks + ";"); //Elements and blocks are the same
         //Read pointer is at the position of the last read value. Needs to be incremented before read
@@ -256,10 +254,10 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         cStatementQueue.push_back(dstName + " = " + arrayName + "[" + localReadOffsetBlocks + "];");
         cStatementQueue.push_back("//Update Read Ptr");
         cStatementQueue.push_back(derefSharedReadOffsetBlocks + " = " + localReadOffsetBlocks + ";"); //Elements and blocks are the same
-        cStatementQueue.push_back("}");
+        cStatementQueue.push_back("}//End Scope for " + name + " FIFO Read");
     }else{
         //Open a block for the write to prevent scoping issues with declared temp
-        cStatementQueue.push_back("{");
+        cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Read");
         cStatementQueue.push_back("//Load Read Ptr");
         cStatementQueue.push_back("int " + localReadOffsetBlocks + " = " + derefSharedReadOffsetBlocks + ";");
         cStatementQueue.push_back("");
@@ -277,7 +275,7 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         cStatementQueue.push_back("");
         cStatementQueue.push_back("//Update Read Ptr");
         cStatementQueue.push_back(derefSharedReadOffsetBlocks + " = " + localReadOffsetBlocks + ";");
-        cStatementQueue.push_back("}");
+        cStatementQueue.push_back("}//End Scope for " + name + " FIFO Read");
     }
 }
 

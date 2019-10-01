@@ -140,8 +140,6 @@ protected:
     bool cReadOffsetPtrInitialized;
     bool cArrayPtrInitialized;
 
-    static void initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix);
-
     //==== Constructors ====
     /**
      * @brief Constructs an empty Lockless ThreadCrossing FIFO node

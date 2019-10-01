@@ -565,20 +565,13 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
             var.setDataType(varType);
         }
 
-        if(var.getDataType().getWidth() == 1){
-            prototype += var.getCVarDecl(false, false, false, false, true);
-        }else {
-            prototype += var.getCVarDecl(false, false, false, true, false);
-        }
+        //The output variables are always pointers
+        prototype += var.getCPtrDecl(false);
 
         //Check if complex
         if(var.getDataType().isComplex()){
             prototype += ", ";
-            if(var.getDataType().getWidth() == 1){
-                prototype += var.getCVarDecl(true, false, false, false, true);
-            }else {
-                prototype += var.getCVarDecl(true, false, false, true, false);
-            }
+            prototype += var.getCPtrDecl(true);
         }
     }
 
@@ -592,27 +585,20 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
         }
 
         prototype += ", ";
-        if(var.getDataType().getWidth() == 1){
-            prototype += var.getCVarDecl(false, false, false, false, true);
-        }else {
-            prototype += var.getCVarDecl(false, false, false, true, false);
-        }
+        //The output variables are always pointers
+        prototype += var.getCPtrDecl(false);
 
         //Check if complex
         if(var.getDataType().isComplex()){
             prototype += ", ";
-            if(var.getDataType().getWidth() == 1){
-                prototype += var.getCVarDecl(true, false, false, false, true);
-            }else {
-                prototype += var.getCVarDecl(true, false, false, true, false);
-            }
+            prototype += var.getCPtrDecl(true);
         }
     }
 
     return prototype;
 }
 
-std::string Design::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs){
+std::string Design::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
     std::string call = computeFctnName + "(";
 
     unsigned long numInputVars = inputFIFOs.size();
@@ -653,7 +639,11 @@ std::string Design::getCallPartitionComputeCFunction(std::string computeFctnName
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     if(numOutputVars>0){
         Variable var = outputFIFOs[0]->getCStateInputVar();
-        std::string tmpName = var.getName() + "_tmp";
+        std::string tmpName = "";
+        if(var.getDataType().getWidth()*blockSize == 1){
+            tmpName += "&";
+        }
+        tmpName += var.getName() + "_tmp";
 
         call += tmpName + ".real";
 
@@ -665,7 +655,11 @@ std::string Design::getCallPartitionComputeCFunction(std::string computeFctnName
 
     for(unsigned long i = 1; i<numOutputVars; i++){
         Variable var = outputFIFOs[i]->getCStateInputVar();
-        std::string tmpName = var.getName() + "_tmp";
+        std::string tmpName = "";
+        if(var.getDataType().getWidth()*blockSize == 1){
+            tmpName += "&";
+        }
+        tmpName += var.getName() + "_tmp";
 
         call += ", ";
 
@@ -1633,7 +1627,12 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
 
     //Set the index variable in the input FIFOs
     for(int i = 0; i<inputFIFOs.size(); i++){
-        inputFIFOs[i]->setCBlockIndexVarName(blockIndVar);
+        inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVar);
+    }
+
+    //Also need to set the index variable of the output FIFOs
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        outputFIFOs[i]->setCBlockIndexVarOutputName(blockIndVar);
     }
 
     //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
@@ -1874,7 +1873,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     }
 
     //Call compute function (recall that the compute function is declared with outputs as references)
-    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs);
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize);
     cFile << call << std::endl;
 
     //Check output FIFOs (will spin until ready)
@@ -1985,7 +1984,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         ioThread << writeFIFOExprs[i] << std::endl;
     }
-    ioThread << "i++" << std::endl;
+    ioThread << "i++;" << std::endl;
     ioThread << "}" << std::endl;
 
     //Check input FIFOs
@@ -1996,8 +1995,8 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
     }
-    ioThread << "readCount++" << std::endl;
-    ioThread << "}" << std::endl;
+    ioThread << "readCount++;" << std::endl;
+    ioThread << "}" << std::endl; //Close if
 
     ioThread << "}" << std::endl; //Close for
 
@@ -2010,8 +2009,8 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     for(int i = 0; i<readFIFOExprsCleanup.size(); i++){
         ioThread << readFIFOExprsCleanup[i] << std::endl;
     }
-    ioThread << "readCount++" << std::endl;
-    ioThread << "}" << std::endl;
+    ioThread << "readCount++;" << std::endl;
+    ioThread << "}" << std::endl; //end if
     ioThread << "}" << std::endl; //end while
 
     //Done reading

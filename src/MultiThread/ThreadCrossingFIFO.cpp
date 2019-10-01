@@ -244,9 +244,9 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
     if(blockSize > 1){
         int width = getCStateVar().getDataType().getWidth();
         if(width > 1){
-            expr = "(" + getCStateVar().getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + cBlockIndexVarName + ")";
+            expr = "(" + getCStateVar().getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + cBlockIndexVarInputName + ")";
         }else{
-            expr = "(" +  getCStateVar().getCVarName(imag) + "[" + cBlockIndexVarName + "])";
+            expr = "(" +  getCStateVar().getCVarName(imag) + "[" + cBlockIndexVarInputName + "])";
         }
     }else{
         expr = getCStateVar().getCVarName(imag);
@@ -276,11 +276,24 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
 
     //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
 
-    std::string stateInputDeclAssignRe = getCStateInputVar().getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
-    cStatementQueue.push_back(stateInputDeclAssignRe);
-    if(inputDataType.isComplex()){
-        std::string stateInputDeclAssignIm = getCStateInputVar().getCVarDecl(true, false, false, false) + " = " + inputExprIm + ";";
-        cStatementQueue.push_back(stateInputDeclAssignIm);
+    if(blockSize > 1) {
+        std::string stateInputDeclAssignRe =
+                getCStateInputVar().getCVarName(false) + "[" + cBlockIndexVarOutputName + "] = " + inputExprRe + ";";
+        cStatementQueue.push_back(stateInputDeclAssignRe);
+        if (inputDataType.isComplex()) {
+            std::string stateInputDeclAssignIm =
+                    getCStateInputVar().getCVarName(true) + "[" + cBlockIndexVarOutputName + "] = " + inputExprIm + ";";
+            cStatementQueue.push_back(stateInputDeclAssignIm);
+        }
+    }else{
+        std::string stateInputDeclAssignRe =
+                "*" + getCStateInputVar().getCVarName(false) + " = " + inputExprRe + ";";
+        cStatementQueue.push_back(stateInputDeclAssignRe);
+        if (inputDataType.isComplex()) {
+            std::string stateInputDeclAssignIm =
+                    "*" + getCStateInputVar().getCVarName(true) + " = " + inputExprIm + ";";
+            cStatementQueue.push_back(stateInputDeclAssignIm);
+        }
     }
 }
 
@@ -317,12 +330,20 @@ void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, V
     }
 }
 
-std::string ThreadCrossingFIFO::getCBlockIndexVarName() const {
-    return cBlockIndexVarName;
+std::string ThreadCrossingFIFO::getCBlockIndexVarInputName() const {
+    return cBlockIndexVarInputName;
 }
 
-void ThreadCrossingFIFO::setCBlockIndexVarName(const std::string &cBlockIndexVarName) {
-    ThreadCrossingFIFO::cBlockIndexVarName = cBlockIndexVarName;
+void ThreadCrossingFIFO::setCBlockIndexVarInputName(const std::string &cBlockIndexVarName) {
+    ThreadCrossingFIFO::cBlockIndexVarInputName = cBlockIndexVarName;
+}
+
+std::string ThreadCrossingFIFO::getCBlockIndexVarOutputName() const {
+    return cBlockIndexVarOutputName;
+}
+
+void ThreadCrossingFIFO::setCBlockIndexVarOutputName(const std::string &cBlockIndexVarName) {
+    ThreadCrossingFIFO::cBlockIndexVarOutputName = cBlockIndexVarName;
 }
 
 std::string ThreadCrossingFIFO::getFIFOStructTypeName(){
