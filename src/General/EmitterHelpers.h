@@ -219,6 +219,26 @@ public:
                                                         bool printActions = true);
 
     /**
+     * @brief The number of initial conditions (in elements) must be an integer multiple of the block size of the FIFO
+     *
+     * This function takes the remaining initial conditions and moves them to a delay node at the input of the FIFO
+     *
+     * @param fifo
+     * @param new_nodes
+     * @param deleted_nodes
+     * @param new_arcs
+     * @param deleted_arcs
+     * @param printActions
+     * @return
+     */
+    static void reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                                std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                                bool printActions = true);
+
+    /**
      * @brief Finds the input and output FIFOs for a partition given a partition crossing to FIFO map
      * @param fifoMap
      * @param partitionNum

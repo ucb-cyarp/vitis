@@ -23,6 +23,7 @@ void EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>,
         for(int i = 0; i<fifoPtrs.size(); i++) {
             bool done = false;
 
+            //Iterate because there may be a series of delays to ingest
             while (!done) {
                 AbsorptionStatus statusIn = absorbAdjacentInputDelayIfPossible(fifoPtrs[i], srcPartition, new_nodes, deleted_nodes,
                                                                                new_arcs, deleted_arcs, printActions);
@@ -44,6 +45,11 @@ void EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>,
                     done = true;
                 }
             }
+
+            //TODO: Refactor into absorption?  Tricky because there may be a chain of delays.  Possibly when re-timer is implemented
+            //The number of initial conditions in the FIFO must be a multiple of the block size
+            //remove the remainder from the FIFO and insert into a delay at the input
+            EmitterHelpers::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
         }
     }
 }
@@ -307,6 +313,69 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
     }//else, fifo full
 
     return AbsorptionStatus::NO_ABSORPTION;
+}
+
+ void EmitterHelpers::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                     std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                     std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                     bool printActions){
+    std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditions();
+
+    int numElementsToMove = fifoInitialConditions.size() % fifo->getBlockSize();
+
+    if(numElementsToMove > 0){
+        //Need to create a delay to move the remaining elements into
+        std::vector<Context> fifoContext = fifo->getContext();
+
+        std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(fifo->getParent());
+        new_nodes.push_back(delay);
+        delay->setPartitionNum(fifo->getPartitionNum());
+        delay->setName("OverflowFIFOInitCondFrom"+fifo->getName());
+        delay->setContext(fifoContext);
+        if(fifoContext.size() > 0){
+            int subcontext = fifoContext[fifoContext.size()-1].getSubContext();
+            fifoContext[fifoContext.size()-1].getContextRoot()->addSubContextNode(subcontext, delay);
+        }
+
+        //Set initial conditions
+        delay->setDelayValue(numElementsToMove);
+        std::vector<NumericValue> delayInitConds;
+        delayInitConds.insert(delayInitConds.end(), fifoInitialConditions.begin()+(fifoInitialConditions.size() - numElementsToMove), fifoInitialConditions.end());
+        delay->setInitCondition(delayInitConds);
+
+        //Remove init conditions from fifoInitialConditions
+        fifoInitialConditions.erase(fifoInitialConditions.begin()+(fifoInitialConditions.size() - numElementsToMove), fifoInitialConditions.end());
+        fifo->setInitConditions(fifoInitialConditions);
+
+        //Rewire
+        std::set<std::shared_ptr<Arc>> orderConstraintArcs2Rewire = fifo->getOrderConstraintInputPortCreateIfNot()->getArcs();
+        for(auto it = orderConstraintArcs2Rewire.begin(); it != orderConstraintArcs2Rewire.end(); it++){
+            (*it)->setDstPortUpdateNewUpdatePrev(delay->getOrderConstraintInputPortCreateIfNot());
+        }
+
+        if(fifo->getInputPorts().size() != 1){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO initial conditions.  Number of input ports should be 1", fifo));
+        }
+
+        std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPort(0)->getArcs();
+
+        if(inputArcs.size() != 1){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO initial conditions.  Number of input arcs should be 1", fifo));
+        }
+
+        std::shared_ptr<Arc> origInputArc = *inputArcs.begin();
+
+        std::shared_ptr<Arc> newInputArc =  Arc::connectNodes(delay->getOutputPortCreateIfNot(0), fifo->getInputPortCreateIfNot(0), origInputArc->getDataType(), origInputArc->getSampleTime());
+        new_arcs.push_back(newInputArc);
+        origInputArc->setDstPortUpdateNewUpdatePrev(delay->getInputPortCreateIfNot(0));
+
+        if (printActions) {
+            std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                      << " " << numElementsToMove << " initial conditions moved into delay at input" << std::endl;
+        }
+    }
 }
 
 void EmitterHelpers::findPartitionInputAndOutputFIFOs(
