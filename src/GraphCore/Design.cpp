@@ -1792,10 +1792,6 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
         cFile << "}" << std::endl;
     }
 
-    //There is no return for the thread
-
-    cFile << "return NULL;" << std::endl;
-
     cFile << "}" << std::endl;
 
     cFile << std::endl;
@@ -1887,6 +1883,8 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
 
     //Close loop
     cFile << "}" << std::endl;
+
+    cFile << "return NULL;" << std::endl;
 
     //Close function
     cFile << "}" << std::endl;
