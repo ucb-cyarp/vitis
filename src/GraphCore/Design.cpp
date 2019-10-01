@@ -2032,6 +2032,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
+    headerFile << "#include <errno.h>" << std::endl;
     headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
     headerFile << std::endl;
 
