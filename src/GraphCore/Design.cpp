@@ -1657,7 +1657,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
-    headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
+    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
@@ -2033,7 +2033,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
     headerFile << "#include <errno.h>" << std::endl;
-    headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
+    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 
     //Output the function prototype for the I/O thread function
