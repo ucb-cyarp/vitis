@@ -2047,6 +2047,8 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     //Include other generated headers
+    cFile << "#include <stdio.h>" << std::endl;
+    cFile << "#include <errno.h>" << std::endl;
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
     //Include other thread headers
     for(auto it = partitions.begin(); it!=partitions.end(); it++){

@@ -292,13 +292,13 @@ void LocklessThreadCrossingFIFO::createSharedVariables(std::vector<std::string> 
     //Will declare the shared vars.  References to these should be passed (using & for the pointers and directly for the )
 
     std::string cReadOffsetDT = getCReadOffsetPtr().getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
-    cStatementQueue.push_back(cReadOffsetDT + "* " + getCReadOffsetPtr().getCVarName(false) + " = malloc(sizeof(" + cReadOffsetDT + "));");
+    cStatementQueue.push_back(cReadOffsetDT + "* " + getCReadOffsetPtr().getCVarName(false) + " = (*" + cReadOffsetDT + ") malloc(sizeof(" + cReadOffsetDT + "));");
 
     std::string cWriteOffsetDT = getCWriteOffsetPtr().getDataType().getCPUStorageType().toString(DataType::StringStyle::C, false, false);
-    cStatementQueue.push_back(cWriteOffsetDT + "* " + getCWriteOffsetPtr().getCVarName(false) + " = malloc(sizeof(" + cWriteOffsetDT + "));");
+    cStatementQueue.push_back(cWriteOffsetDT + "* " + getCWriteOffsetPtr().getCVarName(false) + " = (*" + cWriteOffsetDT + ") malloc(sizeof(" + cWriteOffsetDT + "));");
 
     std::string cArrayDT = getFIFOStructTypeName();
-    cStatementQueue.push_back(cArrayDT + "* " + getCArrayPtr().getCVarName(false) + " = malloc(sizeof(" + cArrayDT + ")*" + GeneralHelper::to_string(fifoLength) +");");
+    cStatementQueue.push_back(cArrayDT + "* " + getCArrayPtr().getCVarName(false) + " = (*" + cArrayDT + ") malloc(sizeof(" + cArrayDT + ")*" + GeneralHelper::to_string(fifoLength) +");");
 }
 
 void LocklessThreadCrossingFIFO::cleanupSharedVariables(std::vector<std::string> &cStatementQueue) {
