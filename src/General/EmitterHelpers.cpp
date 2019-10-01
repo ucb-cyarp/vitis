@@ -101,7 +101,7 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                     std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditions();
 
-                    if (fifoInitConds.size() + fifoInitConds.size() <= (fifo->getFifoLength() - fifo->getBlockSize())) {
+                    if (delayInitConds.size() + fifoInitConds.size() <= (fifo->getFifoLength() - fifo->getBlockSize())) {
                         //Can absorb complete delay
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.end());  //Because this is at the input to the FIFO, the initial conditions are appended.
