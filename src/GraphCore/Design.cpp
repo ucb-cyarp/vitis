@@ -2165,7 +2165,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
         if(*it != IO_PARTITION_NUM) {
             std::string threadFun = designName + "_partition" + GeneralHelper::to_string(*it) + "_thread";
             std::string threadArgStructName = designName + "_partition" + GeneralHelper::to_string(*it) + "_threadArgs";
-            cFile << "status = pthread_create(&thread_" << *it << ", &attr_" << *it << ", " << threadFun << ", " << threadArgStructName << ");" << std::endl;
+            cFile << "status = pthread_create(&thread_" << *it << ", &attr_" << *it << ", " << threadFun << ", &" << threadArgStructName << ");" << std::endl;
             cFile << "if(status != 0)" << std::endl;
             cFile << "{" << std::endl;
             cFile << "printf(\"Could not create a thread ... exiting\");" << std::endl;
@@ -2180,7 +2180,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     std::string partitionSuffix = (IO_PARTITION_NUM < 0 ? "N" + GeneralHelper::to_string(-IO_PARTITION_NUM) : GeneralHelper::to_string(IO_PARTITION_NUM));
     std::string threadFun = designName + "_" + ioBenchmarkSuffix + "_thread";
     std::string threadArgStructName = designName + "_partition" + partitionSuffix + "_threadArgs";
-    cFile << "status = pthread_create(&thread_" << partitionSuffix << ", &attr_" << partitionSuffix << ", " << threadFun << ", " << threadArgStructName << ");" << std::endl;
+    cFile << "status = pthread_create(&thread_" << partitionSuffix << ", &attr_" << partitionSuffix << ", " << threadFun << ", &" << threadArgStructName << ");" << std::endl;
     cFile << "if(status != 0)" << std::endl;
     cFile << "{" << std::endl;
     cFile << "printf(\"Could not create a thread ... exiting\");" << std::endl;
