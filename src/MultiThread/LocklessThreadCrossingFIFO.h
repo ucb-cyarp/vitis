@@ -71,15 +71,15 @@
  * Empty = (writeOffset-readOffset == 1) || (writeOffset==0 && readOffset==(arrayLength-1))
  *
  * ==== Cases for full ====
- * 7 1 2 3 4 5 6 (full)
+ * % 1 2 3 4 5 6 (full)
  * r
  * w
  *
- * 7 8 9 3 4 5 6 (full)
+ * 7 8 % 3 4 5 6 (full)
  *     r
  *     w
  *
- * 7 8 9 a b c d (full)
+ * 7 8 9 a b c % (full)
  *             r
  *             w
  *
@@ -175,18 +175,27 @@ protected:
 public:
     /**
      * @brief Gets the cWriteOffsetPtr for this FIFO.  If it has not yet been initialized, it will be initialized at this point
+     *
+     * @note This function is used internally whenever accessing the object to ensure it is initialized
+     *
      * @return the initialized cWriteOffsetPtr for this FIFO
      */
     Variable getCWriteOffsetPtr();
 
     /**
      * @brief Gets the cReadOffsetPtr for this FIFO.  If it has not yet been initialized, it will be initialized at this point
+     *
+     * @note This function is used internally whenever accessing the object to ensure it is initialized
+     *
      * @return the initialized cWriteOffsetPtr for this FIFO
      */
     Variable getCReadOffsetPtr();
 
     /**
      * @brief Gets the cArrayPtr for this FIFO.  If it has not yet been initialized, it will be initialized at this point
+     *
+     * @note This function is used internally whenever accessing the object to ensure it is initialized
+     *
      * @return the initialized cArrayPtr for this FIFO
      */
     Variable getCArrayPtr();
@@ -229,6 +238,21 @@ public:
 
     void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) override ;
 
+    /**
+     * @brief Initializes the shared array with the FIFO's initial values and sets the initial read and write indexes
+     *
+     * Note that the array as implemented is oversized by one element.  Initial elements are placed starting at index [1]
+     *
+     * The read pointer is initialized to index 0 (indicating element [1] is to be read next).
+     * If the FIFO contains no initial conditions, the write pointer is initialized to index 1 (indicating element [1] is to be written next)
+     *
+     * If the FIFO has n initial conditions, the write pointer is moved forward by n elements (will be placed at index (n+1) mod arrayLength)
+     *
+     * @note The number of initial elements must not be larger than the size of the FIFO, or equivalently larger than the arrayLength-1.
+     *
+     * @param cStatementQueue where the C statements will be emitted
+     */
+    void initializeSharedVariables(std::vector<std::string> &cStatementQueue) override ;
 };
 
 /*! @} */

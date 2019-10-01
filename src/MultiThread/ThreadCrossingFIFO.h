@@ -37,7 +37,7 @@ class ThreadCrossingFIFO : public Node {
     friend NodeFactory;
 protected:
     int fifoLength; ///<The length of this FIFO (in blocks)
-    std::vector<NumericValue> initConditions; ///<Initial values for this FIFO.  The FIFO will be initialized to contain these values
+    std::vector<NumericValue> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size
     int blockSize; ///<The block size (in elements) of transactions to/from FIFO
     Variable cStateVar; ///<The C variable from which values are read
     Variable cStateInputVar; ///<the C temporary variable holding data to be writen
@@ -270,6 +270,16 @@ public:
      * @param cStatementQueue The C statements will be written to this queue
      */
     virtual void createSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+
+    /**
+     * @brief Emits C statements that initialize allocated variables
+     *
+     * This function should be called by the function creating threads.
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     */
+    virtual void initializeSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+
 
     /**
      * @brief Emits C statements that cleanup (de-allocate) shared variables for the FIFO

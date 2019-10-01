@@ -2071,7 +2071,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
         }
     }
 
-    cFile << "//Allocate FIFO Shared Variables" << std::endl;
+    cFile << "//Allocate and Initialize FIFO Shared Variables" << std::endl;
 
     //For each FIFO, allocate the shared arrays
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
@@ -2080,6 +2080,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
         std::vector<std::string> statements;
         for(int i = 0; i<fifos.size(); i++){
             fifos[i]->createSharedVariables(statements);
+            fifos[i]->initializeSharedVariables(statements);
         }
 
         for(int i = 0; i<statements.size(); i++){

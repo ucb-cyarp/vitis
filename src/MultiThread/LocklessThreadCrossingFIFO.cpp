@@ -298,12 +298,50 @@ void LocklessThreadCrossingFIFO::createSharedVariables(std::vector<std::string> 
     cStatementQueue.push_back(cWriteOffsetDT + "* " + getCWriteOffsetPtr().getCVarName(false) + " = (" + cWriteOffsetDT + "*) malloc(sizeof(" + cWriteOffsetDT + "));");
 
     std::string cArrayDT = getFIFOStructTypeName();
-    cStatementQueue.push_back(cArrayDT + "* " + getCArrayPtr().getCVarName(false) + " = (" + cArrayDT + "*) malloc(sizeof(" + cArrayDT + ")*" + GeneralHelper::to_string(fifoLength) +");");
+    cStatementQueue.push_back(cArrayDT + "* " + getCArrayPtr().getCVarName(false) + " = (" + cArrayDT + "*) malloc(sizeof(" + cArrayDT + ")*" + GeneralHelper::to_string(fifoLength+1) +");"); //The Array length is 1 larger than the FIFO length.
 }
 
 void LocklessThreadCrossingFIFO::cleanupSharedVariables(std::vector<std::string> &cStatementQueue) {
     cStatementQueue.push_back("delete " + getCReadOffsetPtr().getCVarName(false) + ";");
     cStatementQueue.push_back("delete " + getCWriteOffsetPtr().getCVarName(false) + ";");
     cStatementQueue.push_back("delete[] " + getCArrayPtr().getCVarName(false) + ";");
+}
+
+void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::string> &cStatementQueue) {
+    if(initConditions.size() > fifoLength != 0){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
+    }
+
+    if(initConditions.size() % blockSize != 0){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must be a multiple of its block size", getSharedPointer()));
+    }
+
+    DataType arrayNumericType = getCArrayPtr().getDataType().getCPUStorageType();
+
+    for(int i = 0; i<initConditions.size(); i++){
+        int blockInd = i/blockSize;
+        int elementInd = i%blockSize;
+
+        //Note, the block index starts at 1 for initialization
+        if(blockSize == 1){
+            cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].real = " + GeneralHelper::to_string(initConditions[i].toStringComponent(false, arrayNumericType)) + ";");
+            if(arrayNumericType.isComplex()){
+                cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].imag = " + GeneralHelper::to_string(initConditions[i].toStringComponent(true, arrayNumericType)) + ";");
+            }
+        }else{
+            cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].real[" + GeneralHelper::to_string(elementInd) + "] = " + GeneralHelper::to_string(initConditions[i].toStringComponent(false, arrayNumericType)) + ";");
+            if(arrayNumericType.isComplex()){
+                cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].imag[" + GeneralHelper::to_string(elementInd) + "] = " + GeneralHelper::to_string(initConditions[i].toStringComponent(true, arrayNumericType)) + ";");
+            }
+        }
+    }
+
+    //Read index always initialized to 0
+    cStatementQueue.push_back("*" + getCReadOffsetPtr().getCVarName(false) + " = 0;");
+
+    //Write pointer initialized to (init.size()+1)%arrayLength = (init.size()+1)%(fifoLength+1)
+    int arrayLength=fifoLength+1;
+    int writeInd = (initConditions.size()+1)%arrayLength;
+    cStatementQueue.push_back("*" + getCWriteOffsetPtr().getCVarName(false) + " = " + GeneralHelper::to_string(writeInd) + ";");
 }
 
