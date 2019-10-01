@@ -1901,7 +1901,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     //Will deal with input/output FIFOs only and not MasterNode ports
     //A mapping of MasterNode ports to FIFOs is required for other drivers
 
-    std::string fileName = fileNamePrefix+"_io_constant";
+    std::string fileName = fileNamePrefix+"_io_const";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
     std::ofstream headerFile;
@@ -1914,7 +1914,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
-    headerFile << "#include <" << fifoHeaderFile << ">" << std::endl;
+    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 
     //Create the threadFunction argument structure for the I/O thread (includes the references to FIFO shared vars)
@@ -1936,6 +1936,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     ioThread << std::endl;
 
     ioThread << threadFctnDecl << "{" << std::endl;
