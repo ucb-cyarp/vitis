@@ -2209,7 +2209,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     cFile << "//Cancel Other Threads" << std::endl;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         if(*it != IO_PARTITION_NUM) {
-            cFile << "status = pthread_cancel(&thread_" << *it << ");" << std::endl;
+            cFile << "status = pthread_cancel(thread_" << *it << ");" << std::endl;
             cFile << "if(status != 0)" << std::endl;
             cFile << "{" << std::endl;
             cFile << "printf(\"Could not cancel a thread ... exiting\");" << std::endl;
