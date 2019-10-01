@@ -4685,7 +4685,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //Emit I/O Driver
     emitIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName);
-    std::string ioSuffix = "io_constant";
+    std::string ioSuffix = "io_const";
 
     //Emit the startup function (aka the benchmark kerne;)
     std::set<int> partitionSet;
