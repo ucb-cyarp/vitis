@@ -523,6 +523,9 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
             var.setDataType(varType);
         }
 
+        //Pass as not volatile
+        var.setVolatileVar(false);
+
         prototype += "const " + var.getCVarDecl(false, false, false, true);
 
         //Check if complex
@@ -539,6 +542,9 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
             varType.setWidth(varType.getWidth()*blockSize);
             var.setDataType(varType);
         }
+
+        //Pass as not volatile
+        var.setVolatileVar(false);
 
         prototype += ", const " + var.getCVarDecl(false);
 
@@ -565,6 +571,9 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
             var.setDataType(varType);
         }
 
+        //Pass as not volatile
+        var.setVolatileVar(false);
+
         //The output variables are always pointers
         prototype += var.getCPtrDecl(false);
 
@@ -583,6 +592,9 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
             varType.setWidth(varType.getWidth()*blockSize);
             var.setDataType(varType);
         }
+
+        //Pass as not volatile
+        var.setVolatileVar(false);
 
         prototype += ", ";
         //The output variables are always pointers

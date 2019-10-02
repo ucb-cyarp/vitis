@@ -33,6 +33,7 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
         DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
         newDT = newDT.getCPUStorageType();
         cWriteOffsetPtr.setDataType(newDT);
+        cWriteOffsetPtr.setVolatileVar(true);
     }
 
     return cWriteOffsetPtr;
@@ -49,6 +50,8 @@ Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
         DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
         newDT = newDT.getCPUStorageType();
         cReadOffsetPtr.setDataType(newDT);
+        cReadOffsetPtr.setVolatileVar(true);
+
     }
     return cReadOffsetPtr;
 }
@@ -64,6 +67,8 @@ Variable LocklessThreadCrossingFIFO::getCArrayPtr() {
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Should Have >= 1 Output Arc", getSharedPointer()));
         }
+
+        cArrayPtr.setVolatileVar(true);
     }
     return cArrayPtr;
 }

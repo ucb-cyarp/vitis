@@ -468,11 +468,13 @@ std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<Thre
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
-            //Pass as not volatile
+
+            //We handle volatile seperatly here (because of struct name), set to false for getCPtrDecl
+            bool isVolatile = var.isVolatileVar();
             var.setVolatileVar(false);
 
             //Check if complex
-            statements += (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+            statements += (isVolatile ? "volatile " : "") + (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
         }
     }
 
@@ -487,10 +489,11 @@ std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<Thre
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
-            //Pass as not volatile
+            //We handle volatile seperatly here (because of struct name), set to false for getCPtrDecl
+            bool isVolatile = var.isVolatileVar();
             var.setVolatileVar(false);
 
-            std::string outputFIFOStatement = (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+            std::string outputFIFOStatement = (isVolatile ? "volatile " : "") + (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
             statements += outputFIFOStatement;
             //statements += outputFIFOs[i]->getFIFOStructTypeName() + "* " +  var.getCVarName(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
         }
