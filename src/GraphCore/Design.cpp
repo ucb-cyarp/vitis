@@ -546,11 +546,11 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
         //Pass as not volatile
         var.setVolatileVar(false);
 
-        prototype += ", const " + var.getCVarDecl(false);
+        prototype += ", const " + var.getCVarDecl(false, false, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true);
+            prototype += ", const " + var.getCVarDecl(true, false, false, true);
         }
     }
 
