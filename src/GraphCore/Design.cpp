@@ -2878,7 +2878,7 @@ void Design::emitMultiThreadedDriver(std::string path, std::string fileNamePrefi
     //#### Emit Driver File ####
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
-    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    std::cout << "Emitting C++ File: " << path << "/" << fileName << ".h" << std::endl;
     std::ofstream benchDriver;
     benchDriver.open(path+"/"+fileName+".cpp", std::ofstream::out | std::ofstream::trunc);
 
@@ -2976,11 +2976,11 @@ void Design::emitMultiThreadedMakefile(std::string path, std::string fileNamePre
                                     "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
                                     "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                     "#Generated system should be allowed to optomize - reintepret as c++ file\n"
-                                    "SYSTEM_CFLAGS = -O3 -c -g -x c++ -std=c++11 -march=native -masm=att\n"
+                                    "SYSTEM_CFLAGS = -O3 -c -g -std=c11 -march=native -masm=att\n"
                                     "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
-                                    "KERNEL_CFLAGS = -O3 -c -g -std=c++11 -march=native -masm=att\n"
+                                    "KERNEL_CFLAGS = -O3 -c -g -std=c11 -march=native -masm=att\n"
                                     "#For kernels that should not be optimized, the following is used\n"
-                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
+                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n"
                                     "LIB=-pthread -lProfilerCommon\n"
@@ -3039,13 +3039,13 @@ void Design::emitMultiThreadedMakefile(std::string path, std::string fileNamePre
                                     "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + " $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
                                     "\n"
                                     "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
-                                    "\t$(CXX) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\t$(CC) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
                                     "\n"
                                     "$(SYSTEM_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.c | $(BUILD_DIR)/ $(DEPENDS)\n"
-                                    "\t$(CXX) $(SYSTEM_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\t$(CC) $(SYSTEM_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
                                     "\n"
                                     "$(KERNEL_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
-                                    "\t$(CXX) $(KERNEL_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                                    "\t$(CC) $(KERNEL_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
                                     "\n"
                                     "$(LIB_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
                                     "\t$(CXX) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
