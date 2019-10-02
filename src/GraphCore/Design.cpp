@@ -2041,6 +2041,7 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <stdlib.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
     headerFile << "#include <errno.h>" << std::endl;
@@ -2059,6 +2060,10 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     //Include other generated headers
+    cFile << "//Need _GNU_SOURCE, sched.h, and unistd.h for setting thread affinity in Linux" << std::endl; //Linux scheduler source for setting thread affinity (C++ did not complain not having this but C does)
+    cFile << "#define _GNU_SOURCE" << std::endl;
+    cFile << "#include <unistd.h>" << std::endl;
+    cFile << "#include <sched.h>" << std::endl;
     cFile << "#include <stdio.h>" << std::endl;
     cFile << "#include <errno.h>" << std::endl;
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
@@ -2887,7 +2892,9 @@ void Design::emitMultiThreadedDriver(std::string path, std::string fileNamePrefi
     benchDriver << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchDriver << "#include \"benchmark_throughput_test.h\"" << std::endl;
     benchDriver << "#include \"kernel_runner.h\"" << std::endl;
+    benchDriver << "extern \"C\"{" << std::endl;
     benchDriver << "#include \"" + kernelFileName + ".h\"" << std::endl;
+    benchDriver << "}" << std::endl;
 
 
     //Driver will define a zero arg kernel that sets reasonable inputs and repeatedly runs the function.
@@ -3029,8 +3036,8 @@ void Design::emitMultiThreadedMakefile(std::string path, std::string fileNamePre
                                     "OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))\n"
                                     "LIB_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))\n"
                                     "SYSTEM_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SYSTEM_SRC))\n"
-                                    "KERNEL_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))\n"
-                                    "KERNEL_NO_OPT_OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(KERNEL_NO_OPT_SRCS))\n"
+                                    "KERNEL_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))\n"
+                                    "KERNEL_NO_OPT_OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(KERNEL_NO_OPT_SRCS))\n"
                                     "\n"
                                     "#Production\n"
                                     "all: benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + "\n"
@@ -3038,13 +3045,13 @@ void Design::emitMultiThreadedMakefile(std::string path, std::string fileNamePre
                                     "benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + ": $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(DEPENDS_LIB) \n"
                                     "\t$(CXX) $(INC) $(LIB_DIRS) -o benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + " $(OBJS) $(SYSTEM_OBJS) $(LIB_OBJS) $(KERNEL_OBJS) $(KERNEL_NO_OPT_OBJS) $(LIB)\n"
                                     "\n"
-                                    "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "$(KERNEL_NO_OPT_OBJS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.c | $(BUILD_DIR)/ $(DEPENDS)\n"
                                     "\t$(CC) $(KERNEL_NO_OPT_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
                                     "\n"
                                     "$(SYSTEM_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.c | $(BUILD_DIR)/ $(DEPENDS)\n"
                                     "\t$(CC) $(SYSTEM_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
                                     "\n"
-                                    "$(KERNEL_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
+                                    "$(KERNEL_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.c | $(BUILD_DIR)/ $(DEPENDS)\n"
                                     "\t$(CC) $(KERNEL_CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
                                     "\n"
                                     "$(LIB_OBJS): $(BUILD_DIR)/%.o : $(LIB_DIR)/%.cpp | $(BUILD_DIR)/ $(DEPENDS)\n"
