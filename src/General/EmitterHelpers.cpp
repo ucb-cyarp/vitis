@@ -62,7 +62,7 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool printActions) {
     //Check if FIFO full
-    if(fifo->getInitConditions().size() < (fifo->getFifoLength() - fifo->getBlockSize())) {
+    if(fifo->getInitConditions().size() < (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
         //There is still room
 
         std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPortCreateIfNot(0)->getArcs();
@@ -107,7 +107,7 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                     std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditions();
 
-                    if (delayInitConds.size() + fifoInitConds.size() <= (fifo->getFifoLength() - fifo->getBlockSize())) {
+                    if (delayInitConds.size() + fifoInitConds.size() <= (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
                         //Can absorb complete delay
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.end());  //Because this is at the input to the FIFO, the initial conditions are appended.
@@ -145,7 +145,7 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                         //Partial absorption (due to size)
                         //We already checked that there is room
 
-                        int numToAbsorb = fifo->getFifoLength() - fifo->getBlockSize() - fifoInitConds.size();
+                        int numToAbsorb = fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize() - fifoInitConds.size();
 
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
                         fifo->setInitConditions(fifoInitConds);
@@ -180,7 +180,7 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
                                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                     bool printActions) {
     //Check if FIFO full
-    if (fifo->getInitConditions().size() < (fifo->getFifoLength() - fifo->getBlockSize())) {
+    if (fifo->getInitConditions().size() < (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
         //There is still room in the FIFO
 
         //Check if the FIFO has order constraint outputs
@@ -239,7 +239,7 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
 
                 //Find how many can be absorbed into the FIFO
                 std::vector<NumericValue> fifoInitConds = fifo->getInitConditions();
-                int roomInFifo = fifo->getFifoLength() - fifo->getBlockSize() - fifoInitConds.size();
+                int roomInFifo = fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize() - fifoInitConds.size();
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
 
                 //Set FIFO new initial conditions

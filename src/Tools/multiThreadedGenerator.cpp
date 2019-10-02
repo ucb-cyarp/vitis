@@ -185,12 +185,12 @@ int main(int argc, char* argv[]) {
     }
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
-    try{
+//    try{
         design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems);
-    }catch(std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    }
+//    }catch(std::exception& e) {
+//        std::cerr << e.what() << std::endl;
+//        return 1;
+//    }
 
     return 0;
 }

@@ -313,7 +313,7 @@ void LocklessThreadCrossingFIFO::cleanupSharedVariables(std::vector<std::string>
 }
 
 void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::string> &cStatementQueue) {
-    if(initConditions.size() > fifoLength != 0){
+    if(initConditions.size() > fifoLength*blockSize != 0){
         throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
     }
 

@@ -4657,7 +4657,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length: " << fifoVec[i]->getFifoLength() << " Initial Conditions: " << fifoVec[i]->getInitConditions().size() << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditions().size() << std::endl;
         }
     }
     std::cout << std::endl;
