@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         std::cout << "multiThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Multi Threaded C Function" << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched>" << std::endl;
+        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -40,8 +40,10 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
         std::cout << "Possible BLOCK_SIZE (block size in samples):" << std::endl;
         std::cout << "    unsigned long blockSize <DEFAULT = 1>" << std::endl;
+        std::cout << std::endl;
         std::cout << "Possible FIFO_LENGTH (length of FIFOs in blocks):" << std::endl;
         std::cout << "    unsigned long fifoLength <DEFAULT = 16>" << std::endl;
+        std::cout << std::endl;
         std::cout << "Possible PARTITION_MAP (mapping of partition numbers to logical CPUs):" << std::endl;
         std::cout << "    A comma separated array without spaces (ex. [0,1,2,3])" << std::endl;
         std::cout << "    The first element of the array corresponds to the I/O thread.  The subsequent elements" << std::endl;
@@ -65,6 +67,7 @@ int main(int argc, char* argv[]) {
 
     bool emitGraphMLSched = false;
     bool printNodeSched = false;
+    bool threadDebugPrint = false;
 
     //Check for command line parameters
     for(unsigned long i = 4; i<argc; i++){
@@ -163,6 +166,8 @@ int main(int argc, char* argv[]) {
             emitGraphMLSched = true;
         }else if(strcmp(argv[i],  "--printSched") == 0){
             printNodeSched = true;
+        }else if(strcmp(argv[i],  "--threadDebugPrint") == 0){
+            threadDebugPrint = true;
         }else{
             std::cerr << "Unknown command line option: " << argv[i] << std::endl;
             exit(1);
@@ -220,7 +225,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
 //    try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint);
 //    }catch(std::exception& e) {
 //        std::cerr << e.what() << std::endl;
 //        return 1;

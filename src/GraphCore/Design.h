@@ -511,8 +511,9 @@ public:
      * @param schedType Schedule type
      * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
+     * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
      */
-    void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize, std::string fifoHeaderFile);
+    void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
 
     /**
      * @brief Emits an I/O handler for multi-threaded emit focused on benchmarking.  This version feeds constant values to the design
@@ -524,8 +525,9 @@ public:
      * @param designName
      * @param blockSize
      * @param fifoHeaderFile
+     * @param threadDebugPrint
      */
-    void emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile);
+    void emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
 
     /**
      * @brief Emits the benchmark kernel function for multi-threaded emit.  This includes allocating FIFOs and creating/starting threads.
@@ -562,8 +564,9 @@ public:
      * @param blockSize the block size
      * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
      * @param partitionMap a vector indicating the mapping of partitions to logical CPUs.  The first element is the I/O thread.  The subsequent entries are for partitions 0, 1, 2, .... If an empty array, I/O thread is placed on CPU0 and the other partitions are placed on the CPU that equals their partition number (ex. partition 1 is placed on CPU1)
+     * @param threadDebugPrint if true, inserts print statements into the generated code which indicate the progress of the different threads as they execute
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
