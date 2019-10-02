@@ -1385,7 +1385,7 @@ void Design::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedT
                         }
                     }
                 }else{
-                    std::cout << "Output Port " << i << " of " << (*it)->getFullyQualifiedName() << " not emitted because it is unconnected" << std::endl;
+                    std::cout << "Output Port " << i << " of " << (*it)->getFullyQualifiedName() << "[ID: " << (*it)->getId() << "] not emitted because it is unconnected" << std::endl;
                 }
             }
         }
@@ -4504,6 +4504,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap) {
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Expanded File: " << path << "/" << fileName
+//                  << "_expandedGraph.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_expandedGraph.graphml", *this);
+//    }
+
     //The code below is adapted from the single threaded emitter
 
     //Change the I/O masters to be in partition -2
@@ -4519,8 +4526,27 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     prune(true);
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_prunedGraph.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_prunedGraph.graphml", *this);
+//    }
+
     //After pruning, disconnect the terminator master and the unconnected master
     //The remaining nodes should be used for other things since they were not pruned
+    //However, they may have ports disconnected which were connected to the unconnected or terminator masters
+    //This removal is used to avoid uneeccisary communication to the unconnected and terminator masters (FIFOs
+    //would potentially be inserted where they are not needed).
+    //Note what nodes and ports are disconnected
+
+    std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
+
+    //Unconnected master
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromUnconnectedMaster = unconnectedMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromUnconnectedMaster.begin(); it != arcsToDisconnectFromUnconnectedMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
     std::set<std::shared_ptr<Arc>> unconnectedArcsSet = unconnectedMaster->disconnectNode();
     std::vector<std::shared_ptr<Arc>> unconnectedArcs;
     unconnectedArcs.insert(unconnectedArcs.end(), unconnectedArcsSet.begin(), unconnectedArcsSet.end());
@@ -4528,10 +4554,25 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::vector<std::shared_ptr<Node>> emptyNodeSet;
     addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, unconnectedArcs);
 
+    //Terminator master
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromTerminatorMaster = terminatorMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromTerminatorMaster.begin(); it != arcsToDisconnectFromTerminatorMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
     std::set<std::shared_ptr<Arc>> terminatedArcsSet = terminatorMaster->disconnectNode();
     std::vector<std::shared_ptr<Arc>> terminatedArcs;
     terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
     addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
+
+    //Emit a notification of ports that are disconnected (pruned)
+    //TODO: clean this up so that the disconnect warning durring emit refers back to the origional node path
+    for(auto it = outputPortsWithArcDisconnected.begin(); it != outputPortsWithArcDisconnected.end(); it++) {
+        if((*it)->getArcs().empty()) {
+            std::cout << "Pruned: All Arcs from Output Port " << (*it)->getPortNum() << " of " <<
+                      (*it)->getParent()->getFullyQualifiedName(true) << " [ID: " << (*it)->getParent()->getId() << "]"
+                      << std::endl;
+        }
+    }
 
     //Print Nodes
 //    for(int i = 0; i<nodes.size(); i++){
