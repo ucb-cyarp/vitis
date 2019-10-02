@@ -2029,7 +2029,11 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     ioThread << "}" << std::endl;
 }
 
-void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix){
+void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
+        std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
+        std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
+        std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
+        std::string ioBenchmarkSuffix, std::vector<int> partitionMap){
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -2156,16 +2160,35 @@ void Design::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std:
             cFile << std::endl;
             cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
             int core = *it;
-            if(*it == IO_PARTITION_NUM){
-                core = 0;
-                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
-            }else{
-                if (core < 0) {
-                    throw std::runtime_error(ErrorHelpers::genErrorStr(
-                            "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
+            if(partitionMap.empty()) {
+                //Default case.  Assign I/O thread to CPU0 and each thread on the
+                if (*it == IO_PARTITION_NUM) {
+                    core = 0;
+                    std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
+                } else {
+                    if (core < 0) {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
 //                    std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
 //                    core = 0;
+                    }
+
+                    std::cout << "Setting Partition " << *it <<  " thread to run on CPU" << core << std::endl;
                 }
+            }else{
+                //Use the partition map
+                if (*it == IO_PARTITION_NUM) {
+                    core = partitionMap[0]; //Is always the first element and the array is not empty
+                    std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
+                }else{
+                    if(*it < 0 || *it >= partitionMap.size()-1){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("The partition map does not contain an entry for partition " + GeneralHelper::to_string(*it)));
+                    }
+
+                    core = partitionMap[*it+1];
+                    std::cout << "Setting Partition " << *it << " thread to run on CPU" << core << std::endl;
+                }
+
             }
             cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
             cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_" << partitionSuffix
@@ -4479,7 +4502,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
-                                bool propagatePartitionsFromSubsystems) {
+                                bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap) {
 
     //The code below is adapted from the single threaded emitter
 
@@ -4724,7 +4747,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         partitionSet.insert(it->first);
     }
-    emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix);
+    emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix, partitionMap);
 
     //Emit the benchmark driver
     emitMultiThreadedDriver(path, fileName, designName, blockSize, ioSuffix);

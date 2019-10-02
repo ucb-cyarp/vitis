@@ -532,7 +532,7 @@ public:
      * @param fifoMap
      * @param ioBenchmarkSuffix io_constant for constant benchmark
      */
-    void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix);
+    void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix, std::vector<int> partitionMap);
 
     /**
      * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C
@@ -561,8 +561,9 @@ public:
      * @param fifoLength the length of the FIFOs in blocks
      * @param blockSize the block size
      * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
+     * @param partitionMap a vector indicating the mapping of partitions to logical CPUs.  The first element is the I/O thread.  The subsequent entries are for partitions 0, 1, 2, .... If an empty array, I/O thread is placed on CPU0 and the other partitions are placed on the CPU that equals their partition number (ex. partition 1 is placed on CPU1)
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
