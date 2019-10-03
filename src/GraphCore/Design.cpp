@@ -1825,7 +1825,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
     }
 
     //Check FIFO input FIFOs (will spin until ready)
-    cFile << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false);
+    cFile << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
     //Create temp entries for FIFO inputs
     std::vector<std::string> tmpReadDecls = EmitterHelpers::createFIFOReadTemps(inputFIFOs);
@@ -1861,7 +1861,7 @@ void Design::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) +
                  " waiting for room in output FIFOs ...\\n\");" << std::endl;
     }
-    cFile << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false);
+    cFile << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
     //Write result to FIFOs
     if(threadDebugPrint) {
@@ -1979,7 +1979,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     }
     ioThread << "for(int i = 0; i<iterLimit; ){" << std::endl;
     //Check Output FIFOs
-    ioThread << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false);
+    ioThread << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
     ioThread << "if(outputFIFOsReady){" << std::endl;
     //Write FIFOs
     std::vector<std::string> writeFIFOExprs = EmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
@@ -1993,7 +1993,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     ioThread << "}" << std::endl;
 
     //Check input FIFOs
-    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, false);
+    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
     ioThread << "if(inputFIFOsReady){" << std::endl;
     //Read input FIFOs
     std::vector<std::string> readFIFOExprs = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
@@ -2010,7 +2010,7 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
 
     //Wait for reading to finish
     ioThread << "while(readCount<iterLimit){" << std::endl;
-    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, false);
+    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here (is blocking)
     ioThread << "if(inputFIFOsReady){" << std::endl;
     //Read input FIFOs
     std::vector<std::string> readFIFOExprsCleanup = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
