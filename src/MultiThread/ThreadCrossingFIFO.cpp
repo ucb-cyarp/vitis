@@ -14,34 +14,68 @@ void ThreadCrossingFIFO::setFifoLength(int fifoLength) {
     ThreadCrossingFIFO::fifoLength = fifoLength;
 }
 
-std::vector<NumericValue> ThreadCrossingFIFO::getInitConditions() const {
+std::vector<std::vector<NumericValue>> ThreadCrossingFIFO::getInitConditions() const {
     return initConditions;
 }
 
-void ThreadCrossingFIFO::setInitConditions(const std::vector<NumericValue> &initConditions) {
+void ThreadCrossingFIFO::setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions) {
     ThreadCrossingFIFO::initConditions = initConditions;
 }
 
-Variable ThreadCrossingFIFO::getCStateVar() {
-    ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateVar, cStateVarInitialized, "src");
-
-    return cStateVar;
+std::vector<NumericValue> ThreadCrossingFIFO::getInitConditionsCreateIfNot(int port) {
+    while(port >= initConditions.size()){
+        initConditions.push_back(std::vector<NumericValue>());
+    }
+    return initConditions[port];
 }
 
-void ThreadCrossingFIFO::setCStateVar(const Variable &cStateVar) {
-    ThreadCrossingFIFO::cStateVar = cStateVar;
-    cStateVarInitialized = true;
+void ThreadCrossingFIFO::setInitConditionsCreateIfNot(int port, const std::vector<NumericValue> &initConditions) {
+    while(port >= ThreadCrossingFIFO::initConditions.size()){
+        ThreadCrossingFIFO::initConditions.push_back(std::vector<NumericValue>());
+    }
+    ThreadCrossingFIFO::initConditions[port] = initConditions;
 }
 
-Variable ThreadCrossingFIFO::getCStateInputVar() {
-    ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateInputVar, cStateInputVarInitialized, "dst");
+Variable ThreadCrossingFIFO::getCStateVar(int port) {
+    while(port >= cStateVars.size()){
+        cStateVars.push_back(Variable());
+        cStateVarsInitialized.push_back(false);
+    }
 
-    return cStateInputVar;
+    ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateVars, cStateVarsInitialized, port, "src");
+
+    return cStateVars[port];
 }
 
-void ThreadCrossingFIFO::setCStateInputVar(const Variable &cStateInputVar) {
-    ThreadCrossingFIFO::cStateInputVar = cStateInputVar;
-    cStateInputVarInitialized = true;
+void ThreadCrossingFIFO::setCStateVar(int port, const Variable &cStateVar) {
+    while(port >= cStateVars.size()){
+        cStateVars.push_back(Variable());
+        cStateVarsInitialized.push_back(false);
+    }
+
+    cStateVars[port] = cStateVar;
+    cStateVarsInitialized[port] = true;
+}
+
+Variable ThreadCrossingFIFO::getCStateInputVar(int port) {
+    while(port >= cStateInputVars.size()){
+        cStateInputVars.push_back(Variable());
+        cStateInputVarsInitialized.push_back(false);
+    }
+
+    ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateInputVars, cStateInputVarsInitialized, port, "dst");
+
+    return cStateInputVars[port];
+}
+
+void ThreadCrossingFIFO::setCStateInputVar(int port, const Variable &cStateInputVar) {
+    while(port >= cStateInputVars.size()){
+        cStateInputVars.push_back(Variable());
+        cStateInputVarsInitialized.push_back(false);
+    }
+
+    cStateInputVars[port] = cStateInputVar;
+    cStateInputVarsInitialized[port] = true;
 }
 
 int ThreadCrossingFIFO::getBlockSize() const {
@@ -52,24 +86,24 @@ void ThreadCrossingFIFO::setBlockSize(int blockSize) {
     ThreadCrossingFIFO::blockSize = blockSize;
 }
 
-ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8), blockSize(1), cStateVarInitialized(false),
-                                           cStateInputVarInitialized(false){}
+ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8), blockSize(1){}
 
-ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8), blockSize(1),
-                                                                            cStateVarInitialized(false),
-                                                                            cStateInputVarInitialized(false){}
+ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8), blockSize(1){}
 
 ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent, ThreadCrossingFIFO *orig) : Node(parent, orig),
                                        fifoLength(orig->fifoLength), initConditions(orig->initConditions),
-                                       cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar),
-                                       blockSize(orig->blockSize), cStateVarInitialized(orig->cStateVarInitialized),
-                                       cStateInputVarInitialized(orig->cStateInputVarInitialized){}
+                                       cStateVars(orig->cStateVars), cStateInputVars(orig->cStateInputVars),
+                                       blockSize(orig->blockSize), cStateVarsInitialized(orig->cStateVarsInitialized),
+                                       cStateInputVarsInitialized(orig->cStateInputVarsInitialized){}
 
 std::set<GraphMLParameter> ThreadCrossingFIFO::graphMLParameters() {
     std::set<GraphMLParameter> parameters;
 
     parameters.insert(GraphMLParameter("FIFO_Length", "int", true));
-    parameters.insert(GraphMLParameter("InitialCondition", "string", true));
+    //There is a seperate initial condition parameter for each port pair
+    for(int i = 0; i<initConditions.size(); i++) {
+        parameters.insert(GraphMLParameter("InitialCondition_Port" + GeneralHelper::to_string(i), "string", true));
+    }
     parameters.insert(GraphMLParameter("BlockSize", "int", true));
 
 //    parameters.insert(GraphMLParameter("cStateVar_Name", "string", true));
@@ -94,7 +128,6 @@ void ThreadCrossingFIFO::populatePropertiesFromGraphML(std::map<std::string, std
 
     //==== Import important properties ====
     std::string fifoLengthStr;
-    std::string initialConditionStr;
     std::string blockSizeStr;
 
     //Variables will be initialized during emit
@@ -112,7 +145,6 @@ void ThreadCrossingFIFO::populatePropertiesFromGraphML(std::map<std::string, std
 
     //Vitis Names -- DelayLength, InitialCondit
     fifoLengthStr = dataKeyValueMap.at("FIFO_Length");
-    initialConditionStr = dataKeyValueMap.at("InitialCondition");
     blockSizeStr = dataKeyValueMap.at("BlockSize");
 
 //    cStateVarNameStr = dataKeyValueMap.at("cStateVar_Name");
@@ -127,8 +159,24 @@ void ThreadCrossingFIFO::populatePropertiesFromGraphML(std::map<std::string, std
 //    cStateInputVarInitValStr = dataKeyValueMap.at("cStateInputVar_InitialCondition");
 
     fifoLength = std::stoi(fifoLengthStr);
-    initConditions = NumericValue::parseXMLString(initialConditionStr);
     blockSize = std::stoi(blockSizeStr);
+
+    //There is a seperate parameter for the initial condition of each port
+    bool done = false;
+    int portNum = 0;
+    while(!done) {
+
+        auto initialConditionIter = dataKeyValueMap.find("InitialCondition_Port" + GeneralHelper::to_string(portNum));
+
+        if(initialConditionIter != dataKeyValueMap.end()){
+            std::string initialConditionStr = initialConditionIter->second;
+            std::vector<NumericValue> portInitConditions = NumericValue::parseXMLString(initialConditionStr);
+            setInitConditionsCreateIfNot(portNum, portInitConditions);
+            portNum++;
+        }else{
+            done = true;
+        }
+    }
 
 //    bool cStateVarComplex = GeneralHelper::parseBool(cStateVarComplexStr);
 //    int cStateVarWidth = std::stoi(cStateVarWidthStr);
@@ -150,8 +198,12 @@ void ThreadCrossingFIFO::populatePropertiesFromGraphML(std::map<std::string, std
 void ThreadCrossingFIFO::emitPropertiesToGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode) {
 
     GraphMLHelper::addDataNode(doc, graphNode, "FIFO_Length", GeneralHelper::to_string(fifoLength));
-    GraphMLHelper::addDataNode(doc, graphNode, "InitialCondition", NumericValue::toString(initConditions));
     GraphMLHelper::addDataNode(doc, graphNode, "BlockSize", GeneralHelper::to_string(blockSize));
+
+    //There is a separate initial condition entry for each port pair
+    for(int i = 0; i<initConditions.size(); i++){
+        GraphMLHelper::addDataNode(doc, graphNode, "InitialCondition_Port" + GeneralHelper::to_string(i), NumericValue::toString(initConditions[i]));
+    }
 
     //Variables will be initialized during emit
 //    GraphMLHelper::addDataNode(doc, graphNode, "cStateVar_Name", cStateVar.getName());
@@ -170,56 +222,135 @@ void ThreadCrossingFIFO::emitPropertiesToGraphML(xercesc::DOMDocument *doc, xerc
 std::string ThreadCrossingFIFO::labelStr() {
     std::string label = Node::labelStr();
 
-    return label + "\nFIFO_Length:" + GeneralHelper::to_string(fifoLength) +
-           "\nInitialCondition: " + NumericValue::toString(initConditions) +
-           "\nBlockSize: " + GeneralHelper::to_string(blockSize);
+    label += "\nFIFO_Length:" + GeneralHelper::to_string(fifoLength);
+    label += "\nBlockSize: " + GeneralHelper::to_string(blockSize);
+
+    //There is a separate initial condition entry for each port pair
+    for(int i = 0; i<initConditions.size(); i++){
+        label += "\nInitialCondition_Port" + GeneralHelper::to_string(i) + ": " + NumericValue::toString(initConditions[i]);
+    }
+
+    return label;
 }
 
 void ThreadCrossingFIFO::validate() {
     Node::validate();
 
     //Should have 1 input ports and 1 output port
-    if(inputPorts.size() != 1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should Have Exactly 1 Input Port", getSharedPointer()));
+    if(inputPorts.size() < 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should Have at least 1 Input Port", getSharedPointer()));
     }
 
-    if(outputPorts.size() != 1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should Have Exactly 1 Output Port", getSharedPointer()));
+    if(outputPorts.size() < 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should Have at least 1 Output Port", getSharedPointer()));
     }
 
-    //The src arcs should all be in one partition and the dst arcs should all be in (a different) single partition
-    std::set<std::shared_ptr<Arc>> inArcs = getInputPort(0)->getArcs();
-    std::set<std::shared_ptr<Arc>> outArcs = getOutputPort(0)->getArcs();
-
-    if(inArcs.empty()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should have a driver Arc", getSharedPointer()));
+    if(inputPorts.size() != outputPorts.size()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Number of input and output ports should match", getSharedPointer()));
     }
 
-    if(outArcs.empty()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Should at least 1 output Arc", getSharedPointer()));
-    }
+    int globalPartitionOut;
+    bool globalPartitionOutSet = false;
 
-    int partitionIn = (*inArcs.begin())->getSrcPort()->getParent()->getPartitionNum();
+    //Check each port pair
+    for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
+        //The src arcs should all be in one partition and the dst arcs should all be in (a different) single partition
+        std::set<std::shared_ptr<Arc>> inArcs = getInputPort(portNum)->getArcs();
+        std::set<std::shared_ptr<Arc>> outArcs = getOutputPort(portNum)->getArcs();
 
-    bool firstOut = true;
-    int partitionOut;
-    for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
-        if(firstOut){
-            firstOut = false;
+        if (inArcs.empty()) {
+            throw std::runtime_error(
+                    ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Port " + GeneralHelper::to_string(portNum) + " should have a driver Arc",
+                                              getSharedPointer()));
+        }
+
+        if (outArcs.empty()) {
+            throw std::runtime_error(
+                    ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Port " + GeneralHelper::to_string(portNum) + " should at least 1 output Arc",
+                                              getSharedPointer()));
+        }
+
+        //Already validated all arcs to a port have the same DT, now check that the datatypes of the input/output port pair match
+        DataType srcDT = (*inArcs.begin())->getDataType();
+        DataType dstDT = (*outArcs.begin())->getDataType();
+
+        if(srcDT != dstDT){
+            throw std::runtime_error(
+                ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Port " + GeneralHelper::to_string(portNum) + " input and output datatypes should match",
+                                      getSharedPointer()));
+        }
+
+        int partitionIn = (*inArcs.begin())->getSrcPort()->getParent()->getPartitionNum();
+
+        if(partitionIn != partitionNum){
+            throw std::runtime_error(
+                    ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Input Port " + GeneralHelper::to_string(portNum) + " should be in the same partition as the FIFO",
+                                              getSharedPointer()));
+        }
+
+        int partitionOut;
+        for (auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++) {
             partitionOut = (*outArc)->getDstPort()->getParent()->getPartitionNum();
-        }else{
-            if(partitionOut != (*outArc)->getDstPort()->getParent()->getPartitionNum()){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Outputs Arcs to Different Partitions Detected", getSharedPointer()));
+
+            if(!globalPartitionOutSet){
+                globalPartitionOut = partitionOut;
+                globalPartitionOutSet = true;
+            }else{
+                if (partitionOut != globalPartitionOut) {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr(
+                            "Validation Failed - ThreadCrossingFIFO - Outputs Ports to Different Partitions Detected",
+                            getSharedPointer()));
+                }
+            }
+        }
+
+        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength * blockSize -
+                                     blockSize)) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Validation Failed - ThreadCrossingFIFO - The number of initial conditions cannot be larger than the FIFO - 1 block",
+                    getSharedPointer()));
+        }
+
+        if(portNum != 0){
+            if(getInitConditionsCreateIfNot(portNum).size() != getInitConditionsCreateIfNot(0).size()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Validation Failed - ThreadCrossingFIFO - All ports must have the same number of initial conditions",
+                        getSharedPointer()));
             }
         }
     }
 
-    if(partitionIn == partitionOut){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Input and Output Partitions are the Same", getSharedPointer()));
+    if(orderConstraintInputPort){
+        std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = orderConstraintInputPort->getArcs();
+
+        for(auto it = orderConstraintInputArcs.begin(); it != orderConstraintInputArcs.end(); it++){
+            int partitionIn = (*it)->getSrcPort()->getParent()->getPartitionNum();
+
+            if(partitionIn != partitionNum){
+                throw std::runtime_error(
+                        ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Order Constraint Port should be in the same partition as the FIFO",
+                                                  getSharedPointer()));
+            }
+        }
     }
 
-        if(initConditions.size() > (fifoLength*blockSize - blockSize)){ // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occure
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - The number of initial conditions cannot be larger than the FIFO - 1 block", getSharedPointer()));
+    if(orderConstraintOutputPort){
+        std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = orderConstraintOutputPort->getArcs();
+
+        for(auto it = orderConstraintOutputArcs.begin(); it != orderConstraintOutputArcs.end(); it++){
+            int partitionOut = (*it)->getDstPort()->getParent()->getPartitionNum();
+
+            if(!globalPartitionOutSet){
+                globalPartitionOut = partitionOut;
+                globalPartitionOutSet = true;
+            }else{
+                if (partitionOut != globalPartitionOut) {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr(
+                            "Validation Failed - ThreadCrossingFIFO - Output Constraint Port to Different Partition Detected",
+                            getSharedPointer()));
+                }
+            }
+        }
     }
 }
 
@@ -242,17 +373,18 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
 
     std::string expr;
     if(blockSize > 1){
-        int width = getCStateVar().getDataType().getWidth();
+        int width = getCStateVar(outputPortNum).getDataType().getWidth();
         if(width > 1){
-            expr = "(" + getCStateVar().getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + cBlockIndexVarInputName + ")";
+            expr = "(" + getCStateVar(outputPortNum).getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + cBlockIndexVarInputName + ")";
         }else{
-            expr = "(" +  getCStateVar().getCVarName(imag) + "[" + cBlockIndexVarInputName + "])";
+            expr = "(" +  getCStateVar(outputPortNum).getCVarName(imag) + "[" + cBlockIndexVarInputName + "])";
         }
     }else{
-        expr = getCStateVar().getCVarName(imag);
+        expr = getCStateVar(outputPortNum).getCVarName(imag);
     }
 
-    return CExpr(expr, true);;
+    //TODO: change output variable to false?
+    return CExpr(expr, true);
 }
 
 void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
@@ -261,38 +393,41 @@ void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQu
 
 void
 ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
-    DataType inputDataType = getInputPort(0)->getDataType();
-    std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
-    int srcOutPortNum = srcPort->getPortNum();
-    std::shared_ptr<Node> srcNode = srcPort->getParent();
+    //Do for each input port
+    for(int i = 0; i<inputPorts.size(); i++) {
+        DataType inputDataType = getInputPort(i)->getDataType();
+        std::shared_ptr<OutputPort> srcPort = getInputPort(i)->getSrcOutputPort();
+        int srcOutPortNum = srcPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcPort->getParent();
 
-    //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
-    std::string inputExprIm;
+        //Emit the upstream
+        std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
+        std::string inputExprIm;
 
-    if(inputDataType.isComplex()){
-        inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
-    }
-
-    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
-
-    if(blockSize > 1) {
-        std::string stateInputDeclAssignRe =
-                getCStateInputVar().getCVarName(false) + "[" + cBlockIndexVarOutputName + "] = " + inputExprRe + ";";
-        cStatementQueue.push_back(stateInputDeclAssignRe);
         if (inputDataType.isComplex()) {
-            std::string stateInputDeclAssignIm =
-                    getCStateInputVar().getCVarName(true) + "[" + cBlockIndexVarOutputName + "] = " + inputExprIm + ";";
-            cStatementQueue.push_back(stateInputDeclAssignIm);
+            inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
         }
-    }else{
-        std::string stateInputDeclAssignRe =
-                "*" + getCStateInputVar().getCVarName(false) + " = " + inputExprRe + ";";
-        cStatementQueue.push_back(stateInputDeclAssignRe);
-        if (inputDataType.isComplex()) {
-            std::string stateInputDeclAssignIm =
-                    "*" + getCStateInputVar().getCVarName(true) + " = " + inputExprIm + ";";
-            cStatementQueue.push_back(stateInputDeclAssignIm);
+
+        //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
+
+        if (blockSize > 1) {
+            std::string stateInputDeclAssignRe =
+                    getCStateInputVar(i).getCVarName(false) + "[" + cBlockIndexVarOutputName + "] = " + inputExprRe + ";";
+            cStatementQueue.push_back(stateInputDeclAssignRe);
+            if (inputDataType.isComplex()) {
+                std::string stateInputDeclAssignIm =
+                        getCStateInputVar(i).getCVarName(true) + "[" + cBlockIndexVarOutputName + "] = " + inputExprIm + ";";
+                cStatementQueue.push_back(stateInputDeclAssignIm);
+            }
+        } else {
+            std::string stateInputDeclAssignRe =
+                    "*" + getCStateInputVar(i).getCVarName(false) + " = " + inputExprRe + ";";
+            cStatementQueue.push_back(stateInputDeclAssignRe);
+            if (inputDataType.isComplex()) {
+                std::string stateInputDeclAssignIm =
+                        "*" + getCStateInputVar(i).getCVarName(true) + " = " + inputExprIm + ";";
+                cStatementQueue.push_back(stateInputDeclAssignIm);
+            }
         }
     }
 }
@@ -309,22 +444,35 @@ bool ThreadCrossingFIFO::canExpand() {
     return false;
 }
 
-void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix){
+void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, std::vector<Variable> &vars, std::vector<bool> &inits, int port, std::string suffix){
     //If not yet initialized, initialize
-    if(!init){
+    if(!inits[port]){
         //Set name
-        std::string varName = node->getName()+"_n"+GeneralHelper::to_string(node->getId())+"_" +suffix;
-        var.setName(varName);
+        std::string varName = node->getName()+"_n"+GeneralHelper::to_string(node->getId())+ "_p" + GeneralHelper::to_string(port) +"_" +suffix;
+        vars[port].setName(varName);
 
         //Set datatype
-        std::set<std::shared_ptr<Arc>> arcSet = node->getInputPortCreateIfNot(0)->getArcs();
+        std::set<std::shared_ptr<Arc>> arcSet = node->getInputPortCreateIfNot(port)->getArcs();
         if(arcSet.empty()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when initializing FIFO variable.  Unable to get datatype since no input port connected", node));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when initializing FIFO variable.  Unable to get datatype since input port " + GeneralHelper::to_string(port) + " not connected", node));
         }
         DataType dt = (*arcSet.begin())->getDataType();
 
         //Do not scale for block size.  This is done at the boarder of the compute function (ie. in the structure definition)
-        var.setDataType(dt);
+        vars[port].setDataType(dt);
+
+        inits[port] = true;
+    }
+}
+
+void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix){
+    //If not yet initialized, initialize
+    if(!init){
+        //Set name
+        std::string varName = node->getName() + "_n" + GeneralHelper::to_string(node->getId()) + "_" +suffix;
+        var.setName(varName);
+
+        //Do not scale for block size.  This is done at the boarder of the compute function (ie. in the structure definition)
 
         init = true;
     }
@@ -347,20 +495,29 @@ void ThreadCrossingFIFO::setCBlockIndexVarOutputName(const std::string &cBlockIn
 }
 
 std::string ThreadCrossingFIFO::getFIFOStructTypeName(){
-    return getCStateVar().getName() + "_t";
+    return name+"_n"+GeneralHelper::to_string(id) + "_t";
 }
 
 std::string ThreadCrossingFIFO::createFIFOStruct(){
     std::string typeName = getFIFOStructTypeName();
-    DataType stateDT = cStateVar.getDataType();
-    int elementWidth = stateDT.getWidth();
+
 
     //TODO: Check 2D case
     std::string structStr = "typedef struct {\n";
-    structStr += stateDT.toString(DataType::StringStyle::C) + " real" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
+    for(int i = 0; i<inputPorts.size(); i++) {
+        DataType stateDT = getCStateVar(i).getDataType();
+        int elementWidth = stateDT.getWidth();
 
-    if(stateDT.isComplex()) {
-        structStr += stateDT.toString(DataType::StringStyle::C) + " imag" + (blockSize>1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") + (elementWidth>1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
+        //There are possibly 2 entries per port
+        structStr += stateDT.toString(DataType::StringStyle::C) + " port" + GeneralHelper::to_string(i) + "_real" +
+                     (blockSize > 1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") +
+                     (elementWidth > 1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
+
+        if (stateDT.isComplex()) {
+            structStr += stateDT.toString(DataType::StringStyle::C) + " port" + GeneralHelper::to_string(i) + "_imag" +
+                         (blockSize > 1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") +
+                         (elementWidth > 1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
+        }
     }
     structStr += "} " + typeName + ";";
     return structStr;

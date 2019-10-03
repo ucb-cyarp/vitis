@@ -313,30 +313,47 @@ void LocklessThreadCrossingFIFO::cleanupSharedVariables(std::vector<std::string>
 }
 
 void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::string> &cStatementQueue) {
-    if(initConditions.size() > fifoLength*blockSize != 0){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
-    }
-
-    if(initConditions.size() % blockSize != 0){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must be a multiple of its block size", getSharedPointer()));
-    }
-
     DataType arrayNumericType = getCArrayPtr().getDataType().getCPUStorageType();
 
-    for(int i = 0; i<initConditions.size(); i++){
+    //It should be validated at this point that all ports have the same number of initial conditions
+    for(int i = 0; i<getInitConditionsCreateIfNot(0).size(); i++){
         int blockInd = i/blockSize;
         int elementInd = i%blockSize;
 
-        //Note, the block index starts at 1 for initialization
-        if(blockSize == 1){
-            cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].real = " + GeneralHelper::to_string(initConditions[i].toStringComponent(false, arrayNumericType)) + ";");
-            if(arrayNumericType.isComplex()){
-                cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].imag = " + GeneralHelper::to_string(initConditions[i].toStringComponent(true, arrayNumericType)) + ";");
+        for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
+            if(getInitConditionsCreateIfNot(portNum).size() > fifoLength*blockSize != 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
             }
-        }else{
-            cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].real[" + GeneralHelper::to_string(elementInd) + "] = " + GeneralHelper::to_string(initConditions[i].toStringComponent(false, arrayNumericType)) + ";");
-            if(arrayNumericType.isComplex()){
-                cStatementQueue.push_back(getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd+1) + "].imag[" + GeneralHelper::to_string(elementInd) + "] = " + GeneralHelper::to_string(initConditions[i].toStringComponent(true, arrayNumericType)) + ";");
+
+            if(getInitConditionsCreateIfNot(portNum).size() % blockSize != 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must be a multiple of its block size", getSharedPointer()));
+            }
+
+
+            //Note, the block index starts at 1 for initialization
+            if (blockSize == 1) {
+                cStatementQueue.push_back(
+                        getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) + "].port" + GeneralHelper::to_string(portNum) + "_real = " +
+                        GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(false, arrayNumericType)) + ";");
+                if (arrayNumericType.isComplex()) {
+                    cStatementQueue.push_back(
+                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
+                            "].port" + GeneralHelper::to_string(portNum) + "_imag = " +
+                            GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(true, arrayNumericType)) +
+                            ";");
+                }
+            } else {
+                cStatementQueue.push_back(
+                        getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) + "].port" + GeneralHelper::to_string(portNum) + "_real[" +
+                        GeneralHelper::to_string(elementInd) + "] = " +
+                        GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(false, arrayNumericType)) + ";");
+                if (arrayNumericType.isComplex()) {
+                    cStatementQueue.push_back(
+                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
+                            "].port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(elementInd) + "] = " +
+                            GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(true, arrayNumericType)) +
+                            ";");
+                }
             }
         }
     }

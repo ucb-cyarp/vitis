@@ -37,18 +37,18 @@ class ThreadCrossingFIFO : public Node {
     friend NodeFactory;
 protected:
     int fifoLength; ///<The length of this FIFO (in blocks)
-    std::vector<NumericValue> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size
+    std::vector<std::vector<NumericValue>> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size.  The outer vector is across input/output port pairs.  The inner vector contains the initial conditions for the given port pair.
     int blockSize; ///<The block size (in elements) of transactions to/from FIFO
-    Variable cStateVar; ///<The C variable from which values are read
-    Variable cStateInputVar; ///<the C temporary variable holding data to be writen
+    std::vector<Variable> cStateVars; ///<The C variables from which values are read.  There is one per input/output port pair
+    std::vector<Variable> cStateInputVars; ///<the C temporary variables holding data to be writen.  There is one per input/output pair
 
     //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
     //Special casing may be preferrable for now
     std::string cBlockIndexVarInputName; ///The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
     std::string cBlockIndexVarOutputName; ///The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
 
-    bool cStateVarInitialized;
-    bool cStateInputVarInitialized;
+    std::vector<bool> cStateVarsInitialized;
+    std::vector<bool> cStateInputVarsInitialized;
 
     //==== Constructors ====
     /**
@@ -82,6 +82,10 @@ protected:
     ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent, ThreadCrossingFIFO *orig);
 
     //====Helpers====
+    //This version sets datatypes and includes the port number in the name
+    static void initializeVarIfNotAlready(std::shared_ptr<Node> node, std::vector<Variable> &vars, std::vector<bool> &inits, int port, std::string suffix);
+
+    //This version does not set datatypes and does not include the port number in the name
     static void initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix);
 
 public:
@@ -89,8 +93,18 @@ public:
     int getFifoLength() const;
     void setFifoLength(int fifoLength);
 
-    std::vector<NumericValue> getInitConditions() const;
-    void setInitConditions(const std::vector<NumericValue> &initConditions);
+    std::vector<std::vector<NumericValue>> getInitConditions() const;
+    void setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions);
+
+    /**
+     * @brief
+     * @param port
+     * @return
+     *
+     * @note If the initConditions vector does not contain an entry for the specified port, entries will be inserted into the vector until an entry has been allocated for the port
+     */
+    std::vector<NumericValue> getInitConditionsCreateIfNot(int port);
+    void setInitConditionsCreateIfNot(int port, const std::vector<NumericValue> &initConditions);
 
     std::string getCBlockIndexVarInputName() const;
     void setCBlockIndexVarInputName(const std::string &cBlockIndexVarName);
@@ -102,15 +116,15 @@ public:
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
      * @return the initialized cStateVar for this FIFO
      */
-    Variable getCStateVar();
-    void setCStateVar(const Variable &cStateVar);
+    Variable getCStateVar(int port);
+    void setCStateVar(int port, const Variable &cStateVar);
 
     /**
      * @brief Gets the cStateInputVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
      * @return the initialized cStateInputVar for this FIFO
      */
-    Variable getCStateInputVar();
-    void setCStateInputVar(const Variable &cStateInputVar);
+    Variable getCStateInputVar(int port);
+    void setCStateInputVar(int port, const Variable &cStateInputVar);
 
     int getBlockSize() const;
     void setBlockSize(int blockSize);

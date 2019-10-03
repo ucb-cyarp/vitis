@@ -61,6 +61,12 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool printActions) {
+    //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
+    //FIFO bundling happens after this point
+    if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, delay absorption is only supported with FIFOs that have a single input and output port" , fifo));
+    }
+
     //Check if FIFO full
     if(fifo->getInitConditions().size() < (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
         //There is still room
@@ -105,13 +111,13 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                     //Absorb it if possible
 
                     std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();
-                    std::vector<NumericValue> fifoInitConds = fifo->getInitConditions();
+                    std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
 
                     if (delayInitConds.size() + fifoInitConds.size() <= (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
                         //Can absorb complete delay
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.end());  //Because this is at the input to the FIFO, the initial conditions are appended.
-                        fifo->setInitConditions(fifoInitConds);
+                        fifo->setInitConditionsCreateIfNot(0, fifoInitConds);
 
                         //TODO:
                         //Remove the delay node and re-wire arcs to the FIFO (including order constraint arcs)
@@ -148,7 +154,7 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
                         int numToAbsorb = fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize() - fifoInitConds.size();
 
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
-                        fifo->setInitConditions(fifoInitConds);
+                        fifo->setInitConditionsCreateIfNot(0, fifoInitConds);
                         delayInitConds.erase(delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
                         srcDelay->setInitCondition(delayInitConds);
                         srcDelay->setDelayValue(srcDelay->getDelayValue()-numToAbsorb);
@@ -179,6 +185,12 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
                                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                     bool printActions) {
+    //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
+    //FIFO bundling happens after this point
+    if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, delay absorption is only supported with FIFOs that have a single input and output port" , fifo));
+    }
+
     //Check if FIFO full
     if (fifo->getInitConditions().size() < (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
         //There is still room in the FIFO
@@ -238,7 +250,7 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
                 //We have a nonzero number of delays that can be merged (otherwise, the longest prefix would have become empty durring one of the itterations)
 
                 //Find how many can be absorbed into the FIFO
-                std::vector<NumericValue> fifoInitConds = fifo->getInitConditions();
+                std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
                 int roomInFifo = fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize() - fifoInitConds.size();
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
 
@@ -248,7 +260,7 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
                 newFIFOInitConds.insert(newFIFOInitConds.end(), longestPostfix.begin()+remainingPostfix, longestPostfix.end());
                 //Append the existing FIFO init conditions onto the back of the postfix
                 newFIFOInitConds.insert(newFIFOInitConds.end(), fifoInitConds.begin(), fifoInitConds.end());
-                fifo->setInitConditions(newFIFOInitConds);
+                fifo->setInitConditionsCreateIfNot(0, newFIFOInitConds);
 
                 //For each delay: Adjust Delay initial conditions or remove delay entirely
                 //Remember to place initial conditions in correct order (append FIFO init conditions to delay initial conditions)
@@ -324,7 +336,13 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
                                                      std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                      std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                      bool printActions){
-    std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditions();
+     //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
+     //FIFO bundling happens after this point
+     if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
+         throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, initial condition reshaping is only supported with FIFOs that have a single input and output port" , fifo));
+     }
+
+    std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
 
     int numElementsToMove = fifoInitialConditions.size() % fifo->getBlockSize();
 
@@ -350,7 +368,7 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
 
         //Remove init conditions from fifoInitialConditions
         fifoInitialConditions.erase(fifoInitialConditions.begin()+(fifoInitialConditions.size() - numElementsToMove), fifoInitialConditions.end());
-        fifo->setInitConditions(fifoInitialConditions);
+        fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
 
         //Rewire
         std::set<std::shared_ptr<Arc>> orderConstraintArcs2Rewire = fifo->getOrderConstraintInputPortCreateIfNot()->getArcs();
@@ -609,8 +627,7 @@ std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCro
 std::vector<std::string> EmitterHelpers::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
-        Variable fifoSrcVar = fifos[i]->getCStateVar(); //This is the temp we are creating for.
-        std::string tmpName = fifoSrcVar.getName() + "_tmp";
+        std::string tmpName = fifos[i]->getName() + "_readTmp";
         std::string structType = fifos[i]->getFIFOStructTypeName();
         exprs.push_back(structType + " " + tmpName + ";");
     }
@@ -621,8 +638,7 @@ std::vector<std::string> EmitterHelpers::createFIFOReadTemps(std::vector<std::sh
 std::vector<std::string> EmitterHelpers::createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
-        Variable fifoDstVar = fifos[i]->getCStateInputVar(); //This is the temp we are creating for.
-        std::string tmpName = fifoDstVar.getName() + "_tmp";
+        std::string tmpName = fifos[i]->getName() + "_writeTmp";
         std::string structType = fifos[i]->getFIFOStructTypeName();
         exprs.push_back(structType + " " + tmpName + ";");
     }
@@ -630,44 +646,53 @@ std::vector<std::string> EmitterHelpers::createFIFOWriteTemps(std::vector<std::s
     return exprs;
 }
 
-std::vector<std::string> EmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<NumericValue> defaultVal){
+std::vector<std::string> EmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
-        Variable fifoDstVar = fifos[i]->getCStateInputVar(); //This is the temp we are creating for.
-        std::string tmpName = fifoDstVar.getName() + "_tmp";
+        std::string tmpName = fifos[i]->getName() + "_writeTmp";
         std::string structType = fifos[i]->getFIFOStructTypeName();
         exprs.push_back(structType + " " + tmpName + ";");
 
         int blockSize = fifos[i]->getBlockSize();
-        DataType dt = fifos[i]->getCStateVar().getDataType();
-        int width = dt.getWidth();
-        if(blockSize == 1 && width == 1){
-            exprs.push_back(tmpName + ".real = " + defaultVal[i].toStringComponent(false, dt) + ";");
-            if(dt.isComplex()){
-                exprs.push_back(tmpName + ".imag = " + defaultVal[i].toStringComponent(true, dt) + ";");
-            }
-        }else if((blockSize == 1 && width > 1) || (blockSize > 1 && width == 1)){
-            //Cannot initialize with = {} because inside a structure
-            int entries = std::max(blockSize, width);
-            for(int j = 0; j<entries; j++){
-                exprs.push_back(tmpName + ".real[" + GeneralHelper::to_string(j) + "] = " + defaultVal[i].toStringComponent(false, dt) + ";");
-            }
-            if(dt.isComplex()) {
-                for (int j = 0; j < entries; j++) {
-                    exprs.push_back(tmpName + ".imag[" + GeneralHelper::to_string(j) + "] = " + defaultVal[i].toStringComponent(true, dt) + ";");
-                }
-            }
-        }else{
-            for(int j = 0; j<blockSize; j++){
-                for(int k = 0; k<width; k++) {
-                    exprs.push_back(tmpName + ".real[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) + "] = " + defaultVal[i].toStringComponent(false, dt) + ";");
-                }
-            }
 
-            if(dt.isComplex()) {
-                for(int j = 0; j<blockSize; j++){
-                    for(int k = 0; k<width; k++) {
-                        exprs.push_back(tmpName + ".imag[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) + "] = " + defaultVal[i].toStringComponent(true, dt) + ";");
+        for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
+
+            DataType dt = fifos[i]->getCStateVar(portNum).getDataType();
+            int width = dt.getWidth();
+            if (blockSize == 1 && width == 1) {
+                exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
+                if (dt.isComplex()) {
+                    exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag = " + defaultVal[i][portNum].toStringComponent(true, dt) + ";");
+                }
+            } else if ((blockSize == 1 && width > 1) || (blockSize > 1 && width == 1)) {
+                //Cannot initialize with = {} because inside a structure
+                int entries = std::max(blockSize, width);
+                for (int j = 0; j < entries; j++) {
+                    exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real[" + GeneralHelper::to_string(j) + "] = " +
+                                    defaultVal[i][portNum].toStringComponent(false, dt) + ";");
+                }
+                if (dt.isComplex()) {
+                    for (int j = 0; j < entries; j++) {
+                        exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(j) + "] = " +
+                                        defaultVal[i][portNum].toStringComponent(true, dt) + ";");
+                    }
+                }
+            } else {
+                for (int j = 0; j < blockSize; j++) {
+                    for (int k = 0; k < width; k++) {
+                        exprs.push_back(
+                                tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) +
+                                "] = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
+                    }
+                }
+
+                if (dt.isComplex()) {
+                    for (int j = 0; j < blockSize; j++) {
+                        for (int k = 0; k < width; k++) {
+                            exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(j) + "][" +
+                                            GeneralHelper::to_string(k) + "] = " +
+                                            defaultVal[i][portNum].toStringComponent(true, dt) + ";");
+                        }
                     }
                 }
             }
@@ -681,8 +706,7 @@ std::vector<std::string> EmitterHelpers::readFIFOsToTemps(std::vector<std::share
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
-        Variable fifoSrcVar = fifos[i]->getCStateVar(); //This is the temp we are creating for.
-        std::string tmpName = fifoSrcVar.getName() + "_tmp";
+        std::string tmpName = fifos[i]->getName() + "_readTmp";
         //However, the type will be the FIFO structure rather than the variable type directly.
         //The fifo reads in terms of blocks with the components stored in a structure
         //When calling the function, the relavent component of the structure is passed as an argument
@@ -697,8 +721,7 @@ std::vector<std::string> EmitterHelpers::writeFIFOsFromTemps(std::vector<std::sh
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
-        Variable fifoDstVar = fifos[i]->getCStateInputVar(); //This is the temp we are creating for.
-        std::string tmpName = fifoDstVar.getName() + "_tmp";
+        std::string tmpName = fifos[i]->getName() + "_writeTmp";
         //However, the type will be the FIFO structure rather than the variable type directly.
         //The fifo reads in terms of blocks with the components stored in a structure
         //When calling the function, the relavent component of the structure is passed as an argument

@@ -132,6 +132,7 @@ class LocklessThreadCrossingFIFO : public ThreadCrossingFIFO {
     friend NodeFactory;
 
 protected:
+    //All the ports are bundled in a structure.  Only one set of underlying shared FIFO variables are needed
     Variable cWriteOffsetPtr; ///<The C variable corresponding to the write pointer offset (in blocks)
     Variable cReadOffsetPtr; ///<The C variable corresponding to the read pointer offset (in blocks)
     Variable cArrayPtr; ///<The C variable corresponding to the FIFO array

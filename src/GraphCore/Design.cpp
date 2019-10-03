@@ -511,11 +511,16 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
 std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
     std::string prototype = "";
 
-    unsigned long numInputVars = inputFIFOs.size();
+    std::vector<Variable> inputVars;
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
+            inputVars.push_back(inputFIFOs[i]->getCStateVar(j));
+        }
+    }
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
-    if(numInputVars>0){
-        Variable var = inputFIFOs[0]->getCStateVar();
+    for(unsigned long i = 0; i<inputVars.size(); i++){
+        Variable var = inputVars[i];
 
         if(blockSize>1){
             DataType varType = var.getDataType();
@@ -526,6 +531,9 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
         //Pass as not volatile
         var.setVolatileVar(false);
 
+        if(i > 0){
+            prototype += ", ";
+        }
         prototype += "const " + var.getCVarDecl(false, false, false, true);
 
         //Check if complex
@@ -534,36 +542,22 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
         }
     }
 
-    for(unsigned long i = 1; i<numInputVars; i++){
-        Variable var = inputFIFOs[i]->getCStateVar();
-
-        if(blockSize>1){
-            DataType varType = var.getDataType();
-            varType.setWidth(varType.getWidth()*blockSize);
-            var.setDataType(varType);
-        }
-
-        //Pass as not volatile
-        var.setVolatileVar(false);
-
-        prototype += ", const " + var.getCVarDecl(false, false, false, true);
-
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, false, false, true);
+    //Add outputs
+    std::vector<Variable> outputVars;
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        for(int j = 0; j<outputFIFOs[i]->getInputPorts().size(); j++){
+            outputVars.push_back(outputFIFOs[i]->getCStateInputVar(j));
         }
     }
 
-    //Add output
-    if(numInputVars>0){
+    if(inputVars.size()>0){
         prototype += ", ";
     }
-
-    unsigned long numOutputVars = outputFIFOs.size();
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
-    if(numOutputVars>0){
-        Variable var = outputFIFOs[0]->getCStateInputVar();
+
+    for(unsigned long i = 0; i<outputVars.size(); i++){
+        Variable var = outputVars[i];
 
         if(blockSize>1){
             DataType varType = var.getDataType();
@@ -574,29 +568,9 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
         //Pass as not volatile
         var.setVolatileVar(false);
 
-        //The output variables are always pointers
-        prototype += var.getCPtrDecl(false);
-
-        //Check if complex
-        if(var.getDataType().isComplex()){
+        if(i > 0) {
             prototype += ", ";
-            prototype += var.getCPtrDecl(true);
         }
-    }
-
-    for(unsigned long i = 1; i<numOutputVars; i++){
-        Variable var = outputFIFOs[i]->getCStateInputVar();
-
-        if(blockSize>1){
-            DataType varType = var.getDataType();
-            varType.setWidth(varType.getWidth()*blockSize);
-            var.setDataType(varType);
-        }
-
-        //Pass as not volatile
-        var.setVolatileVar(false);
-
-        prototype += ", ";
         //The output variables are always pointers
         prototype += var.getCPtrDecl(false);
 
@@ -613,73 +587,57 @@ std::string Design::getPartitionComputeCFunctionArgPrototype(std::vector<std::sh
 std::string Design::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
     std::string call = computeFctnName + "(";
 
-    unsigned long numInputVars = inputFIFOs.size();
-
+    int foundInputVar = false;
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
-    if(numInputVars>0){
-        Variable var = inputFIFOs[0]->getCStateVar();
-        //Get the temp var name
-        std::string tmpName = var.getName() + "_tmp";
+    for(unsigned long i = 0; i<inputFIFOs.size(); i++) {
+        for (unsigned long portNum = 0; portNum < inputFIFOs[i]->getInputPorts().size(); portNum++) {
+            Variable var = inputFIFOs[i]->getCStateVar(portNum);
+            std::string tmpName = inputFIFOs[i]->getName() + "_readTmp";
 
-        call += tmpName + ".real";
+            if (foundInputVar) {
+                call += ", ";
+            }
+            call += tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real";
 
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            call += ", " + tmpName + ".imag";
-        }
-    }
+            foundInputVar = true;
 
-    for(unsigned long i = 1; i<numInputVars; i++){
-        Variable var = inputFIFOs[i]->getCStateVar();
-        std::string tmpName = var.getName() + "_tmp";
-
-        call += ", " + tmpName + ".real";
-
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            call += ", " + tmpName + ".imag";
+            //Check if complex
+            if (var.getDataType().isComplex()) {
+                call += ", " + tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag";
+            }
         }
     }
 
     //Add output
-    if(numInputVars>0){
+    if(foundInputVar>0){
         call += ", ";
     }
 
-    unsigned long numOutputVars = outputFIFOs.size();
+    bool foundOutputVar = false;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
-    if(numOutputVars>0){
-        Variable var = outputFIFOs[0]->getCStateInputVar();
-        std::string tmpName = "";
-        if(var.getDataType().getWidth()*blockSize == 1){
-            tmpName += "&";
-        }
-        tmpName += var.getName() + "_tmp";
 
-        call += tmpName + ".real";
+    for(unsigned long i = 0; i<outputFIFOs.size(); i++) {
+        for (unsigned long portNum = 0; portNum < outputFIFOs[i]->getInputPorts().size(); portNum++) {
+            Variable var = outputFIFOs[i]->getCStateInputVar(portNum);
+            std::string tmpName = "";
+            if (var.getDataType().getWidth() * blockSize == 1) {
+                tmpName += "&";
+            }
+            tmpName += outputFIFOs[i]->getName() + "_writeTmp";
 
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            call += ", " + tmpName + ".imag";
-        }
-    }
+            if (foundOutputVar) {
+                call += ", ";
+            }
 
-    for(unsigned long i = 1; i<numOutputVars; i++){
-        Variable var = outputFIFOs[i]->getCStateInputVar();
-        std::string tmpName = "";
-        if(var.getDataType().getWidth()*blockSize == 1){
-            tmpName += "&";
-        }
-        tmpName += var.getName() + "_tmp";
+            foundOutputVar = true;
 
-        call += ", ";
+            call += tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real";
 
-        call += tmpName + ".real";
-
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            call += ", " + tmpName + ".imag";
+            //Check if complex
+            if (var.getDataType().isComplex()) {
+                call += ", " + tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag";
+            }
         }
     }
 
@@ -1984,16 +1942,20 @@ void Design::emitIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inpu
     ioThread << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
     ioThread << "//Set Constant Arguments" << std::endl;
-    std::vector<NumericValue> defaultArgs;
+    std::vector<std::vector<NumericValue>> defaultArgs;
     for (unsigned long i = 0; i < outputFIFOs.size(); i++) {
-        DataType type = (*outputFIFOs[i]->getInputArcs().begin())->getDataType(); // should already be validated to have an input port
-        NumericValue val;
-        val.setRealInt(1);
-        val.setImagInt(1);
-        val.setComplex(type.isComplex());
-        val.setFractional(false);
+        std::vector<NumericValue> defaultArgsForFifo;
+        for(unsigned long portNum = 0; portNum<outputFIFOs[i]->getInputPorts().size(); portNum++) {
+            DataType type = (*outputFIFOs[i]->getInputPort(portNum)->getArcs().begin())->getDataType(); // should already be validated to have an input port
+            NumericValue val;
+            val.setRealInt(1);
+            val.setImagInt(1);
+            val.setComplex(type.isComplex());
+            val.setFractional(false);
 
-        defaultArgs.push_back(val);
+            defaultArgsForFifo.push_back(val);
+        }
+        defaultArgs.push_back(defaultArgsForFifo);
     }
 
     //Create temp entries for outputs and initialize them with the constants
