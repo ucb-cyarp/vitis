@@ -362,8 +362,9 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     cStatementQueue.push_back("*" + getCReadOffsetPtr().getCVarName(false) + " = 0;");
 
     //Write pointer initialized to (init.size()+1)%arrayLength = (init.size()+1)%(fifoLength+1)
+    //Should be validated at this point that all ports have the same number of init conditions
     int arrayLength=fifoLength+1;
-    int writeInd = (initConditions.size()/blockSize+1)%arrayLength;
+    int writeInd = (getInitConditionsCreateIfNot(0).size()/blockSize+1)%arrayLength;
     cStatementQueue.push_back("*" + getCWriteOffsetPtr().getCVarName(false) + " = " + GeneralHelper::to_string(writeInd) + ";");
 }
 
