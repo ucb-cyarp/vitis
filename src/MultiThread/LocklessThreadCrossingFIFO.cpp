@@ -62,7 +62,7 @@ Variable LocklessThreadCrossingFIFO::getCArrayPtr() {
     cArrayPtr.setVolatileVar(true);
 
     if (!initialized){
-        if (getOutputPorts().size() == 1 && getOutputPort(0)->getArcs().size() >= 1) {
+        if (getOutputPorts().size() >= 1 && getOutputPort(0)->getArcs().size() >= 1) {
             cArrayPtr.setDataType((*(getOutputPort(0)->getArcs().begin()))->getDataType());
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Should Have >= 1 Output Arc", getSharedPointer()));
