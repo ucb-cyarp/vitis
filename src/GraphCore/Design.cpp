@@ -4726,6 +4726,45 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
     std::cout << std::endl;
 
+    {
+        std::vector<std::shared_ptr<Node>> new_nodes;
+        std::vector<std::shared_ptr<Node>> deleted_nodes;
+        std::vector<std::shared_ptr<Arc>> new_arcs;
+        std::vector<std::shared_ptr<Arc>> deleted_arcs;
+
+        fifoMap = EmitterHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, true);
+        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+    }
+    assignNodeIDs();
+    assignArcIDs();
+
+    std::cout << std::endl;
+    std::cout << "========== FIFO Report (After Merge) ==========" << std::endl;
+    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
+        for(int i = 0; i<fifoVec.size(); i++) {
+            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size() << std::endl;
+        }
+    }
+    std::cout << std::endl;
+
+    //TODO Refactor into functions?
+    //Need to rebuild fifoVec, inputFIFOs, and outputFIFOs, since merging may have occured
+    fifoVec.clear();
+    inputFIFOs.clear();
+    outputFIFOs.clear();
+    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
+        int srcPartition = it->first.first;
+        int dstPartition = it->first.second;
+        fifoVec.insert(fifoVec.end(), it->second.begin(), it->second.end());
+
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>>& inputFIFOsRef = inputFIFOs[dstPartition];
+        inputFIFOsRef.insert(inputFIFOsRef.end(), it->second.begin(), it->second.end());
+
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>>& outputFIFOsRef = outputFIFOs[srcPartition];
+        outputFIFOsRef.insert(outputFIFOsRef.end(), it->second.begin(), it->second.end());
+    }
+
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
 //        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
@@ -4739,6 +4778,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignArcIDs();
 
     //TODO: Validate deadlock free (no cycles with 0 initial fifo state, disallow context driver "cycles")
+
+    //TODO: Validate in general.  Note, validation has to change since it is now OK for some output ports to be disconnected (or unconnected master need to be left connected and arcs to/from it should be ignored when inserting FIFOs and checking sheduling)
 
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes

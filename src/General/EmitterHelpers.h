@@ -238,6 +238,39 @@ public:
                                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                                 bool printActions = true);
 
+    static void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                         int targetSize,
+                                                         std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                         std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                         std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                         std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                         bool printActions = true);
+
+    static void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                             int numElementsToMove,
+                                             std::vector<std::shared_ptr<Node>> &new_nodes,
+                                             std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                             std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+    /**
+     * @brief Merge FIFOs between a pair of partitions into a single FIFO
+     * @param fifos
+     * @param new_nodes
+     * @param deleted_nodes
+     * @param new_arcs
+     * @param deleted_arcs
+     * @param printActions
+     * @return
+     */
+    static std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
+            mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                              bool printActions = true);
+
     /**
      * @brief Finds the input and output FIFOs for a partition given a partition crossing to FIFO map
      * @param fifoMap

@@ -347,6 +347,61 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
     int numElementsToMove = fifoInitialConditions.size() % fifo->getBlockSize();
 
     if(numElementsToMove > 0){
+        EmitterHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+
+        if (printActions) {
+            std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                      << " " << numElementsToMove << " initial conditions moved into delay at input" << std::endl;
+        }
+    }
+}
+
+void EmitterHelpers::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                              int tgtSize,
+                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                              bool printActions){
+    //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
+    //FIFO bundling happens after this point
+    if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, initial condition reshaping is only supported with FIFOs that have a single input and output port" , fifo));
+    }
+
+    std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
+
+    if(tgtSize > fifoInitialConditions.size()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("For Initial Condition reshaping, target initial condition size must be <= the current initial condition size" , fifo));
+    }
+
+    int numElementsToMove = fifoInitialConditions.size() - tgtSize;
+
+    if(numElementsToMove > 0){
+        EmitterHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+
+        if (printActions) {
+            std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                      << " " << numElementsToMove << " initial conditions moved into delay at input" << std::endl;
+        }
+    }
+}
+
+void EmitterHelpers::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                              int numElementsToMove,
+                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+    //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
+    //FIFO bundling happens after this point
+    if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, initial condition reshaping is only supported with FIFOs that have a single input and output port" , fifo));
+    }
+
+    std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
+
+    if(numElementsToMove > 0){
         //Need to create a delay to move the remaining elements into
         std::vector<Context> fifoContext = fifo->getContext();
 
@@ -391,12 +446,97 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
         std::shared_ptr<Arc> newInputArc =  Arc::connectNodes(delay->getOutputPortCreateIfNot(0), fifo->getInputPortCreateIfNot(0), origInputArc->getDataType(), origInputArc->getSampleTime());
         new_arcs.push_back(newInputArc);
         origInputArc->setDstPortUpdateNewUpdatePrev(delay->getInputPortCreateIfNot(0));
+    }
+}
 
-        if (printActions) {
-            std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
-                      << " " << numElementsToMove << " initial conditions moved into delay at input" << std::endl;
+std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
+        EmitterHelpers::mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+                       std::vector<std::shared_ptr<Node>> &new_nodes,
+                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                       std::vector<std::shared_ptr<Arc>> &new_arcs,
+                       std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                       bool printActions){
+
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> newMap;
+
+    for(auto it = fifos.begin(); it != fifos.end(); it++){
+        std::pair<int, int> crossing = it->first;
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> partitionCrossingFIFOs = it->second;
+
+        if(partitionCrossingFIFOs.size()>1){
+            //Only merge if > 1 FIFO crossing a given partition crossing
+
+            //Find the minimum number of initial conditions present for each FIFO in this set
+            int minInitConds = partitionCrossingFIFOs[0]->getInitConditionsCreateIfNot(0).size(); //Guarenteed to have at least port 0
+            for(int i = 0; i<partitionCrossingFIFOs.size(); i++){
+                for(int portNum = 0; portNum<partitionCrossingFIFOs[i]->getInputPorts().size(); portNum++){
+                    minInitConds = std::min(minInitConds, (int) partitionCrossingFIFOs[i]->getInitConditionsCreateIfNot(portNum).size());
+                }
+            }
+
+            //Reshape FIFO0 to the correct number of initial conditions
+            reshapeFIFOInitialConditionsToSize(partitionCrossingFIFOs[0], minInitConds, new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
+
+            //std::cout << partitionCrossingFIFOs[0]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[0]->getId() << "] " << " Port 0 Output Arcs: " << partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(0)->getArcs().size() << " Dst: " << (*partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(0)->getArcs().begin())->getDstPort()->getParent()->getName() << std::endl;
+
+            //Absorb FIFOs into FIFO0
+            for(int i = 1; i<partitionCrossingFIFOs.size(); i++){
+                //Trim FIFO initial conditions to minimum of set
+                reshapeFIFOInitialConditionsToSize(partitionCrossingFIFOs[i], minInitConds, new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
+
+                //Rewire the input and output ports (which come in pairs)
+                for(int portNum = 0; portNum<partitionCrossingFIFOs[i]->getInputPorts().size(); portNum++){
+                    int newPortNum = partitionCrossingFIFOs[0]->getInputPorts().size(); //Since goes from 0 to size-1, size is the next port number
+
+                    //Transfer initial conditions
+                    partitionCrossingFIFOs[0]->setInitConditionsCreateIfNot(newPortNum, partitionCrossingFIFOs[i]->getInitConditionsCreateIfNot(portNum));
+
+                    //Rewire inputs
+                    std::shared_ptr<InputPort> newInputPort = partitionCrossingFIFOs[0]->getInputPortCreateIfNot(newPortNum);
+                    std::set<std::shared_ptr<Arc>> inputArcs = partitionCrossingFIFOs[i]->getInputPort(portNum)->getArcs();
+                    for(auto arcIt = inputArcs.begin(); arcIt != inputArcs.end(); arcIt++){
+                        (*arcIt)->setDstPortUpdateNewUpdatePrev(newInputPort);
+                    }
+
+                    //Rewire outputs
+                    std::shared_ptr<OutputPort> newOutputPort = partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(newPortNum);
+                    std::set<std::shared_ptr<Arc>> outputArcs = partitionCrossingFIFOs[i]->getOutputPort(portNum)->getArcs();
+                    for(auto arcIt = outputArcs.begin(); arcIt != outputArcs.end(); arcIt++){
+                        (*arcIt)->setSrcPortUpdateNewUpdatePrev(newOutputPort);
+                    }
+                }
+
+                //Rewire Order Constraint Inputs
+                std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = partitionCrossingFIFOs[i]->getOrderConstraintInputArcs();
+                for(auto arcIt = orderConstraintInputArcs.begin(); arcIt != orderConstraintInputArcs.end(); arcIt++){
+                    (*arcIt)->setDstPortUpdateNewUpdatePrev(partitionCrossingFIFOs[0]->getOrderConstraintInputPortCreateIfNot());
+                }
+
+                //Rewire Order Constraint Outputs
+                std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = partitionCrossingFIFOs[i]->getOrderConstraintOutputArcs();
+                for(auto arcIt = orderConstraintOutputArcs.begin(); arcIt != orderConstraintOutputArcs.end(); arcIt++){
+                    (*arcIt)->setSrcPortUpdateNewUpdatePrev(partitionCrossingFIFOs[0]->getOrderConstraintOutputPortCreateIfNot());
+                }
+
+                if(printActions){
+                    std::cout << "FIFO Merged: " << partitionCrossingFIFOs[i]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[i]->getId() << "]"
+                              << " into " << partitionCrossingFIFOs[0]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[0]->getId() << "]" << std::endl;
+                }
+
+                //Mark FIFO for deletion
+                deleted_nodes.push_back(partitionCrossingFIFOs[i]);
+            }
+
+            //std::cout << partitionCrossingFIFOs[0]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[0]->getId() << "] " << " Port 0 Output Arcs: " << partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(0)->getArcs().size() << std::endl;
+
+            //Only FIFO0 is left
+            newMap[crossing] = {partitionCrossingFIFOs[0]};
+        }else{
+            //Nothing changed, return the unchanged result
+            newMap[crossing] = partitionCrossingFIFOs;
         }
     }
+    return newMap;
 }
 
 void EmitterHelpers::findPartitionInputAndOutputFIFOs(
