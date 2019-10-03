@@ -243,9 +243,12 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
 
                 //Set FIFO new initial conditions
-                //Append the existing FIFO init conditions onto the back of the postfix
                 int remainingPostfix = longestPostfix.size() - numToAbsorb;
-                longestPostfix.insert(longestPostfix.end(), longestPostfix.begin()+remainingPostfix, longestPostfix.end());
+                std::vector<NumericValue> newFIFOInitConds;
+                newFIFOInitConds.insert(newFIFOInitConds.end(), longestPostfix.begin()+remainingPostfix, longestPostfix.end());
+                //Append the existing FIFO init conditions onto the back of the postfix
+                newFIFOInitConds.insert(newFIFOInitConds.end(), fifoInitConds.begin(), fifoInitConds.end());
+                fifo->setInitConditions(newFIFOInitConds);
 
                 //For each delay: Adjust Delay initial conditions or remove delay entirely
                 //Remember to place initial conditions in correct order (append FIFO init conditions to delay initial conditions)
