@@ -4424,7 +4424,17 @@ std::map<int, std::vector<std::shared_ptr<Node>>> Design::findPartitions() {
 
     for(unsigned long i = 0; i<nodesToSearch.size(); i++){
         int nodePartition = nodesToSearch[i]->getPartitionNum();
-        partitions[nodePartition].push_back(nodesToSearch[i]); //The map returns a reference to the vector
+        //Ignore standard subsystems in partition -1
+        if(nodePartition == -1){
+            if(GeneralHelper::isType<Node, EnabledSubSystem>(nodesToSearch[i]) == nullptr
+                    || GeneralHelper::isType<Node, ContextFamilyContainer>(nodesToSearch[i]) != nullptr
+                    || GeneralHelper::isType<Node, ContextContainer>(nodesToSearch[i]) != nullptr
+                    || GeneralHelper::isType<Node, EnabledSubSystem>(nodesToSearch[i]) != nullptr){
+                partitions[nodePartition].push_back(nodesToSearch[i]); //The map returns a reference to the vector
+            }
+        }else {
+            partitions[nodePartition].push_back(nodesToSearch[i]); //The map returns a reference to the vector
+        }
     }
 
     return partitions;
