@@ -4736,27 +4736,27 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
     std::cout << std::endl;
 
-    {
-        std::vector<std::shared_ptr<Node>> new_nodes;
-        std::vector<std::shared_ptr<Node>> deleted_nodes;
-        std::vector<std::shared_ptr<Arc>> new_arcs;
-        std::vector<std::shared_ptr<Arc>> deleted_arcs;
-
-        fifoMap = EmitterHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, true);
-        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
-    }
-    assignNodeIDs();
-    assignArcIDs();
-
-    std::cout << std::endl;
-    std::cout << "========== FIFO Report (After Merge) ==========" << std::endl;
-    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
-        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
-        for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size() << std::endl;
-        }
-    }
-    std::cout << std::endl;
+//    {
+//        std::vector<std::shared_ptr<Node>> new_nodes;
+//        std::vector<std::shared_ptr<Node>> deleted_nodes;
+//        std::vector<std::shared_ptr<Arc>> new_arcs;
+//        std::vector<std::shared_ptr<Arc>> deleted_arcs;
+//
+//        fifoMap = EmitterHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, true);
+//        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+//    }
+//    assignNodeIDs();
+//    assignArcIDs();
+//
+//    std::cout << std::endl;
+//    std::cout << "========== FIFO Report (After Merge) ==========" << std::endl;
+//    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
+//        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
+//        for(int i = 0; i<fifoVec.size(); i++) {
+//            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size() << std::endl;
+//        }
+//    }
+//    std::cout << std::endl;
 
     //TODO Refactor into functions?
     //Need to rebuild fifoVec, inputFIFOs, and outputFIFOs, since merging may have occured
