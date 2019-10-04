@@ -812,6 +812,8 @@ public:
      * @note: Subsystems may not have a valid partition.  Partition -1 indicates that the node has not been placed in a
      * partition.
      *
+     * @warning: Standard subsystems in partition -1 are not returned in the map
+     *
      * @return A map of partitions to vectors of nodes in that partition
      */
     std::map<int, std::vector<std::shared_ptr<Node>>> findPartitions();
