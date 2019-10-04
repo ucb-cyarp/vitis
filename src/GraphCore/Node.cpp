@@ -208,6 +208,7 @@ xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc:
 
     xercesc::DOMElement* nodeElement = GraphMLHelper::createNode(doc, "node");
     GraphMLHelper::setAttribute(nodeElement, "id", getFullGraphMLPath());
+    GraphMLHelper::addDataNode(doc, nodeElement, "node_id", GeneralHelper::to_string(getId()));
 
     if(!name.empty()){
         GraphMLHelper::addDataNode(doc, nodeElement, "instance_name", name);

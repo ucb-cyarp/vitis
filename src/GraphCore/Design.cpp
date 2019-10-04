@@ -192,6 +192,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("block_label", "string", true));
     parameters.insert(GraphMLParameter("block_partition_num", "int", true));
     parameters.insert(GraphMLParameter("block_sched_order", "int", true));
+    parameters.insert(GraphMLParameter("node_id", "int", true));
 
     //Add the static entries for arcs
     parameters.insert(GraphMLParameter("arc_src_port", "int", false));
@@ -201,6 +202,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("arc_datatype", "string", false));
     parameters.insert(GraphMLParameter("arc_complex", "string", false));
     parameters.insert(GraphMLParameter("arc_width", "string", false));
+    parameters.insert(GraphMLParameter("arc_id", "int", true));
 
     std::set<GraphMLParameter> inputParameters = inputMaster->graphMLParameters();
     parameters.insert(inputParameters.begin(), inputParameters.end());
@@ -3686,7 +3688,8 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
     }
 
     if(failed) {
-        std::cout << "Emitting: " + dir + "/" + designName + "_sort_error_scheduleGraph.graphml" << std::endl;
+        std::cerr << "Error when scheduling partition " << partitionNum << std::endl;
+        std::cerr << "Emitting: " + dir + "/" + designName + "_sort_error_scheduleGraph.graphml" << std::endl;
         GraphMLExporter::exportGraphML(dir + "/" + designName + "_sort_error_scheduleGraph.graphml", *this);
 
         throw err;

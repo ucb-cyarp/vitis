@@ -302,6 +302,7 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
     GraphMLHelper::addDataNode(doc, arcElement, "arc_complex", complexStr);
     GraphMLHelper::addDataNode(doc, arcElement, "arc_width", GeneralHelper::to_string(dataType.getWidth()));
     GraphMLHelper::addDataNode(doc, arcElement, "arc_disp_label", labelStr());
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_id", GeneralHelper::to_string(getId()));
 
     //---Add to graph node---
     graphNode->appendChild(arcElement);
