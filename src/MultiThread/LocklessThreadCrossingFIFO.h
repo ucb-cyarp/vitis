@@ -8,7 +8,7 @@
 #include "ThreadCrossingFIFO.h"
 
 /**
- * \addtogroup MultiThread Multi-Thread Support Nodes
+ * \addtogroup MultiThread Multi-Thread Support
  * @{
  */
 

@@ -9,6 +9,11 @@
 #include "ThreadCrossingFIFO.h"
 #include <string>
 
+/**
+ * \addtogroup MultiThread Multi-Thread Support
+ * @{
+ */
+
 class ConstIOThread {
 public:
 /**

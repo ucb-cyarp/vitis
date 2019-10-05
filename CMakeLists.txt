@@ -42,8 +42,8 @@ set(COMMON_SRCS
         src/General/TopologicalSortParameters.h
         src/General/DSPHelpers.cpp
         src/General/DSPHelpers.h
-        src/General/MultiThreadEmitterHelpers.cpp
-        src/General/MultiThreadEmitterHelpers.h
+        src/General/EmitterHelpers.cpp
+        src/General/EmitterHelpers.h
         src/General/ErrorHelpers.cpp
         src/General/ErrorHelpers.h
         src/GraphCore/SchedParams.cpp
@@ -182,6 +182,10 @@ set(COMMON_SRCS
         src/HighLevelNodes/DiscreteFIR.h
         src/HighLevelNodes/TappedDelay.cpp
         src/HighLevelNodes/TappedDelay.h
+        src/MultiThread/MultiThreadEmitterHelpers.cpp
+        src/MultiThread/MultiThreadEmitterHelpers.h
+        src/MultiThread/MultiThreadTransformHelpers.cpp
+        src/MultiThread/MultiThreadTransformHelpers.h
         src/MultiThread/ThreadCrossingFIFO.cpp
         src/MultiThread/ThreadCrossingFIFO.h
         src/MultiThread/LocklessThreadCrossingFIFO.cpp

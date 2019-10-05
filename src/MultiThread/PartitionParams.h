@@ -8,7 +8,7 @@
 #include <string>
 
 /**
- * \addtogroup MultiThread Multi-Thread Support Nodes
+ * \addtogroup MultiThread Multi-Thread Support
  * @{
  */
 

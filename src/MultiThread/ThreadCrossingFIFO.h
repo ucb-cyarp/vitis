@@ -16,8 +16,8 @@
 #include "GraphCore/StateUpdate.h"
 
 /**
- * \addtogroup MultiThread Multi-Thread Support Nodes
- * @brief Nodes which Support Multi-threaded Code Generator
+ * \addtogroup MultiThread Multi-Thread Support
+ * @brief Nodes and helper classes which support Multi-threaded Code Generator
  * @{
  */
 

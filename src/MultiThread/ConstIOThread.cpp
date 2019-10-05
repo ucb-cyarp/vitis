@@ -8,7 +8,7 @@
 #include <fstream>
 #include "GraphCore/Design.h"
 #include "General/GeneralHelper.h"
-#include "General/MultiThreadEmitterHelpers.h"
+#include "MultiThreadEmitterHelpers.h"
 
 void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
     //Emit a thread for handeling the I/O

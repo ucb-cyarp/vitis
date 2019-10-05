@@ -10,6 +10,7 @@
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 #include "NodeFactory.h"
 #include "MasterNodes/MasterInput.h"
@@ -33,7 +34,8 @@
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
 #include "MultiThread/ConstIOThread.h"
-#include "General/MultiThreadEmitterHelpers.h"
+#include "MultiThread/MultiThreadEmitterHelpers.h"
+#include "MultiThread/MultiThreadTransformHelpers.h"
 
 //==== Constructors
 Design::Design() {
@@ -828,7 +830,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
-    MultiThreadEmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
+    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
 }
 
 void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched, unsigned long blockSize) {
@@ -2545,11 +2547,11 @@ void Design::createContextVariableUpdateNodes(bool includeContext) {
 }
 
 std::vector<std::shared_ptr<Node>> Design::findNodesWithState() {
-    return MultiThreadEmitterHelpers::findNodesWithState(nodes);
+    return EmitterHelpers::findNodesWithState(nodes);
 }
 
 std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
-    return MultiThreadEmitterHelpers::findNodesWithGlobalDecl(nodes);
+    return EmitterHelpers::findNodesWithGlobalDecl(nodes);
 }
 
 //TODO: Check
@@ -2705,15 +2707,15 @@ void Design::propagatePartitionsFromSubsystemsToChildren(){
     std::set<std::shared_ptr<Node>> topLevelNodeSet;
     topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
 
-    MultiThreadEmitterHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1);
+    MultiThreadTransformHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1);
 }
 
 std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
-    return MultiThreadEmitterHelpers::findContextRoots(nodes);
+    return EmitterHelpers::findContextRoots(nodes);
 }
 
 std::vector<std::shared_ptr<BlackBox>> Design::findBlackBoxes(){
-    return MultiThreadEmitterHelpers::findBlackBoxes(nodes);
+    return EmitterHelpers::findBlackBoxes(nodes);
 }
 
 //TODO: Check
@@ -3270,7 +3272,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
         switch (fifoType) {
             case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
-                fifoMap = MultiThreadEmitterHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+                fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
                 break;
             default:
                 throw std::runtime_error(
@@ -3316,7 +3318,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         std::vector<std::shared_ptr<Arc>> new_arcs;
         std::vector<std::shared_ptr<Arc>> deleted_arcs;
 
-        MultiThreadEmitterHelpers::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
         addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
     }
     assignNodeIDs();
