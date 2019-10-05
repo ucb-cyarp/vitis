@@ -190,6 +190,8 @@ set(COMMON_SRCS
         src/MultiThread/PartitionParams.h
         src/MultiThread/ThreadCrossingFIFOParameters.cpp
         src/MultiThread/ThreadCrossingFIFOParameters.h
+        src/MultiThread/ConstIOThread.cpp
+        src/MultiThread/ConstIOThread.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
