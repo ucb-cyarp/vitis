@@ -8,7 +8,7 @@
 #include <fstream>
 #include "GraphCore/Design.h"
 #include "General/GeneralHelper.h"
-#include "General/EmitterHelpers.h"
+#include "General/MultiThreadEmitterHelpers.h"
 
 void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
     //Emit a thread for handeling the I/O
@@ -37,7 +37,7 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     headerFile << std::endl;
 
     //Create the threadFunction argument structure for the I/O thread (includes the references to FIFO shared vars)
-    std::pair<std::string, std::string> threadArgStructAndTypeName = EmitterHelpers::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, IO_PARTITION_NUM);
+    std::pair<std::string, std::string> threadArgStructAndTypeName = MultiThreadEmitterHelpers::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, IO_PARTITION_NUM);
     std::string threadArgStruct = threadArgStructAndTypeName.first;
     std::string threadArgTypeName = threadArgStructAndTypeName.second;
     headerFile << threadArgStruct << std::endl;
@@ -61,7 +61,7 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     ioThread << threadFctnDecl << "{" << std::endl;
 
     //Copy shared variables from the input argument structure
-    ioThread << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
+    ioThread << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
     ioThread << "//Set Constant Arguments" << std::endl;
     std::vector<std::vector<NumericValue>> defaultArgs;
@@ -81,13 +81,13 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     }
 
     //Create temp entries for outputs and initialize them with the constants
-    std::vector<std::string> tmpWriteDecls = EmitterHelpers::createAndInitializeFIFOWriteTemps(outputFIFOs, defaultArgs);
+    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createAndInitializeFIFOWriteTemps(outputFIFOs, defaultArgs);
     for(int i = 0; i<tmpWriteDecls.size(); i++){
         ioThread << tmpWriteDecls[i] << std::endl;
     }
 
     //Create the input FIFO temps
-    std::vector<std::string> tmpReadDecls = EmitterHelpers::createFIFOReadTemps(inputFIFOs);
+    std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
     for(int i = 0; i<tmpReadDecls.size(); i++){
         ioThread << tmpReadDecls[i] << std::endl;
     }
@@ -101,10 +101,10 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     }
     ioThread << "for(int i = 0; i<iterLimit; ){" << std::endl;
     //Check Output FIFOs
-    ioThread << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
     ioThread << "if(outputFIFOsReady){" << std::endl;
     //Write FIFOs
-    std::vector<std::string> writeFIFOExprs = EmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
+    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         ioThread << writeFIFOExprs[i] << std::endl;
     }
@@ -115,10 +115,10 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     ioThread << "}" << std::endl;
 
     //Check input FIFOs
-    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
     ioThread << "if(inputFIFOsReady){" << std::endl;
     //Read input FIFOs
-    std::vector<std::string> readFIFOExprs = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
     }
@@ -132,10 +132,10 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
 
     //Wait for reading to finish
     ioThread << "while(readCount<iterLimit){" << std::endl;
-    ioThread << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here (is blocking)
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here (is blocking)
     ioThread << "if(inputFIFOsReady){" << std::endl;
     //Read input FIFOs
-    std::vector<std::string> readFIFOExprsCleanup = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    std::vector<std::string> readFIFOExprsCleanup = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
     for(int i = 0; i<readFIFOExprsCleanup.size(); i++){
         ioThread << readFIFOExprsCleanup[i] << std::endl;
     }

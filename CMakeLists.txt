@@ -42,8 +42,8 @@ set(COMMON_SRCS
         src/General/TopologicalSortParameters.h
         src/General/DSPHelpers.cpp
         src/General/DSPHelpers.h
-        src/General/EmitterHelpers.cpp
-        src/General/EmitterHelpers.h
+        src/General/MultiThreadEmitterHelpers.cpp
+        src/General/MultiThreadEmitterHelpers.h
         src/General/ErrorHelpers.cpp
         src/General/ErrorHelpers.h
         src/GraphCore/SchedParams.cpp

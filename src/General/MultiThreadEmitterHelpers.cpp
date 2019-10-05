@@ -2,7 +2,7 @@
 // Created by Christopher Yarp on 9/3/19.
 //
 
-#include "EmitterHelpers.h"
+#include "MultiThreadEmitterHelpers.h"
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/BlackBox.h"
 #include "GraphCore/ContextRoot.h"
@@ -11,11 +11,11 @@
 #include <iostream>
 #include <fstream>
 
-void EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
-                                                   std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                   std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool printActions) {
+void MultiThreadEmitterHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool printActions) {
 
     for(auto it = fifos.begin(); it != fifos.end(); it++){
         int srcPartition = it->first.first;
@@ -52,18 +52,18 @@ void EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>,
             //TODO: Refactor into absorption?  Tricky because there may be a chain of delays.  Possibly when re-timer is implemented
             //The number of initial conditions in the FIFO must be a multiple of the block size
             //remove the remainder from the FIFO and insert into a delay at the input
-            EmitterHelpers::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
+            MultiThreadEmitterHelpers::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
         }
     }
 }
 
-EmitterHelpers::AbsorptionStatus
-EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                   int inputPartition,
-                                                   std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                   std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool printActions) {
+MultiThreadEmitterHelpers::AbsorptionStatus
+MultiThreadEmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                              int inputPartition,
+                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool printActions) {
     //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
     //FIFO bundling happens after this point
     if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
@@ -180,14 +180,14 @@ EmitterHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossin
     return AbsorptionStatus::NO_ABSORPTION;
 }
 
-EmitterHelpers::AbsorptionStatus
-EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                    int outputPartition,
-                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                                    bool printActions) {
+MultiThreadEmitterHelpers::AbsorptionStatus
+MultiThreadEmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                               int outputPartition,
+                                                               std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                               std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                               bool printActions) {
     //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
     //FIFO bundling happens after this point
     if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
@@ -333,12 +333,12 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
     return AbsorptionStatus::NO_ABSORPTION;
 }
 
- void EmitterHelpers::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                     std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                     std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                     std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                                     bool printActions){
+ void MultiThreadEmitterHelpers::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                                          std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                                          bool printActions){
      //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
      //FIFO bundling happens after this point
      if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
@@ -350,7 +350,7 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
     int numElementsToMove = fifoInitialConditions.size() % fifo->getBlockSize();
 
     if(numElementsToMove > 0){
-        EmitterHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadEmitterHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 
         if (printActions) {
             std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
@@ -359,13 +359,13 @@ EmitterHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossi
     }
 }
 
-void EmitterHelpers::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                              int tgtSize,
-                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                                              bool printActions){
+void MultiThreadEmitterHelpers::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                                   int tgtSize,
+                                                                   std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                                   std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                                   bool printActions){
     //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
     //FIFO bundling happens after this point
     if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
@@ -381,7 +381,7 @@ void EmitterHelpers::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCr
     int numElementsToMove = fifoInitialConditions.size() - tgtSize;
 
     if(numElementsToMove > 0){
-        EmitterHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadEmitterHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 
         if (printActions) {
             std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
@@ -390,12 +390,12 @@ void EmitterHelpers::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCr
     }
 }
 
-void EmitterHelpers::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                              int numElementsToMove,
-                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+void MultiThreadEmitterHelpers::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                             int numElementsToMove,
+                                                             std::vector<std::shared_ptr<Node>> &new_nodes,
+                                                             std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                                             std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs){
     //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
     //FIFO bundling happens after this point
     if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
@@ -453,12 +453,12 @@ void EmitterHelpers::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossing
 }
 
 std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
-        EmitterHelpers::mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
-                       std::vector<std::shared_ptr<Node>> &new_nodes,
-                       std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                       std::vector<std::shared_ptr<Arc>> &new_arcs,
-                       std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                       bool printActions){
+        MultiThreadEmitterHelpers::mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+                                              std::vector<std::shared_ptr<Node>> &new_nodes,
+                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
+                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
+                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                              bool printActions){
 
     std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> newMap;
 
@@ -542,7 +542,7 @@ std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
     return newMap;
 }
 
-void EmitterHelpers::findPartitionInputAndOutputFIFOs(
+void MultiThreadEmitterHelpers::findPartitionInputAndOutputFIFOs(
         std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum,
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> &inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &outputFIFOs) {
 
@@ -563,7 +563,7 @@ void EmitterHelpers::findPartitionInputAndOutputFIFOs(
     }
 }
 
-std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
+std::vector<std::shared_ptr<Node>> MultiThreadEmitterHelpers::findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
     std::vector<std::shared_ptr<Node>> nodesWithState;
 
     for(unsigned long i = 0; i<nodesToSearch.size(); i++) {
@@ -575,7 +575,7 @@ std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithState(std::vecto
     return nodesWithState;
 }
 
-std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithGlobalDecl(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
+std::vector<std::shared_ptr<Node>> MultiThreadEmitterHelpers::findNodesWithGlobalDecl(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
     std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl;
 
     for(unsigned long i = 0; i<nodesToSearch.size(); i++){
@@ -587,7 +587,7 @@ std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithGlobalDecl(std::
     return nodesWithGlobalDecl;
 }
 
-std::vector<std::shared_ptr<ContextRoot>> EmitterHelpers::findContextRoots(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
+std::vector<std::shared_ptr<ContextRoot>> MultiThreadEmitterHelpers::findContextRoots(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
     std::vector<std::shared_ptr<ContextRoot>> contextRoots;
 
     for(unsigned long i = 0; i<nodesToSearch.size(); i++){
@@ -601,7 +601,7 @@ std::vector<std::shared_ptr<ContextRoot>> EmitterHelpers::findContextRoots(std::
     return contextRoots;
 }
 
-std::vector<std::shared_ptr<BlackBox>> EmitterHelpers::findBlackBoxes(std::vector<std::shared_ptr<Node>> &nodesToSearch){
+std::vector<std::shared_ptr<BlackBox>> MultiThreadEmitterHelpers::findBlackBoxes(std::vector<std::shared_ptr<Node>> &nodesToSearch){
     std::vector<std::shared_ptr<BlackBox>> blackBoxes;
 
     for(unsigned long i = 0; i<nodesToSearch.size(); i++){
@@ -615,7 +615,7 @@ std::vector<std::shared_ptr<BlackBox>> EmitterHelpers::findBlackBoxes(std::vecto
     return blackBoxes;
 }
 
-std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName){
+std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName){
     std::string statements;
     //Cast the input structure
     std::string castStructName = structName + "_cast";
@@ -666,7 +666,7 @@ std::string EmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<Thre
     return statements;
 }
 
-std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck){
+std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck){
     //Began work on version which replicates context check below.  Requires context check to be replicated
     //This version simply checks
 
@@ -716,7 +716,7 @@ std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCro
 }
 
 //Version with scheduling
-//std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
+//std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
 //    //create a map of nodes to parents
 //
 //    std::set<std::shared_ptr<Node>> fifoSet;
@@ -767,7 +767,7 @@ std::string EmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCro
 //    check += "}\n";
 //}
 
-std::vector<std::string> EmitterHelpers::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmitterHelpers::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         std::string tmpName = fifos[i]->getName() + "_readTmp";
@@ -778,7 +778,7 @@ std::vector<std::string> EmitterHelpers::createFIFOReadTemps(std::vector<std::sh
     return exprs;
 }
 
-std::vector<std::string> EmitterHelpers::createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmitterHelpers::createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         std::string tmpName = fifos[i]->getName() + "_writeTmp";
@@ -789,7 +789,7 @@ std::vector<std::string> EmitterHelpers::createFIFOWriteTemps(std::vector<std::s
     return exprs;
 }
 
-std::vector<std::string> EmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal){
+std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         std::string tmpName = fifos[i]->getName() + "_writeTmp";
@@ -845,7 +845,7 @@ std::vector<std::string> EmitterHelpers::createAndInitializeFIFOWriteTemps(std::
     return exprs;
 }
 
-std::vector<std::string> EmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -860,7 +860,7 @@ std::vector<std::string> EmitterHelpers::readFIFOsToTemps(std::vector<std::share
     return exprs;
 }
 
-std::vector<std::string> EmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -875,7 +875,7 @@ std::vector<std::string> EmitterHelpers::writeFIFOsFromTemps(std::vector<std::sh
     return exprs;
 }
 
-void EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition){
+void MultiThreadEmitterHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition){
     for(auto it = nodes.begin(); it != nodes.end(); it++){
         //Do this first since expanded nodes are also subsystems
         std::shared_ptr<ExpandedNode> asExpandedNode = GeneralHelper::isType<Node, ExpandedNode>(*it);
@@ -909,7 +909,7 @@ void EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::s
     }
 }
 
-std::pair<std::string, std::string> EmitterHelpers::getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum){
+std::pair<std::string, std::string> MultiThreadEmitterHelpers::getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum){
     std::string structureType = designName + "_partition" + (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_threadArgs_t";
     std::string prototype = "typedef struct {\n";
 
@@ -957,7 +957,7 @@ std::pair<std::string, std::string> EmitterHelpers::getCThreadArgStructDefn(std:
     return std::pair<std::string, std::string> (prototype, structureType);
 }
 
-std::string EmitterHelpers::emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
     std::string fileName = fileNamePrefix + "_fifoTypes";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -981,11 +981,11 @@ std::string EmitterHelpers::emitFIFOStructHeader(std::string path, std::string f
     return fileName+".h";
 }
 
-void EmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
-                                              std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
-                                              std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
-                                              std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
-                                              std::string ioBenchmarkSuffix, std::vector<int> partitionMap){
+void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
+                                                                 std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
+                                                                 std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
+                                                                 std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
+                                                                 std::string ioBenchmarkSuffix, std::vector<int> partitionMap){
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -1216,7 +1216,7 @@ void EmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, in
     cFile << "}" << std::endl;
 }
 
-void EmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
+void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
     //#### Emit Driver File ####
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
@@ -1285,7 +1285,7 @@ void EmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileN
     benchDriver.close();
 }
 
-void EmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix){
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix){
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -1421,7 +1421,7 @@ void EmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fil
     makefile.close();
 }
 
-void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
+void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
     std::string blockIndVar = "";
 
     if(blockSize > 1) {
@@ -1469,7 +1469,7 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
     headerFile << std::endl;
 
     //Create the threadFunction argument structure
-    std::pair<std::string, std::string> threadArgStructAndTypeName = EmitterHelpers::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, partitionNum);
+    std::pair<std::string, std::string> threadArgStructAndTypeName = MultiThreadEmitterHelpers::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, partitionNum);
     std::string threadArgStruct = threadArgStructAndTypeName.first;
     std::string threadArgTypeName = threadArgStructAndTypeName.second;
     headerFile << threadArgStruct << std::endl;
@@ -1484,8 +1484,8 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
     headerFile << std::endl;
 
     //Find nodes with state & global decls
-    std::vector<std::shared_ptr<Node>> nodesWithState = EmitterHelpers::findNodesWithState(nodesToEmit);
-    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = EmitterHelpers::findNodesWithGlobalDecl(nodesToEmit);
+    std::vector<std::shared_ptr<Node>> nodesWithState = MultiThreadEmitterHelpers::findNodesWithState(nodesToEmit);
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = MultiThreadEmitterHelpers::findNodesWithGlobalDecl(nodesToEmit);
     unsigned long numNodes = nodesToEmit.size();
 
     headerFile << "//==== State Variable Definitions ====" << std::endl;
@@ -1510,7 +1510,7 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
     headerFile << std::endl;
 
     //Insert BlackBox Headers
-    std::vector<std::shared_ptr<BlackBox>> blackBoxes = EmitterHelpers::findBlackBoxes(nodesToEmit);
+    std::vector<std::shared_ptr<BlackBox>> blackBoxes = MultiThreadEmitterHelpers::findBlackBoxes(nodesToEmit);
     if(blackBoxes.size() > 0) {
         headerFile << "//==== BlackBox Headers ====" << std::endl;
 
@@ -1647,7 +1647,7 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
     //Emit thread function
     cFile << threadFctnDecl << "{" << std::endl;
     //Copy ptrs from struct argument
-    cFile << EmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
+    cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
     //Create Loop
     cFile << "while(1){" << std::endl;
@@ -1658,10 +1658,10 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
     }
 
     //Check FIFO input FIFOs (will spin until ready)
-    cFile << EmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, true); //Include pthread_testcancel check
+    cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
     //Create temp entries for FIFO inputs
-    std::vector<std::string> tmpReadDecls = EmitterHelpers::createFIFOReadTemps(inputFIFOs);
+    std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
     for(int i = 0; i<tmpReadDecls.size(); i++){
         cFile << tmpReadDecls[i] << std::endl;
     }
@@ -1671,13 +1671,13 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " reading inputs ...\\n\");"
               << std::endl;
     }
-    std::vector<std::string> readFIFOExprs = EmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
     for(int i = 0; i<readFIFOExprs.size(); i++){
         cFile << readFIFOExprs[i] << std::endl;
     }
 
     //Create temp entries for outputs
-    std::vector<std::string> tmpWriteDecls = EmitterHelpers::createFIFOWriteTemps(outputFIFOs);
+    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
     for(int i = 0; i<tmpWriteDecls.size(); i++){
         cFile << tmpWriteDecls[i] << std::endl;
     }
@@ -1694,14 +1694,14 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) +
                  " waiting for room in output FIFOs ...\\n\");" << std::endl;
     }
-    cFile << EmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, true); //Include pthread_testcancel check
+    cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
     //Write result to FIFOs
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " writing outputs ...\\n\");"
               << std::endl;
     }
-    std::vector<std::string> writeFIFOExprs = EmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
+    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         cFile << writeFIFOExprs[i] << std::endl;
     }
@@ -1721,7 +1721,7 @@ void EmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::sha
     cFile.close();
 }
 
-std::string EmitterHelpers::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
+std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
     std::string prototype = "";
 
     std::vector<Variable> inputVars;
@@ -1797,7 +1797,7 @@ std::string EmitterHelpers::getPartitionComputeCFunctionArgPrototype(std::vector
     return prototype;
 }
 
-std::string EmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
+std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
     std::string call = computeFctnName + "(";
 
     int foundInputVar = false;
@@ -1860,7 +1860,7 @@ std::string EmitterHelpers::getCallPartitionComputeCFunction(std::string compute
 }
 
 //NOTE: if scheduling the output master is desired, it must be included in the nodes to emit
-void EmitterHelpers::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize, std::string indVarName){
+void MultiThreadEmitterHelpers::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize, std::string indVarName){
 
     cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
@@ -1879,8 +1879,8 @@ void EmitterHelpers::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, 
     emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
 }
 
-void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize,
-                                       std::string indVarName, bool checkForPartitionChange) {
+void MultiThreadEmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize,
+                                                          std::string indVarName, bool checkForPartitionChange) {
     //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
     std::vector<Context> lastEmittedContext;
 

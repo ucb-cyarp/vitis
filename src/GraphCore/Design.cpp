@@ -33,7 +33,7 @@
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
 #include "MultiThread/ConstIOThread.h"
-#include "General/EmitterHelpers.h"
+#include "General/MultiThreadEmitterHelpers.h"
 
 //==== Constructors
 Design::Design() {
@@ -828,7 +828,7 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
-    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
+    MultiThreadEmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
 }
 
 void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched, unsigned long blockSize) {
@@ -2545,11 +2545,11 @@ void Design::createContextVariableUpdateNodes(bool includeContext) {
 }
 
 std::vector<std::shared_ptr<Node>> Design::findNodesWithState() {
-    return EmitterHelpers::findNodesWithState(nodes);
+    return MultiThreadEmitterHelpers::findNodesWithState(nodes);
 }
 
 std::vector<std::shared_ptr<Node>> Design::findNodesWithGlobalDecl() {
-    return EmitterHelpers::findNodesWithGlobalDecl(nodes);
+    return MultiThreadEmitterHelpers::findNodesWithGlobalDecl(nodes);
 }
 
 //TODO: Check
@@ -2705,15 +2705,15 @@ void Design::propagatePartitionsFromSubsystemsToChildren(){
     std::set<std::shared_ptr<Node>> topLevelNodeSet;
     topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
 
-    EmitterHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1);
+    MultiThreadEmitterHelpers::propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1);
 }
 
 std::vector<std::shared_ptr<ContextRoot>> Design::findContextRoots() {
-    return EmitterHelpers::findContextRoots(nodes);
+    return MultiThreadEmitterHelpers::findContextRoots(nodes);
 }
 
 std::vector<std::shared_ptr<BlackBox>> Design::findBlackBoxes(){
-    return EmitterHelpers::findBlackBoxes(nodes);
+    return MultiThreadEmitterHelpers::findBlackBoxes(nodes);
 }
 
 //TODO: Check
@@ -3270,7 +3270,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
         switch (fifoType) {
             case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
-                fifoMap = EmitterHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings,new_nodes,deleted_nodes,new_arcs,deleted_arcs);
+                fifoMap = MultiThreadEmitterHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
                 break;
             default:
                 throw std::runtime_error(
@@ -3316,7 +3316,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         std::vector<std::shared_ptr<Arc>> new_arcs;
         std::vector<std::shared_ptr<Arc>> deleted_arcs;
 
-        EmitterHelpers::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadEmitterHelpers::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
         addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
     }
     assignNodeIDs();
@@ -3338,7 +3338,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //        std::vector<std::shared_ptr<Arc>> new_arcs;
 //        std::vector<std::shared_ptr<Arc>> deleted_arcs;
 //
-//        fifoMap = EmitterHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, true);
+//        fifoMap = MultiThreadEmitterHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, true);
 //        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 //    }
 //    assignNodeIDs();
@@ -3408,7 +3408,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
 
     //Emit FIFO header (get struct descriptions from FIFOs)
-    std::string fifoHeaderName = EmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);
+    std::string fifoHeaderName = MultiThreadEmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);
 
     std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
 
@@ -3416,7 +3416,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
-            EmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint);
+            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint);
         }
     }
 
@@ -3435,14 +3435,14 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         partitionSet.insert(it->first);
     }
-    EmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix, partitionMap);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix, partitionMap);
 
     //Emit the benchmark driver
     std::vector<Variable> inputVars = getCInputVariables();
-    EmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, ioSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, ioSuffix, inputVars);
 
     //Emit the benchmark makefile
-    EmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, ioSuffix);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, ioSuffix);
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

@@ -2,8 +2,8 @@
 // Created by Christopher Yarp on 9/3/19.
 //
 
-#ifndef VITIS_EMITTERHELPERS_H
-#define VITIS_EMITTERHELPERS_H
+#ifndef VITIS_MULTITHREADEMITTERHELPERS_H
+#define VITIS_MULTITHREADEMITTERHELPERS_H
 
 #include <vector>
 #include <memory>
@@ -27,7 +27,7 @@
 /**
  * @brief Contains helper methods for Emitters
  */
-class EmitterHelpers {
+class MultiThreadEmitterHelpers {
 public:
 
     /**
@@ -480,4 +480,4 @@ public:
 
 /*! @} */
 
-#endif //VITIS_EMITTERHELPERS_H
+#endif //VITIS_MULTITHREADEMITTERHELPERS_H
