@@ -6,6 +6,7 @@
 #define VITIS_EMITTERHELPERS_H
 
 #include <vector>
+#include <memory>
 #include "GraphCore/SchedParams.h"
 
 //Forward declare
