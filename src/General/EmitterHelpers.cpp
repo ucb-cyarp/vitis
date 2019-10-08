@@ -484,7 +484,7 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
         }
     }
 
-    prototype += "} " + structTypeName +  ";";
+    prototype += "} " + structTypeName +  ";\n";
     prototype += "#pragma pack(pop)";
     return prototype;
 }
