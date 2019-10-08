@@ -466,7 +466,8 @@ std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<Master
 }
 
 std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName, int blockSize) {
-    std::string prototype = "typedef struct {\n";
+    std::string prototype = "#pragma pack(push, 4)\n";
+    prototype += "typedef struct {\n";
 
     for(unsigned long i = 0; i<portVars.size(); i++){
         Variable var = portVars[i];
@@ -484,6 +485,6 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
     }
 
     prototype += "} " + structTypeName +  ";";
-
+    prototype += "#pragma pack(pop)";
     return prototype;
 }
