@@ -196,13 +196,12 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << std::endl;
 
         //Set allowed connection address/port pairs
-        ioThread << "int localIPAddr = VITIS_SOCKET_LISTEN_ADDR;" << std::endl;
         ioThread << "struct sockaddr_in localAddr;" << std::endl;
         ioThread << "localAddr.sin_family=AF_INET;" << std::endl;
-        ioThread << "localAddr.sin_port=htons(LOCAL_PORT);" << std::endl;
-        ioThread << "localAddr.sin_addr.s_addr=htonl(localIPAddr);" << std::endl;
-        ioThread << "printf(\"Listen addr: %d\\n\", localIPAddr);" << std::endl;
-        ioThread << "printf(\"Listen port: %d\\n\", LOCAL_PORT);" << std::endl;
+        ioThread << "localAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT);" << std::endl;
+        ioThread << "localAddr.sin_addr.s_addr=htonl(VITIS_SOCKET_LISTEN_ADDR);" << std::endl;
+        ioThread << "printf(\"Listen addr: %d\\n\", VITIS_SOCKET_LISTEN_ADDR);" << std::endl;
+        ioThread << "printf(\"Listen port: %d\\n\", VITIS_SOCKET_LISTEN_PORT);" << std::endl;
         ioThread << "printf(\"Waiting for connection ...\\n\");" << std::endl;
         ioThread << std::endl;
 
@@ -245,8 +244,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
         ioThread << "}else {" << std::endl;
         ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
+        ioThread << "char* connectionAddrStrPtr = &connectionAddrStr[0];" << std::endl;
         ioThread << "struct sockaddr_in* ipv4AddrStruct = (struct sockaddr_in*) &acceptSocket;" << std::endl;
-        ioThread << "char* nameStr = inet_ntop(AF_INET, ipv4AddrStruct, &connectionAddrStr, INET_ADDRSTRLEN);" << std::endl;
+        ioThread << "char* nameStr = inet_ntop(AF_INET, ipv4AddrStruct, &connectionAddrStrPtr, INET_ADDRSTRLEN);" << std::endl;
         ioThread << "if(nameStr != NULL) {" << std::endl;
         ioThread << "printf(\"Connection from %s:%d\\n\", nameStr, ntohs(ipv4AddrStruct->sin_port));" << std::endl;
         ioThread << "}" << std::endl;
@@ -290,7 +290,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "printf(\"An error was encountered while reading the socket\\n\");" << std::endl;
         ioThread << "perror(NULL);" << std::endl;
         ioThread << "exit(1);" << std::endl;
-        ioThread << "} else if (elementsRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
+        ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
         ioThread << "printf(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
         ioThread << "exit(1);" << std::endl;
         ioThread << "}" << std::endl;
