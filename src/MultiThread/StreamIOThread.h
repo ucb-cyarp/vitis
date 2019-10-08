@@ -2,15 +2,26 @@
 // Created by Christopher Yarp on 10/4/19.
 //
 
-#ifndef VITIS_LINUXPIPEIOTHREAD_H
-#define VITIS_LINUXPIPEIOTHREAD_H
+#ifndef VITIS_STREAMIOTHREAD_H
+#define VITIS_STREAMIOTHREAD_H
 
 #include <utility>
 #include <string>
 #include "ThreadCrossingFIFO.h"
 
-class LinuxPipeIOThread {
+#define DEFAULT_VITIS_SOCKET_LISTEN_PORT 8080
+#define DEFAULT_VITIS_SOCKET_LISTEN_ADDR "INADDR_ANY"
+
+/**
+ * @brief A class containing code for generating stream I/O drivers
+ * This includes a linux pipe version and a network sockets version
+ */
+class StreamIOThread {
 public:
+    enum class StreamType{
+        PIPE, ///<A linux named pipe (FIFO)
+        SOCKET ///<A network socket
+    };
 
     static std::string getInputStructDefn(std::shared_ptr<MasterInput> inputMaster, std::string structTypeName, int blockSize);
 
@@ -46,8 +57,8 @@ public:
      * @param fifoHeaderFile
      * @param threadDebugPrint
      */
-    static void emitLinuxPipeIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
+    static void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
 };
 
 
-#endif //VITIS_LINUXPIPEIOTHREAD_H
+#endif //VITIS_STREAMIOTHREAD_H

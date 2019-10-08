@@ -188,8 +188,8 @@ set(COMMON_SRCS
         src/MultiThread/MultiThreadTransformHelpers.h
         src/MultiThread/ThreadCrossingFIFO.cpp
         src/MultiThread/ThreadCrossingFIFO.h
-        src/MultiThread/LinuxPipeIOThread.cpp
-        src/MultiThread/LinuxPipeIOThread.h
+        src/MultiThread/StreamIOThread.cpp
+        src/MultiThread/StreamIOThread.h
         src/MultiThread/LocklessThreadCrossingFIFO.cpp
         src/MultiThread/LocklessThreadCrossingFIFO.h
         src/MultiThread/PartitionParams.cpp

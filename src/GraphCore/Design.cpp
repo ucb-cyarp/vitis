@@ -34,7 +34,7 @@
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
 #include "MultiThread/ConstIOThread.h"
-#include "MultiThread/LinuxPipeIOThread.h"
+#include "MultiThread/StreamIOThread.h"
 #include "MultiThread/MultiThreadEmitterHelpers.h"
 #include "MultiThread/MultiThreadTransformHelpers.h"
 
@@ -3395,13 +3395,28 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //++++Emit Linux Pipe I/O Driver++++
     std::string pipeIOSuffix = "io_linux_pipe";
-    LinuxPipeIOThread::emitLinuxPipeIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
+    StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
+                                        outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
+                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, threadDebugPrint);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, pipeIOSuffix, inputVars);
 
     //Emit the benchmark makefile
     MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix);
+
+    //++++Emit Socket Pipe I/O Driver++++
+    std::string socketIOSuffix = "io_network_socket";
+    StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
+                                        outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
+                                        StreamIOThread::StreamType::SOCKET, blockSize,
+                                        fifoHeaderName, threadDebugPrint);
+
+    //Emit the benchmark driver
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, socketIOSuffix, inputVars);
+
+    //Emit the benchmark makefile
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix);
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.
