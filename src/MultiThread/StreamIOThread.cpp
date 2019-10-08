@@ -93,6 +93,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     ioThread << "#include <stdio.h>" << std::endl;
+    ioThread << "#include <stdlib.h>" << std::endl;
     ioThread << "#include <sys/stat.h>" << std::endl;
     ioThread << "#include <unistd.h>" << std::endl;
     if(streamType == StreamType::SOCKET) {
@@ -300,7 +301,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "printf(\"I/O Input Received\\n\");" << std::endl;
     }
 
-    //Fill write temps with data from pipe
+    //Fill write temps with data from stream
     std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap = getInputPortFIFOMapping(outputFIFOs); //Note, outputFIFOs are the outputs of the I/O thread.  They carry the inputs to the system to the rest of the system
     copyIOInputsToFIFO(ioThread, masterInputVars, inputPortFifoMap, linuxInputTmpName, blockSize);
 
@@ -510,7 +511,7 @@ void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Var
                 std::string tmpName = fifoPortVec[j].first->getName() + "_writeTmp";
                 int fifoPortNum = fifoPortVec[j].second;
 
-                if(dt.getWidth() == 1) {
+                if(dt.getWidth() == 1 && blockSize == 1) {
                     ioThread << tmpName << ".port" << fifoPortNum << "_real = " << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << ";" << std::endl;
                     if (dt.isComplex()) {
@@ -553,7 +554,7 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
             std::string tmpName = fifoPort.first->getName() + "_readTmp";
             int fifoPortNum = fifoPort.second;
 
-            if(dt.getWidth() == 1) {
+            if(dt.getWidth() == 1 && blockSize == 1) {
                 ioThread << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(false) << " = "
                          << tmpName << ".port" << fifoPortNum << "_real;" << std::endl;
                 if (dt.isComplex()) {
