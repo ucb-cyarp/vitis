@@ -8,12 +8,14 @@
 #include <vector>
 #include <memory>
 #include "GraphCore/SchedParams.h"
+#include "GraphCore/Variable.h"
 
 //Forward declare
 class Node;
 class ContextRoot;
 class BlackBox;
 class MasterOutput;
+class MasterInput;
 
 /**
  * \addtogroup General General Helper Classes
@@ -47,6 +49,48 @@ public:
      */
     static void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
 
+    /**
+     * @brief Get the input variables for this design
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return a vector of input variables ordered by the input port number.  The ith element of the array is the ith input port.
+     */
+    static std::vector<Variable> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
+
+    /**
+     * @brief Get the output variables for this design
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at exactly one arc per port).
+     *
+     * @return a vector of output variables ordered by the output port number.  The ith element of the array is the ith output port.
+     */
+    static std::vector<Variable> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+
+    /**
+     * @brief Get the structure definition for the Input/Output ports
+     *
+     * The struture definition takes the form of
+     *
+     * struct {
+     *     type1 var1;
+     *     type2 var2;
+     *     ...
+     * } structTypename;
+     *
+     * This is used by the driver generator.
+     *
+     * @param portVariables the port variables for the design (either input or output) (in accending port order)
+     * @param blockSize the block size (in samples).  The width is multiplied by this number
+     * @param the type name of the struct being created
+     *
+     * @return
+     */
+    static std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::string structTypeName, int blockSize = 1);
 };
 
 /*! @} */

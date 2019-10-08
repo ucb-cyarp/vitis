@@ -418,3 +418,72 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
     }
 }
+
+std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
+    unsigned long numPorts = inputMaster->getOutputPorts().size();
+
+    std::vector<Variable> inputVars;
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    for(unsigned long i = 0; i<numPorts; i++){
+        std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
+
+        //TODO: This is a sanity check for the above todo
+        if(input->getPortNum() != i){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Port Number does not match its position in the port array", inputMaster));
+        }
+
+        DataType portDataType = input->getDataType();
+
+        Variable var = Variable(inputMaster->getCInputName(i), portDataType);
+        inputVars.push_back(var);
+    }
+
+    return inputVars;
+}
+
+std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
+    std::vector<Variable> outputVars;
+
+    unsigned long numPorts = outputMaster->getInputPorts().size();
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    for(unsigned long i = 0; i<numPorts; i++){
+        std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
+
+        //TODO: This is a sanity check for the above todo
+        if(output->getPortNum() != i){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Port Number does not match its position in the port array", outputMaster));
+        }
+
+        DataType portDataType = output->getDataType();
+
+        Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
+        outputVars.push_back(var);
+    }
+
+    return outputVars;
+}
+
+std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName, int blockSize) {
+    std::string prototype = "typedef struct {\n";
+
+    for(unsigned long i = 0; i<portVars.size(); i++){
+        Variable var = portVars[i];
+
+        DataType varType = var.getDataType();
+        varType.setWidth(varType.getWidth()*blockSize);
+        var.setDataType(varType);
+
+        prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            prototype += "\t" + var.getCVarDecl(true, true, false, true) + ";\n";
+        }
+    }
+
+    prototype += "} " + structTypeName +  ";";
+
+    return prototype;
+}

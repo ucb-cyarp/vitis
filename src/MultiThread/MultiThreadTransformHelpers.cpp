@@ -401,35 +401,6 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
 
     if(numElementsToMove > 0){
-        //Need to create a delay to move the remaining elements into
-        std::vector<Context> fifoContext = fifo->getContext();
-
-        std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(fifo->getParent());
-        new_nodes.push_back(delay);
-        delay->setPartitionNum(fifo->getPartitionNum());
-        delay->setName("OverflowFIFOInitCondFrom"+fifo->getName());
-        delay->setContext(fifoContext);
-        if(fifoContext.size() > 0){
-            int subcontext = fifoContext[fifoContext.size()-1].getSubContext();
-            fifoContext[fifoContext.size()-1].getContextRoot()->addSubContextNode(subcontext, delay);
-        }
-
-        //Set initial conditions
-        delay->setDelayValue(numElementsToMove);
-        std::vector<NumericValue> delayInitConds;
-        delayInitConds.insert(delayInitConds.end(), fifoInitialConditions.begin()+(fifoInitialConditions.size() - numElementsToMove), fifoInitialConditions.end());
-        delay->setInitCondition(delayInitConds);
-
-        //Remove init conditions from fifoInitialConditions
-        fifoInitialConditions.erase(fifoInitialConditions.begin()+(fifoInitialConditions.size() - numElementsToMove), fifoInitialConditions.end());
-        fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
-
-        //Rewire
-        std::set<std::shared_ptr<Arc>> orderConstraintArcs2Rewire = fifo->getOrderConstraintInputPortCreateIfNot()->getArcs();
-        for(auto it = orderConstraintArcs2Rewire.begin(); it != orderConstraintArcs2Rewire.end(); it++){
-            (*it)->setDstPortUpdateNewUpdatePrev(delay->getOrderConstraintInputPortCreateIfNot());
-        }
-
         if(fifo->getInputPorts().size() != 1){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO initial conditions.  Number of input ports should be 1", fifo));
         }
@@ -442,9 +413,110 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
 
         std::shared_ptr<Arc> origInputArc = *inputArcs.begin();
 
-        std::shared_ptr<Arc> newInputArc =  Arc::connectNodes(delay->getOutputPortCreateIfNot(0), fifo->getInputPortCreateIfNot(0), origInputArc->getDataType(), origInputArc->getSampleTime());
-        new_arcs.push_back(newInputArc);
-        origInputArc->setDstPortUpdateNewUpdatePrev(delay->getInputPortCreateIfNot(0));
+        //Check if the src is a MasterInput
+        if(GeneralHelper::isType<Node, MasterInput>(origInputArc->getSrcPort()->getParent()) == nullptr) {
+            //The input is not a MasterInput node.  It is OK to put the delay at the input
+            //Need to create a delay to move the remaining elements into
+            std::vector<Context> fifoContext = fifo->getContext();
+
+            std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(fifo->getParent());
+            new_nodes.push_back(delay);
+            delay->setPartitionNum(fifo->getPartitionNum());
+            delay->setName("OverflowFIFOInitCondFrom" + fifo->getName());
+            delay->setContext(fifoContext);
+            if (fifoContext.size() > 0) {
+                int subcontext = fifoContext[fifoContext.size() - 1].getSubContext();
+                fifoContext[fifoContext.size() - 1].getContextRoot()->addSubContextNode(subcontext, delay);
+            }
+
+            //Set initial conditions
+            delay->setDelayValue(numElementsToMove);
+            std::vector<NumericValue> delayInitConds;
+            delayInitConds.insert(delayInitConds.end(),
+                                  fifoInitialConditions.begin() + (fifoInitialConditions.size() - numElementsToMove),
+                                  fifoInitialConditions.end());
+            delay->setInitCondition(delayInitConds);
+
+            //Remove init conditions from fifoInitialConditions
+            fifoInitialConditions.erase(
+                    fifoInitialConditions.begin() + (fifoInitialConditions.size() - numElementsToMove),
+                    fifoInitialConditions.end());
+            fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
+
+            //Rewire
+            std::set<std::shared_ptr<Arc>> orderConstraintArcs2Rewire = fifo->getOrderConstraintInputPortCreateIfNot()->getArcs();
+            for (auto it = orderConstraintArcs2Rewire.begin(); it != orderConstraintArcs2Rewire.end(); it++) {
+                (*it)->setDstPortUpdateNewUpdatePrev(delay->getOrderConstraintInputPortCreateIfNot());
+            }
+
+            std::shared_ptr<Arc> newInputArc = Arc::connectNodes(delay->getOutputPortCreateIfNot(0),
+                                                                 fifo->getInputPortCreateIfNot(0),
+                                                                 origInputArc->getDataType(),
+                                                                 origInputArc->getSampleTime());
+            new_arcs.push_back(newInputArc);
+            origInputArc->setDstPortUpdateNewUpdatePrev(delay->getInputPortCreateIfNot(0));
+        }else{
+            //The input is a MasterInput, the delay should be placed on the output
+
+            //Check that all of the FIFO outputs are in the same context
+            if(!fifo->outputsInSameContext()){
+                //TODO: make this a general rule?
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When shaping a FIFO connected to a MasterInputs, all destination arcs must be in the same context", fifo));
+            }
+            std::vector<Context> newDelayContext = fifo->getOutputContext();
+
+            if(!fifo->outputsInSamePartition()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("All destination arcs from a FIFO must go to the same partiton", fifo));
+            }
+            int newDelayPartition = fifo->getOutputPartition();
+
+            //Need to create a delay to move the remaining elements into
+            std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(fifo->getParent());
+            new_nodes.push_back(delay);
+            delay->setPartitionNum(newDelayPartition);
+            delay->setName("OverflowFIFOInitCondFrom" + fifo->getName());
+            delay->setContext(newDelayContext);
+            if (newDelayContext.size() > 0) {
+                int subcontext = newDelayContext[newDelayContext.size() - 1].getSubContext();
+                newDelayContext[newDelayContext.size() - 1].getContextRoot()->addSubContextNode(subcontext, delay);
+            }
+
+            //Set initial conditions
+            delay->setDelayValue(numElementsToMove);
+            std::vector<NumericValue> delayInitConds;
+            delayInitConds.insert(delayInitConds.end(), fifoInitialConditions.begin(),
+                                  fifoInitialConditions.begin() + numElementsToMove);
+            delay->setInitCondition(delayInitConds);
+
+            //Remove init conditions from fifoInitialConditions
+            fifoInitialConditions.erase(
+                    fifoInitialConditions.begin(),
+                    fifoInitialConditions.begin() + numElementsToMove);
+            fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
+
+            //Rewire Outputs
+            if(fifo->getInputPorts().size() != 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO initial conditions.  Number of input ports should be 1", fifo));
+            }
+            std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPort(0)->getArcs();
+            for (auto it = inputArcs.begin(); it != inputArcs.end(); it++) {
+                (*it)->setSrcPortUpdateNewUpdatePrev(delay->getOutputPortCreateIfNot(0));
+            }
+
+            //Rewire Order Constraints
+            std::set<std::shared_ptr<Arc>> orderConstraintArcs2Rewire = fifo->getOrderConstraintOutputPortCreateIfNot()->getArcs();
+            for (auto it = orderConstraintArcs2Rewire.begin(); it != orderConstraintArcs2Rewire.end(); it++) {
+                (*it)->setSrcPortUpdateNewUpdatePrev(delay->getOrderConstraintOutputPortCreateIfNot());
+            }
+
+            //Connect delay to output
+            std::shared_ptr<Arc> newInputArc = Arc::connectNodes(fifo->getOutputPortCreateIfNot(0),
+                                                                 delay->getInputPortCreateIfNot(0),
+                                                                 origInputArc->getDataType(),
+                                                                 origInputArc->getSampleTime());
+            new_arcs.push_back(newInputArc);
+            //Do not actually need to re-wire the input port
+        }
     }
 }
 

@@ -16,6 +16,8 @@
 #include "General/GeneralHelper.h"
 #include <GraphCore/EnableOutput.h>
 #include <PrimitiveNodes/BlackBox.h>
+#include "GraphCore/ContextContainer.h"
+#include "GraphCore/ContextFamilyContainer.h"
 
 #include <iostream>
 #include <fstream>
@@ -1269,4 +1271,19 @@ void MultiThreadEmitterHelpers::emitSelectOpsSchedStateUpdateContext(std::ofstre
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
     EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
+}
+
+bool MultiThreadEmitterHelpers::checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes) {
+    for(int i = 0; i<nodes.size(); i++){
+        if(nodes[i]->getPartitionNum() == IO_PARTITION_NUM){
+            bool isThreadCrossingFIFO = GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i]) != nullptr;
+            bool isAllowedSubSystem = GeneralHelper::isType<Node, SubSystem>(nodes[i]) != nullptr && GeneralHelper::isType<Node, ContextFamilyContainer>(nodes[i]) == nullptr && GeneralHelper::isType<Node, ContextContainer>(nodes[i]) == nullptr;
+
+            if(!(isThreadCrossingFIFO || isAllowedSubSystem)){
+                return false;
+            }
+        }
+    }
+
+    return true;
 }

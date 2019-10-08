@@ -34,6 +34,7 @@
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
 #include "MultiThread/ConstIOThread.h"
+#include "MultiThread/LinuxPipeIOThread.h"
 #include "MultiThread/MultiThreadEmitterHelpers.h"
 #include "MultiThread/MultiThreadTransformHelpers.h"
 
@@ -434,30 +435,11 @@ std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePat
 }
 
 std::vector<Variable> Design::getCInputVariables() {
-    unsigned long numPorts = inputMaster->getOutputPorts().size();
+    return EmitterHelpers::getCInputVariables(inputMaster);
+}
 
-    std::vector<Variable> inputVars;
-
-    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
-    if(numPorts>0){
-        std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(0); //output of input node
-
-        DataType portDataType = input->getDataType();
-
-        Variable var = Variable(inputMaster->getCInputName(0), portDataType);
-        inputVars.push_back(var);
-    }
-
-    for(unsigned long i = 1; i<numPorts; i++){
-        std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
-
-        DataType portDataType = input->getDataType();
-
-        Variable var = Variable(inputMaster->getCInputName(i), portDataType);
-        inputVars.push_back(var);
-    }
-
-    return inputVars;
+std::vector<Variable> Design::getCOutputVariables() {
+    return EmitterHelpers::getCOutputVariables(outputMaster);
 }
 
 std::string Design::getCFunctionArgPrototype(bool forceArray) {
@@ -513,58 +495,15 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
     return prototype;
 }
 
-std::string Design::getCInputPortStructDefn(int blockSize){
-    std::string prototype = "typedef struct {\n";
-
+std::string Design::getCInputStructDefn(int blockSize){
     std::vector<Variable> inputVars = getCInputVariables();
-    unsigned long numInputVars = inputVars.size();
+    return EmitterHelpers::getCIOPortStructDefn(inputVars, "InputType", blockSize);
 
-    for(unsigned long i = 0; i<numInputVars; i++){
-        Variable var = inputVars[i];
-
-        DataType varType = var.getDataType();
-        varType.setWidth(varType.getWidth()*blockSize);
-        var.setDataType(varType);
-
-        prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
-
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            prototype += "\t" + var.getCVarDecl(true, true, false, true) + ";\n";
-        }
-    }
-
-    prototype += "} InputType;";
-
-    return prototype;
 }
 
 std::string Design::getCOutputStructDefn(int blockSize) {
-    //Emit struct header
-    std::string str = "typedef struct {";
-
-    unsigned long numPorts = outputMaster->getInputPorts().size();
-
-    for(unsigned long i = 0; i<numPorts; i++){
-        std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
-
-        DataType portDataType = output->getDataType();
-
-        portDataType.setWidth(portDataType.getWidth()*blockSize);
-
-        Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
-
-        str += "\n\t" + var.getCVarDecl(false, true, false, true) + ";";
-
-        //Check if complex
-        if(portDataType.isComplex()){
-            str += "\n\t" + var.getCVarDecl(true, true, false, true) + ";";
-        }
-    }
-
-    str += "\n} OutputType;";
-
-    return str;
+    std::vector<Variable> outputVars = getCOutputVariables();
+    return EmitterHelpers::getCIOPortStructDefn(outputVars, "OutputType", blockSize);
 }
 
 void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, unsigned long blockSize, bool emitGraphMLSched, bool printNodeSched){
@@ -3388,6 +3327,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //TODO: Validate deadlock free (no cycles with 0 initial fifo state, disallow context driver "cycles")
 
     //TODO: Validate in general.  Note, validation has to change since it is now OK for some output ports to be disconnected (or unconnected master need to be left connected and arcs to/from it should be ignored when inserting FIFOs and checking sheduling)
+    if(!MultiThreadEmitterHelpers::checkNoNodesInIO(nodes)){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Nodes exist in the I/O partition of the design which are not FIFOs"));
+    }
 
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
@@ -3422,29 +3364,36 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         }
     }
 
-    //TODO: Implement Other I/O Drivers
-    //Ideas for I/O Partiton:
-    //Constant
-    //Memory
-    //Named Pipe Server (with client program in matlab)
-
-    //Emit I/O Driver
-    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
-    std::string ioSuffix = "io_const";
-
-    //Emit the startup function (aka the benchmark kerne;)
+    //====Emit I/O Divers====
     std::set<int> partitionSet;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         partitionSet.insert(it->first);
     }
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, ioSuffix, partitionMap);
+
+    std::vector<Variable> inputVars = getCInputVariables();
+
+    //++++Emit Const I/O Driver++++
+    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
+    std::string constIOSuffix = "io_const";
+
+    //Emit the startup function (aka the benchmark kernel)
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    std::vector<Variable> inputVars = getCInputVariables();
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, ioSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, ioSuffix);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix);
+
+    //++++Emit Linux Pipe I/O Driver++++
+    std::string pipeIOSuffix = "io_linux_pipe";
+    LinuxPipeIOThread::emitLinuxPipeIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
+
+    //Emit the benchmark driver
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, pipeIOSuffix, inputVars);
+
+    //Emit the benchmark makefile
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix);
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

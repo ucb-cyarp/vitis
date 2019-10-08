@@ -304,6 +304,17 @@ public:
     std::vector<Variable> getCInputVariables();
 
     /**
+     * @brief Get the output variables for this design
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return a vector of input variables ordered by the input port number
+     */
+    std::vector<Variable> getCOutputVariables();
+
+    /**
      * @brief Get the argument portion of the C function prototype for this design.
      *
      * For example, if there are 3 inputs to the system:
@@ -346,7 +357,7 @@ public:
      *
      * @return
      */
-    std::string getCInputPortStructDefn(int blockSize = 1);
+    std::string getCInputStructDefn(int blockSize = 1);
 
     /**
      * @brief Get the structure definition for the output type

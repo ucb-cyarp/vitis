@@ -922,6 +922,30 @@ public:
      */
     virtual bool canExpand() = 0;
 
+    /**
+     * @brief Checks if all outputs (including order constraint nodes) are in the same context
+     * @return true if all outputs are in the same context, false if not
+     */
+    bool outputsInSameContext();
+
+    /**
+     * @brief If outputsInSameContext is true, returns the context of the outputs of the node.  Otherwise, throws an error
+     * @return
+     */
+    std::vector<Context> getOutputContext();
+
+    /**
+     * @brief Checks if all outputs (including order constraint nodes) are in the same partiton
+     * @return true if all outputs are in the same partition, false if not
+     */
+    bool outputsInSamePartition();
+
+    /**
+     * @brief If outputsInSameContext is true, returns the partition of the outputs of the node.  Otherwise, throws an error
+     * @return
+     */
+    int getOutputPartition();
+
     //==== Getters/Setters ====
     /**
      * @brief Sets the parent of the node without updating the child set of the parent to include this node.

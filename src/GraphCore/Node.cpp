@@ -19,6 +19,7 @@
 
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
 #include "MasterNodes/MasterUnconnected.h"
 
 Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
@@ -1129,4 +1130,176 @@ bool Node::PtrID_Compare::operator() (const std::shared_ptr<Node>& lhs, const st
     }else{
         return lhs<rhs;
     }
+}
+
+bool Node::outputsInSameContext(){
+    if(outputPorts.size() == 0 && orderConstraintOutputPort == nullptr){
+        return true;
+    }
+
+    bool foundContext = false;
+    std::vector<Context> dstContext;
+
+    //standard ports
+    for(int i = 0; i<outputPorts.size(); i++){
+        std::set<std::shared_ptr<Arc>> arcs = outputPorts[i]->getArcs();
+        for(auto it = arcs.begin(); it != arcs.end(); it++){
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if(!foundContext){
+                dstContext = (*it)->getDstPort()->getParent()->getContext();
+                foundContext = true;
+            }else{
+                if(!Context::isEqContext(dstContext, (*it)->getDstPort()->getParent()->getContext())){
+                    return false;
+                }
+            }
+        }
+    }
+
+    //Order constraint port
+    if(orderConstraintOutputPort != nullptr) {
+        std::set<std::shared_ptr<Arc>> arcs = orderConstraintOutputPort->getArcs();
+        for (auto it = arcs.begin(); it != arcs.end(); it++) {
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if (!foundContext) {
+                context = (*it)->getDstPort()->getParent()->getContext();
+                foundContext = true;
+            } else {
+                if (!Context::isEqContext(context, (*it)->getDstPort()->getParent()->getContext())) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+std::vector<Context> Node::getOutputContext(){
+    if(outputPorts.size() == 0 && orderConstraintOutputPort == nullptr){
+        return {};
+    }
+
+    bool foundContext = false;
+    std::vector<Context> dstContext;
+
+    //standard ports
+    for(int i = 0; i<outputPorts.size(); i++){
+        std::set<std::shared_ptr<Arc>> arcs = outputPorts[i]->getArcs();
+        for(auto it = arcs.begin(); it != arcs.end(); it++){
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if(!foundContext){
+                dstContext = (*it)->getDstPort()->getParent()->getContext();
+                foundContext = true;
+            }else{
+                if(!Context::isEqContext(dstContext, (*it)->getDstPort()->getParent()->getContext())){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Attempted to get a unified output context for a node which has arcs to different contexts"));
+                }
+            }
+        }
+    }
+
+    //Order constraint port
+    if(orderConstraintOutputPort != nullptr) {
+        std::set<std::shared_ptr<Arc>> arcs = orderConstraintOutputPort->getArcs();
+        for (auto it = arcs.begin(); it != arcs.end(); it++) {
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if (!foundContext) {
+                context = (*it)->getDstPort()->getParent()->getContext();
+                foundContext = true;
+            } else {
+                if (!Context::isEqContext(context, (*it)->getDstPort()->getParent()->getContext())) {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Attempted to get a unified output context for a node which has arcs to different contexts"));
+                }
+            }
+        }
+    }
+
+    return dstContext;
+}
+
+bool Node::outputsInSamePartition(){
+    if(outputPorts.size() == 0 && orderConstraintOutputPort == nullptr){
+        return true;
+    }
+
+    bool foundPartition = false;
+    int dstPartition;
+
+    //standard ports
+    for(int i = 0; i<outputPorts.size(); i++){
+        std::set<std::shared_ptr<Arc>> arcs = outputPorts[i]->getArcs();
+        for(auto it = arcs.begin(); it != arcs.end(); it++){
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if(!foundPartition){
+                dstPartition = (*it)->getDstPort()->getParent()->getPartitionNum();
+                foundPartition = true;
+            }else{
+                if(dstPartition != (*it)->getDstPort()->getParent()->getPartitionNum()){
+                    return false;
+                }
+            }
+        }
+    }
+
+    //Order constraint port
+    if(orderConstraintOutputPort != nullptr) {
+        std::set<std::shared_ptr<Arc>> arcs = orderConstraintOutputPort->getArcs();
+        for (auto it = arcs.begin(); it != arcs.end(); it++) {
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if (!foundPartition) {
+                dstPartition = (*it)->getDstPort()->getParent()->getPartitionNum();
+                foundPartition = true;
+            } else {
+                if(dstPartition != (*it)->getDstPort()->getParent()->getPartitionNum()){
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+int Node::getOutputPartition(){
+    if(outputPorts.size() == 0 && orderConstraintOutputPort == nullptr){
+        return -1;
+    }
+
+    bool foundPartition = false;
+    int dstPartition = -1;
+
+    //standard ports
+    for(int i = 0; i<outputPorts.size(); i++){
+        std::set<std::shared_ptr<Arc>> arcs = outputPorts[i]->getArcs();
+        for(auto it = arcs.begin(); it != arcs.end(); it++){
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if(!foundPartition){
+                dstPartition = (*it)->getDstPort()->getParent()->getPartitionNum();
+                foundPartition = true;
+            }else{
+                if(dstPartition != (*it)->getDstPort()->getParent()->getPartitionNum()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Attempted to get a unified output partition for a node which has arcs to different partitions"));
+                }
+            }
+        }
+    }
+
+    //Order constraint port
+    if(orderConstraintOutputPort != nullptr) {
+        std::set<std::shared_ptr<Arc>> arcs = orderConstraintOutputPort->getArcs();
+        for (auto it = arcs.begin(); it != arcs.end(); it++) {
+            std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
+            if (!foundPartition) {
+                dstPartition = (*it)->getDstPort()->getParent()->getPartitionNum();
+                foundPartition = true;
+            } else {
+                if(dstPartition != (*it)->getDstPort()->getParent()->getPartitionNum()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Attempted to get a unified output partition for a node which has arcs to different partitions"));
+                }
+            }
+        }
+    }
+
+    return dstPartition;
 }

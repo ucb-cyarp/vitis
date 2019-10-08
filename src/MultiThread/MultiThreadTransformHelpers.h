@@ -243,6 +243,18 @@ public:
                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                    bool printActions = true);
 
+    /**
+     * @brief Reduces the number of initial conditions in a FIFO by pushing some into a delay connected to the FIFO
+     * By default, the delay is placed on the input of the FIFO
+     * However, if the src port of the FIFO is a MasterInput node, the delay is placed on the output
+     *
+     * @param fifo
+     * @param numElementsToMove
+     * @param new_nodes
+     * @param deleted_nodes
+     * @param new_arcs
+     * @param deleted_arcs
+     */
     static void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                              int numElementsToMove,
                                              std::vector<std::shared_ptr<Node>> &new_nodes,

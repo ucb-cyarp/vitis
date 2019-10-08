@@ -204,6 +204,8 @@ public:
      */
     static void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "");
 
+    //Checks that the only nodes that are in the I/O partition are ThreadCrossingFIFOs or subsystems
+    static bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
 };
 
 /*! @} */
