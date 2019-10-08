@@ -3399,6 +3399,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, threadDebugPrint);
 
+    //Emit the startup function (aka the benchmark kernel)
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap);
+
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, pipeIOSuffix, inputVars);
 
@@ -3411,6 +3414,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
                                         fifoHeaderName, threadDebugPrint);
+
+    //Emit the startup function (aka the benchmark kernel)
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, socketIOSuffix, inputVars);
