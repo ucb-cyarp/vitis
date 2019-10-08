@@ -9,6 +9,7 @@
 #include "GraphCore/Design.h"
 #include "General/GeneralHelper.h"
 #include "MultiThreadEmitterHelpers.h"
+#include "General/EmitterHelpers.h"
 
 void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
     //Emit a thread for handeling the I/O
@@ -33,6 +34,7 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     if(threadDebugPrint) {
         headerFile << "#include <stdio.h>" << std::endl;
     }
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 

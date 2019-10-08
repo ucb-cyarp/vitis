@@ -773,6 +773,8 @@ void Design::emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, 
 }
 
 void Design::emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched, unsigned long blockSize) {
+    EmitterHelpers::stringEmitTypeHeader(path);
+
     std::string blockIndVar = "";
 
     //Set the block size and indVarName in the master nodes.  This is used in the emit, specifically in the inputMaster
@@ -813,6 +815,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
@@ -1021,6 +1024,7 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
 
     benchKernel << "#include \"" << fileName << ".h" << "\"" << std::endl;
     benchKernel << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    benchKernel << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     benchKernel << "void bench_"+fileName+"()\n"
                    "{\n";
 
@@ -1318,6 +1322,7 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
 
     benchKernelMem << "#include \"" << fileName << ".h\"" << std::endl;
     benchKernelMem << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    benchKernelMem << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     benchKernelMem << "void bench_"+fileName+"_mem(void** in, void** out)" << std::endl;
     benchKernelMem << "{\n";
 
@@ -3350,6 +3355,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                   << "_scheduleGraph.graphml" << std::endl;
         GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph.graphml", *this);
     }
+
+    //Emit Types
+    EmitterHelpers::stringEmitTypeHeader(path);
 
     //Emit FIFO header (get struct descriptions from FIFOs)
     std::string fifoHeaderName = MultiThreadEmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);

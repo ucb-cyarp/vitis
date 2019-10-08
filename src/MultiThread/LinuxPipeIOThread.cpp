@@ -40,6 +40,7 @@ void LinuxPipeIOThread::emitLinuxPipeIOThreadC(std::shared_ptr<MasterInput> inpu
     if(threadDebugPrint) {
         headerFile << "#include <stdio.h>" << std::endl;
     }
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 

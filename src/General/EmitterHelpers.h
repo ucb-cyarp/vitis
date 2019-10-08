@@ -10,6 +10,8 @@
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
 
+#define VITIS_TYPE_NAME "vitisTypes"
+
 //Forward declare
 class Node;
 class ContextRoot;
@@ -91,6 +93,13 @@ public:
      * @return
      */
     static std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::string structTypeName, int blockSize = 1);
+
+    /**
+     * @brief Outputs the type header
+     * @param path
+     * @return the name of the type header
+     */
+    static std::string stringEmitTypeHeader(std::string path);
 };
 
 /*! @} */

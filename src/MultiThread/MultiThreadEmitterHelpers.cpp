@@ -18,6 +18,7 @@
 #include <PrimitiveNodes/BlackBox.h>
 #include "GraphCore/ContextContainer.h"
 #include "GraphCore/ContextFamilyContainer.h"
+#include "General/EmitterHelpers.h"
 
 #include <iostream>
 #include <fstream>
@@ -363,6 +364,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, st
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
 
     for(int i = 0; i<fifos.size(); i++){
         std::string fifoStruct = fifos[i]->createFIFOStruct();
@@ -395,6 +397,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
     headerFile << "#include <errno.h>" << std::endl;
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 
@@ -624,6 +627,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver << "#include \"benchmark_throughput_test.h\"" << std::endl;
     benchDriver << "#include \"kernel_runner.h\"" << std::endl;
     benchDriver << "extern \"C\"{" << std::endl;
+    benchDriver << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     benchDriver << "#include \"" + kernelFileName + ".h\"" << std::endl;
     benchDriver << "}" << std::endl;
 
@@ -854,6 +858,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     headerFile << "#include <stdbool.h>" << std::endl;
     headerFile << "#include <math.h>" << std::endl;
     headerFile << "#include <pthread.h>" << std::endl;
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;

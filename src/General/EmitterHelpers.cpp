@@ -488,3 +488,24 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
     prototype += "#pragma pack(pop)";
     return prototype;
 }
+
+std::string EmitterHelpers::stringEmitTypeHeader(std::string path){
+    std::string typeHeaderFileName = VITIS_TYPE_NAME;
+    std::cout << "Emitting C File: " << path << "/" << typeHeaderFileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+typeHeaderFileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(typeHeaderFileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "typedef uint8_t vitisBool;" << std::endl;
+
+    headerFile << "#endif" << std::endl;
+
+    headerFile.close();
+
+    return typeHeaderFileName + ".h";
+}
