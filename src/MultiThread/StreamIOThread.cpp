@@ -94,6 +94,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     ioThread << "#include <stdio.h>" << std::endl;
     ioThread << "#include <stdlib.h>" << std::endl;
+    ioThread << "#include <string.h>" << std::endl;
     ioThread << "#include <sys/stat.h>" << std::endl;
     ioThread << "#include <unistd.h>" << std::endl;
     if(streamType == StreamType::SOCKET) {
@@ -385,11 +386,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Close the pipes
         ioThread << "int closeStatus = fclose(inputPipe);" << std::endl;
         ioThread << "if(closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Unable to close Linux Input Pipe\\n\")";
+        ioThread << "printf(\"Unable to close Linux Input Pipe\\n\");" << std::endl;
         ioThread << "}" << std::endl;
         ioThread << "closeStatus = fclose(outputPipe);" << std::endl;
         ioThread << "if(closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Unable to close Linux Output Pipe\\n\")";
+        ioThread << "printf(\"Unable to close Linux Output Pipe\\n\");" << std::endl;
         ioThread << "}" << std::endl;
 
         //Delete the pipes
