@@ -244,9 +244,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
         ioThread << "}else {" << std::endl;
         ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
-        ioThread << "char* connectionAddrStrPtr = &connectionAddrStr[0];" << std::endl;
+        ioThread << "char* connectionAddrStrPtr = &(connectionAddrStr[0]);" << std::endl;
         ioThread << "struct sockaddr_in* ipv4AddrStruct = (struct sockaddr_in*) &acceptSocket;" << std::endl;
-        ioThread << "char* nameStr = inet_ntop(AF_INET, ipv4AddrStruct, &connectionAddrStrPtr, INET_ADDRSTRLEN);" << std::endl;
+        ioThread << "const char* nameStr = inet_ntop(AF_INET, ipv4AddrStruct, &connectionAddrStrPtr, INET_ADDRSTRLEN);" << std::endl;
         ioThread << "if(nameStr != NULL) {" << std::endl;
         ioThread << "printf(\"Connection from %s:%d\\n\", nameStr, ntohs(ipv4AddrStruct->sin_port));" << std::endl;
         ioThread << "}" << std::endl;
