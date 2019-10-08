@@ -501,7 +501,7 @@ std::string EmitterHelpers::stringEmitTypeHeader(std::string path){
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
     headerFile << "#include <stdint.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
-    headerFile << "typedef uint8_t vitisBool;" << std::endl;
+    headerFile << "typedef uint8_t vitisBool_t;" << std::endl;
 
     headerFile << "#endif" << std::endl;
 
