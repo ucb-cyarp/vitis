@@ -86,6 +86,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     headerFile << EmitterHelpers::getCIOPortStructDefn(masterOutputVars, outputStructTypeName, blockSize) << std::endl;
 
     headerFile << "#endif" << std::endl;
+    headerFile.close();
 
     //#### Emit .c File ####
     std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
@@ -200,8 +201,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "localAddr.sin_family=AF_INET;" << std::endl;
         ioThread << "localAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT);" << std::endl;
         ioThread << "localAddr.sin_addr.s_addr=htonl(VITIS_SOCKET_LISTEN_ADDR);" << std::endl;
-        ioThread << "printf(\"Listen addr: %d\\n\", VITIS_SOCKET_LISTEN_ADDR);" << std::endl;
-        ioThread << "printf(\"Listen port: %d\\n\", VITIS_SOCKET_LISTEN_PORT);" << std::endl;
+        ioThread << "printf(\"Listening on port: %d\\n\", VITIS_SOCKET_LISTEN_PORT);" << std::endl;
         ioThread << "printf(\"Waiting for connection ...\\n\");" << std::endl;
         ioThread << std::endl;
 
@@ -379,7 +379,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "printf(\"Input Pipe Closed ... Exiting\\n\");" << std::endl;
     }
 
-
     //clean up streams
     if(streamType == StreamType::PIPE) {
         //The client should close the output FIFO first then the read FIFO
@@ -406,8 +405,16 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "perror(NULL);" << std::endl;
         ioThread << "}" << std::endl;
     }else if(streamType == StreamType::SOCKET){
-        ioThread << "close(" << connectedSocketName << ");" << std::endl;
-        ioThread << "close(" << listenSocketName << ");" << std::endl;
+        ioThread << "int closeStatus = close(" << connectedSocketName << ");" << std::endl;
+        ioThread << "if (closeStatus != 0){" << std::endl;
+        ioThread << "printf(\"Could not close the connection socket\\n\");" << std::endl;
+        ioThread << "perror(NULL);" << std::endl;
+        ioThread << "}" << std::endl;
+        ioThread << "closeStatus = close(" << listenSocketName << ");" << std::endl;
+        ioThread << "if (closeStatus != 0){" << std::endl;
+        ioThread << "printf(\"Could not close the listen socket\\n\");" << std::endl;
+        ioThread << "perror(NULL);" << std::endl;
+        ioThread << "}" << std::endl;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
@@ -415,7 +422,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //Done reading
     ioThread << "return NULL;" << std::endl;
     ioThread << "}" << std::endl;
-
+    ioThread.close();
 }
 
 std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>>

@@ -406,6 +406,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     headerFile << std::endl;
     headerFile << fctnDecl << ";" << std::endl;
     headerFile << "#endif" << std::endl;
+    headerFile.close();
 
     //#### Emit .c File ####
     std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
@@ -611,6 +612,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     }
 
     cFile << "}" << std::endl;
+    cFile.close();
 }
 
 void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
