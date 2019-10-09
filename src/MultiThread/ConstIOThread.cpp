@@ -37,7 +37,6 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
-    headerFile.close();
 
     //Create the threadFunction argument structure for the I/O thread (includes the references to FIFO shared vars)
     std::pair<std::string, std::string> threadArgStructAndTypeName = MultiThreadEmitterHelpers::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, IO_PARTITION_NUM);
@@ -51,6 +50,8 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     headerFile << std::endl;
     headerFile << threadFctnDecl << ";" << std::endl;
     headerFile << "#endif" << std::endl;
+
+    headerFile.close();
 
     //#### Emit .c File ####
     std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
