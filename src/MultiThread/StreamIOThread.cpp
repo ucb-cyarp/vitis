@@ -590,7 +590,7 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
 }
 
 void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName) {
-    std::string serverFilenamePostfix = "io_network_socket_client";
+    std::string serverFilenamePostfix = "io_network_socket";
     std::string serverFileName = fileNamePrefix + "_" + serverFilenamePostfix;
 
     std::string filenamePostfix = "io_network_socket_client";
