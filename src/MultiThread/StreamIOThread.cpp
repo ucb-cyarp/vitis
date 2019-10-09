@@ -622,7 +622,7 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
 
     //Output function prototypes for the socket client
     headerFile << "//For disconnecting from the remote system" << std::endl;
-    std::string disconnectFctnDecl = "void " + designName + "_" + filenamePostfix + "_connect(int socket)";
+    std::string disconnectFctnDecl = "void " + designName + "_" + filenamePostfix + "_disconnect(int socket)";
     headerFile << disconnectFctnDecl << ";" << std::endl;
     headerFile << std::endl;
 
