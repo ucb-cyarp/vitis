@@ -655,7 +655,6 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << "#include <netinet/in.h>" << std::endl;
     ioThread << "#include <arpa/inet.h>" << std::endl;
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
-    ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     ioThread << std::endl;
 
     ioThread << connectFctnDecl << "{" << std::endl;
