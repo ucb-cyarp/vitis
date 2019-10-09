@@ -219,10 +219,15 @@ void ThreadCrossingFIFO::emitPropertiesToGraphML(xercesc::DOMDocument *doc, xerc
 //    GraphMLHelper::addDataNode(doc, graphNode, "cStateInputVar_InitialCondition", NumericValue::toString(cStateInputVar.getInitValue()));
 }
 
+std::string ThreadCrossingFIFO::typeNameStr(){
+    return "ThreadCrossingFIFO";
+}
+
 std::string ThreadCrossingFIFO::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFIFO_Length:" + GeneralHelper::to_string(fifoLength);
+    label += "\nFunction: " + typeNameStr();
+    label += "\nFIFO_Length: " + GeneralHelper::to_string(fifoLength);
     label += "\nBlockSize: " + GeneralHelper::to_string(blockSize);
 
     //There is a separate initial condition entry for each port pair

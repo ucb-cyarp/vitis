@@ -143,6 +143,8 @@ public:
      */
     void validate() override;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     //TODO: When syntehsizing C/C++ check that boolean is handled (false = 0, true = 1)

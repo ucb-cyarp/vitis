@@ -146,6 +146,8 @@ public:
      */
     void emitPropertiesToGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode);
 
+    std::string typeNameStr() override;
+
     /**
      * @brief This function only returns details in a string since this is an abstract class
      * @return

@@ -155,10 +155,14 @@ std::set<GraphMLParameter> NCO::graphMLParameters() {
     return parameters;
 }
 
+std::string NCO::typeNameStr(){
+    return "NCO";
+}
+
 std::string NCO::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: NCO\nLutAddrBits:" + GeneralHelper::to_string(lutAddrBits) +
+    label += "\nFunction: " + typeNameStr() + "\nLutAddrBits:" + GeneralHelper::to_string(lutAddrBits) +
              "\nAccumulatorBits:" + GeneralHelper::to_string(accumulatorBits) +
              "\nDitherBits:" + GeneralHelper::to_string(ditherBits) +
              "\nComplexOut:" + GeneralHelper::to_string(complexOut);

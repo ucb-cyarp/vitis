@@ -21,3 +21,7 @@ std::string MasterOutput::getCOutputName(int portNum) {
 std::shared_ptr<Node> MasterOutput::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<MasterOutput>(parent, this);
 }
+
+std::string MasterOutput::typeNameStr(){
+    return "Master Output";
+}

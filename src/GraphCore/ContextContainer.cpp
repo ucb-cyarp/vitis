@@ -54,3 +54,15 @@ ContextContainer::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gr
 
     return thisNode;
 }
+
+std::string ContextContainer::typeNameStr(){
+    return "ContextContainer";
+}
+
+std::string ContextContainer::labelStr(){
+    std::string label = Node::labelStr();
+
+    label += "\nFunction: " + typeNameStr();
+
+    return label;
+}

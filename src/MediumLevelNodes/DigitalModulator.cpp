@@ -231,10 +231,14 @@ DigitalModulator::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gr
     return thisNode;
 }
 
+std::string DigitalModulator::typeNameStr(){
+    return "DigitalModulator";
+}
+
 std::string DigitalModulator::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: DigitalModulator\nBitsPerSymbol:" + GeneralHelper::to_string(bitsPerSymbol) +
+    label += "\nFunction: " + typeNameStr() + "\nBitsPerSymbol:" + GeneralHelper::to_string(bitsPerSymbol) +
              "\nRotation:" + GeneralHelper::to_string(rotation) +
              "\nNormalization:" + GeneralHelper::to_string(normalization) +
              "\nGrayCoded:" + GeneralHelper::to_string(grayCoded) +

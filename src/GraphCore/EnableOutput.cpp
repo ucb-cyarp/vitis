@@ -72,10 +72,14 @@ std::set<GraphMLParameter> EnableOutput::graphMLParameters() {
     return parameters;
 }
 
+std::string EnableOutput::typeNameStr(){
+    return "Enable Output";
+};
+
 std::string EnableOutput::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Enable Output";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }

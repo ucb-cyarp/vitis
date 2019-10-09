@@ -60,6 +60,8 @@ protected:
      */
     void validate() override;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
 public:

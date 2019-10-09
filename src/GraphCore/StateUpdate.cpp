@@ -98,3 +98,15 @@ CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
 
     return CExpr(inputExpr, false);
 }
+
+std::string StateUpdate::typeNameStr(){
+    return "StateUpdate";
+}
+
+std::string StateUpdate::labelStr(){
+    std::string label = Node::labelStr();
+
+    label += "\nFunction: " + typeNameStr();
+
+    return label;
+}

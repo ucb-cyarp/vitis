@@ -79,8 +79,9 @@ public:
                                                     std::map<std::string, std::string> dataKeyValueMap,
                                                     std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
-    std::string labelStr() override ;
+    std::string typeNameStr() override;
 
+    std::string labelStr() override ;
 
     /**
      * @brief Validate if the connections to this port are correct.

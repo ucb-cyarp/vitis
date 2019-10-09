@@ -56,6 +56,8 @@ public:
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
+    std::string typeNameStr() override;
+
 };
 
 /*! @} */

@@ -93,6 +93,8 @@ public:
      * @warning This function should be called after ContextFamilyContainers and ContextContainers are properly encapsulated with their child nodes
      */
     void rewireArcsToContextFamilyContainerAndRecurse(std::vector<std::shared_ptr<Arc>> &arcs_to_delete);
+
+    std::string typeNameStr() override;
 };
 
 /*! @} */

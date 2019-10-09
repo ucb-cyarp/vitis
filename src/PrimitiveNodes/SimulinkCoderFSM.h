@@ -90,7 +90,7 @@ public:
 
     std::set<GraphMLParameter> graphMLParameters() override;
 
-
+    std::string typeNameStr() override;
 
 };
 

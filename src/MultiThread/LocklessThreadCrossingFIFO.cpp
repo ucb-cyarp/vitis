@@ -121,6 +121,10 @@ std::shared_ptr<Node> LocklessThreadCrossingFIFO::shallowClone(std::shared_ptr<S
     return NodeFactory::shallowCloneNode<LocklessThreadCrossingFIFO>(parent, this);
 }
 
+std::string LocklessThreadCrossingFIFO::typeNameStr(){
+    return "LocklessThreadCrossingFIFO";
+}
+
 std::string LocklessThreadCrossingFIFO::labelStr() {
     //No additional paramerters to add
     return ThreadCrossingFIFO::labelStr();

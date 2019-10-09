@@ -69,10 +69,14 @@ UnsupportedSink::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gra
     return thisNode;
 }
 
+std::string UnsupportedSink::typeNameStr(){
+    return "Unsupported Sink";
+}
+
 std::string UnsupportedSink::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nUnsupported Sink\nType: " + nodeType;
+    label += "\n" + typeNameStr() + "\nType: " + nodeType;
 
     return label;
 }

@@ -109,10 +109,14 @@ TappedDelay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNo
     return thisNode;
 }
 
+std::string TappedDelay::typeNameStr(){
+    return "TappedDelay";
+}
+
 std::string TappedDelay::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: TappedDelay\nDelays: " + GeneralHelper::to_string(delays);
+    label += "\nFunction: " + typeNameStr() + "\nDelays: " + GeneralHelper::to_string(delays);
     label += "\nInitialStates: " + NumericValue::toString(initVals);
 
     return label;

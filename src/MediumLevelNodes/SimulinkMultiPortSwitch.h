@@ -119,6 +119,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     //Check of ONE_BASED that number of bits >1 if integer

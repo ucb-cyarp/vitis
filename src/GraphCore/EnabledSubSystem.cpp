@@ -21,10 +21,14 @@ EnabledSubSystem::EnabledSubSystem() {
 EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent) : SubSystem(parent) {
 }
 
+std::string EnabledSubSystem::typeNameStr(){
+    return "Enabled Subsystem";
+}
+
 std::string EnabledSubSystem::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Enabled Subsystem";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }

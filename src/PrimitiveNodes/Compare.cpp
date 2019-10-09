@@ -115,10 +115,14 @@ Compare::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, 
     return thisNode;
 }
 
+std::string Compare::typeNameStr(){
+    return "Compare";
+}
+
 std::string Compare::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Compare\nCompareOp:" + compareOpToString(compareOp);
+    label += "\nFunction: " + typeNameStr() + "\nCompareOp:" + compareOpToString(compareOp);
 
     return label;
 }

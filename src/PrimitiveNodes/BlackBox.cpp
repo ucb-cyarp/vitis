@@ -242,10 +242,14 @@ BlackBox::populatePropertiesFromGraphML(int id, std::string name, std::map<std::
     }
 }
 
+std::string BlackBox::typeNameStr(){
+    return "BlackBox";
+}
+
 std::string BlackBox::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: BlackBox\nExeCombinationalName:" + exeCombinationalName + "\nStateful: " +
+    label += "\nFunction: " + typeNameStr() + "\nExeCombinationalName:" + exeCombinationalName + "\nStateful: " +
             GeneralHelper::to_string(stateful) + "\nStateUpdateName: " + stateUpdateName;
 
     return label;

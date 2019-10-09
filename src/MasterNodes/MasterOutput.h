@@ -41,6 +41,8 @@ public:
     std::string getCOutputName(int portNum);
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    std::string typeNameStr() override;
 };
 
 /*! @} */

@@ -87,6 +87,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override;

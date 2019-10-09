@@ -91,10 +91,14 @@ Mux::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool
     return thisNode;
 }
 
+std::string Mux::typeNameStr(){
+    return "Mux";
+}
+
 std::string Mux::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Mux";
+    label += "\nFunction: " + typeNameStr();
 
     return label;
 }

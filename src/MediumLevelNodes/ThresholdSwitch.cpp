@@ -191,10 +191,14 @@ ThresholdSwitch::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gra
     return thisNode;
 }
 
+std::string ThresholdSwitch::typeNameStr(){
+    return "ThresholdSwitch";
+}
+
 std::string ThresholdSwitch::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: CompareToConstant\nCompareOp: " + Compare::compareOpToString(compareOp) + "\nThreshold:" + NumericValue::toString(threshold);
+    label += "\nFunction: " + typeNameStr() + "\nCompareOp: " + Compare::compareOpToString(compareOp) + "\nThreshold:" + NumericValue::toString(threshold);
 
     return label;
 }

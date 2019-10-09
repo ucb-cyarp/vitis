@@ -101,10 +101,14 @@ Product::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, 
     return thisNode;
 }
 
+std::string Product::typeNameStr(){
+    return "Product";
+}
+
 std::string Product::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Product\nInputOps:" + GeneralHelper::vectorToString(inputOp, "*", "/", "", false);
+    label += "\nFunction: " + typeNameStr() + "\nInputOps:" + GeneralHelper::vectorToString(inputOp, "*", "/", "", false);
 
     return label;
 }

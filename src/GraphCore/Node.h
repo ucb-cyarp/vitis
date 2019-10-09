@@ -900,6 +900,12 @@ public:
     virtual std::string labelStr();
 
     /**
+     * @brief Get the type name of the node as a string
+     * @return Type name of the node
+     */
+    virtual std::string typeNameStr() = 0;
+
+    /**
      * @brief Validate if the node has a valid configuration.
      * This may involve looking at arcs or nodes connected to this node.
      *

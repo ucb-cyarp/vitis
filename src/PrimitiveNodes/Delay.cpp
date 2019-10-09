@@ -120,10 +120,14 @@ Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bo
     return thisNode;
 }
 
+std::string Delay::typeNameStr(){
+    return "Delay";
+}
+
 std::string Delay::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Delay\nDelayLength:" + GeneralHelper::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
+    label += "\nFunction: " + typeNameStr() + "\nDelayLength:" + GeneralHelper::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
 
     return label;
 }

@@ -50,3 +50,7 @@ CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
 std::shared_ptr<Node> MasterInput::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<MasterInput>(parent, this);
 }
+
+std::string MasterInput::typeNameStr(){
+    return "Master Input";
+}

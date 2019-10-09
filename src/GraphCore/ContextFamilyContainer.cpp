@@ -255,3 +255,7 @@ void ContextFamilyContainer::setSiblingContainers(
         const std::map<int, std::shared_ptr<ContextFamilyContainer>> &siblingContainers) {
     ContextFamilyContainer::siblingContainers = siblingContainers;
 }
+
+std::string ContextFamilyContainer::typeNameStr(){
+    return "ContextFamilyContainer";
+}

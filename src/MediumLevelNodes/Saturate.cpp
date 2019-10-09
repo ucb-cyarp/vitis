@@ -105,10 +105,14 @@ Saturate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode,
     return thisNode;
 }
 
+std::string Saturate::typeNameStr(){
+    return "Saturate";
+}
+
 std::string Saturate::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Saturate\nLowerLimit: " + lowerLimit.toString() + "\nUpperLimit: " + upperLimit.toString();
+    label += "\nFunction: " + typeNameStr() + "\nLowerLimit: " + lowerLimit.toString() + "\nUpperLimit: " + upperLimit.toString();
 
     return label;
 }

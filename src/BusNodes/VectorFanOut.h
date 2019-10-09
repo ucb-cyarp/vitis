@@ -79,6 +79,8 @@ public:
 
     std::string labelStr() override ;
 
+    std::string typeNameStr() override;
+
     void validate() override ;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;

@@ -20,11 +20,14 @@ EnabledExpandedNode::EnabledExpandedNode(std::shared_ptr<SubSystem> parent, std:
 
 }
 
+std::string EnabledExpandedNode::typeNameStr(){
+    return "Enabled Expanded";
+}
 
 std::string EnabledExpandedNode::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Enabled Expanded";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }

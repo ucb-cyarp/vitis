@@ -180,3 +180,6 @@ std::set<GraphMLParameter> SimulinkCoderFSM::graphMLParameters() {
     return parameters;
 }
 
+std::string SimulinkCoderFSM::typeNameStr(){
+    return "SimulinkCoderFSM";
+}
