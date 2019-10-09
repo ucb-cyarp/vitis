@@ -588,3 +588,144 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
         }
     }
 }
+
+void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName) {
+    std::string serverFilenamePostfix = "io_network_socket_client";
+    std::string serverFileName = fileNamePrefix + "_" + serverFilenamePostfix;
+
+    std::string filenamePostfix = "io_network_socket_client";
+    std::string fileName = fileNamePrefix + "_" + filenamePostfix;
+
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <math.h>" << std::endl;
+    headerFile << "#include <pthread.h>" << std::endl;
+    headerFile << "#define VITIS_SOCKET_LISTEN_PORT " << DEFAULT_VITIS_SOCKET_LISTEN_PORT << std::endl;
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
+    headerFile << "#include \"" << serverFileName << ".h\"" << std::endl;
+    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
+    headerFile << std::endl;
+
+    //Output function prototypes for the socket client
+    headerFile << "//For connecting to the remote system" << std::endl;
+    std::string connectFctnDecl = "int " + designName + "_" + filenamePostfix + "_connect(char* ipAddrStr)";
+    headerFile << connectFctnDecl << ";" << std::endl;
+    headerFile << std::endl;
+
+    //Output function prototypes for the socket client
+    headerFile << "//For disconnecting from the remote system" << std::endl;
+    std::string disconnectFctnDecl = "void " + designName + "_" + filenamePostfix + "_connect(int socket)";
+    headerFile << disconnectFctnDecl << ";" << std::endl;
+    headerFile << std::endl;
+
+    std::string inputStructTypeName = designName+"_inputs_t";
+    headerFile << "//For sending data to the remote system" << std::endl;
+    std::string sendFctnDcl = "void " + designName + "_" + filenamePostfix + "_send(int socket, " + inputStructTypeName + " *toSend)";
+    headerFile << sendFctnDcl << ";" << std::endl;
+    headerFile << std::endl;
+
+    std::string outputStructTypeName = designName+"_outputs_t";
+    headerFile << "//For receiving data from the remote system" << std::endl;
+    headerFile << "//Returns true if data received, false if socket has been closed" << std::endl;
+    std::string recvFctnDcl = "bool " + designName + "_" + filenamePostfix + "_recv(int socket, " + outputStructTypeName + " *toRecv)";
+    headerFile << recvFctnDcl << ";" << std::endl;
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    //#### Emit .c File ####
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    std::ofstream ioThread;
+    ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    ioThread << "#include <stdio.h>" << std::endl;
+    ioThread << "#include <stdlib.h>" << std::endl;
+    ioThread << "#include <string.h>" << std::endl;
+    ioThread << "#include <sys/stat.h>" << std::endl;
+    ioThread << "#include <unistd.h>" << std::endl;
+    ioThread << "#include <sys/types.h>" << std::endl;
+    ioThread << "#include <sys/socket.h>" << std::endl;
+    ioThread << "#include <netinet/in.h>" << std::endl;
+    ioThread << "#include <arpa/inet.h>" << std::endl;
+    ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    ioThread << std::endl;
+
+    ioThread << connectFctnDecl << "{" << std::endl;
+    ioThread << "//Setup Socket Connection" << std::endl;
+    //Open a socket for IPv4 and a Socket Byte Stream (bidirectional byte stream)
+    std::string connectSocketName = "connectSock";
+    ioThread << "int " << connectSocketName << " = socket(AF_INET, SOCK_STREAM, 0);" << std::endl;
+    ioThread << "if(" << connectSocketName << " == -1){" << std::endl;
+    ioThread << "fprintf(stderr, \"Could not create socket\\n\");" << std::endl;
+    ioThread << "perror(NULL);" << std::endl;
+    ioThread << "exit(1);" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << std::endl;
+
+    //Set connection
+    ioThread << "struct sockaddr_in connectAddr;" << std::endl;
+    ioThread << "connectAddr.sin_family=AF_INET;" << std::endl;
+    ioThread << "connectAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT);" << std::endl;
+    ioThread << "connectAddr.sin_addr.s_addr=inet_addr(ipAddrStr);" << std::endl;
+    ioThread << "printf(\"Connecting to addr: %s:%d\\n\", ipAddrStr, VITIS_SOCKET_LISTEN_PORT);" << std::endl;
+    ioThread << std::endl;
+
+    ioThread << "int connectStatus = connect(" << connectSocketName << ", (struct sockaddr *)(&connectAddr), sizeof(connectAddr));" << std::endl;
+    ioThread << "if(connectStatus == -1){" << std::endl;
+    ioThread << "fprintf(stderr, \"Unable to connect\\n\");" << std::endl;
+    ioThread << "perror(NULL);" << std::endl;
+    ioThread << "exit(1);" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << "printf(\"Connected!\\n\");" << std::endl;
+    ioThread << "return " << connectSocketName << ";" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << std::endl;
+
+    ioThread << disconnectFctnDecl << "{" << std::endl;
+    ioThread << "int closeStatus = close(socket);" << std::endl;
+    ioThread << "if (closeStatus != 0){" << std::endl;
+    ioThread << "printf(\"Could not close the socket\\n\");" << std::endl;
+    ioThread << "perror(NULL);" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << "printf(\"Disconnected\\n\");" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << std::endl;
+
+    ioThread << sendFctnDcl << "{" << std::endl;
+    ioThread << "int bytesSent = send(socket, toSend, sizeof(" << inputStructTypeName << "), 0);" << std::endl;
+    ioThread << "if (bytesSent == -1){" << std::endl;
+    ioThread << "printf(\"An error was encountered while writing the socket\\n\");" << std::endl;
+    ioThread << "perror(NULL);" << std::endl;
+    ioThread << "exit(1);" << std::endl;
+    ioThread << "} else if (bytesSent != sizeof(" << inputStructTypeName << ")){" << std::endl;
+    ioThread << "printf(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
+    ioThread << "exit(1);" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << std::endl;
+
+    ioThread << recvFctnDcl << "{" << std::endl;
+    ioThread << "int bytesRead = recv(socket, toRecv, sizeof(" << outputStructTypeName << "), MSG_WAITALL);" << std::endl;
+    ioThread << "if(bytesRead == 0){" << std::endl;
+    ioThread << "//Done with input (socket closed)" << std::endl;
+    ioThread << "return false;" << std::endl;
+    ioThread << "} else if (bytesRead == -1){" << std::endl;
+    ioThread << "printf(\"An error was encountered while reading the socket\\n\");" << std::endl;
+    ioThread << "perror(NULL);" << std::endl;
+    ioThread << "exit(1);" << std::endl;
+    ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
+    ioThread << "printf(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
+    ioThread << "exit(1);" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread << "return true;" << std::endl;
+    ioThread << "}" << std::endl;
+    ioThread.close();
+}

@@ -3405,6 +3405,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, pipeIOSuffix, inputVars);
 
+    //Emit the client handlers
+    StreamIOThread::emitSocketClientLib(path, fileName, fifoHeaderName, designName);
+
     //Emit the benchmark makefile
     MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix);
 
