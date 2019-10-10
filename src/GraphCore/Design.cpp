@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <Estimators/ComputationEstimator.h>
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
 #include "General/ErrorHelpers.h"
@@ -40,7 +39,7 @@
 #include "MultiThread/MultiThreadTransformHelpers.h"
 
 #include "Estimators/EstimatorCommon.h"
-#include "Estimators/CommunicationEstimator.h"
+#include "Estimators/ComputationEstimator.h"
 
 //==== Constructors
 Design::Design() {
