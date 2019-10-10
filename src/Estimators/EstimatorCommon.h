@@ -53,6 +53,17 @@ public:
         bool operator>=(const NodeOperation &rhs) const;
     };
 
+    class NodeOperationComparatorByName{
+        std::map<std::type_index, std::string> nameMapping;
+    public:
+
+        explicit NodeOperationComparatorByName(std::map<std::type_index, std::string> nameMapping);
+
+        bool comp(const NodeOperation &a, const NodeOperation &b) const;
+
+        bool operator()(const NodeOperation &a, const NodeOperation &b) const;
+    };
+
     /**
      * @brief Types of primitive operations
      */

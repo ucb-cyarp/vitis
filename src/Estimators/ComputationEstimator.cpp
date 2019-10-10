@@ -135,8 +135,13 @@ void ComputationEstimator::printComputeInstanceTable(
     }
     std::cout << std::endl;
 
+    //Sorting operators (note, comparator & set would need to be changed if any new operator node types are added later)
+    EstimatorCommon::NodeOperationComparatorByName comparator(names);
+    std::set<EstimatorCommon::NodeOperation, EstimatorCommon::NodeOperationComparatorByName> operatorSorted(comparator);
+    operatorSorted.insert(operators.begin(), operators.end());
+
     //Print the rows (the operator)
-    for(auto op = operators.begin(); op != operators.end(); op++){
+    for(auto op = operatorSorted.begin(); op != operatorSorted.end(); op++){
         //Print the details of the
         std::string opName = names[op->nodeType];
         printf(nameFormatStr.c_str(), opName.c_str());

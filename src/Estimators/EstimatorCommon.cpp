@@ -67,3 +67,23 @@ std::string EstimatorCommon::operandTypeToString(EstimatorCommon::OperandType op
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown OperandType"));
     }
 }
+
+EstimatorCommon::NodeOperationComparatorByName::NodeOperationComparatorByName(
+        std::map<std::type_index, std::string> nameMapping) : nameMapping(nameMapping) {}
+
+bool EstimatorCommon::NodeOperationComparatorByName::comp(const NodeOperation &a, const NodeOperation &b) const{
+    //Check for the string name first
+    if(nameMapping.at(a.nodeType) < nameMapping.at(b.nodeType)){
+        return true;
+    }else if(nameMapping.at(a.nodeType) > nameMapping.at(b.nodeType)){
+        return false;
+    }
+
+    //Then use the orig relational operator names are equal
+    return a<b;
+}
+
+bool EstimatorCommon::NodeOperationComparatorByName::operator()(const EstimatorCommon::NodeOperation &a,
+                                                                const EstimatorCommon::NodeOperation &b) const {
+    return comp(a, b);
+}
