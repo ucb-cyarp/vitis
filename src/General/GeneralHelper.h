@@ -259,6 +259,13 @@ public:
 
         return postfix;
     }
+
+    /**
+     * @brief Get a string with a specified number of spaces
+     * @param numSpaces number of spaces to include
+     * @return
+     */
+    static std::string getSpaces(int numSpaces);
 };
 
 /*! @} */

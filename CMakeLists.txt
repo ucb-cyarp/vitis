@@ -205,7 +205,11 @@ set(COMMON_SRCS
         src/BusNodes/VectorFanOut.cpp
         src/BusNodes/VectorFanOut.h
         src/BusNodes/Concatenate.cpp
-        src/BusNodes/Concatenate.h)
+        src/BusNodes/Concatenate.h
+        src/Estimators/EstimatorCommon.cpp
+        src/Estimators/EstimatorCommon.h
+        src/Estimators/ComputationEstimator.cpp
+        src/Estimators/ComputationEstimator.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

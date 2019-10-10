@@ -157,3 +157,13 @@ bool GeneralHelper::parseBool(std::string boolStr) {
         throw std::runtime_error("Could not parse bool: " + boolStr);
     }
 }
+
+std::string GeneralHelper::getSpaces(int numSpaces){
+    std::string str;
+
+    for(int i = 0; i<numSpaces; i++){
+        str += " ";
+    }
+
+    return str;
+}

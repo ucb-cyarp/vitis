@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <Estimators/ComputationEstimator.h>
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
 #include "General/ErrorHelpers.h"
@@ -37,6 +38,9 @@
 #include "MultiThread/StreamIOThread.h"
 #include "MultiThread/MultiThreadEmitterHelpers.h"
 #include "MultiThread/MultiThreadTransformHelpers.h"
+
+#include "Estimators/EstimatorCommon.h"
+#include "Estimators/CommunicationEstimator.h"
 
 //==== Constructors
 Design::Design() {
@@ -3356,13 +3360,32 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph.graphml", *this);
     }
 
+    //Analyze Partitions
+    std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
+
+    std::map<int, std::map<EstimatorCommon::NodeOperation, int>> counts;
+    std::map<std::type_index, std::string> names;
+
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>> partCount = ComputationEstimator::reportComputeInstances(it->second);
+        counts[it->first] = partCount.first;
+
+        for(auto nameIt = partCount.second.begin(); nameIt != partCount.second.end(); nameIt++){
+            if(names.find(nameIt->first) == names.end()){
+                names[nameIt->first] = nameIt->second;
+            }
+        }
+    }
+
+    std::cout << "Partition Node Count Report:" << std::endl;
+    ComputationEstimator::printComputeInstanceTable(counts, names);
+    std::cout << std::endl;
+
     //Emit Types
     EmitterHelpers::stringEmitTypeHeader(path);
 
     //Emit FIFO header (get struct descriptions from FIFOs)
     std::string fifoHeaderName = MultiThreadEmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);
-
-    std::map<int, std::vector<std::shared_ptr<Node>>> partitions = findPartitions();
 
     //Emit partition functions (computation function and driver function)
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
