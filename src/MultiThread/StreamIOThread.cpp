@@ -737,7 +737,7 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while reading the socket\\n\");" << std::endl;
     ioThread << "perror(NULL);" << std::endl;
     ioThread << "exit(1);" << std::endl;
-    ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
+    ioThread << "} else if (bytesRead != sizeof(" << outputStructTypeName << ")){" << std::endl;
     ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "}" << std::endl;
