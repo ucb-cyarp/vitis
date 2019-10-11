@@ -243,17 +243,19 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Using getpeername to get the name of the connected client
         //https://stackoverflow.com/questions/20472072/c-socket-get-ip-address-from-filedescriptor-returned-from-accept/20475352
         //http://man7.org/linux/man-pages/man2/getpeername.2.html
-        ioThread << "struct sockaddr_in clientAddr;" << std::endl;
-        ioThread << "struct sockaddr *clientAddrCast = (struct sockaddr *) &clientAddr;" << std::endl;
+        //https://beej.us/guide/bgnet/html/multi/getpeernameman.html
+        ioThread << "struct sockaddr_storage clientAddr;" << std::endl;
+        ioThread << "struct sockaddr *clientAddrCastGeneral = (struct sockaddr *) &clientAddr;" << std::endl;
         ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
-        ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCast, &clientAddrSize);" << std::endl;
+        ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCastGeneral, &clientAddrSize);" << std::endl;
         ioThread << "if(peerNameStatus == 0) {" << std::endl;
-        ioThread << "if(clientAddr.sin_family != AF_INET){" << std::endl;
+        ioThread << "if(clientAddr.ss_family != AF_INET){" << std::endl;
         ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
         ioThread << "}else {" << std::endl;
+        ioThread << "struct sockaddr_in *clientAddrCast = (struct sockaddr_in *) &clientAddr;" << std::endl;
         ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
         ioThread << "char* connectionAddrStrPtr = &(connectionAddrStr[0]);" << std::endl;
-        ioThread << "const char* nameStr = inet_ntop(AF_INET, clientAddrCast, connectionAddrStrPtr, INET_ADDRSTRLEN);"  << std::endl;
+        ioThread << "const char* nameStr = inet_ntop(AF_INET, &clientAddrCast->sin_addr, connectionAddrStrPtr, INET_ADDRSTRLEN);"  << std::endl;
         ioThread << "if(nameStr != NULL) {" << std::endl;
         ioThread << "printf(\"Connection from %s:%d\\n\", nameStr, ntohs(clientAddr.sin_port));" << std::endl;
         ioThread << "}" << std::endl;
