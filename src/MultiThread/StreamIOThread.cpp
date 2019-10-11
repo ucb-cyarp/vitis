@@ -247,7 +247,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "struct sockaddr *clientAddrCast = (struct sockaddr *) &clientAddr;" << std::endl;
         ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
         ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCast, &clientAddrSize);" << std::endl;
-        ioThread << "if(peerNameStatus != 0) {" << std::endl;
+        ioThread << "if(peerNameStatus == 0) {" << std::endl;
         ioThread << "if(clientAddr.sin_family != AF_INET){" << std::endl;
         ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
         ioThread << "}else {" << std::endl;
