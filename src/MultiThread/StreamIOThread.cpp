@@ -244,7 +244,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //https://stackoverflow.com/questions/20472072/c-socket-get-ip-address-from-filedescriptor-returned-from-accept/20475352
         //http://man7.org/linux/man-pages/man2/getpeername.2.html
         ioThread << "struct sockaddr_in clientAddr;" << std::endl;
-        ioThread << "struct sockaddr *clientAddrCast = (struct sockaddr_in *) &clientAddr;" << std::endl;
+        ioThread << "struct sockaddr *clientAddrCast = (struct sockaddr *) &clientAddr;" << std::endl;
         ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
         ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCast, &clientAddrSize);" << std::endl;
         ioThread << "if(peerNameStatus != 0) {" << std::endl;
