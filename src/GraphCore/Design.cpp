@@ -40,6 +40,7 @@
 
 #include "Estimators/EstimatorCommon.h"
 #include "Estimators/ComputationEstimator.h"
+#include "Estimators/CommunicationEstimator.h"
 
 //==== Constructors
 Design::Design() {
@@ -3378,6 +3379,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     std::cout << "Partition Node Count Report:" << std::endl;
     ComputationEstimator::printComputeInstanceTable(counts, names);
+    std::cout << std::endl;
+
+    std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> commWorkloads = CommunicationEstimator::reportCommunicationWorkload(fifoMap);
+    std::cout << "Partition Communication Report:" << std::endl;
+    CommunicationEstimator::printComputeInstanceTable(commWorkloads);
     std::cout << std::endl;
 
     //Emit Types

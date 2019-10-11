@@ -209,7 +209,9 @@ set(COMMON_SRCS
         src/Estimators/EstimatorCommon.cpp
         src/Estimators/EstimatorCommon.h
         src/Estimators/ComputationEstimator.cpp
-        src/Estimators/ComputationEstimator.h)
+        src/Estimators/ComputationEstimator.h
+        src/Estimators/CommunicationEstimator.cpp
+        src/Estimators/CommunicationEstimator.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

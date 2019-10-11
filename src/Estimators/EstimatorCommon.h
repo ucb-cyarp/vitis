@@ -102,9 +102,11 @@ public:
      */
     struct InterThreadCommunicationWorkload{
         int numBytesPerSample; ///<The number of bytes per sample period that must be transfered from one partition to another
-        int numBytesPerTransfer; ///<The number of bytes per transfer.  This is typically the number of bytes per sample * the block size.
+        int numBytesPerBlock; ///<The number of bytes per block.  This is typically the number of bytes per sample * the block size.
         int numFIFOs; ///<The number of FIFOs from one partition to another
 
+        InterThreadCommunicationWorkload();
+        InterThreadCommunicationWorkload(int numBytesPerSample, int numBytesPerBlock, int numFIFOs);
         //TODO: Modify if unequal block sizes are ever used.
     };
 

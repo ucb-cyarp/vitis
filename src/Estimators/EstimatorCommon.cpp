@@ -87,3 +87,13 @@ bool EstimatorCommon::NodeOperationComparatorByName::operator()(const EstimatorC
                                                                 const EstimatorCommon::NodeOperation &b) const {
     return comp(a, b);
 }
+
+EstimatorCommon::InterThreadCommunicationWorkload::InterThreadCommunicationWorkload(int numBytesPerSample,
+        int numBytesPerBlock, int numFIFOs) : numBytesPerSample(numBytesPerSample),
+        numBytesPerBlock(numBytesPerBlock), numFIFOs(numFIFOs) {
+}
+
+EstimatorCommon::InterThreadCommunicationWorkload::InterThreadCommunicationWorkload() :
+    numBytesPerSample(0), numBytesPerBlock(0), numFIFOs(0){
+
+}
