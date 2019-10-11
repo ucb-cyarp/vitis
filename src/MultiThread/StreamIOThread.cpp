@@ -240,16 +240,26 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzab6/cafinet.htm
         //https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
         //http://man7.org/linux/man-pages/man3/inet_ntop.3.html
-        ioThread << "if(socketAdr.sa_family != AF_INET){" << std::endl;
+        //Using getpeername to get the name of the connected client
+        //https://stackoverflow.com/questions/20472072/c-socket-get-ip-address-from-filedescriptor-returned-from-accept/20475352
+        //http://man7.org/linux/man-pages/man2/getpeername.2.html
+        ioThread << "struct sockaddr_in clientAddr;" << std::endl;
+        ioThread << "struct sockaddr *clientAddrCast = (struct sockaddr_in *) &clientAddr;" << std::endl;
+        ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
+        ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCast, &clientAddrSize);" << std::endl;
+        ioThread << "if(peerNameStatus != 0) {" << std::endl;
+        ioThread << "if(clientAddr.sin_family != AF_INET){" << std::endl;
         ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
         ioThread << "}else {" << std::endl;
         ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
         ioThread << "char* connectionAddrStrPtr = &(connectionAddrStr[0]);" << std::endl;
-        ioThread << "struct sockaddr_in* ipv4AddrStruct = (struct sockaddr_in*) &acceptSocket;" << std::endl;
-        ioThread << "const char* nameStr = inet_ntop(AF_INET, ipv4AddrStruct, connectionAddrStrPtr, INET_ADDRSTRLEN);" << std::endl;
+        ioThread << "const char* nameStr = inet_ntop(AF_INET, clientAddrCast, connectionAddrStrPtr, INET_ADDRSTRLEN);"  << std::endl;
         ioThread << "if(nameStr != NULL) {" << std::endl;
-        ioThread << "printf(\"Connection from %s:%d\\n\", nameStr, ntohs(ipv4AddrStruct->sin_port));" << std::endl;
+        ioThread << "printf(\"Connection from %s:%d\\n\", nameStr, ntohs(clientAddr->sin_port));" << std::endl;
         ioThread << "}" << std::endl;
+        ioThread << "}" << std::endl;
+        ioThread << "}else{" << std::endl;
+        ioThread << "fprintf(stderr, \"Unable to get client address\\n\");" << std::endl;
         ioThread << "}" << std::endl;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
@@ -655,6 +665,10 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << "#include <netinet/in.h>" << std::endl;
     ioThread << "#include <arpa/inet.h>" << std::endl;
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    ioThread << "#ifndef VITIS_CLIENT_PRINTF" << std::endl;
+    ioThread << "//Redefine if matlab to ssPrintf or mexPrintf" << std::endl;
+    ioThread << "#define VITIS_CLIENT_PRINTF printf" << std::endl;
+    ioThread << "#endif" << std::endl;
     ioThread << std::endl;
 
     ioThread << connectFctnDecl << "{" << std::endl;
@@ -663,7 +677,7 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     std::string connectSocketName = "connectSock";
     ioThread << "int " << connectSocketName << " = socket(AF_INET, SOCK_STREAM, 0);" << std::endl;
     ioThread << "if(" << connectSocketName << " == -1){" << std::endl;
-    ioThread << "fprintf(stderr, \"Could not create socket\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"Could not create socket\\n\");" << std::endl;
     ioThread << "perror(NULL);" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "}" << std::endl;
@@ -674,16 +688,16 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << "connectAddr.sin_family=AF_INET;" << std::endl;
     ioThread << "connectAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT);" << std::endl;
     ioThread << "connectAddr.sin_addr.s_addr=inet_addr(ipAddrStr);" << std::endl;
-    ioThread << "printf(\"Connecting to addr: %s:%d\\n\", ipAddrStr, VITIS_SOCKET_LISTEN_PORT);" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"Connecting to addr: %s:%d\\n\", ipAddrStr, VITIS_SOCKET_LISTEN_PORT);" << std::endl;
     ioThread << std::endl;
 
     ioThread << "int connectStatus = connect(" << connectSocketName << ", (struct sockaddr *)(&connectAddr), sizeof(connectAddr));" << std::endl;
     ioThread << "if(connectStatus == -1){" << std::endl;
-    ioThread << "fprintf(stderr, \"Unable to connect\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"Unable to connect\\n\");" << std::endl;
     ioThread << "perror(NULL);" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "}" << std::endl;
-    ioThread << "printf(\"Connected!\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"Connected!\\n\");" << std::endl;
     ioThread << "return " << connectSocketName << ";" << std::endl;
     ioThread << "}" << std::endl;
     ioThread << std::endl;
@@ -691,21 +705,21 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << disconnectFctnDecl << "{" << std::endl;
     ioThread << "int closeStatus = close(socket);" << std::endl;
     ioThread << "if (closeStatus != 0){" << std::endl;
-    ioThread << "printf(\"Could not close the socket\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"Could not close the socket\\n\");" << std::endl;
     ioThread << "perror(NULL);" << std::endl;
     ioThread << "}" << std::endl;
-    ioThread << "printf(\"Disconnected\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"Disconnected\\n\");" << std::endl;
     ioThread << "}" << std::endl;
     ioThread << std::endl;
 
     ioThread << sendFctnDcl << "{" << std::endl;
     ioThread << "int bytesSent = send(socket, toSend, sizeof(" << inputStructTypeName << "), 0);" << std::endl;
     ioThread << "if (bytesSent == -1){" << std::endl;
-    ioThread << "printf(\"An error was encountered while writing the socket\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while writing the socket\\n\");" << std::endl;
     ioThread << "perror(NULL);" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "} else if (bytesSent != sizeof(" << inputStructTypeName << ")){" << std::endl;
-    ioThread << "printf(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "}" << std::endl;
     ioThread << "}" << std::endl;
@@ -717,11 +731,11 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << "//Done with input (socket closed)" << std::endl;
     ioThread << "return false;" << std::endl;
     ioThread << "} else if (bytesRead == -1){" << std::endl;
-    ioThread << "printf(\"An error was encountered while reading the socket\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while reading the socket\\n\");" << std::endl;
     ioThread << "perror(NULL);" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
-    ioThread << "printf(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
+    ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
     ioThread << "exit(1);" << std::endl;
     ioThread << "}" << std::endl;
     ioThread << "return true;" << std::endl;
