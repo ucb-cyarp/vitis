@@ -260,6 +260,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "}" << std::endl;
         ioThread << "}else{" << std::endl;
         ioThread << "fprintf(stderr, \"Unable to get client address\\n\");" << std::endl;
+        ioThread << "perror(NULL);" << std::endl;
         ioThread << "}" << std::endl;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
