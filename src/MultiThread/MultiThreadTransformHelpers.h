@@ -11,6 +11,8 @@
 #include "GraphCore/Node.h"
 #include "GraphCore/Arc.h"
 #include "GraphCore/NodeFactory.h"
+#include "GraphCore/ContextFamilyContainer.h"
+#include "GraphCore/ContextContainer.h"
 #include "ThreadCrossingFIFO.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
@@ -87,14 +89,30 @@ public:
                 std::shared_ptr<SubSystem> fifoParent;
 
                 std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcPort->getParent());
+                //Note, the first getParent() gets the src node
+                std::shared_ptr<SubSystem> srcParent = srcPort->getParent()->getParent();
+
+                //TOOD: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
                 if(srcAsEnableOutput){
                     if(!fifoContext.empty()){//May be empty if contexts have not yet been discovered
                         fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it
                     }
 
-                    fifoParent = srcPort->getParent()->getParent()->getParent(); //Get the parent another level up
+                    //Check for encapsulation
+                    if(GeneralHelper::isType<Node, ContextContainer>(srcParent) != nullptr){
+                        //Encapsulation has already occured.  Need to go 2 levels up
+                        fifoParent = srcParent->getParent()->getParent();
+                    }else{
+                        //TODO: Remove check if refactored (see above todo)
+                        if(GeneralHelper::isType<Node, EnabledSubSystem>(srcParent) == nullptr){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when inserting FIFOs. Expected parent of EnableOutput if not a ContextContainer to be an EnabledSubsystem"));
+                        }
+                        //Encapsulation has not occured yet, only need 1 level up
+                        fifoParent = srcParent->getParent();
+                    }
                 }else{
-                    fifoParent = srcPort->getParent()->getParent();
+                    //Get the parent of the src node
+                    fifoParent = srcParent;
                 }
 
                 std::shared_ptr<ThreadCrossingFIFO> fifo = NodeFactory::createNode<T>(fifoParent); //Create a FIFO of the specified type
