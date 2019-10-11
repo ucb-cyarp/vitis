@@ -269,7 +269,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                     std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode); //We already checked that this cast could be made in the loop above
 
                     std::vector<NumericValue> delayInitConditions = dstDelay->getInitCondition();
-                    if(delayInitConditions.size() > numToAbsorb){
+                    if(delayInitConditions.size() < numToAbsorb){
                         throw std::runtime_error(ErrorHelpers::genErrorStr("Found a delay with an unexpected number of initial conditions durring FIFO delay absorption", dstDelay));
                     }else if(delayInitConditions.size() == numToAbsorb){
                         //Complete absorption
