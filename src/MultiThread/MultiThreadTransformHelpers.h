@@ -89,13 +89,14 @@ public:
                 std::shared_ptr<SubSystem> fifoParent;
 
                 std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcPort->getParent());
+                std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcPort->getParent());
                 //Note, the first getParent() gets the src node
                 std::shared_ptr<SubSystem> srcParent = srcPort->getParent()->getParent();
 
                 //TOOD: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
-                if(srcAsEnableOutput){
+                if(srcAsEnableOutput || srcAsContextRoot){
                     if(!fifoContext.empty()){//May be empty if contexts have not yet been discovered
-                        fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it
+                        fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).  Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
                     }
 
                     //Check for encapsulation
@@ -103,10 +104,6 @@ public:
                         //Encapsulation has already occured.  Need to go 2 levels up
                         fifoParent = srcParent->getParent()->getParent();
                     }else{
-                        //TODO: Remove check if refactored (see above todo)
-                        if(GeneralHelper::isType<Node, EnabledSubSystem>(srcParent) == nullptr){
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when inserting FIFOs. Expected parent of EnableOutput if not a ContextContainer to be an EnabledSubsystem"));
-                        }
                         //Encapsulation has not occured yet, only need 1 level up
                         fifoParent = srcParent->getParent();
                     }
