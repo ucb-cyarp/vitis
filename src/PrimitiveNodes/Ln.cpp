@@ -121,9 +121,9 @@ CExpr Ln::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
     }
 
     //TODO: Change if method other than from cmath.h is used
-    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Ln function returns a double
+    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Log function returns a double
 
-    std::string fctnCall = "ln(" + inputExpr + ")";
+    std::string fctnCall = "log(" + inputExpr + ")"; //This is log base e.  log10 is log base 10
 
     std::string finalExpr;
 
