@@ -471,6 +471,23 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Lo
         %BitMaskRealWorld not quite sure what this is.  'Stored Integer' is
         %an option.
         
+%---- Trigonometry Operator ----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Trigonometry')
+        %Changing block type from 'S-Function'
+        node.simulinkBlockType = 'Trigonometry';
+        
+        %node.dialogPropertiesNumeric('Operator') = GetParamEval(simulink_block_handle, 'Operator'); %The operator (sin, cos, atan, atan2, ...)
+        %atan2, first port is y, second port is x
+        %node.dialogPropertiesNumeric('ApproximationMethod') = GetParamEval(simulink_block_handle, 'ApproximationMethod'); %Approximation method (None, or CORDIC)
+        %node.dialogPropertiesNumeric('NumberOfIterations') = GetParamEval(simulink_block_handle, 'NumberOfIterations'); %Number of iterations if CORDIC used  
+        
+%---- Math Operator ----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Math')
+        %Changing block type from 'S-Function'
+        node.simulinkBlockType = 'Math';
+        
+        %node.dialogPropertiesNumeric('Operator') = GetParam(simulink_block_handle, 'Operator'); %The operator (log, exp, log10, ...)
+        
 %TODO: More Blocks
 end
     

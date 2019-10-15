@@ -158,6 +158,18 @@ set(COMMON_SRCS
         src/PrimitiveNodes/ReinterpretCast.h
         src/PrimitiveNodes/BitwiseOperator.cpp
         src/PrimitiveNodes/BitwiseOperator.h
+        src/PrimitiveNodes/Exp.cpp
+        src/PrimitiveNodes/Exp.h
+        src/PrimitiveNodes/Ln.cpp
+        src/PrimitiveNodes/Ln.h
+        src/PrimitiveNodes/Trigonometry/Sin.cpp
+        src/PrimitiveNodes/Trigonometry/Sin.h
+        src/PrimitiveNodes/Trigonometry/Cos.cpp
+        src/PrimitiveNodes/Trigonometry/Cos.h
+        src/PrimitiveNodes/Trigonometry/Atan.cpp
+        src/PrimitiveNodes/Trigonometry/Atan.h
+        src/PrimitiveNodes/Trigonometry/Atan2.cpp
+        src/PrimitiveNodes/Trigonometry/Atan2.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp

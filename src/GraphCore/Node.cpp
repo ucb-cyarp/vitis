@@ -459,6 +459,11 @@ std::string Node::getGlobalDecl(){
     return "";
 }
 
+std::set<std::string> Node::getExternalIncludes(){
+    //Default is to return nothing
+    return std::set<std::string>();
+}
+
 Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder) {
 
 }

@@ -31,6 +31,12 @@
 #include "PrimitiveNodes/SimulinkCoderFSM.h"
 #include "PrimitiveNodes/ReinterpretCast.h"
 #include "PrimitiveNodes/BitwiseOperator.h"
+#include "PrimitiveNodes/Ln.h"
+#include "PrimitiveNodes/Exp.h"
+#include "PrimitiveNodes/Trigonometry/Sin.h"
+#include "PrimitiveNodes/Trigonometry/Cos.h"
+#include "PrimitiveNodes/Trigonometry/Atan.h"
+#include "PrimitiveNodes/Trigonometry/Atan2.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -997,6 +1003,44 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
             dataKeyValueMap["SimulinkBlockType"] = blockFunction;
         }
         newNode = DigitalDemodulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Ln" ) { //Vitis name is Ln, Simulink Name is Math which also includes other functions
+        newNode = Ln::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Exp" ) { //Vitis name is Exp, Simulink Name is Math which also includes other functions
+        newNode = Exp::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Sin" ) { //Vitis name is Sin, Simulink Name is Trigonometry which also includes other functions
+        newNode = Sin::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Cos" ) { //Vitis name is Cos, Simulink Name is Trigonometry which also includes other functions
+        newNode = Cos::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Atan" ) { //Vitis name is Atan, Simulink Name is Trigonometry which also includes other functions
+        newNode = Atan::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Atan2" ) { //Vitis name is Atan2, Simulink Name is Trigonometry which also includes other functions
+        newNode = Atan2::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Math" && dialect == GraphMLDialect::SIMULINK_EXPORT) { //Simulink Name is Math which includes several vitis functions
+        //Need to look at the Operator Parameter to determine which node this is
+        std::string op = dataKeyValueMap.at("Operator");
+        if(op == "log") { //In Simulink, log is equivalent to ln and log10 is equivalent to log
+            newNode = Ln::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "exp"){
+            newNode = Exp::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            //TODO: implement more math functions
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Math blocks of type " + op + " are not yet supported: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+        }
+    }else if(blockFunction == "Trigonometry" && dialect == GraphMLDialect::SIMULINK_EXPORT) { //Simulink Name is Trigonometry which includes several vitis functions
+        //Need to look at the Operator Parameter to determine which node this is
+        std::string op = dataKeyValueMap.at("Operator");
+        if(op == "sin") {
+            newNode = Sin::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "cos") {
+            newNode = Cos::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "atan"){
+            newNode = Atan::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "atan2"){
+            newNode = Atan2::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            //TODO: implement more Trigonometry functions
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Trigonometry blocks of type " + op + " are not yet supported: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+        }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }

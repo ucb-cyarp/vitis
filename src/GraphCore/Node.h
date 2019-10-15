@@ -875,6 +875,15 @@ public:
     virtual std::string getGlobalDecl();
 
     /**
+     * @brief Returns a set of external files that must be included.  These are provided as complete include statements
+     *
+     * ex. #include <math.h>
+     *
+     * @return A set of include statements
+     */
+    virtual std::set<std::string> getExternalIncludes();
+
+    /**
      * @brief Emits a C expressions to calculate the next value of the internal state elements.  These values will be used in @ref emitCStateUpdate
      *
      * @warning This function is separated from the @ref emitCExpr function in order to break emit cycles

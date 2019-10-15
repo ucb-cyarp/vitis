@@ -934,6 +934,18 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "#include <stdio.h>" << std::endl;
     }
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+
+    //Include any external include statements required by nodes in the design
+    std::set<std::string> extIncludes;
+    for(int i = 0; i<nodesToEmit.size(); i++){
+        std::set<std::string> nodeIncludes = nodesToEmit[i]->getExternalIncludes();
+        extIncludes.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(auto it = extIncludes.begin(); it != extIncludes.end(); it++){
+        cFile << *it << std::endl;
+    }
+
     cFile << std::endl;
 
     //Find nodes with state & Emit state variable declarations
