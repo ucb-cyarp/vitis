@@ -5,6 +5,7 @@
 #include "StreamIOThread.h"
 #include <iostream>
 #include <fstream>
+#include <regex>
 #include "General/GeneralHelper.h"
 #include "MultiThreadEmitterHelpers.h"
 #include "General/ErrorHelpers.h"
@@ -74,16 +75,28 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     headerFile << threadFctnDecl << ";" << std::endl;
     headerFile << std::endl;
 
-    //Output the input and output structure definitions
-    std::string inputStructTypeName = designName+"_inputs_t";
-    std::string outputStructTypeName = designName+"_outputs_t";
-
-    std::vector<Variable> masterInputVars = EmitterHelpers::getCInputVariables(inputMaster);
+    std::vector<Variable>  masterInputVars = EmitterHelpers::getCInputVariables(inputMaster);
     std::vector<Variable> masterOutputVars = EmitterHelpers::getCOutputVariables(outputMaster);
 
-    headerFile << EmitterHelpers::getCIOPortStructDefn(masterInputVars, inputStructTypeName, blockSize) << std::endl;
-    headerFile << std::endl;
-    headerFile << EmitterHelpers::getCIOPortStructDefn(masterOutputVars, outputStructTypeName, blockSize) << std::endl;
+    //Sort I/O varaibles into bundles - each bundle will have a separate stream
+    //the default bundle is bundle 0
+    std::set<int> bundles;
+    std::map<int, std::vector<Variable>> masterInputBundles;
+    std::map<int, std::vector<Variable>> masterOutputBundles;
+    sortIntoBundles(masterInputVars, masterOutputVars,masterInputBundles,masterOutputBundles, bundles);
+
+    //For each bundle, create a IO Port structure definition
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++){
+        std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        headerFile << EmitterHelpers::getCIOPortStructDefn(it->second, inputStructTypeName, blockSize) << std::endl;
+        headerFile << std::endl;
+    }
+
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++){
+        std::string inputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        headerFile << EmitterHelpers::getCIOPortStructDefn(it->second, inputStructTypeName, blockSize) << std::endl;
+        headerFile << std::endl;
+    }
 
     headerFile << "#endif" << std::endl;
     headerFile.close();
@@ -103,6 +116,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "#include <sys/socket.h>" << std::endl;
         ioThread << "#include <netinet/in.h>" << std::endl;
         ioThread << "#include <arpa/inet.h>" << std::endl;
+        ioThread << "#include <sys/select.h>" << std::endl;
     }
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
     ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
@@ -125,43 +139,58 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << tmpReadDecls[i] << std::endl;
     }
 
-    std::string connectedSocketName = "acceptSocket";
-    std::string listenSocketName = "listenSocket";
     ioThread << std::endl;
     if(streamType == StreamType::PIPE) {
-        //Create Linux Pipes
         ioThread << "//Setup Pipes" << std::endl;
-        ioThread << "int status = mkfifo(\"input.pipe\", S_IRUSR | S_IWUSR);" << std::endl;
-        ioThread << "if(status != 0){" << std::endl;
-        ioThread << "printf(\"Unable to create input pipe ... exiting\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
+        ioThread << "int status;" << std::endl;
+        //Create a pipe for each bundle
+        //Create Linux Pipes
 
-        ioThread << "status = mkfifo(\"output.pipe\", S_IRUSR | S_IWUSR);" << std::endl;
-        ioThread << "if(status != 0){" << std::endl;
-        ioThread << "printf(\"Unable to create output pipe ... exiting\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
+        for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++){
+            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            ioThread << "status = mkfifo(\"" + inputPipeFileName + "\", S_IRUSR | S_IWUSR);" << std::endl;
+            ioThread << "if(status != 0){" << std::endl;
+            ioThread << "printf(\"Unable to create input pipe ... exiting\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+        }
+
+        for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+            std::string outputPipeFileName = "output_bundle_" + GeneralHelper::to_string(it->first) + ".pipe";
+            ioThread << "status = mkfifo(\"" + outputPipeFileName + "\", S_IRUSR | S_IWUSR);" << std::endl;
+            ioThread << "if(status != 0){" << std::endl;
+            ioThread << "printf(\"Unable to create output pipe ... exiting\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+        }
 
         //Open Linux pipes
-        ioThread << "FILE *inputPipe = fopen(\"input.pipe\", \"rb\");" << std::endl;
-        ioThread << "if(inputPipe == NULL){" << std::endl;
-        ioThread << "printf(\"Unable to open input pipe ... exiting\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
+        for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "FILE *" + inputPipeHandleName + " = fopen(\"" + inputPipeFileName + "\", \"rb\");" << std::endl;
+            ioThread << "if(" + inputPipeHandleName + " == NULL){" << std::endl;
+            ioThread << "printf(\"Unable to open input pipe ... exiting\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+        }
 
-        ioThread << "FILE *outputPipe = fopen(\"output.pipe\", \"wb\");" << std::endl;
-        ioThread << "if(outputPipe == NULL){" << std::endl;
-        ioThread << "printf(\"Unable to open output pipe ... exiting\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
+        for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+            std::string outputPipeFileName = "output_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "FILE *" + outputPipeHandleName + " = fopen(\"" + outputPipeFileName + "\", \"wb\");" << std::endl;
+            ioThread << "if(" + outputPipeHandleName + " == NULL){" << std::endl;
+            ioThread << "printf(\"Unable to open output pipe ... exiting\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+        }
     }else if(streamType == StreamType::SOCKET){
         //Much of the code to open and bind sockets is borrowed from a lab I did in the Web Design Infrastructure class
         //at Santa Clara University using tutorials from http://beej.us/guide/bgnet and debug help from the following:
@@ -176,94 +205,154 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //http://man7.org/linux/man-pages/man7/ip.7.html
 
         ioThread << "//Setup Sockets" << std::endl;
-        //Open a socket for IPv4 and a Socket Byte Stream (bidirectional byte stream)
-        ioThread << "int " << listenSocketName << " = socket(AF_INET, SOCK_STREAM, 0);" << std::endl;
-        ioThread << "if(" << listenSocketName << " == -1){" << std::endl;
-        ioThread << "fprintf(stderr, \"Could not create listen socket\\n\");" << std::endl;
+        //TODO: note, sockets are bidirectional.  So, input and output bundles should be combined
+
+        for(auto it = bundles.begin(); it != bundles.end(); it++) {
+            //Open a socket for each bundle.  The port number is VITIS_SOCKET_LISTEN_PORT+bundleNumber
+            std::string listenSocketName = "listenSocket_bundle_" + GeneralHelper::to_string(*it);
+
+            //Open a socket for IPv4 and a Socket Byte Stream (bidirectional byte stream)
+            ioThread << "int " << listenSocketName << " = socket(AF_INET, SOCK_STREAM, 0);" << std::endl;
+            ioThread << "if(" << listenSocketName << " == -1){" << std::endl;
+            ioThread << "fprintf(stderr, \"Could not create listen socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+
+            //Allow the socket address to be re-used after the socket is closed (encountered this problem in another project
+            //Where the socket was kept in TIME_WAIT after close unless this was specified
+            std::string settingValName = "settingVal_bundle_" + GeneralHelper::to_string(*it);
+            std::string socketSettingName = "socketSetting_bundle_" + GeneralHelper::to_string(*it);
+
+            ioThread << "int " + settingValName + " = 1;" << std::endl;
+            ioThread << "int " + socketSettingName + " = setsockopt(" << listenSocketName
+                     << ", SOL_SOCKET, SO_REUSEADDR, &" + settingValName + ", sizeof " + settingValName + ");" << std::endl;
+
+            ioThread << "if(" + socketSettingName + " != 0){" << std::endl;
+            ioThread << "fprintf(stderr, \"Could not set SO_REUSEADDR for listen socket ... continuing anyway\\n\");"
+                     << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+
+            //Set allowed connection address/port pairs
+            std::string localAddrName = "localAddr_bundle_" + GeneralHelper::to_string(*it);
+            std::string socketPort = "VITIS_SOCKET_LISTEN_PORT+" + GeneralHelper::to_string(*it);
+
+            ioThread << "struct sockaddr_in " + localAddrName + ";" << std::endl;
+            ioThread << localAddrName << ".sin_family=AF_INET;" << std::endl;
+            ioThread << localAddrName << ".sin_port=htons(" + socketPort + ");" << std::endl;
+            ioThread << localAddrName << ".sin_addr.s_addr=htonl(VITIS_SOCKET_LISTEN_ADDR);" << std::endl;
+            ioThread << "printf(\"Bundle " << *it << " Listening on port: %d\\n\", " + socketPort + ");" << std::endl;
+            ioThread << "printf(\"Bundle " << *it << " Waiting for connection ...\\n\");" << std::endl;
+            ioThread << std::endl;
+
+            //Bind the socket to the address/port
+            std::string bindStatusName = "bindStatus_bundle_" + GeneralHelper::to_string(*it);
+            ioThread << "int " + bindStatusName + " = bind(" << listenSocketName
+                     << ", (struct sockaddr *)(&" + localAddrName + "), sizeof(" + localAddrName + "));" << std::endl;
+
+            ioThread << "if(" + bindStatusName + " !=0){" << std::endl;
+            ioThread << "fprintf(stderr, \"Could not bind socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+
+            //Set the socket to listen for incoming connections (limit to a queue of length 1)
+            std::string listenStatusName = "listenStatus_bundle_" + GeneralHelper::to_string(*it);
+            ioThread << "int " + listenStatusName + " = listen(" << listenSocketName << ", 1);" << std::endl;
+            ioThread << "if(" + listenStatusName + " !=0){" << std::endl;
+            ioThread << "fprintf(stderr, \"Could not listen on socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
+        }
+
+        //Accept incoming connections
+        //Loop until all sockets are connected
+        ioThread << "int maxFD = 0;" << std::endl;
+        for(auto it = bundles.begin(); it != bundles.end(); it++) {
+            std::string connectedStatusName = "connectedStatus_bundle_" + GeneralHelper::to_string(*it);
+            std::string listenSocketName = "listenSocket_bundle_" + GeneralHelper::to_string(*it);
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(*it);
+            ioThread << "bool " << connectedStatusName << "=false;" << std::endl;
+            ioThread << "if(" +listenSocketName + ">maxFD){" << std::endl;
+            ioThread << "maxFD=" +listenSocketName + ";" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << "int " << connectedSocketName << "=-1;" << std::endl;
+        }
+        ioThread << "int connectedCount = 0;" << std::endl;
+        ioThread << "while(connectedCount < " << bundles.size() << "){" << std::endl;
+        //see https://linux.die.net/man/3/fd_set
+        ioThread << "fd_set fdSet;" << std::endl;
+        ioThread << "FD_ZERO(&fdSet);" << std::endl;
+        for(auto it = bundles.begin(); it != bundles.end(); it++) {
+            std::string listenSocketName = "listenSocket_bundle_" + GeneralHelper::to_string(*it);
+            ioThread << "FD_SET(" << listenSocketName << ", &fdSet);" << std::endl;
+        }
+        //See: http://beej.us/guide/bgnet/html/multi/selectman.html
+        ioThread << "int selectStatus = select(maxFD, &fdSet, NULL, NULL, NULL);" << std::endl;
+        ioThread << "if(selectStatus == -1){" << std::endl;
+        ioThread << "fprintf(stderr, \"Error while waiting for connections\\n\");" << std::endl;
         ioThread << "perror(NULL);" << std::endl;
         ioThread << "exit(1);" << std::endl;
         ioThread << "}" << std::endl;
-        ioThread << std::endl;
 
-        //Allow the socket address to be re-used after the socket is closed (encountered this problem in another project
-        //Where the socket was kept in TIME_WAIT after close unless this was specified
-        ioThread << "int settingVal = 1;" << std::endl;
-        ioThread << "int socketSetting = setsockopt(" << listenSocketName << ", SOL_SOCKET, SO_REUSEADDR, &settingVal, sizeof settingVal);" << std::endl;
+        for(auto it = bundles.begin(); it != bundles.end(); it++) {
+            std::string listenSocketName = "listenSocket_bundle_" + GeneralHelper::to_string(*it);
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(*it);
+            std::string connectedStatusName = "connectedStatus_bundle_" + GeneralHelper::to_string(*it);
+            ioThread << "if(!" << connectedStatusName << " && FD_ISSET(" << listenSocketName << ", &fdSet)){" << std::endl;
+            ioThread << "struct sockaddr socketAdr;" << std::endl;
+            ioThread << "socklen_t socketPort = sizeof(socketAdr);" << std::endl;
+            ioThread << connectedSocketName << " = accept(" << listenSocketName << ", &socketAdr, &socketPort);"
+                     << std::endl;
+            ioThread << "if(" << connectedSocketName << " == -1){" << std::endl;
+            ioThread << "fprintf(stderr, \"Could not accept on listening socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << std::endl;
 
-        ioThread << "if(socketSetting != 0){" << std::endl;
-        ioThread << "fprintf(stderr, \"Could not set SO_REUSEADDR for listen socket ... continuing anyway\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
-
-        //Set allowed connection address/port pairs
-        ioThread << "struct sockaddr_in localAddr;" << std::endl;
-        ioThread << "localAddr.sin_family=AF_INET;" << std::endl;
-        ioThread << "localAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT);" << std::endl;
-        ioThread << "localAddr.sin_addr.s_addr=htonl(VITIS_SOCKET_LISTEN_ADDR);" << std::endl;
-        ioThread << "printf(\"Listening on port: %d\\n\", VITIS_SOCKET_LISTEN_PORT);" << std::endl;
-        ioThread << "printf(\"Waiting for connection ...\\n\");" << std::endl;
-        ioThread << std::endl;
-
-        //Bind the socket to the address/port
-        ioThread << "int bindStatus = bind(" << listenSocketName << ", (struct sockaddr *)(&localAddr), sizeof(localAddr));" << std::endl;
-
-        ioThread << "if(bindStatus !=0){" << std::endl;
-        ioThread << "fprintf(stderr, \"Could not bind socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
-
-        //Set the socket to listen for incoming connections (limit to a queue of length 1)
-        ioThread << "int listenStatus = listen(" << listenSocketName << ", 1);" << std::endl;
-        ioThread << "if(listenStatus !=0){" << std::endl;
-        ioThread << "fprintf(stderr, \"Could not listen on socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
-
-        //Accept an incoming connection
-        ioThread << "int " << connectedSocketName << "=-1;" << std::endl;
-        ioThread << "struct sockaddr socketAdr;" << std::endl;
-        ioThread << "socklen_t socketPort = sizeof(socketAdr);" << std::endl;
-        ioThread << connectedSocketName << " = accept(" << listenSocketName << ", &socketAdr, &socketPort);" << std::endl;
-        ioThread << "if(" << connectedSocketName << " == -1){" << std::endl;
-        ioThread << "fprintf(stderr, \"Could not accept on listening socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << std::endl;
-
-        //Since we are using the AF_INET family, the structure ysed is sockaddr_in
-        //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzab6/cafinet.htm
-        //https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
-        //http://man7.org/linux/man-pages/man3/inet_ntop.3.html
-        //Using getpeername to get the name of the connected client
-        //https://stackoverflow.com/questions/20472072/c-socket-get-ip-address-from-filedescriptor-returned-from-accept/20475352
-        //http://man7.org/linux/man-pages/man2/getpeername.2.html
-        //https://beej.us/guide/bgnet/html/multi/getpeernameman.html
-        ioThread << "struct sockaddr_storage clientAddr;" << std::endl;
-        ioThread << "struct sockaddr *clientAddrCastGeneral = (struct sockaddr *) &clientAddr;" << std::endl;
-        ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
-        ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCastGeneral, &clientAddrSize);" << std::endl;
-        ioThread << "if(peerNameStatus == 0) {" << std::endl;
-        ioThread << "if(clientAddr.ss_family != AF_INET){" << std::endl;
-        ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
-        ioThread << "}else {" << std::endl;
-        ioThread << "struct sockaddr_in *clientAddrCast = (struct sockaddr_in *) &clientAddr;" << std::endl;
-        ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
-        ioThread << "char* connectionAddrStrPtr = &(connectionAddrStr[0]);" << std::endl;
-        ioThread << "const char* nameStr = inet_ntop(AF_INET, &clientAddrCast->sin_addr, connectionAddrStrPtr, INET_ADDRSTRLEN);"  << std::endl;
-        ioThread << "if(nameStr != NULL) {" << std::endl;
-        ioThread << "printf(\"Connection from %s:%d\\n\", nameStr, ntohs(clientAddrCast->sin_port));" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << "}else{" << std::endl;
-        ioThread << "fprintf(stderr, \"Unable to get client address\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "}" << std::endl;
+            //Since we are using the AF_INET family, the structure ysed is sockaddr_in
+            //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzab6/cafinet.htm
+            //https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
+            //http://man7.org/linux/man-pages/man3/inet_ntop.3.html
+            //Using getpeername to get the name of the connected client
+            //https://stackoverflow.com/questions/20472072/c-socket-get-ip-address-from-filedescriptor-returned-from-accept/20475352
+            //http://man7.org/linux/man-pages/man2/getpeername.2.html
+            //https://beej.us/guide/bgnet/html/multi/getpeernameman.html
+            ioThread << "struct sockaddr_storage clientAddr;" << std::endl;
+            ioThread << "struct sockaddr *clientAddrCastGeneral = (struct sockaddr *) &clientAddr;" << std::endl;
+            ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
+            ioThread << "int peerNameStatus = getpeername(" << connectedSocketName
+                     << ", clientAddrCastGeneral, &clientAddrSize);" << std::endl;
+            ioThread << "if(peerNameStatus == 0) {" << std::endl;
+            ioThread << "if(clientAddr.ss_family != AF_INET){" << std::endl;
+            ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
+            ioThread << "}else {" << std::endl;
+            ioThread << "struct sockaddr_in *clientAddrCast = (struct sockaddr_in *) &clientAddr;" << std::endl;
+            ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
+            ioThread << "char* connectionAddrStrPtr = &(connectionAddrStr[0]);" << std::endl;
+            ioThread
+                    << "const char* nameStr = inet_ntop(AF_INET, &clientAddrCast->sin_addr, connectionAddrStrPtr, INET_ADDRSTRLEN);"
+                    << std::endl;
+            ioThread << "if(nameStr != NULL) {" << std::endl;
+            ioThread << "printf(\"Bundle " << *it << " Connection from %s:%d\\n\", nameStr, ntohs(clientAddrCast->sin_port));" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << "}else{" << std::endl;
+            ioThread << "fprintf(stderr, \"Unable to get client address\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << connectedStatusName << "=true;" << std::endl;
+            ioThread << "connectedCount++;" << std::endl;
+            ioThread << "}" << std::endl; //End connection if
+        }
+        ioThread << "}" << std::endl; //Close connect while
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
@@ -273,42 +362,56 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     ioThread << "while(true){" << std::endl;
     //Allocate temp Memory for linux pipe read
-    std::string linuxInputTmpName = "linuxInputTmp";
-    ioThread << inputStructTypeName << " " << linuxInputTmpName << ";" << std::endl;
 
-    //Read data from the input pipe
-    if(streamType == StreamType::PIPE) {
-        ioThread << "int elementsRead = fread(&" << linuxInputTmpName << ", sizeof(" << inputStructTypeName << "), 1, inputPipe);" << std::endl;
-        ioThread << "if(elementsRead != 1 && feof(inputPipe)){" << std::endl;
-        ioThread << "//Done with input (input pipe closed)" << std::endl;
-        ioThread << "break;" << std::endl;
-        ioThread << "} else if (elementsRead != 1 && ferror(inputPipe)){" << std::endl;
-        ioThread << "printf(\"An error was encountered while reading the Input Linux Pipe\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "} else if (elementsRead != 1){" << std::endl;
-        ioThread << "printf(\"An unknown error was encountered while reading the Input Linux Pipe\\n\");" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-    }else if(streamType == StreamType::SOCKET){
-        //Dectecting a closed socket is covered in the following
-        //https://stackoverflow.com/questions/3091010/recv-socket-function-returning-data-with-length-as-0
-        //https://linux.die.net/man/3/recv
-        //Read should block, especially if in MSG_WAITALL mode
-        ioThread << "int bytesRead = recv(" << connectedSocketName << ", &" << linuxInputTmpName << ", sizeof(" << inputStructTypeName << "), MSG_WAITALL);" << std::endl;
-        ioThread << "if(bytesRead == 0){" << std::endl;
-        ioThread << "//Done with input (socket closed)" << std::endl;
-        ioThread << "break;" << std::endl;
-        ioThread << "} else if (bytesRead == -1){" << std::endl;
-        ioThread << "printf(\"An error was encountered while reading the socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
-        ioThread << "printf(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-    }else{
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        //This process needs to be repeated for each input bundle
+        //TODO: This currently forces reading in a specific order, consider changing this?
+        std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+
+        ioThread << inputStructTypeName << " " << linuxInputTmpName << ";" << std::endl;
+
+        //Read data from the input pipe
+        ioThread << "{" << std::endl; //Open a scope for reading
+        if (streamType == StreamType::PIPE) {
+            std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "int elementsRead = fread(&" << linuxInputTmpName << ", sizeof(" << inputStructTypeName
+                     << "), 1, " << inputPipeHandleName << ");" << std::endl;
+            ioThread << "if(elementsRead != 1 && feof(inputPipe)){" << std::endl;
+            ioThread << "//Done with input (input pipe closed)" << std::endl;
+            ioThread << "break;" << std::endl;
+            ioThread << "} else if (elementsRead != 1 && ferror(inputPipe)){" << std::endl;
+            ioThread << "printf(\"An error was encountered while reading the Input Linux Pipe\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "} else if (elementsRead != 1){" << std::endl;
+            ioThread << "printf(\"An unknown error was encountered while reading the Input Linux Pipe\\n\");"
+                     << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+        } else if (streamType == StreamType::SOCKET) {
+            //Dectecting a closed socket is covered in the following
+            //https://stackoverflow.com/questions/3091010/recv-socket-function-returning-data-with-length-as-0
+            //https://linux.die.net/man/3/recv
+            //Read should block, especially if in MSG_WAITALL mode
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(it->first);
+            ioThread << "int bytesRead = recv(" << connectedSocketName << ", &" << linuxInputTmpName << ", sizeof("
+                     << inputStructTypeName << "), MSG_WAITALL);" << std::endl;
+            ioThread << "if(bytesRead == 0){" << std::endl;
+            ioThread << "//Done with input (socket closed)" << std::endl;
+            ioThread << "break;" << std::endl;
+            ioThread << "} else if (bytesRead == -1){" << std::endl;
+            ioThread << "printf(\"An error was encountered while reading the socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
+            ioThread << "printf(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+        }
+        ioThread << "}" << std::endl; //Close the scope for reading
     }
 
     if(threadDebugPrint) {
@@ -317,7 +420,10 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Fill write temps with data from stream
     std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap = getInputPortFIFOMapping(outputFIFOs); //Note, outputFIFOs are the outputs of the I/O thread.  They carry the inputs to the system to the rest of the system
-    copyIOInputsToFIFO(ioThread, masterInputVars, inputPortFifoMap, linuxInputTmpName, blockSize);
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        copyIOInputsToFIFO(ioThread, it->second, inputPortFifoMap, linuxInputTmpName, blockSize);
+    }
 
     //Check Output FIFOs
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
@@ -347,37 +453,55 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     //Allocate temp Memory for linux pipe write
-    std::string linuxOutputTmpName = "linuxOutputTmp";
-    ioThread << outputStructTypeName << " " << linuxOutputTmpName << ";" << std::endl;
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        ioThread << outputStructTypeName << " " << linuxOutputTmpName << ";" << std::endl;
+    }
 
     //Copy output to tmp variable
     std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap = getOutputPortFIFOMapping(outputMaster);
-    copyFIFOToIOOutputs(ioThread, masterOutputVars, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        copyFIFOToIOOutputs(ioThread, it->second, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+    }
 
-    if(streamType == StreamType::PIPE) {
-        //Write to linux pipe
-        ioThread << "int elementsWritten = fwrite(&" << linuxOutputTmpName << ", sizeof(" << outputStructTypeName << "), 1, outputPipe);" << std::endl;
-        ioThread << "if (elementsWritten != 1 && ferror(outputPipe)){" << std::endl;
-        ioThread << "printf(\"An error was encountered while writing the Output Linux Pipe\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "} else if (elementsRead != 1){" << std::endl;
-        ioThread << "printf(\"An unknown error was encountered while writing to Input Linux Pipe\\n\");" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-    }else if(streamType == StreamType::SOCKET){
-        //Write to socket
-        ioThread << "int bytesSent = send(" << connectedSocketName << ", &" << linuxOutputTmpName << ", sizeof(" << outputStructTypeName << "), 0);" << std::endl;
-        ioThread << "if (bytesSent == -1){" << std::endl;
-        ioThread << "printf(\"An error was encountered while writing the socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "} else if (bytesSent != sizeof(" << outputStructTypeName << ")){" << std::endl;
-        ioThread << "printf(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
-        ioThread << "exit(1);" << std::endl;
-        ioThread << "}" << std::endl;
-    }else{
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+
+        ioThread << "{" << std::endl; //Open a scope for writing
+        if (streamType == StreamType::PIPE) {
+            //Write to linux pipe
+            std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "int elementsWritten = fwrite(&" << linuxOutputTmpName << ", sizeof(" << outputStructTypeName
+                     << "), 1, " + outputPipeHandleName + ");" << std::endl;
+            ioThread << "if (elementsWritten != 1 && ferror(outputPipe)){" << std::endl;
+            ioThread << "printf(\"An error was encountered while writing the Output Linux Pipe\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "} else if (elementsRead != 1){" << std::endl;
+            ioThread << "printf(\"An unknown error was encountered while writing to Input Linux Pipe\\n\");"
+                     << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+        } else if (streamType == StreamType::SOCKET) {
+            //Write to socket
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(it->first);
+            ioThread << "int bytesSent = send(" << connectedSocketName << ", &" << linuxOutputTmpName << ", sizeof("
+                     << outputStructTypeName << "), 0);" << std::endl;
+            ioThread << "if (bytesSent == -1){" << std::endl;
+            ioThread << "printf(\"An error was encountered while writing the socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "} else if (bytesSent != sizeof(" << outputStructTypeName << ")){" << std::endl;
+            ioThread << "printf(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+        }
+        ioThread << "}" << std::endl; //Close writing scope
     }
 
     if(threadDebugPrint) {
@@ -396,38 +520,56 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(streamType == StreamType::PIPE) {
         //The client should close the output FIFO first then the read FIFO
         //Close the pipes
-        ioThread << "int closeStatus = fclose(inputPipe);" << std::endl;
-        ioThread << "if(closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Unable to close Linux Input Pipe\\n\");" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << "closeStatus = fclose(outputPipe);" << std::endl;
-        ioThread << "if(closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Unable to close Linux Output Pipe\\n\");" << std::endl;
-        ioThread << "}" << std::endl;
+        ioThread << "int closeStatus;" << std::endl;
+        for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+            std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "closeStatus = fclose(" << inputPipeHandleName << ");" << std::endl;
+            ioThread << "if(closeStatus != 0){" << std::endl;
+            ioThread << "printf(\"Unable to close Linux Input Pipe\\n\");" << std::endl;
+            ioThread << "}" << std::endl;
+        }
+
+        for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+            std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "closeStatus = fclose(" + outputPipeHandleName + ");" << std::endl;
+            ioThread << "if(closeStatus != 0){" << std::endl;
+            ioThread << "printf(\"Unable to close Linux Output Pipe\\n\");" << std::endl;
+            ioThread << "}" << std::endl;
+        }
 
         //Delete the pipes
-        ioThread << "closeStatus = unlink(\"input.pipe\");" << std::endl;
-        ioThread << "if (closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Could not delete the Linux Input Pipe\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "}" << std::endl;
+        for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            ioThread << "closeStatus = unlink(\"" << inputPipeFileName << "\");" << std::endl;
+            ioThread << "if (closeStatus != 0){" << std::endl;
+            ioThread << "printf(\"Could not delete the Linux Input Pipe\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "}" << std::endl;
+        }
 
-        ioThread << "closeStatus = unlink(\"output.pipe\");" << std::endl;
-        ioThread << "if (closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Could not delete the Linux Output Pipe\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "}" << std::endl;
+        for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+            std::string outputPipeFileName = "output_bundle_" + GeneralHelper::to_string(it->first) + ".pipe";
+            ioThread << "closeStatus = unlink(\"" << outputPipeFileName << "\");" << std::endl;
+            ioThread << "if (closeStatus != 0){" << std::endl;
+            ioThread << "printf(\"Could not delete the Linux Output Pipe\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "}" << std::endl;
+        }
     }else if(streamType == StreamType::SOCKET){
-        ioThread << "int closeStatus = close(" << connectedSocketName << ");" << std::endl;
-        ioThread << "if (closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Could not close the connection socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "}" << std::endl;
-        ioThread << "closeStatus = close(" << listenSocketName << ");" << std::endl;
-        ioThread << "if (closeStatus != 0){" << std::endl;
-        ioThread << "printf(\"Could not close the listen socket\\n\");" << std::endl;
-        ioThread << "perror(NULL);" << std::endl;
-        ioThread << "}" << std::endl;
+        for(auto it = bundles.begin(); it != bundles.end(); it++) {
+            std::string listenSocketName = "listenSocket_bundle_" + GeneralHelper::to_string(*it);
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(*it);
+            ioThread << "int closeStatus = close(" << connectedSocketName << ");" << std::endl;
+            ioThread << "if (closeStatus != 0){" << std::endl;
+            ioThread << "printf(\"Could not close the connection socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "}" << std::endl;
+            ioThread << "closeStatus = close(" << listenSocketName << ");" << std::endl;
+            ioThread << "if (closeStatus != 0){" << std::endl;
+            ioThread << "printf(\"Could not close the listen socket\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "}" << std::endl;
+        }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
@@ -602,7 +744,7 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
     }
 }
 
-void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName) {
+void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName) {
     std::string serverFilenamePostfix = "io_network_socket";
     std::string serverFileName = fileNamePrefix + "_" + serverFilenamePostfix;
 
@@ -627,6 +769,15 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 
+    std::vector<Variable> masterInputVars = EmitterHelpers::getCInputVariables(inputMaster);
+    std::vector<Variable> masterOutputVars = EmitterHelpers::getCOutputVariables(outputMaster);
+
+    std::set<int> bundles;
+    std::map<int, std::vector<Variable>> masterInputBundles;
+    std::map<int, std::vector<Variable>> masterOutputBundles;
+    sortIntoBundles(masterInputVars, masterOutputVars, masterInputBundles, masterOutputBundles, bundles);
+
+    //Only need one of the connect/disconnect functions
     //Output function prototypes for the socket client
     headerFile << "//For connecting to the remote system" << std::endl;
     std::string connectFctnDecl = "int " + designName + "_" + filenamePostfix + "_connect(char* ipAddrStr)";
@@ -639,19 +790,25 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     headerFile << disconnectFctnDecl << ";" << std::endl;
     headerFile << std::endl;
 
-    std::string inputStructTypeName = designName+"_inputs_t";
-    headerFile << "//For sending data to the remote system" << std::endl;
-    std::string sendFctnDcl = "void " + designName + "_" + filenamePostfix + "_send(int socket, " + inputStructTypeName + " *toSend)";
-    headerFile << sendFctnDcl << ";" << std::endl;
-    headerFile << std::endl;
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        //Need one for each input port bundle
+        std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        headerFile << "//For sending data to the remote system" << std::endl;
+        std::string sendFctnDcl = "void " + designName + "_" + filenamePostfix + "_bundle_" + GeneralHelper::to_string(it->first) + "_send(int socket, " + inputStructTypeName + " *toSend)";
+        headerFile << sendFctnDcl << ";" << std::endl;
+        headerFile << std::endl;
+    }
 
-    std::string outputStructTypeName = designName+"_outputs_t";
-    headerFile << "//For receiving data from the remote system" << std::endl;
-    headerFile << "//Returns true if data received, false if socket has been closed" << std::endl;
-    std::string recvFctnDcl = "bool " + designName + "_" + filenamePostfix + "_recv(int socket, " + outputStructTypeName + " *toRecv)";
-    headerFile << recvFctnDcl << ";" << std::endl;
-    headerFile << "#endif" << std::endl;
-    headerFile.close();
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        //Need one for each output port bundle
+        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        headerFile << "//For receiving data from the remote system" << std::endl;
+        headerFile << "//Returns true if data received, false if socket has been closed" << std::endl;
+        std::string recvFctnDcl = "bool " + designName + "_" + filenamePostfix + "_bundle_" + GeneralHelper::to_string(it->first) + "_recv(int socket, " + outputStructTypeName + " *toRecv)";
+        headerFile << recvFctnDcl << ";" << std::endl;
+        headerFile << "#endif" << std::endl;
+        headerFile.close();
+    }
 
     //#### Emit .c File ####
     std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
@@ -715,33 +872,91 @@ void StreamIOThread::emitSocketClientLib(std::string path, std::string fileNameP
     ioThread << "}" << std::endl;
     ioThread << std::endl;
 
-    ioThread << sendFctnDcl << "{" << std::endl;
-    ioThread << "int bytesSent = send(socket, toSend, sizeof(" << inputStructTypeName << "), 0);" << std::endl;
-    ioThread << "if (bytesSent == -1){" << std::endl;
-    ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while writing the socket\\n\");" << std::endl;
-    ioThread << "perror(NULL);" << std::endl;
-    ioThread << "exit(1);" << std::endl;
-    ioThread << "} else if (bytesSent != sizeof(" << inputStructTypeName << ")){" << std::endl;
-    ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
-    ioThread << "exit(1);" << std::endl;
-    ioThread << "}" << std::endl;
-    ioThread << "}" << std::endl;
-    ioThread << std::endl;
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        std::string sendFctnDcl = "void " + designName + "_" + filenamePostfix + "_bundle_" + GeneralHelper::to_string(it->first) + "_send(int socket, " + inputStructTypeName + " *toSend)";
 
-    ioThread << recvFctnDcl << "{" << std::endl;
-    ioThread << "int bytesRead = recv(socket, toRecv, sizeof(" << outputStructTypeName << "), MSG_WAITALL);" << std::endl;
-    ioThread << "if(bytesRead == 0){" << std::endl;
-    ioThread << "//Done with input (socket closed)" << std::endl;
-    ioThread << "return false;" << std::endl;
-    ioThread << "} else if (bytesRead == -1){" << std::endl;
-    ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while reading the socket\\n\");" << std::endl;
-    ioThread << "perror(NULL);" << std::endl;
-    ioThread << "exit(1);" << std::endl;
-    ioThread << "} else if (bytesRead != sizeof(" << outputStructTypeName << ")){" << std::endl;
-    ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
-    ioThread << "exit(1);" << std::endl;
-    ioThread << "}" << std::endl;
-    ioThread << "return true;" << std::endl;
-    ioThread << "}" << std::endl;
-    ioThread.close();
+        ioThread << sendFctnDcl << "{" << std::endl;
+        ioThread << "int bytesSent = send(socket, toSend, sizeof(" << inputStructTypeName << "), 0);" << std::endl;
+        ioThread << "if (bytesSent == -1){" << std::endl;
+        ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while writing the socket\\n\");" << std::endl;
+        ioThread << "perror(NULL);" << std::endl;
+        ioThread << "exit(1);" << std::endl;
+        ioThread << "} else if (bytesSent != sizeof(" << inputStructTypeName << ")){" << std::endl;
+        ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while writing to socket\\n\");"
+                 << std::endl;
+        ioThread << "exit(1);" << std::endl;
+        ioThread << "}" << std::endl;
+        ioThread << "}" << std::endl;
+        ioThread << std::endl;
+    }
+
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        std::string recvFctnDcl = "bool " + designName + "_" + filenamePostfix + "_bundle_" + GeneralHelper::to_string(it->first) + "_recv(int socket, " + outputStructTypeName + " *toRecv)";
+
+        ioThread << recvFctnDcl << "{" << std::endl;
+        ioThread << "int bytesRead = recv(socket, toRecv, sizeof(" << outputStructTypeName << "), MSG_WAITALL);"
+                 << std::endl;
+        ioThread << "if(bytesRead == 0){" << std::endl;
+        ioThread << "//Done with input (socket closed)" << std::endl;
+        ioThread << "return false;" << std::endl;
+        ioThread << "} else if (bytesRead == -1){" << std::endl;
+        ioThread << "VITIS_CLIENT_PRINTF(\"An error was encountered while reading the socket\\n\");" << std::endl;
+        ioThread << "perror(NULL);" << std::endl;
+        ioThread << "exit(1);" << std::endl;
+        ioThread << "} else if (bytesRead != sizeof(" << outputStructTypeName << ")){" << std::endl;
+        ioThread << "VITIS_CLIENT_PRINTF(\"An unknown error was encountered while reading the Socket\\n\");"
+                 << std::endl;
+        ioThread << "exit(1);" << std::endl;
+        ioThread << "}" << std::endl;
+        ioThread << "return true;" << std::endl;
+        ioThread << "}" << std::endl;
+        ioThread.close();
+    }
+}
+
+void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std::vector<Variable> masterOutputVars,
+                                      std::map<int, std::vector<Variable>> &masterInputBundles,
+                                      std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles) {
+    //Sort I/O varaibles into bundles - each bundle will have a separate stream
+    //the default bundle is bundle 0
+
+    std::string suffix = ".*_BUNDLE_([0-9]+)_.*";
+
+    for (int i = 0; i < masterInputVars.size(); i++) {
+        //Check the suffix of the variable name
+        std::string varName = masterInputVars[i].getName();
+        std::regex suffixRegexExpr(suffix);
+        std::smatch matches;
+        bool matched = std::regex_match(varName, matches, suffixRegexExpr);
+        if (matched) {
+            //Goes in the specified bundle
+            int tgtBundle = std::stoi(matches[1]);
+            masterInputBundles[tgtBundle].push_back(masterInputVars[i]);
+            bundles.insert(tgtBundle);
+        } else {
+            //Goes in bundle 0
+            masterInputBundles[0].push_back(masterInputVars[i]);
+            bundles.insert(0);
+        }
+    }
+
+    for (int i = 0; i < masterOutputVars.size(); i++) {
+        //Check the suffix of the variable name
+        std::string varName = masterOutputVars[i].getName();
+        std::regex suffixRegexExpr(suffix);
+        std::smatch matches;
+        bool matched = std::regex_match(varName, matches, suffixRegexExpr);
+        if (matched) {
+            //Goes in the specified bundle
+            int tgtBundle = std::stoi(matches[1]);
+            masterOutputBundles[tgtBundle].push_back(masterOutputVars[i]);
+            bundles.insert(tgtBundle);
+        } else {
+            //Goes in bundle 0
+            masterOutputBundles[0].push_back(masterOutputVars[i]);
+            bundles.insert(0);
+        }
+    }
 }

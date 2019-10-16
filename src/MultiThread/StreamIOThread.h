@@ -59,7 +59,11 @@ public:
      */
     static void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
 
-    static void emitSocketClientLib(std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
+    static void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
+
+    static void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
+                                std::map<int, std::vector<Variable>> &masterInputBundles,
+                                std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles);
 };
 
 
