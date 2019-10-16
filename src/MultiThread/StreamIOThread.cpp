@@ -806,9 +806,10 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
         headerFile << "//Returns true if data received, false if socket has been closed" << std::endl;
         std::string recvFctnDcl = "bool " + designName + "_" + filenamePostfix + "_bundle_" + GeneralHelper::to_string(it->first) + "_recv(int socket, " + outputStructTypeName + " *toRecv)";
         headerFile << recvFctnDcl << ";" << std::endl;
-        headerFile << "#endif" << std::endl;
-        headerFile.close();
+        headerFile << std::endl;
     }
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
 
     //#### Emit .c File ####
     std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
@@ -912,8 +913,9 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
         ioThread << "}" << std::endl;
         ioThread << "return true;" << std::endl;
         ioThread << "}" << std::endl;
-        ioThread.close();
+        ioThread << std::endl;
     }
+    ioThread.close();
 }
 
 void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std::vector<Variable> masterOutputVars,
