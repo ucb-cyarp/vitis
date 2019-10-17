@@ -25,7 +25,10 @@ Compare::CompareOp Compare::parseCompareOpString(std::string str) {
         return CompareOp::GEQ;
     }else if(str == "=="){
         return CompareOp::EQ;
-    }else if(str == "!="){
+    }else if(str == "!=") {
+        return CompareOp::NEQ;
+    }else if(str == "~="){
+        //This is to support Matlab Syntax
         return CompareOp::NEQ;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Compare Operator Unsupported: " + str));
