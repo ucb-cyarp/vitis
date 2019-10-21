@@ -576,6 +576,8 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
     }else{
         throw std::runtime_error("Unknown SCHED Type");
     }
+
+    EmitterHelpers::emitParametersHeader(outputDir, designName, blockSize);
 }
 
 void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState, SchedParams::SchedType schedType){
@@ -3411,6 +3413,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
             MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint);
         }
     }
+
+    EmitterHelpers::emitParametersHeader(path, fileName, blockSize);
 
     //====Emit I/O Divers====
     std::set<int> partitionSet;

@@ -100,6 +100,15 @@ public:
      * @return the name of the type header
      */
     static std::string stringEmitTypeHeader(std::string path);
+
+    /**
+     * @brief Emits a parameters file
+     * @param path
+     * @param filenamePrefix
+     * @param blockSize
+     * @returns the filename of the header file
+     */
+    static std::string emitParametersHeader(std::string path, std::string fileNamePrefix, int blockSize);
 };
 
 /*! @} */

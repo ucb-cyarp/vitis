@@ -509,3 +509,24 @@ std::string EmitterHelpers::stringEmitTypeHeader(std::string path){
 
     return typeHeaderFileName + ".h";
 }
+
+std::string EmitterHelpers::emitParametersHeader(std::string path, std::string fileNamePrefix, int blockSize){
+    std::string fileName = fileNamePrefix + "_parameters";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path + "/" + fileName + ".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << std::endl;
+
+    headerFile << "#define " << GeneralHelper::toUpper(fileNamePrefix) << "_BLOCK_SIZE (" << blockSize << ")" << std::endl;
+
+    headerFile << std::endl;
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    return fileName+".h";
+}
