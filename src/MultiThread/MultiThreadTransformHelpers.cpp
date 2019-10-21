@@ -495,11 +495,11 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
             fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
 
             //Rewire Outputs
-            if(fifo->getInputPorts().size() != 1){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO initial conditions.  Number of input ports should be 1", fifo));
+            if(fifo->getOutputPorts().size() != 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO initial conditions.  Number of output ports should be 1", fifo));
             }
-            std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPort(0)->getArcs();
-            for (auto it = inputArcs.begin(); it != inputArcs.end(); it++) {
+            std::set<std::shared_ptr<Arc>> outputArcs = fifo->getOutputPort(0)->getArcs();
+            for (auto it = outputArcs.begin(); it != outputArcs.end(); it++) {
                 (*it)->setSrcPortUpdateNewUpdatePrev(delay->getOutputPortCreateIfNot(0));
             }
 

@@ -2077,7 +2077,7 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster) {
         std::shared_ptr<StateUpdate> dstNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(dstNode);
 
         bool shouldCheck;
-        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr) {
+        if(srcNode != inputMaster && srcNode != unconnectedMaster && srcNode != terminatorMaster && GeneralHelper::isType<Node, Constant>(srcNode) == nullptr && GeneralHelper::isType<Node, ThreadCrossingFIFO>(srcNode) == nullptr) {
             if (GeneralHelper::isType<Node, BlackBox>(srcNode) != nullptr) {
                 std::shared_ptr<BlackBox> asBlackBox = std::dynamic_pointer_cast<BlackBox>(srcNode);
 
