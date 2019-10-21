@@ -377,10 +377,10 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
             ioThread << "int elementsRead = fread(&" << linuxInputTmpName << ", sizeof(" << inputStructTypeName
                      << "), 1, " << inputPipeHandleName << ");" << std::endl;
-            ioThread << "if(elementsRead != 1 && feof(inputPipe)){" << std::endl;
+            ioThread << "if(elementsRead != 1 && feof(" << inputPipeHandleName << ")){" << std::endl;
             ioThread << "//Done with input (input pipe closed)" << std::endl;
             ioThread << "break;" << std::endl;
-            ioThread << "} else if (elementsRead != 1 && ferror(inputPipe)){" << std::endl;
+            ioThread << "} else if (elementsRead != 1 && ferror(" << inputPipeHandleName << ")){" << std::endl;
             ioThread << "printf(\"An error was encountered while reading the Input Linux Pipe\\n\");" << std::endl;
             ioThread << "perror(NULL);" << std::endl;
             ioThread << "exit(1);" << std::endl;
@@ -476,11 +476,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
             ioThread << "int elementsWritten = fwrite(&" << linuxOutputTmpName << ", sizeof(" << outputStructTypeName
                      << "), 1, " + outputPipeHandleName + ");" << std::endl;
-            ioThread << "if (elementsWritten != 1 && ferror(outputPipe)){" << std::endl;
+            ioThread << "if (elementsWritten != 1 && ferror(" << outputPipeHandleName << ")){" << std::endl;
             ioThread << "printf(\"An error was encountered while writing the Output Linux Pipe\\n\");" << std::endl;
             ioThread << "perror(NULL);" << std::endl;
             ioThread << "exit(1);" << std::endl;
-            ioThread << "} else if (elementsRead != 1){" << std::endl;
+            ioThread << "} else if (elementsWritten != 1){" << std::endl;
             ioThread << "printf(\"An unknown error was encountered while writing to Input Linux Pipe\\n\");"
                      << std::endl;
             ioThread << "exit(1);" << std::endl;
