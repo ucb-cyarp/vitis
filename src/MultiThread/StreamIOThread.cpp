@@ -475,7 +475,8 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             //Write to linux pipe
             std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
             ioThread << "int elementsWritten = fwrite(&" << linuxOutputTmpName << ", sizeof(" << outputStructTypeName
-                     << "), 1, " + outputPipeHandleName + ");" << std::endl;
+                     << "), 1, " << outputPipeHandleName << ");" << std::endl;
+            ioThread << "fflush(" << outputPipeHandleName << ");" << std::endl;
             ioThread << "if (elementsWritten != 1 && ferror(" << outputPipeHandleName << ")){" << std::endl;
             ioThread << "printf(\"An error was encountered while writing the Output Linux Pipe\\n\");" << std::endl;
             ioThread << "perror(NULL);" << std::endl;
