@@ -557,10 +557,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "}" << std::endl;
         }
     }else if(streamType == StreamType::SOCKET){
+        ioThread << "int closeStatus = 0;" << std::endl;
         for(auto it = bundles.begin(); it != bundles.end(); it++) {
             std::string listenSocketName = "listenSocket_bundle_" + GeneralHelper::to_string(*it);
             std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(*it);
-            ioThread << "int closeStatus = close(" << connectedSocketName << ");" << std::endl;
+            ioThread << "closeStatus = close(" << connectedSocketName << ");" << std::endl;
             ioThread << "if (closeStatus != 0){" << std::endl;
             ioThread << "printf(\"Could not close the connection socket\\n\");" << std::endl;
             ioThread << "perror(NULL);" << std::endl;
