@@ -782,7 +782,7 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
     //Only need one of the connect/disconnect functions
     //Output function prototypes for the socket client
     headerFile << "//For connecting to the remote system" << std::endl;
-    std::string connectFctnDecl = "int " + designName + "_" + filenamePostfix + "_connect(char* ipAddrStr)";
+    std::string connectFctnDecl = "int " + designName + "_" + filenamePostfix + "_connect(char* ipAddrStr, int bundleNum)";
     headerFile << connectFctnDecl << ";" << std::endl;
     headerFile << std::endl;
 
@@ -849,7 +849,7 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
     //Set connection
     ioThread << "struct sockaddr_in connectAddr;" << std::endl;
     ioThread << "connectAddr.sin_family=AF_INET;" << std::endl;
-    ioThread << "connectAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT);" << std::endl;
+    ioThread << "connectAddr.sin_port=htons(VITIS_SOCKET_LISTEN_PORT+bundleNum);" << std::endl;
     ioThread << "connectAddr.sin_addr.s_addr=inet_addr(ipAddrStr);" << std::endl;
     ioThread << "VITIS_CLIENT_PRINTF(\"Connecting to addr: %s:%d\\n\", ipAddrStr, VITIS_SOCKET_LISTEN_PORT);" << std::endl;
     ioThread << std::endl;
