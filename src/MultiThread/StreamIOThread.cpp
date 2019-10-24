@@ -294,7 +294,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "FD_SET(" << listenSocketName << ", &fdSet);" << std::endl;
         }
         //See: http://beej.us/guide/bgnet/html/multi/selectman.html
-        ioThread << "int selectStatus = select(maxFD, &fdSet, NULL, NULL, NULL);" << std::endl;
+        ioThread << "int selectStatus = select(maxFD+1, &fdSet, NULL, NULL, NULL);" << std::endl;
         ioThread << "if(selectStatus == -1){" << std::endl;
         ioThread << "fprintf(stderr, \"Error while waiting for connections\\n\");" << std::endl;
         ioThread << "perror(NULL);" << std::endl;
