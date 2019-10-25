@@ -118,6 +118,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "#include <arpa/inet.h>" << std::endl;
         ioThread << "#include <sys/select.h>" << std::endl;
     }
+    ioThread << "#include <time.h>" << std::endl;
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
     ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     ioThread << std::endl;
@@ -357,6 +358,15 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
 
+    //Insert timer init code
+    double printDuration = 1; //TODO: Add option for this
+
+    ioThread << "//Start timer" << std::endl;
+    ioThread << "uint64_t rxSamples = 0;" << std::endl;
+    ioThread << "time_t startTime = time(NULL);" << std::endl;
+    ioThread << "time_t lastPrint = time(NULL);" << std::endl;
+    ioThread << "double printDuration = " << printDuration << ";" << std::endl;
+
     ioThread << std::endl;
     ioThread << "//Thread loop" << std::endl;
 
@@ -417,6 +427,17 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Input Received\\n\");" << std::endl;
     }
+
+    //Emit timer reporting
+    ioThread << "rxSamples += " << blockSize << ";" << std::endl;
+    ioThread << "time_t currentTime = time(NULL);" << std::endl;
+    ioThread << "double duration = difftime(currentTime, lastPrint);" << std::endl;
+    ioThread << "if(duration >= printDuration){" << std::endl;
+    ioThread << "lastPrint = currentTime;" << std::endl;
+    ioThread << "double durationSinceStart = difftime(currentTime, startTime);" << std::endl;
+    ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
+    ioThread << "printf(\"Current " << designName << " Rate: %f\\n\", rateMSps);" << std::endl;
+    ioThread << "}" << std::endl;
 
     //Fill write temps with data from stream
     std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap = getInputPortFIFOMapping(outputFIFOs); //Note, outputFIFOs are the outputs of the I/O thread.  They carry the inputs to the system to the rest of the system
