@@ -20,7 +20,8 @@ class StreamIOThread {
 public:
     enum class StreamType{
         PIPE, ///<A linux named pipe (FIFO)
-        SOCKET ///<A network socket
+        SOCKET, ///<A network socket
+        POSIX_SHARED_MEM ///< POSIX Shared Memory
     };
 
     static std::string getInputStructDefn(std::shared_ptr<MasterInput> inputMaster, std::string structTypeName, int blockSize);
@@ -55,15 +56,23 @@ public:
      * @param designName
      * @param blockSize
      * @param fifoHeaderFile
+     * @param ioFifoSize The size of the fifo in blocks (only pertains to POSIX shared memory)
      * @param threadDebugPrint
      */
-    static void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
+    static void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, int32_t ioFifoSize, bool threadDebugPrint);
 
     static void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
 
     static void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
                                 std::map<int, std::vector<Variable>> &masterInputBundles,
                                 std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles);
+
+    /**
+     * @brief Emits the helper files for working with shared memory fifos which use the POSIX API
+     * @param path the path to emit the file to
+     * @return the header filename
+     */
+    static std::string emitSharedMemoryFIFOHelperFiles(std::string path);
 };
 
 

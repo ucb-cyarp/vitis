@@ -136,8 +136,9 @@ public:
      * @param designName
      * @param blockSize
      * @param ioBenchmarkSuffix
+     * @param includeLrt if true, includes -lrt to the linker options
      */
-    static void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix);
+    static void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)

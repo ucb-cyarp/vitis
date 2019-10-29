@@ -3072,7 +3072,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
-                                bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint) {
+                                bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
+                                int ioFifoSize) {
 
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
@@ -3435,13 +3436,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix, false, {});
 
     //++++Emit Linux Pipe I/O Driver++++
     std::string pipeIOSuffix = "io_linux_pipe";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
-                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, threadDebugPrint);
+                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint);
 
     //Emit the startup function (aka the benchmark kernel)
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap);
@@ -3453,14 +3454,14 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix, false, {});
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
-                                        fifoHeaderName, threadDebugPrint);
+                                        fifoHeaderName, 0, threadDebugPrint);
 
     //Emit the startup function (aka the benchmark kernel)
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap);
@@ -3469,7 +3470,24 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix, false, {});
+
+    //++++Emit POSIX Shared Memory FIFO Driver++++
+    std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
+    std::string sharedMemoryFIFOCFileName = "SharedMemoryFIFO.c";
+    StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
+                                        outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
+                                        StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
+                                        fifoHeaderName, threadDebugPrint, ioFifoSize);
+
+    //Emit the startup function (aka the benchmark kernel)
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap);
+
+    //Emit the benchmark driver
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, sharedMemoryFIFOSuffix, inputVars);
+
+    //Emit the benchmark makefile
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, sharedMemoryFIFOSuffix, true, {sharedMemoryFIFOCFileName});
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

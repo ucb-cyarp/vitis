@@ -685,7 +685,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix){
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -725,9 +725,13 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "#For kernels that should not be optimized, the following is used\n"
                                     "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
-                                    "LIB_DIRS=-L $(COMMON_DIR)\n"
-                                    "LIB=-pthread -lProfilerCommon\n"
-                                    "\n"
+                                    "LIB_DIRS=-L $(COMMON_DIR)\n";
+                                    if(includeLrt){
+                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon\n";
+                                    }else {
+                     makefileContent += "LIB=-pthread -lProfilerCommon\n";
+                                    }
+                 makefileContent += "\n"
                                     "DEFINES=\n"
                                     "\n"
                                     "DEPENDS=\n"
@@ -764,7 +768,11 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "\n"
                                     "MAIN_FILE = benchmark_throughput_test.cpp\n"
                                     "LIB_SRCS = " + driverFileName + " #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
-                                    "SYSTEM_SRC = " + systemSrcs + ".c\n"
+                                    "SYSTEM_SRC = " + systemSrcs + ".c";
+                                    for(int i = 0; i<additionalSystemSrc.size(); i++){
+                                        makefileContent += " " + additionalSystemSrc[i];
+                                    }
+                                    makefileContent += "\n";
                                     "KERNEL_SRCS = " + kernelFileName + "\n"
                                     "KERNEL_NO_OPT_SRCS = \n"
                                     "\n"

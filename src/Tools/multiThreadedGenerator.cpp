@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         std::cout << "multiThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Multi Threaded C Function" << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint>" << std::endl;
+        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -44,6 +44,9 @@ int main(int argc, char* argv[]) {
         std::cout << "Possible FIFO_LENGTH (length of FIFOs in blocks):" << std::endl;
         std::cout << "    unsigned long fifoLength <DEFAULT = 16>" << std::endl;
         std::cout << std::endl;
+        std::cout << "Possible IO_FIFO_SIZE (size of IO FIFO in blocks - shared memory FIFOs only):" << std::endl;
+        std::cout << "    unsigned long fifoLength <DEFAULT = 16>" << std::endl;
+        std::cout << std::endl;
         std::cout << "Possible PARTITION_MAP (mapping of partition numbers to logical CPUs):" << std::endl;
         std::cout << "    A comma separated array without spaces (ex. [0,1,2,3])" << std::endl;
         std::cout << "    The first element of the array corresponds to the I/O thread.  The subsequent elements" << std::endl;
@@ -63,6 +66,7 @@ int main(int argc, char* argv[]) {
     unsigned long randSeed = 0;
     unsigned long blockSize = 1;
     unsigned long fifoLength = 16;
+    unsigned long ioFifoSize = 16;
     std::vector<int> partitionMap;
 
     bool emitGraphMLSched = false;
@@ -130,6 +134,20 @@ int main(int argc, char* argv[]) {
                 fifoLength = parsedFIFOLength;
                 if(fifoLength<1){
                     std::cerr << "Invalid command line option type: --fifoLength must be >= 1.  Currently:  " << argv[i] << std::endl;
+                    exit(1);
+                }
+            } catch (std::invalid_argument e) {
+                std::cerr << "Invalid command line option type: --fifoLength " << argv[i] << std::endl;
+                exit(1);
+            }
+        }else if(strcmp(argv[i], "--ioFifoSize") == 0) {
+            i++;
+            std::string argStr = argv[i];
+            try {
+                unsigned long parsedIO_FIFOSize = std::stoul(argStr);
+                ioFifoSize = parsedIO_FIFOSize;
+                if(ioFifoSize<1){
+                    std::cerr << "Invalid command line option type: --ioFifoSize must be >= 1.  Currently:  " << argv[i] << std::endl;
                     exit(1);
                 }
             } catch (std::invalid_argument e) {
@@ -225,7 +243,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
 //    try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize);
 //    }catch(std::exception& e) {
 //        std::cerr << e.what() << std::endl;
 //        return 1;

@@ -17,6 +17,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
                                          std::string path, std::string fileNamePrefix, std::string designName,
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
+                                         int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
                                          bool threadDebugPrint) {
 
     //Emit a thread for handeling the I/O
@@ -33,8 +34,17 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         case StreamType::SOCKET:
             filenamePostfix = "io_network_socket";
             break;
+        case StreamType::POSIX_SHARED_MEM:
+            filenamePostfix = "io_posix_shared_mem";
+            break;
         default:
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+    }
+
+    std::string sharedFIFOHelperHeaderName;
+    if(streamType == StreamType::POSIX_SHARED_MEM){
+        //Emit the helper files
+        sharedFIFOHelperHeaderName = emitSharedMemoryFIFOHelperFiles(path);
     }
 
     std::string fileName = fileNamePrefix + "_" + filenamePostfix;
@@ -57,6 +67,8 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(streamType == StreamType::SOCKET){
         headerFile << "#define VITIS_SOCKET_LISTEN_PORT " << DEFAULT_VITIS_SOCKET_LISTEN_PORT << std::endl;
         headerFile << "#define VITIS_SOCKET_LISTEN_ADDR " << DEFAULT_VITIS_SOCKET_LISTEN_ADDR << std::endl;
+    }else if(streamType == StreamType::POSIX_SHARED_MEM){
+        headerFile << "#include \"" << sharedFIFOHelperHeaderName << "\"" << std::endl;
     }
     headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
@@ -354,6 +366,33 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "}" << std::endl; //End connection if
         }
         ioThread << "}" << std::endl; //Close connect while
+    }else if(streamType == StreamType::POSIX_SHARED_MEM) {
+        ioThread << "//Setup FIFOs" << std::endl;
+        //Create a pipe for each bundle
+        //Producers should be initialized first - therefore, we start with outputs
+        //Open Output FIFOs
+        for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+            std::string outputSharedName = designName+"_output_bundle_"+GeneralHelper::to_string(it->first);
+            std::string outputFifoHandleName = "outputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            std::string outputFIFOSizeName = outputFifoHandleName+"_fifoSize";
+            std::string outputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+            ioThread << "sharedMemoryFIFO_t " + outputFifoHandleName + ";" << std::endl;
+            ioThread << "initSharedMemoryFIFO(&" + outputFifoHandleName + ");" << std::endl;
+            ioThread << "size_t " << outputFIFOSizeName << " = sizeof(" << outputStructTypeName << ")*" << ioFifoSize << ";" << std::endl;
+            ioThread << "producerOpenInitFIFO(" << outputSharedName << ", " << outputFIFOSizeName << ", &" << outputFifoHandleName << ");" << std::endl;
+        }
+
+        //Open Input FIFOs
+        for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+            std::string inputSharedName = designName+"_input_bundle_"+GeneralHelper::to_string(it->first);
+            std::string inputFifoHandleName = "inputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            std::string inputFIFOSizeName = inputFifoHandleName+"_fifoSize";
+            std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+            ioThread << "sharedMemoryFIFO_t " + inputFifoHandleName + ";" << std::endl;
+            ioThread << "initSharedMemoryFIFO(&" + inputFifoHandleName + ");" << std::endl;
+            ioThread << "size_t " << inputFIFOSizeName << " = sizeof(" << inputStructTypeName << ")*" << ioFifoSize << ";" << std::endl;
+            ioThread << "consumerOpenInitFIFO(" << inputSharedName << ", " << inputFIFOSizeName << ", &" << inputFifoHandleName << ");" << std::endl;
+        }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
@@ -417,6 +456,14 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "} else if (bytesRead != sizeof(" << inputStructTypeName << ")){" << std::endl;
             ioThread << "printf(\"An unknown error was encountered while reading the Socket\\n\");" << std::endl;
             ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
+        } else if (streamType == StreamType::POSIX_SHARED_MEM){
+            std::string inputFifoHandleName = "inputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "int elementsRead = readFifo(&" << linuxInputTmpName << ", sizeof(" << inputStructTypeName
+                     << "), 1, &" << inputFifoHandleName << ");" << std::endl;
+            ioThread << "if(elementsRead != 1){" << std::endl;
+            ioThread << "//Done with input (input pipe closed)" << std::endl;
+            ioThread << "break;" << std::endl;
             ioThread << "}" << std::endl;
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
@@ -520,6 +567,15 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "printf(\"An unknown error was encountered while writing to socket\\n\");" << std::endl;
             ioThread << "exit(1);" << std::endl;
             ioThread << "}" << std::endl;
+        } else if (streamType == StreamType::POSIX_SHARED_MEM) {
+            std::string outputFifoHandleName = "outputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "int elementsWritten = writeFifo(&" << linuxOutputTmpName << ", sizeof(" << outputStructTypeName
+                     << "), 1, &" << outputFifoHandleName << ");" << std::endl;
+            ioThread << "if (elementsWritten != 1){" << std::endl;
+            ioThread << "printf(\"An error was encountered while writing the Output FIFO\\n\");" << std::endl;
+            ioThread << "perror(NULL);" << std::endl;
+            ioThread << "exit(1);" << std::endl;
+            ioThread << "}" << std::endl;
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
         }
@@ -593,6 +649,17 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "perror(NULL);" << std::endl;
             ioThread << "}" << std::endl;
         }
+    } else if (streamType == StreamType::POSIX_SHARED_MEM) {
+        for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+            std::string outputFifoHandleName = "outputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "cleanupProducer(&" << outputFifoHandleName << ");" << std::endl;
+        }
+
+        for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+            std::string inputFifoHandleName = "inputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "cleanupConsumer(&" << inputFifoHandleName << ");" << std::endl;
+        }
+
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
@@ -984,4 +1051,507 @@ void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std:
             bundles.insert(0);
         }
     }
+}
+
+std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
+    std::string fileName = "BerkeleySharedMemoryFIFO";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+fileName+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+
+    headerFile << "//\n"
+                  "// Project: BerkeleySharedMemoryFIFO\n"
+                  "// Created by Christopher Yarp on 10/29/19.\n"
+                  "// Availible at https://github.com/ucb-cyarp/BerkeleySharedMemoryFIFO\n"
+                  "//\n"
+                  "\n"
+                  "// BSD 3-Clause License\n"
+                  "//\n"
+                  "// Copyright (c) 2019, Regents of the University of California\n"
+                  "// All rights reserved.\n"
+                  "//\n"
+                  "// Redistribution and use in source and binary forms, with or without\n"
+                  "// modification, are permitted provided that the following conditions are met:\n"
+                  "//\n"
+                  "// 1. Redistributions of source code must retain the above copyright notice, this\n"
+                  "//    list of conditions and the following disclaimer.\n"
+                  "//\n"
+                  "// 2. Redistributions in binary form must reproduce the above copyright notice,\n"
+                  "//    this list of conditions and the following disclaimer in the documentation\n"
+                  "//    and/or other materials provided with the distribution.\n"
+                  "//\n"
+                  "// 3. Neither the name of the copyright holder nor the names of its\n"
+                  "//    contributors may be used to endorse or promote products derived from\n"
+                  "//    this software without specific prior written permission.\n"
+                  "//\n"
+                  "// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
+                  "// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
+                  "// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\n"
+                  "// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\n"
+                  "// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\n"
+                  "// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\n"
+                  "// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\n"
+                  "// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\n"
+                  "// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n"
+                  "// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE." << std::endl;
+
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+
+    headerFile << "#include <stdatomic.h>\n"
+                  "#include <semaphore.h>\n"
+                  "#include <sys/mman.h>\n"
+                  "#include <unistd.h>\n"
+                  "#include <stdbool.h>\n"
+                  "\n"
+                  "typedef struct{\n"
+                  "    char *sharedName;\n"
+                  "    int sharedFD;\n"
+                  "    char* txSemaphoreName;\n"
+                  "    char* rxSemaphoreName;\n"
+                  "    sem_t *txSem;\n"
+                  "    sem_t *rxSem;\n"
+                  "    atomic_int_fast32_t* fifoCount;\n"
+                  "    volatile void* fifoBlock;\n"
+                  "    volatile void* fifoBuffer;\n"
+                  "    size_t fifoSizeBytes;\n"
+                  "    size_t fifoSharedBlockSizeBytes;\n"
+                  "    size_t currentOffset;\n"
+                  "    bool rxReady;\n"
+                  "} sharedMemoryFIFO_t;\n"
+                  "\n"
+                  "void initSharedMemoryFIFO(sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "int producerOpenInitFIFO(char *sharedName, size_t fifoSizeBytes, sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "int consumerOpenFIFOBlock(char *sharedName, size_t fifoSizeBytes, sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "int writeFifo(void* src, size_t elementSize, int numElements, sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "int readFifo(void* dst, size_t elementSize, int numElements, sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "void cleanupProducer(sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "void cleanupConsumer(sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "bool isReadyForReading(sharedMemoryFIFO_t *fifo);\n"
+                  "\n"
+                  "bool isReadyForWriting(sharedMemoryFIFO_t *fifo);" << std::endl;
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream cFile;
+    cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    cFile <<    "//\n"
+                "// Project: BerkeleySharedMemoryFIFO\n"
+                "// Created by Christopher Yarp on 10/29/19.\n"
+                "// Availible at https://github.com/ucb-cyarp/BerkeleySharedMemoryFIFO\n"
+                "//\n"
+                "\n"
+                "// BSD 3-Clause License\n"
+                "//\n"
+                "// Copyright (c) 2019, Regents of the University of California\n"
+                "// All rights reserved.\n"
+                "//\n"
+                "// Redistribution and use in source and binary forms, with or without\n"
+                "// modification, are permitted provided that the following conditions are met:\n"
+                "//\n"
+                "// 1. Redistributions of source code must retain the above copyright notice, this\n"
+                "//    list of conditions and the following disclaimer.\n"
+                "//\n"
+                "// 2. Redistributions in binary form must reproduce the above copyright notice,\n"
+                "//    this list of conditions and the following disclaimer in the documentation\n"
+                "//    and/or other materials provided with the distribution.\n"
+                "//\n"
+                "// 3. Neither the name of the copyright holder nor the names of its\n"
+                "//    contributors may be used to endorse or promote products derived from\n"
+                "//    this software without specific prior written permission.\n"
+                "//\n"
+                "// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
+                "// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
+                "// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\n"
+                "// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\n"
+                "// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\n"
+                "// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\n"
+                "// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\n"
+                "// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\n"
+                "// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n"
+                "// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE." << std::endl;
+
+    cFile << "#include \"SharedMemoryFIFO.h\"\n"
+             "#include <stdbool.h>\n"
+             "#include <stdio.h>\n"
+             "#include <stdlib.h>\n"
+             "#include <string.h>\n"
+             "#include <fcntl.h>\n"
+             "\n"
+             "void initSharedMemoryFIFO(sharedMemoryFIFO_t *fifo){\n"
+             "    fifo->sharedName = NULL;\n"
+             "    fifo->sharedFD = -1;\n"
+             "    fifo->txSemaphoreName = NULL;\n"
+             "    fifo->rxSemaphoreName = NULL;\n"
+             "    fifo->txSem = NULL;\n"
+             "    fifo->rxSem = NULL;\n"
+             "    fifo->fifoCount = NULL;\n"
+             "    fifo->fifoBlock = NULL;\n"
+             "    fifo->fifoBuffer = NULL;\n"
+             "    fifo->fifoSizeBytes = 0;\n"
+             "    fifo->currentOffset = 0;\n"
+             "    fifo->fifoSharedBlockSizeBytes = 0;\n"
+             "    fifo->rxReady = false;\n"
+             "}\n"
+             "\n"
+             "int producerOpenInitFIFO(char *sharedName, size_t fifoSizeBytes, sharedMemoryFIFO_t *fifo){\n"
+             "    fifo->sharedName = sharedName;\n"
+             "    fifo->fifoSizeBytes = fifoSizeBytes;\n"
+             "    size_t sharedBlockSize = fifoSizeBytes + sizeof(atomic_int_fast32_t);\n"
+             "    fifo->fifoSharedBlockSizeBytes = sharedBlockSize;\n"
+             "\n"
+             "    //The producer is responsible for initializing the FIFO and releasing the Tx semaphore\n"
+             "    //Note: Both Tx and Rx use the O_CREAT mode to create the semaphore if it does not already exist\n"
+             "    //The Rx semaphore is used to block the producer from continuing after FIFO init until a consumer is started and is ready\n"
+             "    //---- Get access to the semaphore ----\n"
+             "    int sharedNameLen = strlen(sharedName);\n"
+             "    fifo->txSemaphoreName = malloc(sharedNameLen+5);\n"
+             "    strcpy(fifo->txSemaphoreName, \"/\");\n"
+             "    strcat(fifo->txSemaphoreName, sharedName);\n"
+             "    strcat(fifo->txSemaphoreName, \"_TX\");\n"
+             "    fifo->txSem = sem_open(fifo->txSemaphoreName, O_CREAT, S_IRWXU, 0); //Initialize to 0, the consumer will wait\n"
+             "    if (fifo->txSem == SEM_FAILED){\n"
+             "        printf(\"Unable to open tx semaphore\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    fifo->rxSemaphoreName = malloc(sharedNameLen+5);\n"
+             "    strcpy(fifo->rxSemaphoreName, \"/\");\n"
+             "    strcat(fifo->rxSemaphoreName, sharedName);\n"
+             "    strcat(fifo->rxSemaphoreName, \"_RX\");\n"
+             "    fifo->rxSem = sem_open(fifo->rxSemaphoreName, O_CREAT, S_IRWXU, 0); //Initialize to 0, the consumer will wait\n"
+             "    if (fifo->rxSem == SEM_FAILED){\n"
+             "        printf(\"Unable to open rx semaphore\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //---- Init shared mem ----\n"
+             "    fifo->sharedFD = shm_open(sharedName, O_CREAT | O_RDWR, S_IRWXU);\n"
+             "    if (fifo->sharedFD == -1){\n"
+             "        printf(\"Unable to open tx shm\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //Resize the shared memory\n"
+             "    int status = ftruncate(fifo->sharedFD, sharedBlockSize);\n"
+             "    if(status == -1){\n"
+             "        printf(\"Unable to resize tx fifo\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    fifo->fifoBlock = mmap(NULL, sharedBlockSize, PROT_READ | PROT_WRITE, MAP_SHARED, fifo->sharedFD, 0);\n"
+             "    if (fifo->fifoBlock == MAP_FAILED){\n"
+             "        printf(\"Rx mmap failed\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //---- Init the fifoCount ----\n"
+             "    fifo->fifoCount = (atomic_int_fast32_t*) fifo->fifoBlock;\n"
+             "    atomic_init(fifo->fifoCount, 0);\n"
+             "\n"
+             "    char* fifoBlockBytes = (char*) fifo->fifoBlock;\n"
+             "    fifo->fifoBuffer = (void*) (fifoBlockBytes + sizeof(atomic_int_fast32_t));\n"
+             "\n"
+             "    //FIFO init done\n"
+             "    //---- Release the semaphore ----\n"
+             "    sem_post(fifo->txSem);\n"
+             "\n"
+             "    return sharedBlockSize;\n"
+             "}\n"
+             "\n"
+             "int consumerOpenFIFOBlock(char *sharedName, size_t fifoSizeBytes, sharedMemoryFIFO_t *fifo){\n"
+             "    fifo->sharedName = sharedName;\n"
+             "    fifo->fifoSizeBytes = fifoSizeBytes;\n"
+             "    size_t sharedBlockSize = fifoSizeBytes + sizeof(atomic_int_fast32_t);\n"
+             "    fifo->fifoSharedBlockSizeBytes = sharedBlockSize;\n"
+             "\n"
+             "    //---- Get access to the semaphore ----\n"
+             "    int sharedNameLen = strlen(sharedName);\n"
+             "    fifo->txSemaphoreName = malloc(sharedNameLen+5);\n"
+             "    strcpy(fifo->txSemaphoreName, \"/\");\n"
+             "    strcat(fifo->txSemaphoreName, sharedName);\n"
+             "    strcat(fifo->txSemaphoreName, \"_TX\");\n"
+             "    fifo->txSem = sem_open(fifo->txSemaphoreName, O_CREAT, S_IRWXU, 0); //Initialize to 0, the consumer will wait\n"
+             "    if (fifo->txSem == SEM_FAILED){\n"
+             "        printf(\"Unable to open tx semaphore\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    fifo->rxSemaphoreName = malloc(sharedNameLen+5);\n"
+             "    strcpy(fifo->rxSemaphoreName, \"/\");\n"
+             "    strcat(fifo->rxSemaphoreName, sharedName);\n"
+             "    strcat(fifo->rxSemaphoreName, \"_RX\");\n"
+             "    fifo->rxSem = sem_open(fifo->rxSemaphoreName, O_CREAT, S_IRWXU, 0); //Initialize to 0, the consumer will wait\n"
+             "    if (fifo->rxSem == SEM_FAILED){\n"
+             "        printf(\"Unable to open rx semaphore\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //Block on the semaphore while the producer is initializing\n"
+             "    int status = sem_wait(fifo->txSem);\n"
+             "    if(status == -1){\n"
+             "        printf(\"Unable to wait on tx semaphore\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //---- Open shared mem ----\n"
+             "    fifo->sharedFD = shm_open(sharedName, O_RDWR, S_IRWXU);\n"
+             "    if(fifo->sharedFD == -1){\n"
+             "        printf(\"Unable to open rx shm\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //No need to resize shared memory, the producer has already done that\n"
+             "\n"
+             "    fifo->fifoBlock = mmap(NULL, sharedBlockSize, PROT_READ | PROT_WRITE, MAP_SHARED, fifo->sharedFD, 0);\n"
+             "    if(fifo->fifoBlock == MAP_FAILED){\n"
+             "        printf(\"Rx mmap failed\\n\");\n"
+             "        perror(NULL);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    //---- Get appropriate pointers from the shared memory block ----\n"
+             "    fifo->fifoCount = (atomic_int_fast32_t*) fifo->fifoBlock;\n"
+             "\n"
+             "    char* fifoBlockBytes = (char*) fifo->fifoBlock;\n"
+             "    fifo->fifoBuffer = (void*) (fifoBlockBytes + sizeof(atomic_int_fast32_t));\n"
+             "\n"
+             "    //inform producer that consumer is ready\n"
+             "    sem_post(fifo->rxSem);\n"
+             "\n"
+             "    return sharedBlockSize;\n"
+             "}\n"
+             "\n"
+             "//currentOffset is updated by the call\n"
+             "//currentOffset is in bytes\n"
+             "//fifosize is in bytes\n"
+             "//fifoCount is in bytes\n"
+             "\n"
+             "//returns number of elements written\n"
+             "int writeFifo(void* src_uncast, size_t elementSize, int numElements, sharedMemoryFIFO_t *fifo){\n"
+             "    char* dst = (char*) fifo->fifoBuffer;\n"
+             "    char* src = (char*) src_uncast;\n"
+             "\n"
+             "    if(!fifo->rxReady) {\n"
+             "        //---- Wait for consumer to join ---\n"
+             "        sem_wait(fifo->rxSem);\n"
+             "        fifo->rxReady = true;\n"
+             "    }\n"
+             "\n"
+             "    bool hasRoom = false;\n"
+             "\n"
+             "    size_t bytesToWrite = elementSize*numElements;\n"
+             "\n"
+             "    while(!hasRoom){\n"
+             "        int currentCount = atomic_load(fifo->fifoCount);\n"
+             "        int spaceInFIFO = fifo->fifoSizeBytes - currentCount;\n"
+             "        //TODO: REMOVE\n"
+             "        if(spaceInFIFO<0){\n"
+             "            printf(\"FIFO had a negative count\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        if(bytesToWrite <= spaceInFIFO){\n"
+             "            hasRoom = true;\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    //There is room in the FIFO, write into it\n"
+             "    //Write up to the end of the buffer, wrap around if nessisary\n"
+             "    size_t currentOffsetLocal = fifo->currentOffset;\n"
+             "    size_t bytesToEnd = fifo->fifoSizeBytes - currentOffsetLocal;\n"
+             "    size_t bytesToTransferFirst = bytesToEnd < bytesToWrite ? bytesToEnd : bytesToWrite;\n"
+             "    memcpy(dst+currentOffsetLocal, src, bytesToTransferFirst);\n"
+             "    currentOffsetLocal += bytesToTransferFirst;\n"
+             "    if(currentOffsetLocal >= fifo->fifoSizeBytes){\n"
+             "        //Wrap around\n"
+             "        currentOffsetLocal = 0;\n"
+             "\n"
+             "        //Write remaining (if any)\n"
+             "        size_t remainingBytesToTransfer = bytesToWrite - bytesToTransferFirst;\n"
+             "        if(remainingBytesToTransfer>0){\n"
+             "            //Know currentOffsetLocal is 0 so does not need to be added\n"
+             "            //However, need to offset source by the number of bytes transfered before\n"
+             "            memcpy(dst, src+bytesToTransferFirst, remainingBytesToTransfer);\n"
+             "            currentOffsetLocal+=remainingBytesToTransfer;\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    //Update the current offset\n"
+             "    fifo->currentOffset = currentOffsetLocal;\n"
+             "\n"
+             "    //Update the fifoCount, do not need the new value\n"
+             "    atomic_fetch_add(fifo->fifoCount, bytesToWrite);\n"
+             "\n"
+             "    return numElements;\n"
+             "}\n"
+             "\n"
+             "int readFifo(void* dst_uncast, size_t elementSize, int numElements, sharedMemoryFIFO_t *fifo){\n"
+             "    char* dst = (char*) dst_uncast;\n"
+             "    char* src = (char*) fifo->fifoBuffer;\n"
+             "\n"
+             "    bool hasData = false;\n"
+             "\n"
+             "    size_t bytesToRead = elementSize*numElements;\n"
+             "\n"
+             "    while(!hasData){\n"
+             "        int currentCount = atomic_load(fifo->fifoCount);\n"
+             "        //TODO: REMOVE\n"
+             "        if(currentCount<0){\n"
+             "            printf(\"FIFO had a negative count\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        if(currentCount >= bytesToRead){\n"
+             "            hasData = true;\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    //There is enough data in the fifo to complete a read operation\n"
+             "    //Read from the FIFO\n"
+             "    //Read up to the end of the buffer and wrap if nessisary\n"
+             "    size_t currentOffsetLocal = fifo->currentOffset;\n"
+             "    size_t bytesToEnd = fifo->fifoSizeBytes - currentOffsetLocal;\n"
+             "    size_t bytesToTransferFirst = bytesToEnd < bytesToRead ? bytesToEnd : bytesToRead;\n"
+             "    memcpy(dst, src+currentOffsetLocal, bytesToTransferFirst);\n"
+             "    currentOffsetLocal += bytesToTransferFirst;\n"
+             "    if(currentOffsetLocal >= fifo->fifoSizeBytes){\n"
+             "        //Wrap around\n"
+             "        currentOffsetLocal = 0;\n"
+             "\n"
+             "        //Read remaining (if any)\n"
+             "        size_t remainingBytesToTransfer = bytesToRead - bytesToTransferFirst;\n"
+             "        if(remainingBytesToTransfer>0){\n"
+             "            //Know currentOffsetLocal is 0 so does not need to be added to src\n"
+             "            //However, need to offset dest by the number of bytes transfered before\n"
+             "            memcpy(dst+bytesToTransferFirst, src, remainingBytesToTransfer);\n"
+             "            currentOffsetLocal+=remainingBytesToTransfer;\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    //Update the current offset\n"
+             "    fifo->currentOffset = currentOffsetLocal;\n"
+             "\n"
+             "    //Update the fifoCount, do not need the new value\n"
+             "    atomic_fetch_sub(fifo->fifoCount, bytesToRead);\n"
+             "\n"
+             "    return numElements;\n"
+             "}\n"
+             "\n"
+             "void cleanupHelper(sharedMemoryFIFO_t *fifo){\n"
+             "    void* fifoBlockCast = (void *) fifo->fifoBlock;\n"
+             "    if(fifo->fifoBlock != NULL) {\n"
+             "        int status = munmap(fifoBlockCast, fifo->fifoSharedBlockSizeBytes);\n"
+             "        if (status == -1) {\n"
+             "            printf(\"Error in tx munmap\\n\");\n"
+             "            perror(NULL);\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    if(fifo->txSem != NULL) {\n"
+             "        int status = sem_close(fifo->txSem);\n"
+             "        if (status == -1) {\n"
+             "            printf(\"Error in tx semaphore close\\n\");\n"
+             "            perror(NULL);\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    if(fifo->rxSem != NULL) {\n"
+             "        int status = sem_close(fifo->rxSem);\n"
+             "        if (status == -1) {\n"
+             "            printf(\"Error in rx semaphore close\\n\");\n"
+             "            perror(NULL);\n"
+             "        }\n"
+             "    }\n"
+             "}\n"
+             "\n"
+             "void cleanupProducer(sharedMemoryFIFO_t *fifo){\n"
+             "    bool unlinkSharedBlock = fifo->fifoBlock != NULL;\n"
+             "    bool unlinkTxSem = fifo->txSem != NULL;\n"
+             "    bool unlinkRxSem = fifo->rxSem != NULL;\n"
+             "\n"
+             "    cleanupHelper(fifo);\n"
+             "\n"
+             "    if(unlinkSharedBlock) {\n"
+             "        int status = shm_unlink(fifo->sharedName);\n"
+             "        if (status == -1) {\n"
+             "            printf(\"Error in tx fifo unlink\\n\");\n"
+             "            perror(NULL);\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    if(unlinkTxSem) {\n"
+             "        int status = sem_unlink(fifo->txSemaphoreName);\n"
+             "        if (status == -1) {\n"
+             "            printf(\"Error in tx semaphore unlink\\n\");\n"
+             "            perror(NULL);\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    if(unlinkRxSem) {\n"
+             "        int status = sem_unlink(fifo->rxSemaphoreName);\n"
+             "        if (status == -1) {\n"
+             "            printf(\"Error in rx semaphore unlink\\n\");\n"
+             "            perror(NULL);\n"
+             "        }\n"
+             "    }\n"
+             "\n"
+             "    if(fifo->txSemaphoreName != NULL){\n"
+             "        free(fifo->txSemaphoreName);\n"
+             "    }\n"
+             "\n"
+             "    if(fifo->rxSemaphoreName != NULL){\n"
+             "        free(fifo->rxSemaphoreName);\n"
+             "    }\n"
+             "}\n"
+             "\n"
+             "void cleanupConsumer(sharedMemoryFIFO_t *fifo) {\n"
+             "    cleanupHelper(fifo);\n"
+             "\n"
+             "    if (fifo->txSemaphoreName != NULL) {\n"
+             "        free(fifo->txSemaphoreName);\n"
+             "    }\n"
+             "\n"
+             "    if (fifo->rxSemaphoreName != NULL) {\n"
+             "        free(fifo->rxSemaphoreName);\n"
+             "    }\n"
+             "}\n"
+             "\n"
+             "bool isReadyForReading(sharedMemoryFIFO_t *fifo){\n"
+             "    int32_t currentCount = atomic_load(fifo->fifoCount);\n"
+             "    return currentCount != 0;\n"
+             "}\n"
+             "\n"
+             "bool isReadyForWriting(sharedMemoryFIFO_t *fifo){\n"
+             "    if(!fifo->rxReady){\n"
+             "        return false;\n"
+             "    }\n"
+             "    int32_t currentCount = atomic_load(fifo->fifoCount);\n"
+             "    return currentCount < fifo->fifoSizeBytes;\n"
+             "}" << std::endl;
+    cFile.close();
+
+    return fileName+".h";
 }
