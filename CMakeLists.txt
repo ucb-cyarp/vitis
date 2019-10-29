@@ -18,9 +18,6 @@ endif()
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_compile_options("$<$<CONFIG:DEBUG>:-O0>")
-add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
-
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     # using Clang
     add_compile_options("$<$<CONFIG:DEBUG>:-fprofile-instr-generate>")
