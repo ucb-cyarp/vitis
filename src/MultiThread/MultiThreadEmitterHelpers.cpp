@@ -772,7 +772,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     for(int i = 0; i<additionalSystemSrc.size(); i++){
                                         makefileContent += " " + additionalSystemSrc[i];
                                     }
-                                    makefileContent += "\n";
+                                    makefileContent += "\n"
                                     "KERNEL_SRCS = " + kernelFileName + "\n"
                                     "KERNEL_NO_OPT_SRCS = \n"
                                     "\n"
