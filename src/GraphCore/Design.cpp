@@ -3474,7 +3474,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
-    std::string sharedMemoryFIFOCFileName = "SharedMemoryFIFO.c";
+    std::string sharedMemoryFIFOCFileName = "BerkeleySharedMemoryFIFO.c";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,

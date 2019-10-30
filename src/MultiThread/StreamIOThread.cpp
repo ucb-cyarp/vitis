@@ -391,7 +391,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "sharedMemoryFIFO_t " + inputFifoHandleName + ";" << std::endl;
             ioThread << "initSharedMemoryFIFO(&" + inputFifoHandleName + ");" << std::endl;
             ioThread << "size_t " << inputFIFOSizeName << " = sizeof(" << inputStructTypeName << ")*" << ioFifoSize << ";" << std::endl;
-            ioThread << "consumerOpenInitFIFO(\"" << inputSharedName << "\", " << inputFIFOSizeName << ", &" << inputFifoHandleName << ");" << std::endl;
+            ioThread << "consumerOpenFIFOBlock(\"" << inputSharedName << "\", " << inputFIFOSizeName << ", &" << inputFifoHandleName << ");" << std::endl;
         }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
