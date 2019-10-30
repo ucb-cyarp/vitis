@@ -1100,6 +1100,7 @@ std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
 
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define _DEFAULT_SOURCE" << std::endl;
 
     headerFile << "#include <stdatomic.h>\n"
                   "#include <semaphore.h>\n"
