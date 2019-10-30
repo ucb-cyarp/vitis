@@ -1184,7 +1184,7 @@ std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
                 "// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n"
                 "// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE." << std::endl;
 
-    cFile << "#include \"SharedMemoryFIFO.h\"\n"
+    cFile << "#include \"BerkeleySharedMemoryFIFO.h\"\n"
              "#include <stdbool.h>\n"
              "#include <stdio.h>\n"
              "#include <stdlib.h>\n"
