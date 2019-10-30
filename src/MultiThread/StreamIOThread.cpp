@@ -375,11 +375,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             std::string outputSharedName = designName+"_output_bundle_"+GeneralHelper::to_string(it->first);
             std::string outputFifoHandleName = "outputFIFO_bundle_"+GeneralHelper::to_string(it->first);
             std::string outputFIFOSizeName = outputFifoHandleName+"_fifoSize";
-            std::string outputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+            std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
             ioThread << "sharedMemoryFIFO_t " + outputFifoHandleName + ";" << std::endl;
             ioThread << "initSharedMemoryFIFO(&" + outputFifoHandleName + ");" << std::endl;
             ioThread << "size_t " << outputFIFOSizeName << " = sizeof(" << outputStructTypeName << ")*" << ioFifoSize << ";" << std::endl;
-            ioThread << "producerOpenInitFIFO(" << outputSharedName << ", " << outputFIFOSizeName << ", &" << outputFifoHandleName << ");" << std::endl;
+            ioThread << "producerOpenInitFIFO(\"" << outputSharedName << "\", " << outputFIFOSizeName << ", &" << outputFifoHandleName << ");" << std::endl;
         }
 
         //Open Input FIFOs
@@ -391,7 +391,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "sharedMemoryFIFO_t " + inputFifoHandleName + ";" << std::endl;
             ioThread << "initSharedMemoryFIFO(&" + inputFifoHandleName + ");" << std::endl;
             ioThread << "size_t " << inputFIFOSizeName << " = sizeof(" << inputStructTypeName << ")*" << ioFifoSize << ";" << std::endl;
-            ioThread << "consumerOpenInitFIFO(" << inputSharedName << ", " << inputFIFOSizeName << ", &" << inputFifoHandleName << ");" << std::endl;
+            ioThread << "consumerOpenInitFIFO(\"" << inputSharedName << "\", " << inputFIFOSizeName << ", &" << inputFifoHandleName << ");" << std::endl;
         }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
