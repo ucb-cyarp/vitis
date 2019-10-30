@@ -3478,7 +3478,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
-                                        fifoHeaderName, threadDebugPrint, ioFifoSize);
+                                        fifoHeaderName, ioFifoSize, threadDebugPrint);
 
     //Emit the startup function (aka the benchmark kernel)
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap);
