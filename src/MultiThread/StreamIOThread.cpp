@@ -1106,6 +1106,7 @@ std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
                   "#include <sys/mman.h>\n"
                   "#include <unistd.h>\n"
                   "#include <stdbool.h>\n"
+                  "#include <sys/types.h>\n"
                   "\n"
                   "typedef struct{\n"
                   "    char *sharedName;\n"
