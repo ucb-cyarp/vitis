@@ -824,7 +824,7 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
                          << masterOutputVars[i].getCVarName(false) << "));" << std::endl;
                 if (dt.isComplex()) {
                     ioThread << "memcpy(" << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(true)
-                             << ", " << tmpName << ".port" << fifoPortNum << "_real" << ", sizeof(" << linuxOutputPipeName << "."
+                             << ", " << tmpName << ".port" << fifoPortNum << "_imag" << ", sizeof(" << linuxOutputPipeName << "."
                              << masterOutputVars[i].getCVarName(true) << "));" << std::endl;
                 }
             }
