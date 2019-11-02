@@ -3095,7 +3095,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         propagatePartitionsFromSubsystemsToChildren();
     }
 
-    prune(true);
+    prune(true); //TODO: Change to false if vis re-included
 
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
@@ -3135,6 +3135,16 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
     addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
 
+    //Vis Master (TODO: Re-enable later?)
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromVisMaster = visMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromVisMaster.begin(); it != arcsToDisconnectFromVisMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
+    std::set<std::shared_ptr<Arc>> visArcsSet = visMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> visArcs;
+    visArcs.insert(visArcs.end(), visArcsSet.begin(), visArcsSet.end());
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, visArcs);
+
     //Emit a notification of ports that are disconnected (pruned)
     //TODO: clean this up so that the disconnect warning durring emit refers back to the origional node path
     for(auto it = outputPortsWithArcDisconnected.begin(); it != outputPortsWithArcDisconnected.end(); it++) {
@@ -3156,7 +3166,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     if(visMaster->outDegree() > 0){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Visualization Master is Not Expected to Have an Out Degree > 0, has " + GeneralHelper::to_string(visMaster->outDegree())));
     }
-    createEnabledOutputsForEnabledSubsysVisualization();
+
+// TODO: Re-enable vis node later?
+//    createEnabledOutputsForEnabledSubsysVisualization();
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
@@ -3382,7 +3394,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::map<std::type_index, std::string> names;
 
     for(auto it = partitions.begin(); it != partitions.end(); it++){
-        std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>> partCount = ComputationEstimator::reportComputeInstances(it->second);
+        std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>> partCount = ComputationEstimator::reportComputeInstances(it->second, {visMaster});
         counts[it->first] = partCount.first;
 
         for(auto nameIt = partCount.second.begin(); nameIt != partCount.second.end(); nameIt++){

@@ -32,7 +32,7 @@ public:
      *
      * @returns a map of NodeOperations to counts.  Also returns a map of type_indexs to class names
      */
-    static std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>> reportComputeInstances(std::vector<std::shared_ptr<Node>> nodes);
+    static std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>> reportComputeInstances(std::vector<std::shared_ptr<Node>> nodes,  std::vector<std::shared_ptr<Node>> excludeNodes = {});
 
     /**
      * @brief This reports a conservative worse case of the number of compute instances in a design by only including counts from 1 of several mutually exclusive contexts.

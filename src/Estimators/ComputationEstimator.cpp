@@ -14,7 +14,7 @@
 #include <cstdio>
 
 std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>>
-ComputationEstimator::reportComputeInstances(std::vector<std::shared_ptr<Node>> nodes) {
+ComputationEstimator::reportComputeInstances(std::vector<std::shared_ptr<Node>> nodes, std::vector<std::shared_ptr<Node>> excludeNodes) {
     std::map<EstimatorCommon::NodeOperation, int> counts;
     std::map<std::type_index, std::string> names;
 
@@ -28,12 +28,20 @@ ComputationEstimator::reportComputeInstances(std::vector<std::shared_ptr<Node>> 
     }
 
     for(int i = 0; i<nodes.size(); i++){
+        bool isExcluded = false;
+        for(int j = 0; j<excludeNodes.size(); j++){
+            if(nodes[i] == excludeNodes[j]){
+                isExcluded = true;
+                break;
+            }
+        }
+
         //Check if this node should be included
         bool isEnableInput = GeneralHelper::isType<Node,EnableInput>(nodes[i]) != nullptr;
         bool isOKSubsystem = GeneralHelper::isType<Node,ContextFamilyContainer>(nodes[i]) != nullptr || GeneralHelper::isType<Node,ContextContainer>(nodes[i]) != nullptr;
         bool isSubSystem = GeneralHelper::isType<Node, SubSystem>(nodes[i]) != nullptr;
 
-        if(!isEnableInput && (!isSubSystem || isOKSubsystem)){
+        if(!isExcluded && (!isEnableInput && (!isSubSystem || isOKSubsystem))){
             //To avoid a compiler side-effect warning for typeid, we need to access the raw pointer https://stackoverflow.com/questions/33329531/c-equivalent-of-printf-or-formatted-output
             auto *rawPtr = nodes[i].get();
             std::type_index typeInd = std::type_index(typeid(*rawPtr)); //Note, need the typeID to be of the underlying class under the std::shared_ptr
