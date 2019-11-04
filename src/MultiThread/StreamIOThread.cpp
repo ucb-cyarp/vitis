@@ -118,6 +118,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     std::ofstream ioThread;
     ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
+    if(printTelem){
+        ioThread << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
+    }
     ioThread << "#include <stdio.h>" << std::endl;
     ioThread << "#include <stdlib.h>" << std::endl;
     ioThread << "#include <string.h>" << std::endl;
@@ -444,7 +447,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
 
         if(printTelem) {
-            ioThread << "timespec readingFromExtStart;" << std::endl;
+            ioThread << "timespec_t readingFromExtStart;" << std::endl;
             ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
         }
 
@@ -515,11 +518,12 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(printTelem) {
         //Emit timer reporting
         ioThread << "rxSamples += " << blockSize << ";" << std::endl;
-        ioThread << "time_t currentTime = time(NULL);" << std::endl;
-        ioThread << "double duration = difftime(currentTime, lastPrint);" << std::endl;
+        ioThread << "timespec_t currentTime;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
+        ioThread << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
         ioThread << "if(duration >= printDuration){" << std::endl;
         ioThread << "lastPrint = currentTime;" << std::endl;
-        ioThread << "double durationSinceStart = difftime(currentTime, startTime);" << std::endl;
+        ioThread << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
         ioThread << "printf(\"Current " << designName << " Rate: %10.6f \\n\", rateMSps);" << std::endl;
         ioThread << "printf(\"\\tReading I/O FIFOs:              %10.6f (%7.4f%%)\\n\", timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100);" << std::endl;
