@@ -146,7 +146,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
         ioThread << "return a_double - b_double;" << std::endl;
         ioThread << "}" << std::endl << std::endl;
-        ioThread << "typedef struct timespec timespec_t;" << std::endl;
         ioThread << "double timespecToDouble(timespec_t* a){" << std::endl;
         ioThread << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
         ioThread << "return a_double;" << std::endl;
@@ -426,9 +425,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     double printDuration = 1; //TODO: Add option for this
 
     if(printTelem) {
-        //TODO: Change to using get_time https://pubs.opengroup.org/onlinepubs/9699919799/functions/clock_gettime.html
-        //Should be higher resolution
-
         ioThread << "//Start timer" << std::endl;
         ioThread << "uint64_t rxSamples = 0;" << std::endl;
         ioThread << "timespec_t startTime;" << std::endl;
@@ -447,7 +443,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "double timeWaitingForFIFOsFromCompute = 0;" << std::endl;
         ioThread << "double timeReadingFIFOsFromCompute = 0;" << std::endl;
         ioThread << "double timeWritingExtFIFO = 0;" << std::endl;
-
     }
 
     ioThread << std::endl;
@@ -547,14 +542,24 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "lastPrint = currentTime;" << std::endl;
         ioThread << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-        ioThread << "printf(\"Current " << designName << " Rate: %10.5f\\n\", rateMSps);" << std::endl;
-        ioThread << "printf(\"\\tWaiting/Reading I/O FIFOs:      %10.5f (%8.4f%%)\\n\", timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWaiting For FIFOs to Compute:   %10.5f (%8.4f%%)\\n\", timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWriting FIFOs to Compute:       %10.5f (%8.4f%%)\\n\", timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWaiting For FIFOs from Compute: %10.5f (%8.4f%%)\\n\", timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tReading FIFOs from Compute:     %10.5f (%8.4f%%)\\n\", timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWaiting/Writing I/O FIFOs:      %10.5f (%8.4f%%)\\n\", timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tTotal Time:                     %10.5f\\n\", timeTotal);" << std::endl;
+        ioThread << "printf(\"Current " << designName << " Rate: %10.5f\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting/Reading I/O FIFOs:      %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting For FIFOs to Compute:   %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWriting FIFOs to Compute:       %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting For FIFOs from Compute: %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tReading FIFOs from Compute:     %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting/Writing I/O FIFOs:      %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tTotal Time:                     %10.5f\\n\", " << std::endl;
+
+        ioThread << "rateMSps, ";
+        ioThread << "timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100, ";
+        ioThread << "timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/timeTotal*100, ";
+        ioThread << "timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/timeTotal*100, ";
+        ioThread << "timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/timeTotal*100, ";
+        ioThread << "timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100, ";
+        ioThread << "timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100, ";
+        ioThread << "timeTotal);" << std::endl;
+
         ioThread << "}" << std::endl;
 
         //Now, finish timeReadingExtFIFO
