@@ -719,11 +719,11 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
                                     "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                     "#Generated system should be allowed to optomize - reintepret as c++ file\n"
-                                    "SYSTEM_CFLAGS = -O3 -c -g -std=c11 -march=native -masm=att\n"
+                                    "SYSTEM_CFLAGS = -O3 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
-                                    "KERNEL_CFLAGS = -O3 -c -g -std=c11 -march=native -masm=att\n"
+                                    "KERNEL_CFLAGS = -O3 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "#For kernels that should not be optimized, the following is used\n"
-                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c11 -march=native -masm=att\n"
+                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
                                     if(includeLrt){
