@@ -159,7 +159,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "timespec_t timeResolution;" << std::endl;
         ioThread << "clock_getres(CLOCK_MONOTONIC, &timeResolution);" << std::endl;
         ioThread << "double timeResolutionDouble = timespecToDouble(&timeResolution);" << std::endl;
-        ioThread << "printf(\"\\Time Resolution: %8.6e\\n\", timeTotal);" << std::endl;
+        ioThread << "printf(\"Time Resolution: %8.6e\\n\", timeResolutionDouble);" << std::endl;
     }
 
     //Copy shared variables from the input argument structure
