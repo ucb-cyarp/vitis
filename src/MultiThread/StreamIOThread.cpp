@@ -544,7 +544,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "printf(\"\\tWaiting For FIFOs from Compute: %10.5f (%8.4f%%)\\n\", timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/timeTotal*100);" << std::endl;
         ioThread << "printf(\"\\tReading FIFOs from Compute:     %10.5f (%8.4f%%)\\n\", timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100);" << std::endl;
         ioThread << "printf(\"\\tWriting I/O FIFOs:              %10.5f (%8.4f%%)\\n\", timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\Total Time:                      %10.5f\\n\", timeTotal);" << std::endl;
+        ioThread << "printf(\"\\tTotal Time:                     %10.5f\\n\", timeTotal);" << std::endl;
         ioThread << "}" << std::endl;
 
         //Now, finish timeReadingExtFIFO
