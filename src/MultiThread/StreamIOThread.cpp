@@ -137,7 +137,8 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Emit time helper
     if(printTelem){
-        ioThread << "double difftimespec(timespec* a, timespec* b){" << std::endl;
+        ioThread << "typedef struct timespec timespec_t;" << std::endl;
+        ioThread << "double difftimespec(timespec_t* a, timespec_t* b){" << std::endl;
         ioThread << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
         ioThread << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
         ioThread << "return a_double - b_double;" << std::endl;
@@ -415,9 +416,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
         ioThread << "//Start timer" << std::endl;
         ioThread << "uint64_t rxSamples = 0;" << std::endl;
-        ioThread << "struct timespec startTime;" << std::endl;
+        ioThread << "timespec_t startTime;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
-        ioThread << "struct timespec lastPrint;" << std::endl;
+        ioThread << "timespec_t lastPrint;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
         ioThread << "double printDuration = " << printDuration << ";" << std::endl;
         ioThread << "double timeTotal = 0;" << std::endl;
@@ -443,7 +444,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
 
         if(printTelem) {
-            ioThread << "struct timespec readingFromExtStart;" << std::endl;
+            ioThread << "timespec readingFromExtStart;" << std::endl;
             ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
         }
 
@@ -503,7 +504,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
     //each metric has undergone the same number of cycles
     if(printTelem) {
-        ioThread << "struct timespec readingFromExtStop;" << std::endl;
+        ioThread << "timespec_t readingFromExtStop;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStop);" << std::endl;
     }
 
@@ -534,7 +535,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "timeReadingExtFIFO += readingFromExtDuration;" << std::endl;
         ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
 
-        ioThread << "struct timespec waitingForFIFOsToComputeStart;" << std::endl;
+        ioThread << "timespec_t waitingForFIFOsToComputeStart;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
     }
 
@@ -550,7 +551,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "if(outputFIFOsReady){" << std::endl;
 
     if(printTelem) {
-        ioThread << "struct timespec waitingForFIFOsToComputeStop;" << std::endl;
+        ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
         ioThread << "double waitingForIntFIFOWriteDuration = difftimespec(&waitingForFIFOsToComputeStop, &waitingForFIFOsToComputeStart);" << std::endl;
         ioThread << "timeWaitingForFIFOsToCompute += waitingForIntFIFOWriteDuration;" << std::endl;
@@ -559,7 +560,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Write FIFOs
     if(printTelem) {
-        ioThread << "struct timespec writingFIFOsToComputeStart;" << std::endl;
+        ioThread << "timespec_t writingFIFOsToComputeStart;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStart);" << std::endl;
     }
 
@@ -569,7 +570,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     if(printTelem) {
-        ioThread << "struct timespec writingFIFOsToComputeStop;" << std::endl;
+        ioThread << "timespec_t writingFIFOsToComputeStop;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStop);" << std::endl;
         ioThread << "double writingFIFOsToComputeDuration = difftimespec(&writingFIFOsToComputeStop, &writingFIFOsToComputeStart);" << std::endl;
         ioThread << "timeWritingFIFOsToCompute += writingFIFOsToComputeDuration;" << std::endl;
@@ -583,7 +584,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Check input FIFOs
     if(printTelem) {
-        ioThread << "struct timespec waitingForFIFOsFromComputeStart;" << std::endl;
+        ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
     }
 
@@ -591,7 +592,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "if(inputFIFOsReady){" << std::endl;
 
     if(printTelem) {
-        ioThread << "struct timespec waitingForFIFOsFromComputeStop;" << std::endl;
+        ioThread << "timespec_t waitingForFIFOsFromComputeStop;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStop);" << std::endl;
         ioThread << "double waitingForFIFOsFromComputeDuration = difftimespec(&waitingForFIFOsFromComputeStop, &waitingForFIFOsFromComputeStart);" << std::endl;
         ioThread << "timeWaitingForFIFOsFromCompute += waitingForFIFOsFromComputeDuration;" << std::endl;
@@ -600,7 +601,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Read input FIFOs
     if(printTelem) {
-        ioThread << "struct timespec readingFIFOsFromComputeStart;" << std::endl;
+        ioThread << "timespec_t readingFIFOsFromComputeStart;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStart);" << std::endl;
     }
 
@@ -610,7 +611,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     if(printTelem) {
-        ioThread << "struct timespec readingFIFOsFromComputeStop;" << std::endl;
+        ioThread << "timespec_t readingFIFOsFromComputeStop;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStop);" << std::endl;
         ioThread << "double readingFIFOsFromComputeDuration = difftimespec(&readingFIFOsFromComputeStop, &readingFIFOsFromComputeStart);" << std::endl;
         ioThread << "timeReadingFIFOsFromCompute += readingFIFOsFromComputeDuration;" << std::endl;
@@ -622,7 +623,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     if(printTelem) {
-        ioThread << "struct timespec writingExtFIFOStart;" << std::endl;
+        ioThread << "timespec_t writingExtFIFOStart;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStart);" << std::endl;
     }
 
@@ -689,7 +690,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     if(printTelem) {
-        ioThread << "struct timespec writingExtFIFOStop;" << std::endl;
+        ioThread << "timespec_t writingExtFIFOStop;" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
         ioThread << "double writingExtFIFODuration = difftimespec(&writingExtFIFOStop, &writingExtFIFOStart);" << std::endl;
         ioThread << "timeWritingExtFIFO += writingExtFIFODuration;" << std::endl;
