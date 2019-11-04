@@ -432,9 +432,13 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "//Start timer" << std::endl;
         ioThread << "uint64_t rxSamples = 0;" << std::endl;
         ioThread << "timespec_t startTime;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "timespec_t lastPrint;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double printDuration = " << printDuration << ";" << std::endl;
         ioThread << "double timeTotal = 0;" << std::endl;
         ioThread << "double timeReadingExtFIFO = 0;" << std::endl;
@@ -460,7 +464,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
         if(printTelem) {
             ioThread << "timespec_t readingFromExtStart;" << std::endl;
+            ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
+            ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
         ioThread << inputStructTypeName << " " << linuxInputTmpName << ";" << std::endl;
@@ -520,7 +526,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //each metric has undergone the same number of cycles
     if(printTelem) {
         ioThread << "timespec_t readingFromExtStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     if(threadDebugPrint) {
@@ -531,7 +539,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Emit timer reporting
         ioThread << "rxSamples += " << blockSize << ";" << std::endl;
         ioThread << "timespec_t currentTime;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
         ioThread << "if(duration >= printDuration){" << std::endl;
         ioThread << "lastPrint = currentTime;" << std::endl;
@@ -553,7 +563,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
 
         ioThread << "timespec_t waitingForFIFOsToComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     //Fill write temps with data from stream
@@ -569,7 +581,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(printTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double waitingForIntFIFOWriteDuration = difftimespec(&waitingForFIFOsToComputeStop, &waitingForFIFOsToComputeStart);" << std::endl;
         ioThread << "timeWaitingForFIFOsToCompute += waitingForIntFIFOWriteDuration;" << std::endl;
         ioThread << "timeTotal += waitingForIntFIFOWriteDuration;" << std::endl;
@@ -578,7 +592,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //Write FIFOs
     if(printTelem) {
         ioThread << "timespec_t writingFIFOsToComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
@@ -588,7 +604,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(printTelem) {
         ioThread << "timespec_t writingFIFOsToComputeStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double writingFIFOsToComputeDuration = difftimespec(&writingFIFOsToComputeStop, &writingFIFOsToComputeStart);" << std::endl;
         ioThread << "timeWritingFIFOsToCompute += writingFIFOsToComputeDuration;" << std::endl;
         ioThread << "timeTotal += writingFIFOsToComputeDuration;" << std::endl;
@@ -602,7 +620,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //Check input FIFOs
     if(printTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, true, true); //pthread_testcancel check here
@@ -610,7 +630,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(printTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double waitingForFIFOsFromComputeDuration = difftimespec(&waitingForFIFOsFromComputeStop, &waitingForFIFOsFromComputeStart);" << std::endl;
         ioThread << "timeWaitingForFIFOsFromCompute += waitingForFIFOsFromComputeDuration;" << std::endl;
         ioThread << "timeTotal += waitingForFIFOsFromComputeDuration;" << std::endl;
@@ -619,7 +641,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //Read input FIFOs
     if(printTelem) {
         ioThread << "timespec_t readingFIFOsFromComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
@@ -629,7 +653,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(printTelem) {
         ioThread << "timespec_t readingFIFOsFromComputeStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double readingFIFOsFromComputeDuration = difftimespec(&readingFIFOsFromComputeStop, &readingFIFOsFromComputeStart);" << std::endl;
         ioThread << "timeReadingFIFOsFromCompute += readingFIFOsFromComputeDuration;" << std::endl;
         ioThread << "timeTotal += readingFIFOsFromComputeDuration;" << std::endl;
@@ -641,7 +667,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(printTelem) {
         ioThread << "timespec_t writingExtFIFOStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     //Allocate temp Memory for linux pipe write
@@ -708,7 +736,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(printTelem) {
         ioThread << "timespec_t writingExtFIFOStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double writingExtFIFODuration = difftimespec(&writingExtFIFOStop, &writingExtFIFOStart);" << std::endl;
         ioThread << "timeWritingExtFIFO += writingExtFIFODuration;" << std::endl;
         ioThread << "timeTotal += writingExtFIFODuration;" << std::endl;
