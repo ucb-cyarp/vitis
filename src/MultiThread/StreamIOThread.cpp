@@ -146,9 +146,21 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
         ioThread << "return a_double - b_double;" << std::endl;
         ioThread << "}" << std::endl << std::endl;
+        ioThread << "typedef struct timespec timespec_t;" << std::endl;
+        ioThread << "double timespecToDouble(timespec_t* a){" << std::endl;
+        ioThread << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
+        ioThread << "return a_double;" << std::endl;
+        ioThread << "}" << std::endl << std::endl;
     }
 
     ioThread << threadFctnDecl << "{" << std::endl;
+
+    if(printTelem){
+        ioThread << "timespec_t timeResolution;" << std::endl;
+        ioThread << "clock_getres(CLOCK_MONOTONIC, &timeResolution);" << std::endl;
+        ioThread << "double timeResolutionDouble = timespecToDouble(&timeResolution);" << std::endl;
+        ioThread << "printf(\"\\Time Resolution: %8.6e\\n\", timeTotal);" << std::endl;
+    }
 
     //Copy shared variables from the input argument structure
     ioThread << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
@@ -525,13 +537,14 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "lastPrint = currentTime;" << std::endl;
         ioThread << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-        ioThread << "printf(\"Current " << designName << " Rate: %10.6f \\n\", rateMSps);" << std::endl;
-        ioThread << "printf(\"\\tReading I/O FIFOs:              %10.6f (%7.4f%%)\\n\", timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWaiting For FIFOs to Compute:   %10.6f (%7.4f%%)\\n\", timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWriting FIFOs to Compute:       %10.6f (%7.4f%%)\\n\", timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWaiting For FIFOs from Compute: %10.6f (%7.4f%%)\\n\", timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tReading FIFOs from Compute:     %10.6f (%7.4f%%)\\n\", timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100);" << std::endl;
-        ioThread << "printf(\"\\tWriting I/O FIFOs:              %10.6f (%7.4f%%)\\n\", timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"Current " << designName << " Rate: %10.5f\\n\", rateMSps);" << std::endl;
+        ioThread << "printf(\"\\tReading I/O FIFOs:              %10.5f (%8.4f%%)\\n\", timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWaiting For FIFOs to Compute:   %10.5f (%8.4f%%)\\n\", timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWriting FIFOs to Compute:       %10.5f (%8.4f%%)\\n\", timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWaiting For FIFOs from Compute: %10.5f (%8.4f%%)\\n\", timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tReading FIFOs from Compute:     %10.5f (%8.4f%%)\\n\", timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWriting I/O FIFOs:              %10.5f (%8.4f%%)\\n\", timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\Total Time:                      %10.5f\\n\", timeTotal);" << std::endl;
         ioThread << "}" << std::endl;
 
         //Now, finish timeReadingExtFIFO
