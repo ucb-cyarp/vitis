@@ -19,7 +19,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
                                          int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
                                          bool threadDebugPrint) {
-
+    bool printTelem = true; //TODO: add option for this
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports
@@ -134,6 +134,15 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
     ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     ioThread << std::endl;
+
+    //Emit time helper
+    if(printTelem){
+        ioThread << "double difftimespec(timespec* a, timespec* b){" << std::endl;
+        ioThread << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
+        ioThread << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
+        ioThread << "return a_double - b_double;" << std::endl;
+        ioThread << "}" << std::endl << std::endl;
+    }
 
     ioThread << threadFctnDecl << "{" << std::endl;
 
@@ -400,11 +409,26 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //Insert timer init code
     double printDuration = 1; //TODO: Add option for this
 
-    ioThread << "//Start timer" << std::endl;
-    ioThread << "uint64_t rxSamples = 0;" << std::endl;
-    ioThread << "time_t startTime = time(NULL);" << std::endl;
-    ioThread << "time_t lastPrint = time(NULL);" << std::endl;
-    ioThread << "double printDuration = " << printDuration << ";" << std::endl;
+    if(printTelem) {
+        //TODO: Change to using get_time https://pubs.opengroup.org/onlinepubs/9699919799/functions/clock_gettime.html
+        //Should be higher resolution
+
+        ioThread << "//Start timer" << std::endl;
+        ioThread << "uint64_t rxSamples = 0;" << std::endl;
+        ioThread << "struct timespec startTime;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
+        ioThread << "struct timespec lastPrint;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
+        ioThread << "double printDuration = " << printDuration << ";" << std::endl;
+        ioThread << "double timeTotal = 0;" << std::endl;
+        ioThread << "double timeReadingExtFIFO = 0;" << std::endl;
+        ioThread << "double timeWaitingForFIFOsToCompute = 0;" << std::endl;
+        ioThread << "double timeWritingFIFOsToCompute = 0;" << std::endl;
+        ioThread << "double timeWaitingForFIFOsFromCompute = 0;" << std::endl;
+        ioThread << "double timeReadingFIFOsFromCompute = 0;" << std::endl;
+        ioThread << "double timeWritingExtFIFO = 0;" << std::endl;
+
+    }
 
     ioThread << std::endl;
     ioThread << "//Thread loop" << std::endl;
@@ -417,6 +441,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //TODO: This currently forces reading in a specific order, consider changing this?
         std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+
+        if(printTelem) {
+            ioThread << "struct timespec readingFromExtStart;" << std::endl;
+            ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
+        }
 
         ioThread << inputStructTypeName << " " << linuxInputTmpName << ";" << std::endl;
 
@@ -471,20 +500,43 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "}" << std::endl; //Close the scope for reading
     }
 
+    //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
+    //each metric has undergone the same number of cycles
+    if(printTelem) {
+        ioThread << "struct timespec readingFromExtStop;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStop);" << std::endl;
+    }
+
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Input Received\\n\");" << std::endl;
     }
 
-    //Emit timer reporting
-    ioThread << "rxSamples += " << blockSize << ";" << std::endl;
-    ioThread << "time_t currentTime = time(NULL);" << std::endl;
-    ioThread << "double duration = difftime(currentTime, lastPrint);" << std::endl;
-    ioThread << "if(duration >= printDuration){" << std::endl;
-    ioThread << "lastPrint = currentTime;" << std::endl;
-    ioThread << "double durationSinceStart = difftime(currentTime, startTime);" << std::endl;
-    ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-    ioThread << "printf(\"Current " << designName << " Rate: %f\\n\", rateMSps);" << std::endl;
-    ioThread << "}" << std::endl;
+    if(printTelem) {
+        //Emit timer reporting
+        ioThread << "rxSamples += " << blockSize << ";" << std::endl;
+        ioThread << "time_t currentTime = time(NULL);" << std::endl;
+        ioThread << "double duration = difftime(currentTime, lastPrint);" << std::endl;
+        ioThread << "if(duration >= printDuration){" << std::endl;
+        ioThread << "lastPrint = currentTime;" << std::endl;
+        ioThread << "double durationSinceStart = difftime(currentTime, startTime);" << std::endl;
+        ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
+        ioThread << "printf(\"Current " << designName << " Rate: %10.6f \\n\", rateMSps);" << std::endl;
+        ioThread << "printf(\"\\tReading I/O FIFOs:              %10.6f (%7.4f%%)\\n\", timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWaiting For FIFOs to Compute:   %10.6f (%7.4f%%)\\n\", timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWriting FIFOs to Compute:       %10.6f (%7.4f%%)\\n\", timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWaiting For FIFOs from Compute: %10.6f (%7.4f%%)\\n\", timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tReading FIFOs from Compute:     %10.6f (%7.4f%%)\\n\", timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100);" << std::endl;
+        ioThread << "printf(\"\\tWriting I/O FIFOs:              %10.6f (%7.4f%%)\\n\", timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100);" << std::endl;
+        ioThread << "}" << std::endl;
+
+        //Now, finish timeReadingExtFIFO
+        ioThread << "double readingFromExtDuration = difftimespec(&readingFromExtStop, &readingFromExtStart);" << std::endl;
+        ioThread << "timeReadingExtFIFO += readingFromExtDuration;" << std::endl;
+        ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
+
+        ioThread << "struct timespec waitingForFIFOsToComputeStart;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
+    }
 
     //Fill write temps with data from stream
     std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap = getInputPortFIFOMapping(outputFIFOs); //Note, outputFIFOs are the outputs of the I/O thread.  They carry the inputs to the system to the rest of the system
@@ -497,10 +549,31 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
     ioThread << "if(outputFIFOsReady){" << std::endl;
 
+    if(printTelem) {
+        ioThread << "struct timespec waitingForFIFOsToComputeStop;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
+        ioThread << "double waitingForIntFIFOWriteDuration = difftimespec(&waitingForFIFOsToComputeStop, &waitingForFIFOsToComputeStart);" << std::endl;
+        ioThread << "timeWaitingForFIFOsToCompute += waitingForIntFIFOWriteDuration;" << std::endl;
+        ioThread << "timeTotal += waitingForIntFIFOWriteDuration;" << std::endl;
+    }
+
     //Write FIFOs
+    if(printTelem) {
+        ioThread << "struct timespec writingFIFOsToComputeStart;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStart);" << std::endl;
+    }
+
     std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         ioThread << writeFIFOExprs[i] << std::endl;
+    }
+
+    if(printTelem) {
+        ioThread << "struct timespec writingFIFOsToComputeStop;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStop);" << std::endl;
+        ioThread << "double writingFIFOsToComputeDuration = difftimespec(&writingFIFOsToComputeStop, &writingFIFOsToComputeStart);" << std::endl;
+        ioThread << "timeWritingFIFOsToCompute += writingFIFOsToComputeDuration;" << std::endl;
+        ioThread << "timeTotal += writingFIFOsToComputeDuration;" << std::endl;
     }
 
     if(threadDebugPrint) {
@@ -509,15 +582,48 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "}" << std::endl;
 
     //Check input FIFOs
+    if(printTelem) {
+        ioThread << "struct timespec waitingForFIFOsFromComputeStart;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
+    }
+
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, true, true); //pthread_testcancel check here
     ioThread << "if(inputFIFOsReady){" << std::endl;
+
+    if(printTelem) {
+        ioThread << "struct timespec waitingForFIFOsFromComputeStop;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStop);" << std::endl;
+        ioThread << "double waitingForFIFOsFromComputeDuration = difftimespec(&waitingForFIFOsFromComputeStop, &waitingForFIFOsFromComputeStart);" << std::endl;
+        ioThread << "timeWaitingForFIFOsFromCompute += waitingForFIFOsFromComputeDuration;" << std::endl;
+        ioThread << "timeTotal += waitingForFIFOsFromComputeDuration;" << std::endl;
+    }
+
     //Read input FIFOs
+    if(printTelem) {
+        ioThread << "struct timespec readingFIFOsFromComputeStart;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStart);" << std::endl;
+    }
+
     std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
     }
+
+    if(printTelem) {
+        ioThread << "struct timespec readingFIFOsFromComputeStop;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStop);" << std::endl;
+        ioThread << "double readingFIFOsFromComputeDuration = difftimespec(&readingFIFOsFromComputeStop, &readingFIFOsFromComputeStart);" << std::endl;
+        ioThread << "timeReadingFIFOsFromCompute += readingFIFOsFromComputeDuration;" << std::endl;
+        ioThread << "timeTotal += readingFIFOsFromComputeDuration;" << std::endl;
+    }
+
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Received from Compute\\n\");" << std::endl;
+    }
+
+    if(printTelem) {
+        ioThread << "struct timespec writingExtFIFOStart;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStart);" << std::endl;
     }
 
     //Allocate temp Memory for linux pipe write
@@ -580,6 +686,14 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
         }
         ioThread << "}" << std::endl; //Close writing scope
+    }
+
+    if(printTelem) {
+        ioThread << "struct timespec writingExtFIFOStop;" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
+        ioThread << "double writingExtFIFODuration = difftimespec(&writingExtFIFOStop, &writingExtFIFOStart);" << std::endl;
+        ioThread << "timeWritingExtFIFO += writingExtFIFODuration;" << std::endl;
+        ioThread << "timeTotal += writingExtFIFODuration;" << std::endl;
     }
 
     if(threadDebugPrint) {
