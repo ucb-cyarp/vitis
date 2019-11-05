@@ -134,6 +134,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << "#include <time.h>" << std::endl;
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    if(streamType == StreamType::SOCKET || streamType == StreamType::PIPE) {
+        ioThread << "#include \"" << fileNamePrefix << "_filestream_helpers.h" << "\"" << std::endl; //For File I/O helpers
+    }
     if(printTelem){
         ioThread << "#include \"" << fileNamePrefix << "_telemetry_helpers.h" << "\"" << std::endl;
     }
@@ -342,7 +345,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "}" << std::endl;
             ioThread << std::endl;
 
-            //Since we are using the AF_INET family, the structure ysed is sockaddr_in
+            //Since we are using the AF_INET family, the structure used is sockaddr_in
             //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_71/rzab6/cafinet.htm
             //https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
             //http://man7.org/linux/man-pages/man3/inet_ntop.3.html
@@ -353,8 +356,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "struct sockaddr_storage clientAddr;" << std::endl;
             ioThread << "struct sockaddr *clientAddrCastGeneral = (struct sockaddr *) &clientAddr;" << std::endl;
             ioThread << "socklen_t clientAddrSize = sizeof(clientAddr);" << std::endl;
-            ioThread << "int peerNameStatus = getpeername(" << connectedSocketName
-                     << ", clientAddrCastGeneral, &clientAddrSize);" << std::endl;
+            ioThread << "int peerNameStatus = getpeername(" << connectedSocketName << ", clientAddrCastGeneral, &clientAddrSize);" << std::endl;
             ioThread << "if(peerNameStatus == 0) {" << std::endl;
             ioThread << "if(clientAddr.ss_family != AF_INET){" << std::endl;
             ioThread << "fprintf(stderr, \"Unexpected connection address type\\n\");" << std::endl;
@@ -362,9 +364,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
             ioThread << "struct sockaddr_in *clientAddrCast = (struct sockaddr_in *) &clientAddr;" << std::endl;
             ioThread << "char connectionAddrStr[INET_ADDRSTRLEN];" << std::endl;
             ioThread << "char* connectionAddrStrPtr = &(connectionAddrStr[0]);" << std::endl;
-            ioThread
-                    << "const char* nameStr = inet_ntop(AF_INET, &clientAddrCast->sin_addr, connectionAddrStrPtr, INET_ADDRSTRLEN);"
-                    << std::endl;
+            ioThread << "const char* nameStr = inet_ntop(AF_INET, &clientAddrCast->sin_addr, connectionAddrStrPtr, INET_ADDRSTRLEN);" << std::endl;
             ioThread << "if(nameStr != NULL) {" << std::endl;
             ioThread << "printf(\"Bundle " << *it << " Connection from %s:%d\\n\", nameStr, ntohs(clientAddrCast->sin_port));" << std::endl;
             ioThread << "}" << std::endl;
@@ -435,28 +435,89 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     ioThread << std::endl;
-    ioThread << "//Thread loop" << std::endl;
-
-    ioThread << "while(true){" << std::endl;
-    //Allocate temp Memory for linux pipe read
+    ioThread << "//Create I/O Status Vars and Buffers" << std::endl;
 
     for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
         //This process needs to be repeated for each input bundle
         //TODO: This currently forces reading in a specific order, consider changing this?
         std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-
-        if(printTelem) {
-            ioThread << "timespec_t readingFromExtStart;" << std::endl;
-            ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-            ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
-            ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        }
+        std::string extInputBufferFilledName = "extInputBufferFilled_"+GeneralHelper::to_string(it->first);
+        std::string toComputeFIFOFilledName = "toComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
 
         ioThread << inputStructTypeName << " " << linuxInputTmpName << ";" << std::endl;
+        ioThread << "bool " << extInputBufferFilledName << " = false;" << std::endl;
+        ioThread << "bool " <<  toComputeFIFOFilledName << " = false;" << std::endl;
 
-        //Read data from the input pipe
-        ioThread << "{" << std::endl; //Open a scope for reading
+    }
+    ioThread << std::endl;
+
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        std::string fromComputeFIFOFilledName = "fromComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+        std::string extOutputBufferFilledName = "extOutputBufferFilled_"+GeneralHelper::to_string(it->first);
+
+        ioThread << outputStructTypeName << " " << linuxOutputTmpName << ";" << std::endl;
+
+        ioThread << "bool " << fromComputeFIFOFilledName << " = false;" << std::endl;
+        ioThread << "bool " << extOutputBufferFilledName << " = false;" << std::endl;
+    }
+    ioThread << std::endl;
+
+    ioThread << "//Thread loop" << std::endl;
+    ioThread << "while(true){" << std::endl;
+    //Allocate temp Memory for linux pipe read
+    //++++ External Input to Compute ++++
+
+    if(printTelem) {
+        ioThread << "timespec_t readingFromExtStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
+    std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap = getInputPortFIFOMapping(outputFIFOs); //Note, outputFIFOs are the outputs of the I/O thread.  They carry the inputs to the system to the compute threads
+
+    ioThread << std::endl;
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        //This process needs to be repeated for each input bundle
+        //TODO: This currently forces reading in a specific order, consider changing this?
+        std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        std::string extInputBufferFilledName = "extInputBufferFilled_"+GeneralHelper::to_string(it->first);
+        std::string toComputeFIFOFilledName = "toComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+
+        //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
+        //This allows a read from the external stream to occur if availible
+        ioThread << "//Copy Between Input Buffers" << std::endl;
+        ioThread << "if(" << extInputBufferFilledName << " && !" << toComputeFIFOFilledName << "){" << std::endl;
+        copyIOInputsToFIFO(ioThread, it->second, inputPortFifoMap, linuxInputTmpName, blockSize);
+        ioThread << extInputBufferFilledName << " = false;" << std::endl;
+        ioThread << toComputeFIFOFilledName << " = true;" << std::endl;
+        ioThread << "}" << std::endl;
+
+        ioThread << std::endl;
+        ioThread << "//Check if space available for input" << std::endl;
+        //Read data from the input pipe if data is availible and the buffer is free
+        ioThread << "if(!" << extInputBufferFilledName << "){" << std::endl;
+        //Check if FIFO is free
+        if (streamType == StreamType::PIPE) {
+            std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "bool extDataAvail = isReadyForReading(" << inputPipeHandleName << ");" << std::endl;
+        } else if (streamType == StreamType::SOCKET) {
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(it->first);
+            ioThread << "bool extDataAvail = isReadyForReadingFD(" << connectedSocketName << ");" << std::endl;
+        } else if (streamType == StreamType::POSIX_SHARED_MEM){
+            std::string inputFifoHandleName = "inputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "bool extDataAvail = isReadyForReading(&" << inputFifoHandleName << ");" << std::endl;
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+        }
+
+        ioThread << std::endl;
+        ioThread << "//Check if data is available from external input" << std::endl;
+        ioThread << "if(extDataAvail){" << std::endl; //If data is availible, perform the blocking read
         if (streamType == StreamType::PIPE) {
             std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
             ioThread << "int elementsRead = fread(&" << linuxInputTmpName << ", sizeof(" << inputStructTypeName
@@ -503,7 +564,21 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
         }
-        ioThread << "}" << std::endl; //Close the scope for reading
+
+        //This read is blocking so can set the receive status unconditionally
+        ioThread << extInputBufferFilledName << " = true;" << std::endl;
+
+        //Only counts the data received for the one of the bundles TODO: Change when multirate implemented
+        if(printTelem && it == masterInputBundles.begin()) {
+            ioThread << "rxSamples += " << blockSize << ";" << std::endl;
+        }
+
+        if(threadDebugPrint) {
+            ioThread << "printf(\"I/O Input Received on bundle " << GeneralHelper::to_string(it->first) << "\\n\");" << std::endl;
+        }
+
+        ioThread << "}" << std::endl; //Close the scope for if data was availible
+        ioThread << "}" << std::endl; //Close the scope for if the buffer was free
     }
 
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
@@ -515,31 +590,27 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
-    if(threadDebugPrint) {
-        ioThread << "printf(\"I/O Input Received\\n\");" << std::endl;
-    }
-
     if(printTelem) {
         //Emit timer reporting
-        ioThread << "rxSamples += " << blockSize << ";" << std::endl;
         ioThread << "timespec_t currentTime;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
+        ioThread << std::endl;
+        ioThread << "//Display Telemetry" << std::endl;
         ioThread << "if(duration >= printDuration){" << std::endl;
         ioThread << "lastPrint = currentTime;" << std::endl;
         ioThread << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
         ioThread << "printf(\"Current " << designName << " Rate: %10.5f\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting/Reading I/O FIFOs:      %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting For FIFOs to Compute:   %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWriting FIFOs to Compute:       %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting For FIFOs from Compute: %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tReading FIFOs from Compute:     %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting/Writing I/O FIFOs:      %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tTotal Time:                     %10.5f\\n\", " << std::endl;
-
+        ioThread << "\"\\tWaiting/Reading/Shuffle I/O FIFOs: %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting For FIFOs to Compute:      %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWriting FIFOs to Compute:          %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting For FIFOs from Compute:    %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tReading FIFOs from Compute:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tWaiting/Shuffle/Writing I/O FIFOs: %10.5f (%8.4f%%)\\n\"" << std::endl;
+        ioThread << "\"\\tTotal Time:                        %10.5f\\n\", " << std::endl;
         ioThread << "rateMSps, ";
         ioThread << "timeReadingExtFIFO, timeReadingExtFIFO/timeTotal*100, ";
         ioThread << "timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/timeTotal*100, ";
@@ -548,32 +619,76 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/timeTotal*100, ";
         ioThread << "timeWritingExtFIFO, timeWritingExtFIFO/timeTotal*100, ";
         ioThread << "timeTotal);" << std::endl;
-
         ioThread << "}" << std::endl;
 
         //Now, finish timeReadingExtFIFO
         ioThread << "double readingFromExtDuration = difftimespec(&readingFromExtStop, &readingFromExtStart);" << std::endl;
         ioThread << "timeReadingExtFIFO += readingFromExtDuration;" << std::endl;
         ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
+    }
 
+    //Copying to the  is also part of reading from the external input
+    if(printTelem) {
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
+    ioThread << std::endl;
+
+    //Fill write temps with data from stream if there is room in the buffer and data is availible
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string extInputBufferFilledName = "extInputBufferFilled_"+GeneralHelper::to_string(it->first);
+        std::string toComputeFIFOFilledName = "toComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+
+        //Copy ext input into the compute buffer if possible
+        ioThread << "//Copy Between Input Buffers" << std::endl;
+        ioThread << "if(" << extInputBufferFilledName << " && !" << toComputeFIFOFilledName << "){" << std::endl;
+        copyIOInputsToFIFO(ioThread, it->second, inputPortFifoMap, linuxInputTmpName, blockSize);
+        ioThread << extInputBufferFilledName << " = false;" << std::endl;
+        ioThread << toComputeFIFOFilledName << " = true;" << std::endl;
+        ioThread << "}" << std::endl;
+    }
+
+    if(printTelem) {
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "readingFromExtDuration = difftimespec(&readingFromExtStop, &readingFromExtStart);" << std::endl;
+        ioThread << "timeReadingExtFIFO += readingFromExtDuration;" << std::endl;
+        ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
+    }
+
+    //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
+
+    //Only check output FIFO if data is available (construct the check here)
+    ioThread << "//Check if data to be sent to compute" << std::endl;
+    ioThread << "bool toComputeFIFOFilled_all = ";
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        std::string toComputeFIFOFilledName = "toComputeFIFOFilled_" + GeneralHelper::to_string(it->first);
+        if(it != masterInputBundles.begin()){
+            ioThread << " && ";
+        }
+        ioThread << toComputeFIFOFilledName;
+    }
+    ioThread << ";" << std::endl;
+
+    //Check if data is availible to be written into FIFOs to compute
+    ioThread << "if(toComputeFIFOFilled_all){" << std::endl;
+    //Check if Room in Output FIFOs
+
+    if(printTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
-    //Fill write temps with data from stream
-    std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap = getInputPortFIFOMapping(outputFIFOs); //Note, outputFIFOs are the outputs of the I/O thread.  They carry the inputs to the system to the rest of the system
-    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
-        std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
-        copyIOInputsToFIFO(ioThread, it->second, inputPortFifoMap, linuxInputTmpName, blockSize);
-    }
+    ioThread << "//Check if room in FIFOs to compute" << std::endl;
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", true, false, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
 
-    //Check Output FIFOs
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
-    ioThread << "if(outputFIFOsReady){" << std::endl;
-
-    if(printTelem) {
+    if (printTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
@@ -583,25 +698,36 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "timeTotal += waitingForIntFIFOWriteDuration;" << std::endl;
     }
 
-    //Write FIFOs
-    if(printTelem) {
+    ioThread << "if(outputFIFOsReady){" << std::endl;
+
+    if (printTelem) {
         ioThread << "timespec_t writingFIFOsToComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStart);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
+    //Write FIFOs
+    ioThread << "//Write FIFOs to compute" << std::endl;
     std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
-    for(int i = 0; i<writeFIFOExprs.size(); i++){
+    for (int i = 0; i < writeFIFOExprs.size(); i++) {
         ioThread << writeFIFOExprs[i] << std::endl;
     }
 
-    if(printTelem) {
+    //Set status flags
+    for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
+        std::string toComputeFIFOFilledName = "toComputeFIFOFilled_" + GeneralHelper::to_string(it->first);
+        ioThread << toComputeFIFOFilledName << " = false;" << std::endl;
+    }
+
+    if (printTelem) {
         ioThread << "timespec_t writingFIFOsToComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStop);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        ioThread << "double writingFIFOsToComputeDuration = difftimespec(&writingFIFOsToComputeStop, &writingFIFOsToComputeStart);" << std::endl;
+        ioThread
+                << "double writingFIFOsToComputeDuration = difftimespec(&writingFIFOsToComputeStop, &writingFIFOsToComputeStart);"
+                << std::endl;
         ioThread << "timeWritingFIFOsToCompute += writingFIFOsToComputeDuration;" << std::endl;
         ioThread << "timeTotal += writingFIFOsToComputeDuration;" << std::endl;
     }
@@ -609,7 +735,27 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Passed to Compute\\n\");" << std::endl;
     }
-    ioThread << "}" << std::endl;
+
+    ioThread << "}" << std::endl; //Close writing to FIFO if ready
+    ioThread << "}" << std::endl; //Close if data available to write
+
+    //++++ From Compute to External Output ++++
+    ioThread << std::endl; //Close if data available to write
+
+    //Only check input FIFOs if there is buffer space
+    ioThread << "//Check if buffer space available for data from compute" << std::endl;
+    ioThread << "bool fromComputeFIFOFilled_none = ";
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string fromComputeFIFOFilledName = "fromComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+        if(it != masterOutputBundles.begin()){
+            ioThread << " && ";
+        }
+        ioThread << "!" << fromComputeFIFOFilledName;
+    }
+    ioThread << ";" << std::endl;
+
+    //Check if buffer space is available
+    ioThread << "if(fromComputeFIFOFilled_none){" << std::endl;
 
     //Check input FIFOs
     if(printTelem) {
@@ -619,9 +765,12 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, true, true); //pthread_testcancel check here
-    ioThread << "if(inputFIFOsReady){" << std::endl;
+    //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
 
+    ioThread << "//Check data available from compute" << std::endl;
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
+    ioThread << "if(inputFIFOsReady){" << std::endl;
+    //Data availible on FIFOs and room in buffers, read
     if(printTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -633,6 +782,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     //Read input FIFOs
+    ioThread << "//Read data from compute" << std::endl;
     if(printTelem) {
         ioThread << "timespec_t readingFIFOsFromComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -643,6 +793,12 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
+    }
+
+    //Set status flags
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string fromComputeFIFOFilledName = "fromComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+        ioThread << fromComputeFIFOFilledName << " = true;" << std::endl;
     }
 
     if(printTelem) {
@@ -659,6 +815,10 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "printf(\"I/O Received from Compute\\n\");" << std::endl;
     }
 
+    ioThread << "}" << std::endl; //End if data available on FIFOs
+    ioThread << "}" << std::endl; //End if buffer space available
+
+    //Copy output to tmp variable if possible (considered part of writing to ExtFIFO)
     if(printTelem) {
         ioThread << "timespec_t writingExtFIFOStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -666,25 +826,70 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
-    //Allocate temp Memory for linux pipe write
-    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
-        std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
-        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-        ioThread << outputStructTypeName << " " << linuxOutputTmpName << ";" << std::endl;
-    }
-
-    //Copy output to tmp variable
     std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap = getOutputPortFIFOMapping(outputMaster);
+    ioThread << "//Copy between buffers" << std::endl;
     for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
         std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string fromComputeFIFOFilledName = "fromComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+        std::string extOutputBufferFilledName = "extOutputBufferFilled_"+GeneralHelper::to_string(it->first);
+
+        //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
+        //This allows a read from the external stream to occur if availible
+        ioThread << "if(" << fromComputeFIFOFilledName << " && !" << extOutputBufferFilledName << "){" << std::endl;
         copyFIFOToIOOutputs(ioThread, it->second, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+        ioThread << fromComputeFIFOFilledName << " = false;" << std::endl;
+        ioThread << extOutputBufferFilledName << " = true;" << std::endl;
+        ioThread << "}" << std::endl;
+    }
+
+    ioThread << std::endl;
+
+    if(printTelem) {
+        ioThread << "timespec_t writingExtFIFOStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "double writingExtFIFODuration = difftimespec(&writingExtFIFOStop, &writingExtFIFOStart);" << std::endl;
+        ioThread << "timeWritingExtFIFO += writingExtFIFODuration;" << std::endl;
+        ioThread << "timeTotal += writingExtFIFODuration;" << std::endl;
+    }
+
+    //Write external FIFOs
+    if(printTelem) {
+        ioThread << "writingExtFIFOStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
     for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
         std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
         std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        std::string extOutputBufferFilledName = "extOutputBufferFilled_"+GeneralHelper::to_string(it->first);
 
-        ioThread << "{" << std::endl; //Open a scope for writing
+        //Only check external outputs ready if there is data to be sent
+        ioThread << "//Check if data to write to external stream" << std::endl;
+        ioThread << "if("<< extOutputBufferFilledName << "){" << std::endl;
+
+        //Check if external output ready
+        //Check if FIFO is free
+        ioThread << "//Check if external stream ready" << std::endl;
+        if (streamType == StreamType::PIPE) {
+            std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "bool extWriteReady = isReadyForWriting(" << outputPipeHandleName << ");" << std::endl;
+        } else if (streamType == StreamType::SOCKET) {
+            std::string connectedSocketName = "connectedSocket_bundle_" + GeneralHelper::to_string(it->first);
+            ioThread << "bool extWriteReady = isReadyForWritingFD(" << connectedSocketName << ");" << std::endl;
+        } else if (streamType == StreamType::POSIX_SHARED_MEM){
+            std::string outputFifoHandleName = "outputFIFO_bundle_"+GeneralHelper::to_string(it->first);
+            ioThread << "bool extWriteReady = isReadyForWriting(&" << outputFifoHandleName << ");" << std::endl;
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+        }
+
+        ioThread << "if(extWriteReady){" << std::endl;
+        //External stream is ready, perform a blocking write
+        ioThread << "//Write to external stream" << std::endl;
         if (streamType == StreamType::PIPE) {
             //Write to linux pipe
             std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
@@ -725,7 +930,29 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
         }
-        ioThread << "}" << std::endl; //Close writing scope
+
+        //Since write was blocking, can update status unconditionally
+        ioThread << extOutputBufferFilledName << " = false;" << std::endl;
+
+        ioThread << "}" << std::endl; //Close if output stream ready
+        ioThread << "}" << std::endl; //Close if data available to be written
+    }
+
+    //This is a duplicate copy block which potentially allows another read from compute FIFOs to occur on the next cycle
+    //Considered part of writing to external
+    ioThread << "//Copy between buffers" << std::endl;
+    for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
+        std::string linuxOutputTmpName = "linuxOutputTmp_bundle_"+GeneralHelper::to_string(it->first);
+        std::string fromComputeFIFOFilledName = "fromComputeFIFOFilled_"+GeneralHelper::to_string(it->first);
+        std::string extOutputBufferFilledName = "extOutputBufferFilled_"+GeneralHelper::to_string(it->first);
+
+        //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
+        //This allows a read from the external stream to occur if availible
+        ioThread << "if(" << fromComputeFIFOFilledName << " && !" << extOutputBufferFilledName << "){" << std::endl;
+        copyFIFOToIOOutputs(ioThread, it->second, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+        ioThread << fromComputeFIFOFilledName << " = false;" << std::endl;
+        ioThread << extOutputBufferFilledName << " = true;" << std::endl;
+        ioThread << "}" << std::endl;
     }
 
     if(printTelem) {
@@ -765,8 +992,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "collectTelem = true;" << std::endl;
         ioThread << "}" << std::endl;
     }
-
-    ioThread << "}" << std::endl; //Close if
 
     ioThread << "}" << std::endl; //Close while
 
@@ -1733,6 +1958,97 @@ std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
              "    int32_t currentCount = atomic_load(fifo->fifoCount);\n"
              "    return currentCount < fifo->fifoSizeBytes;\n"
              "}" << std::endl;
+    cFile.close();
+
+    return fileName+".h";
+}
+
+std::string StreamIOThread::emitFileStreamHelpers(std::string path, std::string fileNamePrefix){
+    std::string fileName = fileNamePrefix + "_filestream_helpers";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path + "/" + fileName + ".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << std::endl;
+
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <stdio.h>" << std::endl;
+    headerFile << std::endl;
+
+    headerFile << "bool isReadyForReading(FILE* file);" << std::endl;
+    headerFile << "bool isReadyForReadingFD(int fileFD);" << std::endl;
+    headerFile << "bool isReadyForWriting(FILE* file);" << std::endl;
+    headerFile << "bool isReadyForWritingFD(int fileFD);" << std::endl;
+    headerFile << std::endl;
+
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    //#### Emit .c file ####
+    std::ofstream cFile;
+    cFile.open(path + "/" + fileName + ".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << std::endl;
+
+    cFile << "#include <stdio.h>" << std::endl;
+    cFile << "#include <sys/select.h>" << std::endl;
+    cFile << "#include <sys/time.h>" << std::endl;
+    cFile << "#include <stdlib.h>" << std::endl;
+    cFile << std::endl;
+    cFile << "bool isReadyForReading(FILE* file) {" << std::endl;
+    cFile << "int fileFD = fileno(file);" << std::endl;
+    cFile << "return isReadyForReadingFD(fileFD);" << std::endl;
+    cFile << "}" << std::endl;
+    cFile << std::endl;
+    cFile << "bool isReadyForReadingFD(int fileFD){" << std::endl;
+    cFile << "fd_set fdSet;" << std::endl;
+    cFile << "FD_ZERO(&fdSet);" << std::endl;
+    cFile << "FD_SET(fileFD, &fdSet);" << std::endl;
+    cFile << "int maxFD = fileFD;" << std::endl;
+    cFile << std::endl;
+    cFile << "//Timeout quickly" << std::endl;
+    cFile << "struct timespec timeout;" << std::endl;
+    cFile << "timeout.tv_sec = 0;" << std::endl;
+    cFile << "timeout.tv_nsec = 0;" << std::endl;
+    cFile << std::endl;
+    cFile << "int selectStatus = pselect(maxFD+1, &fdSet, NULL, NULL, &timeout, NULL);" << std::endl;
+    cFile << "if(selectStatus == -1){" << std::endl;
+    cFile << "fprintf(stderr, \"Error while checking if a file is ready for reading\\n\");" << std::endl;
+    cFile << "perror(NULL);" << std::endl;
+    cFile << "exit(1);" << std::endl;
+    cFile << "}" << std::endl;
+    cFile << "return FD_ISSET(fileFD, &fdSet);" << std::endl;
+    cFile << "}" << std::endl;
+    cFile << std::endl;
+    cFile << "bool isReadyForWriting(FILE* file) {" << std::endl;
+    cFile << "int fileFD = fileno(file);" << std::endl;
+    cFile << "return isReadyForWritingFD(fileFD);" << std::endl;
+    cFile << "}" << std::endl;
+    cFile << std::endl;
+    cFile << "bool isReadyForWritingFD(int fileFD){" << std::endl;
+    cFile << "fd_set fdSet;" << std::endl;
+    cFile << "FD_ZERO(&fdSet);" << std::endl;
+    cFile << "FD_SET(fileFD, &fdSet);" << std::endl;
+    cFile << "int maxFD = fileFD;" << std::endl;
+    cFile << std::endl;
+    cFile << "//Timeout quickly" << std::endl;
+    cFile << "struct timespec timeout;" << std::endl;
+    cFile << "timeout.tv_sec = 0;" << std::endl;
+    cFile << "timeout.tv_nsec = 0;" << std::endl;
+    cFile << std::endl;
+    cFile << "int selectStatus = pselect(maxFD+1, NULL, &fdSet, NULL, &timeout, NULL);" << std::endl;
+    cFile << "if(selectStatus == -1){" << std::endl;
+    cFile << "fprintf(stderr, \"Error while checking if a file is ready for reading\\n\");" << std::endl;
+    cFile << "perror(NULL);" << std::endl;
+    cFile << "exit(1);" << std::endl;
+    cFile << "}" << std::endl;
+    cFile << "return FD_ISSET(fileFD, &fdSet);" << std::endl;
+    cFile << "}" << std::endl;
     cFile.close();
 
     return fileName+".h";

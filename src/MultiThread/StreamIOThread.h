@@ -74,6 +74,8 @@ public:
      * @return the header filename
      */
     static std::string emitSharedMemoryFIFOHelperFiles(std::string path);
+
+    static std::string emitFileStreamHelpers(std::string path, std::string fileNamePrefix);
 };
 
 
