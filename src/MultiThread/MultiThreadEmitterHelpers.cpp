@@ -1087,6 +1087,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
     //Insert timer init code
+    double printDuration = 1; //TODO: Add option for this
 
     if(printTelem){
         cFile << "timespec_t timeResolution;" << std::endl;
