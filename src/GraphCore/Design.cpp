@@ -3073,7 +3073,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
-                                int ioFifoSize) {
+                                int ioFifoSize, bool printTelem) {
 
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
@@ -3423,7 +3423,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
-            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint);
+            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint, printTelem);
         }
     }
 
@@ -3454,7 +3454,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::string pipeIOSuffix = "io_linux_pipe";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
-                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint);
+                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint, printTelem);
 
     //Emit the startup function (aka the benchmark kernel)
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap);
@@ -3473,7 +3473,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
-                                        fifoHeaderName, 0, threadDebugPrint);
+                                        fifoHeaderName, 0, threadDebugPrint, printTelem);
 
     //Emit the startup function (aka the benchmark kernel)
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap);
@@ -3490,7 +3490,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
-                                        fifoHeaderName, ioFifoSize, threadDebugPrint);
+                                        fifoHeaderName, ioFifoSize, threadDebugPrint, printTelem);
 
     //Emit the startup function (aka the benchmark kernel)
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap);

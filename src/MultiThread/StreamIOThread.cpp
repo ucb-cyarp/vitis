@@ -18,8 +18,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          std::string path, std::string fileNamePrefix, std::string designName,
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
                                          int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
-                                         bool threadDebugPrint) {
-    bool printTelem = true; //TODO: add option for this
+                                         bool threadDebugPrint, bool printTelem) {
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports

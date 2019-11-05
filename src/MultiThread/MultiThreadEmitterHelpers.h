@@ -160,8 +160,9 @@ public:
      * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
+     * @param printTelem if true, prints telemetry on the thread's execution
      */
-    static void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
+    static void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem);
 
     /**
      * @brief Get the argument portion of the C function prototype for the partition compute function

@@ -829,7 +829,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
     makefile.close();
 }
 
-void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
+void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem){
     std::string blockIndVar = "";
 
     if(blockSize > 1) {
@@ -938,7 +938,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
-    if(threadDebugPrint) {
+    if(printTelem){
+        cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
+    }
+    if(threadDebugPrint || printTelem) {
         cFile << "#include <stdio.h>" << std::endl;
     }
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
@@ -955,6 +958,19 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     cFile << std::endl;
+
+    if(printTelem){
+        cFile << "typedef struct timespec timespec_t;" << std::endl;
+        cFile << "double difftimespec(timespec_t* a, timespec_t* b){" << std::endl;
+        cFile << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
+        cFile << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
+        cFile << "return a_double - b_double;" << std::endl;
+        cFile << "}" << std::endl << std::endl;
+        cFile << "double timespecToDouble(timespec_t* a){" << std::endl;
+        cFile << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
+        cFile << "return a_double;" << std::endl;
+        cFile << "}" << std::endl << std::endl;
+    }
 
     //Find nodes with state & Emit state variable declarations
     cFile << "//==== Init State Vars ====" << std::endl;
@@ -1070,6 +1086,34 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Copy ptrs from struct argument
     cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
+    //Insert timer init code
+
+    if(printTelem){
+        cFile << "timespec_t timeResolution;" << std::endl;
+        cFile << "clock_getres(CLOCK_MONOTONIC, &timeResolution);" << std::endl;
+        cFile << "double timeResolutionDouble = timespecToDouble(&timeResolution);" << std::endl;
+        cFile << "printf(\"Partition " << partitionNum << " Time Resolution: %8.6e\\n\", timeResolutionDouble);" << std::endl;
+        cFile << std::endl;
+
+        cFile << "//Start timer" << std::endl;
+        cFile << "uint64_t rxSamples = 0;" << std::endl;
+        cFile << "timespec_t startTime;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "timespec_t lastPrint;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double printDuration = " << printDuration << ";" << std::endl;
+        cFile << "double timeTotal = 0;" << std::endl;
+        cFile << "double timeWaitingForInputFIFOs = 0;" << std::endl;
+        cFile << "double timeReadingInputFIFOs = 0;" << std::endl;
+        cFile << "double timeWaitingForComputeToFinish = 0;" << std::endl;
+        cFile << "double timeWaitingForOutputFIFOs = 0;" << std::endl;
+        cFile << "double timeWritingOutputFIFOs = 0;" << std::endl;
+    }
+
     //Create Loop
     cFile << "while(1){" << std::endl;
 
@@ -1078,8 +1122,63 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
               << std::endl;
     }
 
+    if(printTelem) {
+        cFile << "timespec_t waitingForInputFIFOsStart;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStart);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     //Check FIFO input FIFOs (will spin until ready)
     cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, true); //Include pthread_testcancel check
+
+    //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
+    //each metric has undergone the same number of cycles
+    if(printTelem) {
+        cFile << "timespec_t waitingForInputFIFOsStop;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStop);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+
+        //Emit timer reporting
+        cFile << "rxSamples += " << blockSize << ";" << std::endl;
+        cFile << "timespec_t currentTime;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
+        cFile << "if(duration >= printDuration){" << std::endl;
+        cFile << "lastPrint = currentTime;" << std::endl;
+        cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
+        cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
+        cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
+        cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+        cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
+        cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
+        cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
+        cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
+        cFile << "\"\\t[" << partitionNum << "] Total Time:                     %10.5f\\n\", " << std::endl;
+
+        cFile << "rateMSps, ";
+        cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
+        cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
+        cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
+        cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
+        cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
+        cFile << "timeTotal);" << std::endl;
+
+        cFile << "}" << std::endl;
+
+        //Now, finish timeReadingExtFIFO
+        cFile << "double durationWaitingForInputFIFOs = difftimespec(&waitingForInputFIFOsStop, &waitingForInputFIFOsStart);" << std::endl;
+        cFile << "timeWaitingForInputFIFOs += durationWaitingForInputFIFOs;" << std::endl;
+        cFile << "timeTotal += durationWaitingForInputFIFOs;" << std::endl;
+
+        cFile << "timespec_t readingInputFIFOsStart;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStart);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
 
     //Create temp entries for FIFO inputs
     std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
@@ -1097,6 +1196,16 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << readFIFOExprs[i] << std::endl;
     }
 
+    if(printTelem) {
+        cFile << "timespec_t readingInputFIFOsStop;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStop);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
+        cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
+        cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
+    }
+
     //Create temp entries for outputs
     std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
     for(int i = 0; i<tmpWriteDecls.size(); i++){
@@ -1106,26 +1215,81 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " computing ...\\n\");" << std::endl;
     }
+
+    if(printTelem) {
+        cFile << "timespec_t waitingForComputeToFinishStart;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStart);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     //Call compute function (recall that the compute function is declared with outputs as references)
     std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize);
     cFile << call << std::endl;
+
+    if(printTelem) {
+        cFile << "timespec_t waitingForComputeToFinishStop;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStop);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double durationWaitingForComputeToFinish = difftimespec(&waitingForComputeToFinishStop, &waitingForComputeToFinishStart);" << std::endl;
+        cFile << "timeWaitingForComputeToFinish += durationWaitingForComputeToFinish;" << std::endl;
+        cFile << "timeTotal += durationWaitingForComputeToFinish;" << std::endl;
+    }
 
     //Check output FIFOs (will spin until ready)
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) +
                  " waiting for room in output FIFOs ...\\n\");" << std::endl;
     }
+
+    if(printTelem) {
+        cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, true); //Include pthread_testcancel check
+
+    if(printTelem) {
+        cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double durationWaitingForOutputFIFOs = difftimespec(&waitingForOutputFIFOsStop, &waitingForOutputFIFOsStart);" << std::endl;
+        cFile << "timeWaitingForOutputFIFOs += durationWaitingForOutputFIFOs;" << std::endl;
+        cFile << "timeTotal += durationWaitingForOutputFIFOs;" << std::endl;
+    }
 
     //Write result to FIFOs
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " writing outputs ...\\n\");"
               << std::endl;
     }
+
+    if(printTelem) {
+        cFile << "timespec_t writingOutputFIFOsStart;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStart);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         cFile << writeFIFOExprs[i] << std::endl;
     }
+
+    if(printTelem) {
+        cFile << "timespec_t writingOutputFIFOsStop;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStop);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double durationWritingOutputFIFOs = difftimespec(&writingOutputFIFOsStop, &writingOutputFIFOsStart);" << std::endl;
+        cFile << "timeWritingOutputFIFOs += durationWritingOutputFIFOs;" << std::endl;
+        cFile << "timeTotal += durationWritingOutputFIFOs;" << std::endl;
+    }
+
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " done writing outputs ...\\n\");"
               << std::endl;
