@@ -413,7 +413,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     double printDuration = 1; //TODO: Add option for this
 
     if(printTelem) {
-        ioThread << "//Start timer" << std::endl;
+        ioThread << "//Init timer" << std::endl;
         ioThread << "uint64_t rxSamples = 0;" << std::endl;
         ioThread << "timespec_t startTime;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -431,6 +431,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "double timeWaitingForFIFOsFromCompute = 0;" << std::endl;
         ioThread << "double timeReadingFIFOsFromCompute = 0;" << std::endl;
         ioThread << "double timeWritingExtFIFO = 0;" << std::endl;
+        ioThread << "bool collectTelem = false;" << std::endl;
     }
 
     ioThread << std::endl;
@@ -739,6 +740,30 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Output Sent\\n\");" << std::endl;
+    }
+
+    if(printTelem) {
+        ioThread << "if(!collectTelem){" << std::endl;
+        ioThread << "//Reset timer after processing first samples.  Removes startup time from telemetry" << std::endl;
+        ioThread << "rxSamples = 0;" << std::endl;
+        ioThread << "rxSamples = 0;" << std::endl;
+        ioThread << "startTime;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "lastPrint;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "timeTotal = 0;" << std::endl;
+        ioThread << "timeReadingExtFIFO = 0;" << std::endl;
+        ioThread << "timeWaitingForFIFOsToCompute = 0;" << std::endl;
+        ioThread << "timeWritingFIFOsToCompute = 0;" << std::endl;
+        ioThread << "timeWaitingForFIFOsFromCompute = 0;" << std::endl;
+        ioThread << "timeReadingFIFOsFromCompute = 0;" << std::endl;
+        ioThread << "timeWritingExtFIFO = 0;" << std::endl;
+        ioThread << "collectTelem = true;" << std::endl;
+        ioThread << "}" << std::endl;
     }
 
     ioThread << "}" << std::endl; //Close if

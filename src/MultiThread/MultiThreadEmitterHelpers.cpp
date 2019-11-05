@@ -1103,6 +1103,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "double timeWaitingForComputeToFinish = 0;" << std::endl;
         cFile << "double timeWaitingForOutputFIFOs = 0;" << std::endl;
         cFile << "double timeWritingOutputFIFOs = 0;" << std::endl;
+        cFile << "bool collectTelem = false;" << std::endl;
     }
 
     //Create Loop
@@ -1284,6 +1285,28 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " done writing outputs ...\\n\");"
               << std::endl;
+    }
+
+    if(printTelem) {
+        cFile << "if(!collectTelem){" << std::endl;
+        cFile << "//Reset timer after processing first samples.  Removes startup time from telemetry" << std::endl;
+        cFile << "rxSamples = 0;" << std::endl;
+        cFile << "startTime;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "lastPrint;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "timeTotal = 0;" << std::endl;
+        cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
+        cFile << "timeReadingInputFIFOs = 0;" << std::endl;
+        cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
+        cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
+        cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+        cFile << "collectTelem = true;" << std::endl;
+        cFile << "}" << std::endl;
     }
 
     //Close loop
