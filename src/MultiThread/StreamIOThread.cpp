@@ -440,18 +440,18 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "while(true){" << std::endl;
     //Allocate temp Memory for linux pipe read
 
+    if(printTelem) {
+        ioThread << "timespec_t readingFromExtStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
         //This process needs to be repeated for each input bundle
         //TODO: This currently forces reading in a specific order, consider changing this?
         std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-
-        if(printTelem) {
-            ioThread << "timespec_t readingFromExtStart;" << std::endl;
-            ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-            ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
-            ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        }
 
         ioThread << inputStructTypeName << " " << linuxInputTmpName << ";" << std::endl;
 
