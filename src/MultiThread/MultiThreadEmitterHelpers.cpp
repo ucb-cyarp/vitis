@@ -946,7 +946,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
     if(printTelem){
-        cFile << "#include \"" << fileName << "_telemetry_helpers.h" << "\"" << std::endl;
+        cFile << "#include \"" << fileNamePrefix << "_telemetry_helpers.h" << "\"" << std::endl;
     }
 
     //Include any external include statements required by nodes in the design

@@ -135,7 +135,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "#include <time.h>" << std::endl;
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
     if(printTelem){
-        ioThread << "#include \"" << fileName << "_telemetry_helpers.h" << "\"" << std::endl;
+        ioThread << "#include \"" << fileNamePrefix << "_telemetry_helpers.h" << "\"" << std::endl;
     }
     ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     ioThread << std::endl;
