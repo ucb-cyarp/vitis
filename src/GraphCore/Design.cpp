@@ -3456,7 +3456,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix, false, {});
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix, false, otherCFiles);
 
     //++++Emit Linux Pipe I/O Driver++++
     std::string pipeIOSuffix = "io_linux_pipe";
