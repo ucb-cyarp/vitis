@@ -3429,6 +3429,14 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     EmitterHelpers::emitParametersHeader(path, fileName, blockSize);
 
+    //====Emit Helpers====
+    std::vector<std::string> otherCFiles;
+    if(printTelem){
+        EmitterHelpers::emitTelemetryHelper(path, fileName);
+        std::string telemetryCFile = fileName + "_telemetry_helpers.c";
+        otherCFiles.push_back(telemetryCFile);
+    }
+
     //====Emit I/O Divers====
     std::set<int> partitionSet;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
@@ -3466,7 +3474,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix, false, {});
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix, false, otherCFiles);
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
@@ -3482,7 +3490,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix, false, {});
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix, false, otherCFiles);
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
@@ -3499,7 +3507,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, sharedMemoryFIFOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, sharedMemoryFIFOSuffix, true, {sharedMemoryFIFOCFileName});
+    std::vector<std::string> otherCFilesSharedMem = otherCFiles;
+    otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

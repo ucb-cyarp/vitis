@@ -945,6 +945,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "#include <stdio.h>" << std::endl;
     }
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    if(printTelem){
+        cFile << "#include \"" << fileName << "_telemetry_helpers.h" << "\"" << std::endl;
+    }
 
     //Include any external include statements required by nodes in the design
     std::set<std::string> extIncludes;
@@ -958,19 +961,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     cFile << std::endl;
-
-    if(printTelem){
-        cFile << "typedef struct timespec timespec_t;" << std::endl;
-        cFile << "double difftimespec(timespec_t* a, timespec_t* b){" << std::endl;
-        cFile << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
-        cFile << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
-        cFile << "return a_double - b_double;" << std::endl;
-        cFile << "}" << std::endl << std::endl;
-        cFile << "double timespecToDouble(timespec_t* a){" << std::endl;
-        cFile << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
-        cFile << "return a_double;" << std::endl;
-        cFile << "}" << std::endl << std::endl;
-    }
 
     //Find nodes with state & Emit state variable declarations
     cFile << "//==== Init State Vars ====" << std::endl;

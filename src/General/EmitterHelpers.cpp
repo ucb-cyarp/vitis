@@ -530,3 +530,48 @@ std::string EmitterHelpers::emitParametersHeader(std::string path, std::string f
 
     return fileName+".h";
 }
+
+std::string EmitterHelpers::emitTelemetryHelper(std::string path, std::string fileNamePrefix){
+    std::string fileName = fileNamePrefix + "_telemetry_helpers";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    //#### Emit .h file ####
+    std::ofstream headerFile;
+    headerFile.open(path + "/" + fileName + ".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << std::endl;
+
+    headerFile << "typedef struct timespec timespec_t;" << std::endl;
+    headerFile << "double difftimespec(timespec_t* a, timespec_t* b);" << std::endl;
+    headerFile << "double timespecToDouble(timespec_t* a);" << std::endl;
+
+    headerFile << std::endl;
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    //#### Emit .c file ####
+    std::ofstream cFile;
+    cFile.open(path + "/" + fileName + ".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
+    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << "#include <unistd.h>" << std::endl;
+    cFile << "#include <time.h>" << std::endl;
+    cFile << std::endl;
+
+    cFile << "double difftimespec(timespec_t* a, timespec_t* b){"  << std::endl;
+    cFile << "    double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
+    cFile << "    double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
+    cFile << "    return a_double - b_double;" << std::endl;
+    cFile << "}" << std::endl;
+
+    cFile << "double timespecToDouble(timespec_t* a){" << std::endl;
+    cFile << "    double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
+    cFile << "    return a_double;" << std::endl;
+    cFile << "}" << std::endl;
+    cFile.close();
+
+    return fileName+".h";
+}

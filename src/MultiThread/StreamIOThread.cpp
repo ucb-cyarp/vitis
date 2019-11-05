@@ -134,22 +134,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << "#include <time.h>" << std::endl;
     ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    if(printTelem){
+        ioThread << "#include \"" << fileName << "_telemetry_helpers.h" << "\"" << std::endl;
+    }
     ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     ioThread << std::endl;
-
-    //Emit time helper
-    if(printTelem){
-        ioThread << "typedef struct timespec timespec_t;" << std::endl;
-        ioThread << "double difftimespec(timespec_t* a, timespec_t* b){" << std::endl;
-        ioThread << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
-        ioThread << "double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
-        ioThread << "return a_double - b_double;" << std::endl;
-        ioThread << "}" << std::endl << std::endl;
-        ioThread << "double timespecToDouble(timespec_t* a){" << std::endl;
-        ioThread << "double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
-        ioThread << "return a_double;" << std::endl;
-        ioThread << "}" << std::endl << std::endl;
-    }
 
     ioThread << threadFctnDecl << "{" << std::endl;
 

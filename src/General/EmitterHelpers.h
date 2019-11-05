@@ -109,6 +109,14 @@ public:
      * @returns the filename of the header file
      */
     static std::string emitParametersHeader(std::string path, std::string fileNamePrefix, int blockSize);
+
+    /**
+     * @brief Emits a parameters file
+     * @param path
+     * @param filenamePrefix
+     * @returns the filename of the header file
+     */
+    static std::string emitTelemetryHelper(std::string path, std::string fileNamePrefix);
 };
 
 /*! @} */
