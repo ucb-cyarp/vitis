@@ -105,7 +105,7 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     }
     ioThread << "for(int i = 0; i<iterLimit; ){" << std::endl;
     //Check Output FIFOs
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", true, false, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
     ioThread << "if(outputFIFOsReady){" << std::endl;
     //Write FIFOs
     std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
