@@ -956,11 +956,11 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     if(printTelem) {
-        ioThread << "timespec_t writingExtFIFOStop;" << std::endl;
+        ioThread << "writingExtFIFOStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        ioThread << "double writingExtFIFODuration = difftimespec(&writingExtFIFOStop, &writingExtFIFOStart);" << std::endl;
+        ioThread << "writingExtFIFODuration = difftimespec(&writingExtFIFOStop, &writingExtFIFOStart);" << std::endl;
         ioThread << "timeWritingExtFIFO += writingExtFIFODuration;" << std::endl;
         ioThread << "timeTotal += writingExtFIFODuration;" << std::endl;
     }
