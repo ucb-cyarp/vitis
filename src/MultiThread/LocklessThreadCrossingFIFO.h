@@ -13,7 +13,7 @@
  */
 
 /**
- * @brief Implements a lockless thread-crossing single producer single consumer FIFO which is compatibile with x86 based systems
+ * @brief Implements a lockless thread-crossing single producer single consumer FIFO which is compatible with x86 based systems
  *
  * The allocated array contains 1 extra block to allow empty FIFOs to be distinguished from full FIFOs without
  * requiring additional shared state
@@ -29,7 +29,7 @@
  * x x _ _ _ _ _ (empty)
  * r w
  *
- * FIFO is full the write pointer overlaps the read pointer (readOffset - writeOffset == 1)
+ * FIFO is full the write pointer overlaps the read pointer
  * The value at readOffset is the extra element since the read pointer indicates the position that was read last (and in
  * theory could be written to). By following this convention, the writeOffset will never pass the read pointer.
  *
@@ -64,6 +64,7 @@
  * Boarder (only on 1 side):
  * _ _ _ _ _ _ _ (empty)
  * w           r
+ * 0 1 2 3 4 5 6 (6 element fifo, array 7 long)
  *
  * Reverse (not possible)
  *

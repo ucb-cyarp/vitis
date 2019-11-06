@@ -28,9 +28,8 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
     cWriteOffsetPtr.setVolatileVar(true);
 
     if(!initalized) {
-        int elementLength = fifoLength*blockSize;
-
-        DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
+        //Offset is in blocks
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
         newDT = newDT.getCPUStorageType();
         cWriteOffsetPtr.setDataType(newDT);
         cWriteOffsetPtr.setVolatileVar(true);
@@ -45,9 +44,8 @@ Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
     cReadOffsetPtr.setVolatileVar(true);
 
     if(!initialized){
-        int elementLength = fifoLength*blockSize;
-
-        DataType newDT = DataType(false, false, false, std::ceil(std::log2(elementLength+1)), 0, 1);
+        //Offset is in blocks
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
         newDT = newDT.getCPUStorageType();
         cReadOffsetPtr.setDataType(newDT);
         cReadOffsetPtr.setVolatileVar(true);
