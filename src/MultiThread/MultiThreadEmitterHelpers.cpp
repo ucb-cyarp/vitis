@@ -1143,21 +1143,21 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "lastPrint = currentTime;" << std::endl;
         cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
+        cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
         cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
         cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
         cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
         cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
         cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
         cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Total Time:                     %10.5f\\n\", " << std::endl;
-
+        cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", " << std::endl;
         cFile << "rateMSps, ";
         cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
         cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
         cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
         cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
         cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
-        cFile << "timeTotal);" << std::endl;
+        cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
 
         cFile << "}" << std::endl;
 
@@ -1295,10 +1295,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "lastPrint;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "lastPrint = startTime;" << std::endl;
         cFile << "timeTotal = 0;" << std::endl;
         cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
         cFile << "timeReadingInputFIFOs = 0;" << std::endl;
