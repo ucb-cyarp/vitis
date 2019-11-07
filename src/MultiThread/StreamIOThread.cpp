@@ -663,6 +663,13 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
 
+    if(printTelem) {
+        ioThread << "timespec_t waitingForFIFOsToComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     //Only check output FIFO if data is available (construct the check here)
     ioThread << "//Check if data to be sent to compute" << std::endl;
     ioThread << "bool toComputeFIFOFilled_all = ";
@@ -675,6 +682,15 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << ";" << std::endl;
 
+    if (printTelem) {
+        ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "double waitingForIntFIFOWriteDuration = difftimespec(&waitingForFIFOsToComputeStop, &waitingForFIFOsToComputeStart);" << std::endl;
+        ioThread << "timeWaitingForFIFOsToCompute += waitingForIntFIFOWriteDuration;" << std::endl;
+        ioThread << "timeTotal += waitingForIntFIFOWriteDuration;" << std::endl;
+    }
     //Check if data is availible to be written into FIFOs to compute
     ioThread << "if(toComputeFIFOFilled_all){" << std::endl;
     //Check if Room in Output FIFOs
@@ -743,6 +759,14 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //++++ From Compute to External Output ++++
     ioThread << std::endl; //Close if data available to write
 
+    //Check input FIFOs
+    if(printTelem) {
+        ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
     //Only check input FIFOs if there is buffer space
     ioThread << "//Check if buffer space available for data from compute" << std::endl;
     ioThread << "bool fromComputeFIFOFilled_none = ";
@@ -755,23 +779,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << ";" << std::endl;
 
-    //Check if buffer space is available
-    ioThread << "if(fromComputeFIFOFilled_none){" << std::endl;
-
-    //Check input FIFOs
-    if(printTelem) {
-        ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
-        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
-        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-    }
-
-    //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
-
-    ioThread << "//Check data available from compute" << std::endl;
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
-    ioThread << "if(inputFIFOsReady){" << std::endl;
-    //Data availible on FIFOs and room in buffers, read
     if(printTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -781,6 +788,33 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "timeWaitingForFIFOsFromCompute += waitingForFIFOsFromComputeDuration;" << std::endl;
         ioThread << "timeTotal += waitingForFIFOsFromComputeDuration;" << std::endl;
     }
+
+    //Check if buffer space is available
+    ioThread << "if(fromComputeFIFOFilled_none){" << std::endl;
+
+    //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
+
+    if(printTelem) {
+        ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }
+
+    ioThread << "//Check data available from compute" << std::endl;
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
+
+    if(printTelem) {
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStop);" << std::endl;
+        ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        ioThread << "double waitingForFIFOsFromComputeDuration = difftimespec(&waitingForFIFOsFromComputeStop, &waitingForFIFOsFromComputeStart);" << std::endl;
+        ioThread << "timeWaitingForFIFOsFromCompute += waitingForFIFOsFromComputeDuration;" << std::endl;
+        ioThread << "timeTotal += waitingForFIFOsFromComputeDuration;" << std::endl;
+    }
+
+    ioThread << "if(inputFIFOsReady){" << std::endl;
+    //Data availible on FIFOs and room in buffers, read
 
     //Read input FIFOs
     ioThread << "//Read data from compute" << std::endl;
