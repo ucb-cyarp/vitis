@@ -144,6 +144,7 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty() {
     std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
 
     return "(!((" + derefWriteOffset + " - " + derefReadOffset + " == 1) || (" + derefWriteOffset + " - " + derefReadOffset + " == " + GeneralHelper::to_string(checkPoint) + ")))";
+    //return "(!((" + derefWriteOffset + " - " + derefReadOffset + " == 1) || (" + derefWriteOffset + " == 0 && " + derefReadOffset + " == " + GeneralHelper::to_string(arrayLength-1) + ")))";
 }
 
 std::string LocklessThreadCrossingFIFO::emitCIsNotFull() {
