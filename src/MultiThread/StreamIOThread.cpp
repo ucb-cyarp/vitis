@@ -1982,12 +1982,20 @@ std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
              "}\n"
              "\n"
              "bool isReadyForWriting(sharedMemoryFIFO_t *fifo){\n"
-             "    if(!fifo->rxReady){\n"
+             "    if(!fifo->rxReady) {\n"
+             "    //---- Check if consumer joined ----\n"
+             "    int status = sem_trywait(fifo->rxSem);\n"
+             "    if(status == 0){\n"
+             "        fifo->rxReady = true;\n"
+             "    }else{\n"
+             "        //Consumer has not joined yet\n"
              "        return false;\n"
              "    }\n"
+             "\n"
              "    int32_t currentCount = atomic_load(fifo->fifoCount);\n"
              "    return currentCount < fifo->fifoSizeBytes;\n"
              "}" << std::endl;
+
     cFile.close();
 
     return fileName+".h";
