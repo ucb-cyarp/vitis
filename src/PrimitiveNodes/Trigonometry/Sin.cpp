@@ -151,11 +151,3 @@ Sin::Sin(std::shared_ptr<SubSystem> parent, Sin* orig) : PrimitiveNode(parent, o
 std::shared_ptr<Node> Sin::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Sin>(parent, this);
 }
-
-EstimatorCommon::PrimitiveWorkload Sin::getPrimitiveWorkloadEstimate() {
-    DataType portDT = getInputPort(0)->getDataType();
-    EstimatorCommon::PrimitiveWorkload workload;
-    //TODO: Replace unknown type (need to know implementation)
-    workload.operationCount[EstimatorCommon::PrimitiveOperation(EstimatorCommon::PrimitiveOpType::UNKNOWN, portDT.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT, portDT.getWidth())] = 1;
-    return workload;
-}
