@@ -120,10 +120,17 @@ CExpr Exp::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
                 "C Emit Error - Exp for Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    //TODO: Change if method other than from cmath.h is used
-    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Exp function returns a double
-
-    std::string fctnCall = "exp(" + inputExpr + ")";
+    DataType inputType = getInputPort(0)->getDataType();
+    //We are using C11, can use expf
+    DataType rtnType;
+    std::string fctnCall;
+    if(inputType.getTotalBits() <= 32){
+        rtnType = DataType(true, true, false, 32, 0, 1); //The expf function returns a float
+        fctnCall = "expf(" + inputExpr + ")";
+    }else{
+        rtnType = DataType(true, true, false, 64, 0, 1); //The exp function returns a double
+        fctnCall = "exp(" + inputExpr + ")";
+    }
 
     std::string finalExpr;
 

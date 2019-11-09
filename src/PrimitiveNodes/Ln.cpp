@@ -120,10 +120,17 @@ CExpr Ln::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                 "C Emit Error - Ln for Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    //TODO: Change if method other than from cmath.h is used
-    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Log function returns a double
-
-    std::string fctnCall = "log(" + inputExpr + ")"; //This is log base e.  log10 is log base 10
+    DataType inputType = getInputPort(0)->getDataType();
+    //We are using C11, can use logf
+    DataType rtnType;
+    std::string fctnCall;
+    if(inputType.getTotalBits() <= 32){
+        rtnType = DataType(true, true, false, 32, 0, 1); //The logf function returns a float
+        fctnCall = "logf(" + inputExpr + ")";
+    }else{
+        rtnType = DataType(true, true, false, 64, 0, 1); //The log function returns a double
+        fctnCall = "log(" + inputExpr + ")";
+    }
 
     std::string finalExpr;
 

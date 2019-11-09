@@ -120,10 +120,17 @@ CExpr Atan::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sc
                 "C Emit Error - Atan for Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    //TODO: Change if method other than from cmath.h is used
-    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Atan function returns a double
-
-    std::string fctnCall = "atan(" + inputExpr + ")";
+    DataType inputType = getInputPort(0)->getDataType();
+    //We are using C11, can use atanf
+    DataType rtnType;
+    std::string fctnCall;
+    if(inputType.getTotalBits() <= 32){
+        rtnType = DataType(true, true, false, 32, 0, 1); //The atanf function returns a float
+        fctnCall = "atanf(" + inputExpr + ")";
+    }else{
+        rtnType = DataType(true, true, false, 64, 0, 1); //The atan function returns a double
+        fctnCall = "atan(" + inputExpr + ")";
+    }
 
     std::string finalExpr;
 

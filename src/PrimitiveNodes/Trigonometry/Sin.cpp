@@ -120,10 +120,17 @@ CExpr Sin::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
                 "C Emit Error - Sin for Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    //TODO: Change if method other than from cmath.h is used
-    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Sin function returns a double
-
-    std::string fctnCall = "sin(" + inputExpr + ")";
+    DataType inputType = getInputPort(0)->getDataType();
+    //We are using C11, can use sinf
+    DataType rtnType;
+    std::string fctnCall;
+    if(inputType.getTotalBits() <= 32){
+        rtnType = DataType(true, true, false, 32, 0, 1); //The sinf function returns a float
+        fctnCall = "sinf(" + inputExpr + ")";
+    }else{
+        rtnType = DataType(true, true, false, 64, 0, 1); //The sin function returns a double
+        fctnCall = "sin(" + inputExpr + ")";
+    }
 
     std::string finalExpr;
 
@@ -143,4 +150,12 @@ Sin::Sin(std::shared_ptr<SubSystem> parent, Sin* orig) : PrimitiveNode(parent, o
 
 std::shared_ptr<Node> Sin::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Sin>(parent, this);
+}
+
+EstimatorCommon::PrimitiveWorkload Sin::getPrimitiveWorkloadEstimate() {
+    DataType portDT = getInputPort(0)->getDataType();
+    EstimatorCommon::PrimitiveWorkload workload;
+    //TODO: Replace unknown type (need to know implementation)
+    workload.operationCount[EstimatorCommon::PrimitiveOperation(EstimatorCommon::PrimitiveOpType::UNKNOWN, portDT.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT, portDT.getWidth())] = 1;
+    return workload;
 }

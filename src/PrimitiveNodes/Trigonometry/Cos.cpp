@@ -120,10 +120,17 @@ CExpr Cos::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
                 "C Emit Error - Cos for Fixed Point Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    //TODO: Change if method other than from cmath.h is used
-    DataType rtnType = DataType(true, true, false, 64, 0, 1); //The Cos function returns a double
-
-    std::string fctnCall = "cos(" + inputExpr + ")";
+    DataType inputType = getInputPort(0)->getDataType();
+    //We are using C11, can use cosf
+    DataType rtnType;
+    std::string fctnCall;
+    if(inputType.getTotalBits() <= 32){
+        rtnType = DataType(true, true, false, 32, 0, 1); //The cosf function returns a float
+        fctnCall = "cosf(" + inputExpr + ")";
+    }else{
+        rtnType = DataType(true, true, false, 64, 0, 1); //The cos function returns a double
+        fctnCall = "cos(" + inputExpr + ")";
+    }
 
     std::string finalExpr;
 
