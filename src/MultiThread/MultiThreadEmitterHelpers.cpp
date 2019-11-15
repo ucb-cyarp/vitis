@@ -1176,7 +1176,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             //Write the telemetry to the file
             //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
             //The partition number is included in the filename and is not written to the file
-            cFile << "fprintf(telemDumpFile, \"%d,%d,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
+            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
                      "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
                      "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
                      "durationTelemMisc, timeTotal);" << std::endl;
