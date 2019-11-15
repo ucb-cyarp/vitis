@@ -459,8 +459,9 @@ public:
      * @param threadDebugPrint if true, inserts print statements into the generated code which indicate the progress of the different threads as they execute
      * @param ioFifoSize the I/O FIFO size in blocks to allocate (only used for shared memory FIFO I/O)
      * @param printTelem if true, telemetry is printed
+     * @param telemDumpPrefix if not empty, specifies a file prefix into which telemetry from each compute thread is dumped
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint, int ioFifoSize, bool printTelem);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*

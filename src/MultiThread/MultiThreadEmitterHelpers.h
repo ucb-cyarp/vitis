@@ -161,8 +161,10 @@ public:
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
      * @param printTelem if true, prints telemetry on the thread's execution
+     * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
+     * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
      */
-    static void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem);
+    static void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem, std::string telemDumpFilePrefix, bool telemAvg);
 
     /**
      * @brief Get the argument portion of the C function prototype for the partition compute function
@@ -208,6 +210,8 @@ public:
 
     //Checks that the only nodes that are in the I/O partition are ThreadCrossingFIFOs or subsystems
     static bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
+
+    static void writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix, std::string designName, std::map<int, int> partitionToCPU, int ioPartitionNumber, std::string graphmlSchedFile);
 };
 
 /*! @} */

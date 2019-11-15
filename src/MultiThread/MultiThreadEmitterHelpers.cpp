@@ -829,7 +829,9 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
     makefile.close();
 }
 
-void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem){
+void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem, std::string telemDumpFilePrefix, bool telemAvg){
+    bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
+
     std::string blockIndVar = "";
 
     if(blockSize > 1) {
@@ -938,14 +940,14 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
-    if(printTelem){
+    if(collectTelem){
         cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
     }
-    if(threadDebugPrint || printTelem) {
+    if(threadDebugPrint || collectTelem) {
         cFile << "#include <stdio.h>" << std::endl;
     }
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
-    if(printTelem){
+    if(collectTelem){
         cFile << "#include \"" << fileNamePrefix << "_telemetry_helpers.h" << "\"" << std::endl;
     }
 
@@ -1079,11 +1081,20 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Insert timer init code
     double printDuration = 1; //TODO: Add option for this
 
-    if(printTelem){
+    if(collectTelem){
         cFile << "timespec_t timeResolution;" << std::endl;
         cFile << "clock_getres(CLOCK_MONOTONIC, &timeResolution);" << std::endl;
         cFile << "double timeResolutionDouble = timespecToDouble(&timeResolution);" << std::endl;
-        cFile << "printf(\"Partition " << partitionNum << " Time Resolution: %8.6e\\n\", timeResolutionDouble);" << std::endl;
+
+        if(printTelem) {
+            cFile << "printf(\"Partition " << partitionNum << " Time Resolution: %8.6e\\n\", timeResolutionDouble);" << std::endl;
+        }
+        if(!telemDumpFilePrefix.empty()){
+            cFile << "FILE* telemDumpFile = fopen(\"" << telemDumpFilePrefix << partitionNum << ".csv\", \"w\");" << std::endl;
+
+            //Write Header Row
+            cFile << "fprintf(telemDumpFile, \"TimeStamp_s,TimeStamp_ns,Rate_msps,WaitingForInputFIFOs_s,ReadingInputFIFOs_s,WaitingForComputeToFinish_s,WaitingForOutputFIFOs_s,WritingOutputFIFOs_s,Telemetry_Misc_s,TotalTime_s\\n\");" << std::endl;
+        }
         cFile << std::endl;
 
         cFile << "//Start timer" << std::endl;
@@ -1114,7 +1125,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
               << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t waitingForInputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStart);" << std::endl;
@@ -1126,7 +1137,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
     //each metric has undergone the same number of cycles
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t waitingForInputFIFOsStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStop);" << std::endl;
@@ -1144,20 +1155,48 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
         cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
-        cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
-        cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", " << std::endl;
-        cFile << "rateMSps, ";
-        cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
-        cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
-        cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
-        cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
-        cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
-        cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
+        if(printTelem) {
+            //Print the telemetry information to stdout
+            cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", " << std::endl;
+            cFile << "rateMSps, ";
+            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
+            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
+            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
+            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
+            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
+            cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
+        }
+        if(!telemDumpFilePrefix.empty()){
+            //Write the telemetry to the file
+            //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
+            //The partition number is included in the filename and is not written to the file
+            cFile << "fprintf(telemDumpFile, \"%d,%d,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
+                     "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
+                     "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
+                     "durationTelemMisc, timeTotal);" << std::endl;
+
+            //flush the file
+            cFile << "fflush(telemDumpFile);" << std::endl;
+            cFile << std::endl;
+        }
+
+        if(!telemAvg){
+            //Reset the counters for the next collection interval.
+            cFile << "startTime = waitingForInputFIFOsStart;" << std::endl;
+            cFile << "rxSamples = 0;" << std::endl;
+            cFile << "timeTotal = 0;" << std::endl;
+            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
+            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
+            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
+            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
+            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+        }
 
         cFile << "}" << std::endl;
 
@@ -1188,7 +1227,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << readFIFOExprs[i] << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t readingInputFIFOsStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStop);" << std::endl;
@@ -1208,7 +1247,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " computing ...\\n\");" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t waitingForComputeToFinishStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStart);" << std::endl;
@@ -1219,7 +1258,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize);
     cFile << call << std::endl;
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t waitingForComputeToFinishStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStop);" << std::endl;
@@ -1235,7 +1274,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                  " waiting for room in output FIFOs ...\\n\");" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
@@ -1244,7 +1283,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, true); //Include pthread_testcancel check
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
@@ -1260,7 +1299,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
               << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t writingOutputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStart);" << std::endl;
@@ -1272,7 +1311,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << writeFIFOExprs[i] << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "timespec_t writingOutputFIFOsStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStop);" << std::endl;
@@ -1287,11 +1326,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
               << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         cFile << "if(!collectTelem){" << std::endl;
         cFile << "//Reset timer after processing first samples.  Removes startup time from telemetry" << std::endl;
         cFile << "rxSamples = 0;" << std::endl;
-        cFile << "startTime;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -1308,6 +1346,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //Close loop
     cFile << "}" << std::endl;
+
+    if(!telemDumpFilePrefix.empty()){
+        cFile << "fclose(telemDumpFile);" << std::endl;
+    }
 
     cFile << "return NULL;" << std::endl;
 
@@ -1488,4 +1530,55 @@ bool MultiThreadEmitterHelpers::checkNoNodesInIO(std::vector<std::shared_ptr<Nod
     }
 
     return true;
+}
+
+void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix,
+                                                         std::string designName, std::map<int, int> partitionToCPU,
+                                                         int ioPartitionNumber, std::string graphmlSchedFile) {
+    std::string fileName = telemDumpPrefix + "telemConfig";\
+    std::cout << "Emitting JSON File: " << path << "/" << fileName << ".json" << std::endl;
+
+    std::ofstream configFile;
+    configFile.open(path+"/"+fileName+".json", std::ofstream::out | std::ofstream::trunc);
+    configFile << "{" << std::endl;
+    configFile << "\t\"name\": \"" << designName << "\"," << std::endl;
+    configFile << "\t\"ioTelemFiles\": {" << std::endl;
+    configFile << "\t\t\""<< ioPartitionNumber << "\": \"\"" << std::endl; //For now, do not pass an I/O telemetry file.  However, include the entry so that the I/O core can be extracted.  TODO: Include I/O thread telemetry
+    configFile << "\t}," << std::endl;
+    configFile << "\t\"computeTelemFiles\": {" << std::endl;
+
+    bool foundCompute = false;
+    for(auto it = partitionToCPU.begin(); it != partitionToCPU.end(); it++){
+        if(it->first != ioPartitionNumber){
+            if(foundCompute){
+                configFile << "," << std::endl;
+            }else{
+                foundCompute = true;
+            }
+
+            std::string telemFile = telemDumpPrefix + GeneralHelper::to_string(it->first) + ".csv";
+            configFile << "\t\t\"" << it->first << "\": \"" << telemFile << "\"";
+        }
+    }
+    configFile << std::endl;
+    configFile << "\t}," << std::endl;
+
+    //Include
+    configFile << "\t\"partitionToCPU\": {" << std::endl;
+    for(auto it = partitionToCPU.begin(); it != partitionToCPU.end(); it++){
+        if(it != partitionToCPU.begin()){
+            configFile << "," << std::endl;
+        }
+        configFile << "\t\t\"" << it->first << "\": \"" << it->second << "\"";
+    }
+    configFile << std::endl;
+    configFile << "\t}," << std::endl;
+    configFile << "\t\"computeTimeMetricName\": \"WaitingForComputeToFinish_s\"," << std::endl;
+    configFile << "\t\"totalTimeMetricName\": \"TotalTime_s\"," << std::endl;
+
+    configFile << "\t\"schedGraphMLFile\": \"" << graphmlSchedFile << "\"" << std::endl;
+
+    configFile << "}" << std::endl;
+
+    configFile.close();
 }

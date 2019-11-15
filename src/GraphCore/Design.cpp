@@ -3073,7 +3073,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
-                                int ioFifoSize, bool printTelem) {
+                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix) {
+
+    if(!telemDumpPrefix.empty()){
+        telemDumpPrefix = fileName+"_"+telemDumpPrefix;
+    }
 
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
@@ -3380,11 +3384,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Verify
     verifyTopologicalOrder(false); //TODO: May just work as is (unmodified from single threaded version) because FIFOs declare state and no combination path and thus are treated similarly to delays
 
+    std::string graphMLSchedFileName = "";
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
-        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-                  << "_scheduleGraph.graphml" << std::endl;
-        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph.graphml", *this);
+        graphMLSchedFileName = fileName + "_scheduleGraph.graphml";
+        std::cout << "Emitting GraphML Schedule File: " << path << "/" << graphMLSchedFileName << std::endl;
+        GraphMLExporter::exportGraphML(path + "/" + graphMLSchedFileName, *this);
     }
 
     //Analyze Partitions
@@ -3423,7 +3428,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
-            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint, printTelem);
+            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint, printTelem, telemDumpPrefix, false);
         }
     }
 
@@ -3431,10 +3436,39 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //====Emit Helpers====
     std::vector<std::string> otherCFiles;
-    if(printTelem){
+    if(printTelem || !telemDumpPrefix.empty()){
         EmitterHelpers::emitTelemetryHelper(path, fileName);
         std::string telemetryCFile = fileName + "_telemetry_helpers.c";
         otherCFiles.push_back(telemetryCFile);
+    }
+
+    if(!telemDumpPrefix.empty()){
+        std::map<int, int> partitionToCPU;
+        for(auto it = partitions.begin(); it!=partitions.end(); it++) {
+            if (partitionMap.empty()) {
+                //Default case.  Assign I/O thread to CPU0 and each thread on the
+                if (it->first == IO_PARTITION_NUM) {
+                    partitionToCPU[it->first] = 0;
+                } else {
+                    if (it->first < 0) {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Partition Requested Core " + GeneralHelper::to_string(it->first) + " which is not valid"));
+                    }
+                }
+            } else {
+                //Use the partition map
+                if (it->first == IO_PARTITION_NUM) {
+                    partitionToCPU[it->first] = partitionMap[0]; //Is always the first element and the array is not empty
+                } else {
+                    if (it->first < 0 || it->first >= partitionMap.size() - 1) {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("The partition map does not contain an entry for partition " + GeneralHelper::to_string(it->first)));
+                    }
+                    partitionToCPU[it->first] = partitionMap[it->first + 1];
+                }
+
+            }
+        }
+
+        MultiThreadEmitterHelpers::writeTelemConfigJSONFile(path, telemDumpPrefix, designName, partitionToCPU, IO_PARTITION_NUM, graphMLSchedFileName);
     }
 
     //====Emit I/O Divers====

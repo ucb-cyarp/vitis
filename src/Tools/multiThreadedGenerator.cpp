@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         std::cout << "multiThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Multi Threaded C Function" << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint> <--printTelem>" << std::endl;
+        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint> <--printTelem> <--telemDumpPrefix>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -73,6 +73,7 @@ int main(int argc, char* argv[]) {
     bool printNodeSched = false;
     bool threadDebugPrint = false;
     bool printTelem = false;
+    std::string telemDumpPrefix = "";
 
     //Check for command line parameters
     for(unsigned long i = 4; i<argc; i++){
@@ -181,6 +182,9 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Invalid command line option type: --partitionMap " << argv[i] << std::endl;
                 exit(1);
             }
+        }else if(strcmp(argv[i], "--telemDumpPrefix") == 0) {
+            i++;
+            telemDumpPrefix = argv[i];
         }else if(strcmp(argv[i],  "--emitGraphMLSched") == 0){
             emitGraphMLSched = true;
         }else if(strcmp(argv[i],  "--printSched") == 0){
@@ -246,7 +250,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
 //    try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix);
 //    }catch(std::exception& e) {
 //        std::cerr << e.what() << std::endl;
 //        return 1;
