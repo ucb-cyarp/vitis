@@ -284,8 +284,9 @@ public:
      * This function should be called by the function creating threads.  These variables should be passed to threads.
      *
      * @param cStatementQueue The C statements will be written to this queue
+     * @param core The core on which the memory should be allocated.  If -1, it is the core the current thread is running on (aligned_alloc).  Otherwise, it uses the vitis helper function
      */
-    virtual void createSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+    virtual void createSharedVariables(std::vector<std::string> &cStatementQueue, int core = -1) = 0;
 
     /**
      * @brief Emits C statements that initialize allocated variables

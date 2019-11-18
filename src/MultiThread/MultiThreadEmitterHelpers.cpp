@@ -377,6 +377,50 @@ std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, st
     return fileName+".h";
 }
 
+int MultiThreadEmitterHelpers::getCore(int parititon, const std::vector<int> &partitionMap, bool print){
+    int core = 0;
+    if(partitionMap.empty()) {
+        //Default case.  Assign I/O thread to CPU0 and each thread on the
+        if (parititon == IO_PARTITION_NUM) {
+            core = 0;
+            if(print) {
+                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
+            }
+        } else {
+            if (core < 0) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
+//                    std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
+//                    core = 0;
+            }
+
+            if(print) {
+                std::cout << "Setting Partition " << parititon << " thread to run on CPU" << core << std::endl;
+            }
+        }
+    }else{
+        //Use the partition map
+        if (parititon == IO_PARTITION_NUM) {
+            core = partitionMap[0]; //Is always the first element and the array is not empty
+            if(print) {
+                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
+            }
+        }else{
+            if(parititon < 0 || parititon >= partitionMap.size()-1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("The partition map does not contain an entry for partition " + GeneralHelper::to_string(parititon)));
+            }
+
+            core = partitionMap[parititon+1];
+            if(print) {
+                std::cout << "Setting Partition " << parititon << " thread to run on CPU" << core << std::endl;
+            }
+        }
+
+    }
+
+    return core;
+}
+
 void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
@@ -421,6 +465,8 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile << "#include <stdio.h>" << std::endl;
     cFile << "#include <errno.h>" << std::endl;
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << "#include \"" << VITIS_PLATFORM_PARAMS_NAME << ".h\"" << std::endl;
+    cFile << "#include \"" << VITIS_NUMA_ALLOC_HELPERS << ".h\"" << std::endl;
     //Include other thread headers
     for(auto it = partitions.begin(); it!=partitions.end(); it++){
         if(*it != IO_PARTITION_NUM){
@@ -447,10 +493,13 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     //For each FIFO, allocate the shared arrays
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos = it->second;
+        int srcPartition  = it->first.first;
+        int core = MultiThreadEmitterHelpers::getCore(srcPartition, partitionMap);
 
         std::vector<std::string> statements;
         for(int i = 0; i<fifos.size(); i++){
-            fifos[i]->createSharedVariables(statements);
+
+            fifos[i]->createSharedVariables(statements, core);
             fifos[i]->initializeSharedVariables(statements);
         }
 
@@ -509,37 +558,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         cFile << "}" << std::endl;
         cFile << std::endl;
         cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
-        int core = *it;
-        if(partitionMap.empty()) {
-            //Default case.  Assign I/O thread to CPU0 and each thread on the
-            if (*it == IO_PARTITION_NUM) {
-                core = 0;
-                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
-            } else {
-                if (core < 0) {
-                    throw std::runtime_error(ErrorHelpers::genErrorStr(
-                            "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
-//                    std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
-//                    core = 0;
-                }
-
-                std::cout << "Setting Partition " << *it <<  " thread to run on CPU" << core << std::endl;
-            }
-        }else{
-            //Use the partition map
-            if (*it == IO_PARTITION_NUM) {
-                core = partitionMap[0]; //Is always the first element and the array is not empty
-                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
-            }else{
-                if(*it < 0 || *it >= partitionMap.size()-1){
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("The partition map does not contain an entry for partition " + GeneralHelper::to_string(*it)));
-                }
-
-                core = partitionMap[*it+1];
-                std::cout << "Setting Partition " << *it << " thread to run on CPU" << core << std::endl;
-            }
-
-        }
+        int core = MultiThreadEmitterHelpers::getCore(*it, partitionMap, true);
         cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
         cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_" << partitionSuffix
               << ");//Set thread CPU affinity" << std::endl;
@@ -697,7 +716,8 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
         }
     }
     std::string ioFileName = fileNamePrefix+"_"+ioBenchmarkSuffix;
-    systemSrcs += ioFileName;
+    systemSrcs += ioFileName + ".c";
+    systemSrcs += " " + std::string(VITIS_NUMA_ALLOC_HELPERS) + ".c";
 
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel.c";
     std::string driverFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver.cpp";
@@ -768,7 +788,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "\n"
                                     "MAIN_FILE = benchmark_throughput_test.cpp\n"
                                     "LIB_SRCS = " + driverFileName + " #These files are not optimized. micro_bench calls the kernel runner (which starts the timers by calling functions in the profilers).  Re-ordering code is not desired\n"
-                                    "SYSTEM_SRC = " + systemSrcs + ".c";
+                                    "SYSTEM_SRC = " + systemSrcs;
                                     for(int i = 0; i<additionalSystemSrc.size(); i++){
                                         makefileContent += " " + additionalSystemSrc[i];
                                     }
@@ -1583,4 +1603,294 @@ void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::
     configFile << "}" << std::endl;
 
     configFile.close();
+}
+
+void MultiThreadEmitterHelpers::writePlatformParameters(std::string path, std::string filename, int memAlignment){
+    std::cout << "Emitting C File: " << path << "/" << filename << ".h" << std::endl;
+
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+filename+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(filename);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define VITIS_MEM_ALIGNMENT (" << memAlignment << ")" << std::endl;
+    headerFile << "#endif" << std::endl;
+
+    headerFile.close();
+}
+
+void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std::string filename){
+    std::cout << "Emitting C File: " << path << "/" << filename << ".h" << std::endl;
+
+    std::ofstream headerFile;
+    headerFile.open(path+"/"+filename+".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(filename);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
+
+    headerFile << "void* vitis_malloc_core(size_t size, int core);" << std::endl;
+    headerFile << "void* vitis__mm_malloc_core(size_t size, size_t alignment, int core);" << std::endl;
+    headerFile << "void* vitis_aligned_alloc_core(size_t alignment, size_t size, int core);" << std::endl;
+    headerFile << "void* vitis_aligned_alloc(size_t alignment, size_t size);" << std::endl;
+
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    std::ofstream cFile;
+    cFile.open(path+"/"+filename+".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#include \"" << filename << ".h\"" << std::endl;
+    cFile << "#include <mm_malloc.h>" << std::endl;
+    cFile << "#include <stdio.h>" << std::endl;
+    cFile << "#include <stdlib.h>" << std::endl;
+    cFile << "#include <string.h>" << std::endl;
+
+    cFile << "typedef struct{\n"
+             "    size_t size;\n"
+             "    size_t alignment;\n"
+             "} aligned_malloc_args_t;" << std::endl;
+    cFile << std::endl;
+
+    cFile << "#if __APPLE__\n"
+             "//Apple does not support the type of core affinity assignment we use\n"
+             "void* vitis_malloc_core(size_t size, int core){\n"
+             "    printf(\"Warning, cannot allocate on specific core on Mac\");\n"
+             "    return malloc(size);\n"
+             "}\n"
+             "\n"
+             "void* vitis__mm_malloc_core(size_t size, size_t alignment, int core){\n"
+             "    printf(\"Warning, cannot allocate on specific core on Mac\");\n"
+             "    return _mm_malloc(size, alignment);\n"
+             "}\n"
+             "\n"
+             "void* vitis_aligned_alloc_core(size_t alignment, size_t size, int core){\n"
+             "    printf(\"Warning, cannot allocate on specific core on Mac\");\n"
+             "    return vitis_aligned_alloc(alignment, size);"
+             "}\n"
+             "\n"
+             "void* vitis_aligned_alloc(size_t alignment, size_t size){\n"
+             "    printf(\"Warning, Mac does not support aligned_alloc, using posix_memalign instead)\");\n"
+             "\n"
+             "    size_t allocSize = size + (size%alignment == 0 ? 0 : alignment-(size%alignment));\n"
+             "\n"
+             "    void* ptr;\n"
+             "    int status = posix_memalign(&ptr, alignment, allocSize);\n"
+             "\n"
+             "    if(status != 0){\n"
+             "        ptr = NULL;\n"
+             "    }\n"
+             "\n"
+             "    return ptr;\n"
+             "}\n"
+             "\n"
+             "#else\n"
+             "    //Worker Threads\n"
+             "    void* vitis_malloc_core_thread(void* arg_uncast){\n"
+             "        size_t* size = (size_t*) arg_uncast;\n"
+             "\n"
+             "        void* rtnVal = malloc(*size);\n"
+             "        return rtnVal;\n"
+             "    }\n"
+             "\n"
+             "    void* vitis__mm_malloc_core_thread(void* arg_uncast){\n"
+             "        aligned_malloc_args_t* arg = (aligned_malloc_args_t*) arg_uncast;\n"
+             "        size_t size = arg->size;\n"
+             "        size_t alignment = arg->alignment;\n"
+             "\n"
+             "        void* rtnVal = _mm_malloc(size, alignment);\n"
+             "        return rtnVal;\n"
+             "    }\n"
+             "\n"
+             "    void* vitis_aligned_alloc_core_thread(void* arg_uncast){\n"
+             "        aligned_malloc_args_t* arg = (aligned_malloc_args_t*) arg_uncast;\n"
+             "        size_t size = arg->size;\n"
+             "        size_t alignment = arg->alignment;\n"
+             "\n"
+             "        size_t allocSize = size + (size%alignment == 0 ? 0 : alignment-(size%alignment));\n"
+             "\n"
+             "        //There is a condition on aligned_alloc that the size must be a\n"
+             "        //multiple of the alignment\n"
+             "        void* rtnVal = aligned_alloc(alignment, allocSize);\n"
+             "        return rtnVal;\n"
+             "    }\n"
+             "\n"
+             "    void* vitis_malloc_core(size_t size, int core){\n"
+             "        cpu_set_t cpuset;\n"
+             "        pthread_t thread;\n"
+             "        pthread_attr_t attr;\n"
+             "        void *res;\n"
+             "\n"
+             "        int status;\n"
+             "\n"
+             "        //Create pthread attributes\n"
+             "        status = pthread_attr_init(&attr);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not create pthread attributes for malloc_core ... exiting\\n\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        //Set CPU affinity\n"
+             "        CPU_ZERO(&cpuset);\n"
+             "        CPU_SET(core, &cpuset);\n"
+             "        status = pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not set thread core affinity for malloc_core ... exiting\\n\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        // - Start Thread\n"
+             "        size_t* newSize = new size_t;\n"
+             "        *newSize = size;\n"
+             "\n"
+             "        status = pthread_create(&thread, &attr, vitis_malloc_core_thread, newSize);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not create a thread for malloc_core ... exiting\\n\");\n"
+             "            errno = status;\n"
+             "            perror(NULL);\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        //Wait for thread to finish\n"
+             "        status = pthread_join(thread, &res);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not join a thread for malloc_core ... exiting\\n\");\n"
+             "            errno = status;\n"
+             "            perror(NULL);\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        delete newSize;\n"
+             "\n"
+             "        return res;\n"
+             "    }\n"
+             "\n"
+             "    void* vitis__mm_malloc_core(size_t size, size_t alignment, int core){\n"
+             "        cpu_set_t cpuset;\n"
+             "        pthread_t thread;\n"
+             "        pthread_attr_t attr;\n"
+             "        void *res;\n"
+             "\n"
+             "        int status;\n"
+             "\n"
+             "        //Create pthread attributes\n"
+             "        status = pthread_attr_init(&attr);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not create pthread attributes for malloc_core ... exiting\\n\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        //Set CPU affinity\n"
+             "        CPU_ZERO(&cpuset);\n"
+             "        CPU_SET(core, &cpuset);\n"
+             "        status = pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not set thread core affinity for malloc_core ... exiting\\n\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        // - Start Thread\n"
+             "        aligned_malloc_args_t* args = new aligned_malloc_args_t;\n"
+             "        args->size = size;\n"
+             "        args->alignment = alignment;\n"
+             "\n"
+             "        status = pthread_create(&thread, &attr, vitis__mm_malloc_core_thread, args);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not create a thread for malloc_core ... exiting\\n\");\n"
+             "            errno = status;\n"
+             "            perror(NULL);\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        //Wait for thread to finish\n"
+             "        status = pthread_join(thread, &res);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not join a thread for malloc_core ... exiting\\n\");\n"
+             "            errno = status;\n"
+             "            perror(NULL);\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        delete args;\n"
+             "\n"
+             "        return res;\n"
+             "    }\n"
+             "\n"
+             "    void* vitis_aligned_alloc_core(size_t alignment, size_t size, int core){\n"
+             "        cpu_set_t cpuset;\n"
+             "        pthread_t thread;\n"
+             "        pthread_attr_t attr;\n"
+             "        void *res;\n"
+             "\n"
+             "        int status;\n"
+             "\n"
+             "        //Create pthread attributes\n"
+             "        status = pthread_attr_init(&attr);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not create pthread attributes for aligned_alloc_core ... exiting\\n\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        //Set CPU affinity\n"
+             "        CPU_ZERO(&cpuset);\n"
+             "        CPU_SET(core, &cpuset);\n"
+             "        status = pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not set thread core affinity for aligned_alloc_core ... exiting\\n\");\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        // - Start Thread\n"
+             "        aligned_malloc_args_t* args = new aligned_malloc_args_t;\n"
+             "        args->size = size;\n"
+             "        args->alignment = alignment;\n"
+             "\n"
+             "        status = pthread_create(&thread, &attr, vitis_aligned_alloc_core_thread, args);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not create a thread for aligned_alloc_core ... exiting\\n\");\n"
+             "            errno = status;\n"
+             "            perror(NULL);\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        //Wait for thread to finish\n"
+             "        status = pthread_join(thread, &res);\n"
+             "        if(status != 0)\n"
+             "        {\n"
+             "            printf(\"Could not join a thread for aligned_alloc_core ... exiting\\n\");\n"
+             "            errno = status;\n"
+             "            perror(NULL);\n"
+             "            exit(1);\n"
+             "        }\n"
+             "\n"
+             "        delete args;\n"
+             "\n"
+             "        return res;\n"
+             "    }\n"
+             "\n"
+             "void* vitis_aligned_alloc(size_t alignment, size_t size){\n"
+             "        size_t allocSize = size + (size%alignment == 0 ? 0 : alignment-(size%alignment));\n"
+             "\n"
+             "        //There is a condition on aligned_alloc that the size must be a\n"
+             "        //multiple of the alignment\n"
+             "        void* rtnVal = aligned_alloc(alignment, allocSize);\n"
+             "        return rtnVal;\n"
+             "}\n"
+             "#endif" << std::endl;
+
+    cFile.close();
 }

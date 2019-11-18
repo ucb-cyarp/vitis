@@ -238,7 +238,7 @@ public:
 
     std::vector<std::pair<Variable, std::string>> getFIFOSharedVariables() override;
 
-    void createSharedVariables(std::vector<std::string> &cStatementQueue) override;
+    void createSharedVariables(std::vector<std::string> &cStatementQueue, int core) override;
 
     void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) override ;
 

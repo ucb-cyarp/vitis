@@ -3073,7 +3073,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
-                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix) {
+                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment) {
 
     if(!telemDumpPrefix.empty()){
         telemDumpPrefix = fileName+"_"+telemDumpPrefix;
@@ -3423,6 +3423,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //Emit FIFO header (get struct descriptions from FIFOs)
     std::string fifoHeaderName = MultiThreadEmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);
+
+    MultiThreadEmitterHelpers::writePlatformParameters(path, VITIS_PLATFORM_PARAMS_NAME, memAlignment);
+    MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(path, VITIS_NUMA_ALLOC_HELPERS);
 
     //Emit partition functions (computation function and driver function)
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){

@@ -14,6 +14,9 @@
 #include <map>
 #include <vector>
 
+#define VITIS_PLATFORM_PARAMS_NAME "vitisPlatformParams"
+#define VITIS_NUMA_ALLOC_HELPERS "vitisNumaAllocHelpers"
+
 //Forward Declare
 class Node;
 class Arc;
@@ -103,6 +106,14 @@ public:
      * @returns the filename of the header file
      */
     static std::string emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    /**
+     * @brief Get the core number for the specified partition number
+     * @param parititon
+     * @param partitionMap
+     * @return
+     */
+    static int getCore(int parititon, const std::vector<int> &partitionMap, bool print = false);
 
     /**
      * @brief Emits the benchmark kernel function for multi-threaded emit.  This includes allocating FIFOs and creating/starting threads.
@@ -212,6 +223,16 @@ public:
     static bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
 
     static void writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix, std::string designName, std::map<int, int> partitionToCPU, int ioPartitionNumber, std::string graphmlSchedFile);
+
+    /**
+     * @brief Writes a file that contains configuration info for the target platform including cache line size
+     * @param path
+     * @param filename
+     */
+    static void writePlatformParameters(std::string path, std::string filename, int memAlignment);
+
+    static void writeNUMAAllocHelperFiles(std::string path, std::string filename);
+
 };
 
 /*! @} */
