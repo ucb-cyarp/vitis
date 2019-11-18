@@ -12,8 +12,8 @@
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief GraphML Namespace String
@@ -75,6 +75,6 @@ public:
     static xercesc::DOMElement* createEncapulatedTextNode(xercesc::DOMDocument *doc, std::string name, std::string txt);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_GRAPHMLHELPER_H

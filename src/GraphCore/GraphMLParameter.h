@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a GraphML parameter which includes a key and type.
@@ -72,6 +72,6 @@ public:
     void setNodeParam(bool nodeParam);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_GRAPHMLPARAMETER_H

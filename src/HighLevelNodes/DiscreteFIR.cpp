@@ -162,10 +162,14 @@ DiscreteFIR::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNo
     return thisNode;
 }
 
+std::string DiscreteFIR::typeNameStr(){
+    return "DiscreteFIR";
+}
+
 std::string DiscreteFIR::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: DiscreteFIR\nCoefSource: " + coefSourceToString(coefSource);
+    label += "\nFunction: " + typeNameStr() + "\nCoefSource: " + coefSourceToString(coefSource);
 
     if(coefSource == CoefSource::FIXED){
         label += "\nCoefficients: " + NumericValue::toString(coefs);

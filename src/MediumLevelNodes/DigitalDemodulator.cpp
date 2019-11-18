@@ -257,10 +257,14 @@ DigitalDemodulator::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *
     return thisNode;
 }
 
+std::string DigitalDemodulator::typeNameStr(){
+    return "DigitalDemodulator";
+}
+
 std::string DigitalDemodulator::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: DigitalDemodulator\nBitsPerSymbol:" + GeneralHelper::to_string(bitsPerSymbol) +
+    label += "\nFunction: " + typeNameStr() + "\nBitsPerSymbol:" + GeneralHelper::to_string(bitsPerSymbol) +
              "\nRotation:" + GeneralHelper::to_string(rotation) +
              "\nNormalization:" + GeneralHelper::to_string(normalization) +
              "\nGrayCoded:" + GeneralHelper::to_string(grayCoded) +

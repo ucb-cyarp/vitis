@@ -13,8 +13,8 @@
  * \addtogroup BusNodes Bus Nodes
  *
  * @brief Nodes which act on buses and convert to/from buses and standard arcs
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief An abstract class for VectorFan objects
@@ -76,6 +76,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VECTORFAN_H

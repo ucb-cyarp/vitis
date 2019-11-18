@@ -87,10 +87,14 @@ xercesc::DOMElement *ReinterpretCast::emitGraphML(xercesc::DOMDocument *doc, xer
     return thisNode;
 }
 
+std::string ReinterpretCast::typeNameStr(){
+    return "ReinterpretCast";
+}
+
 std::string ReinterpretCast::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: ReinterpretCast";
+    label += "\nFunction: " + typeNameStr();
     label += "\nTgtDataType:" + tgtDataType.toString();
 
     return label;

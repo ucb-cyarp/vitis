@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief This represents a call to an external C/C++ function.  This function is treated like a black box from
@@ -205,6 +205,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override ;
@@ -237,13 +239,14 @@ public:
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
-                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                               bool includeContext) override;
 
     //TOOD: State Update
 
     //TODO: If has state -> do state update node creation like delays
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_BLACKBOX_H

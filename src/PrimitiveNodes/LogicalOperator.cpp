@@ -139,10 +139,14 @@ LogicalOperator::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gra
     return thisNode;
 }
 
+std::string LogicalOperator::typeNameStr(){
+    return "LogicalOperator";
+}
+
 std::string LogicalOperator::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: LogicalOperator\nLogicalOp:" + logicalOpToString(logicalOp);
+    label += "\nFunction: " + typeNameStr() + "\nLogicalOp:" + logicalOpToString(logicalOp);
 
     return label;
 }

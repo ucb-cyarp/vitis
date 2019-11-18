@@ -42,10 +42,14 @@ VectorFanIn::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNo
     return thisNode;
 }
 
+std::string VectorFanIn::typeNameStr(){
+    return "VectorFanIn";
+}
+
 std::string VectorFanIn::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: VectorFanIn";
+    label += "\nFunction: " + typeNameStr();
 
     return label;
 }

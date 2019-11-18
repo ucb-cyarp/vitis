@@ -147,3 +147,23 @@ unsigned long GeneralHelper::intPow(unsigned long base, unsigned long exp){
 
     return tmp;
 }
+
+bool GeneralHelper::parseBool(std::string boolStr) {
+    if(boolStr == "true" || boolStr == "True" || boolStr == "TRUE" || boolStr == "t" || boolStr == "T") {
+        return true;
+    }else if(boolStr == "false" || boolStr == "False" || boolStr == "FALSE" || boolStr == "f" || boolStr == "F") {
+        return false;
+    }else{
+        throw std::runtime_error("Could not parse bool: " + boolStr);
+    }
+}
+
+std::string GeneralHelper::getSpaces(int numSpaces){
+    std::string str;
+
+    for(int i = 0; i<numSpaces; i++){
+        str += " ";
+    }
+
+    return str;
+}

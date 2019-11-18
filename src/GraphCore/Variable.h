@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 #define VITIS_C_VAR_NAME_RE_SUFFIX "_re" ///<The suffix for the real component of C var names
 #define VITIS_C_VAR_NAME_IM_SUFFIX "_im" ///<The suffix for the imag component of C var names
@@ -27,6 +27,7 @@ protected:
     std::string name; ///<The name of the variable
     DataType dataType; ///<The DataType of the variable
     std::vector<NumericValue> initValue; ///<The Initial value of the variable
+    bool volatileVar; ///< Indicates if the variable is volatile (used for thread crossing variables)
 
 public:
     Variable();
@@ -34,6 +35,8 @@ public:
     Variable(std::string name, DataType dataType);
 
     Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue);
+
+    Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar);
 
     /**
      * @brief Get the C variable name for the real or imag component of the variable
@@ -58,9 +61,12 @@ public:
      * @param includeWidth if true, includes width for vector types in declaration (ex. int name[5]), otherwise does not (ex. int name[]).  includeArray
      * @param includeInit if true, includes an assignment to the initial value.  If not, no assignment is made in the declaration statement
      * @param includeArray if true, includes the array brackets in the declaration (int name[]), if false the array brackets are not included (int name).
+     * @param includeRef if true, includes the & after the type declaration
      * @return a C variable declaration statement
      */
-    std::string getCVarDecl(bool imag = false, bool includeWidth = false, bool includeInit = false, bool includeArray = false);
+    std::string getCVarDecl(bool imag = false, bool includeWidth = false, bool includeInit = false, bool includeArray = false, bool includeRef = false);
+
+    std::string getCPtrDecl(bool imag = false);
 
     std::string getName() const;
     void setName(const std::string &name);
@@ -68,8 +74,10 @@ public:
     void setDataType(const DataType &dataType);
     std::vector<NumericValue> getInitValue() const;
     void setInitValue(const std::vector<NumericValue> &initValue);
+    bool isVolatileVar() const;
+    void setVolatileVar(bool volatileVar);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VARIABLE_H

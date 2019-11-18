@@ -11,8 +11,8 @@
  * \addtogroup MasterNodes Master Nodes
  *
  * @brief A set of classes which represent the different boundaries of the design
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a master node in the design
@@ -34,6 +34,8 @@ public:
 
     std::set<GraphMLParameter> graphMLParameters() override;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     bool canExpand() override ;
@@ -45,6 +47,6 @@ public:
     void setIndVarName(const std::string &indVarName);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_MASTERNODE_H

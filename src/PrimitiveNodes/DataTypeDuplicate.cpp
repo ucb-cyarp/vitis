@@ -43,10 +43,14 @@ xercesc::DOMElement *DataTypeDuplicate::emitGraphML(xercesc::DOMDocument *doc, x
     return thisNode;
 }
 
+std::string DataTypeDuplicate::typeNameStr(){
+    return "DataTypeDuplicate";
+}
+
 std::string DataTypeDuplicate::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: DataTypeDuplicate";
+    label += "\nFunction: " + typeNameStr();
 
     return label;
 }

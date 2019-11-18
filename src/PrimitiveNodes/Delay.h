@@ -19,8 +19,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Delay (z^-1) Block
@@ -29,7 +29,7 @@ class Delay : public PrimitiveNode{
     friend NodeFactory;
 private:
     int delayValue; ///<The amount of delay in this node
-    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Length must match the delay value.
+    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Length must match the delay value.  The initial condition that will be presented first is at index 0
     Variable cStateVar; ///<The C variable storing the state of the dela
     Variable cStateInputVar; ///<the C temporary variable holding the input to state before the update
     //TODO: Re-evaluate if numeric value should be stored as double/complex double (like Matlab does).  An advantage to providing a class that can contain both is that there is less risk of an int being store improperly and full 64 bit integers can be represented.
@@ -95,6 +95,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override;
@@ -129,11 +131,12 @@ public:
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
-                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                               bool includeContext) override;
 
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_DELAY_H

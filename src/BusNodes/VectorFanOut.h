@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup BusNodes Bus Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A an adapter between standard arcs and bus arcs where a single bus arc is fanned-out into multiple standard arcs
@@ -79,12 +79,14 @@ public:
 
     std::string labelStr() override ;
 
+    std::string typeNameStr() override;
+
     void validate() override ;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VECTORFANOUT_H

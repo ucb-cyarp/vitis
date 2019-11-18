@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup MasterNodes Master Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents the outputs from the data flow graph
@@ -41,8 +41,10 @@ public:
     std::string getCOutputName(int portNum);
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    std::string typeNameStr() override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_MASTEROUTPUT_H

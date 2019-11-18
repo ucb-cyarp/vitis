@@ -43,10 +43,14 @@ xercesc::DOMElement *ComplexToRealImag::emitGraphML(xercesc::DOMDocument *doc, x
     return thisNode;
 }
 
+std::string ComplexToRealImag::typeNameStr(){
+    return "ComplexToRealImag";
+}
+
 std::string ComplexToRealImag::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: ComplexToRealImag";
+    label += "\nFunction: " + typeNameStr();
 
     return label;
 }

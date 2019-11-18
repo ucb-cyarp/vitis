@@ -15,6 +15,7 @@
 #include "General/TopologicalSortParameters.h"
 #include "Variable.h"
 #include "SchedParams.h"
+#include "MultiThread/ThreadCrossingFIFOParameters.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -24,9 +25,13 @@ class MasterInput;
 class MasterOutput;
 class MasterUnconnected;
 class Node;
+class SubSystem;
 class Arc;
 class ContextRoot;
 class BlackBox;
+class ContextFamilyContainer;
+class ContextContainer;
+class ThreadCrossingFIFO;
 
 //This Class
 
@@ -34,8 +39,8 @@ class BlackBox;
 * \addtogroup GraphCore Graph Core
 *
 * @brief Core Classes for Representing a Data Flow Graph
+* @{
 */
-/*@{*/
 
 /**
 * @brief Represents a Streaming DSP Flow Graph Design
@@ -230,10 +235,11 @@ public:
      * @param designName the name of the design (used when dumping a partially scheduled graph in the event an error is encountered)
      * @param dir the directory to dump any error report files into
      * @param printNodeSched if true, print the node schedule to the console
+     * @param schedulePartitions if true, each partition in the design is scheduled seperatly
      *
      * @return the number of nodes pruned (if prune is true)
      */
-    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched);
+    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched, bool schedulePartitions);
 
     /**
      * @brief Topological sort the current graph.
@@ -250,9 +256,27 @@ public:
     std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params);
 
     /**
-     * @brief Verify that the graph has topological ordering
+     * @brief Topological sort of a given partition in the the current graph.
+     *
+     * @warning This does not schedule the output node except for partition -2 (I/O)
+     *
+     * @warning This destroys the graph by removing arcs from the nodes.
+     * It is reccomended to run on a copy of the graph and to back propagate the results
+     *
+     * @param designName name of the design used in the working graph export at part of the file name
+     * @param dir location to export working graph in the event of a cycle or error
+     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
+     * @param partition the partitions
+     *
+     * @return A vector of nodes arranged in topological order
      */
-    void verifyTopologicalOrder();
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params, int partitionNum);
+
+    /**
+     * @brief Verify that the graph has topological ordering
+     * @param checkOutputMaster if true, checks the schedule state of the output master
+     */
+    void verifyTopologicalOrder(bool checkOutputMaster);
 
     /**
      * @brief Get a node by its name path
@@ -278,6 +302,17 @@ public:
      * @return a vector of input variables ordered by the input port number
      */
     std::vector<Variable> getCInputVariables();
+
+    /**
+     * @brief Get the output variables for this design
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @return a vector of input variables ordered by the input port number
+     */
+    std::vector<Variable> getCOutputVariables();
 
     /**
      * @brief Get the argument portion of the C function prototype for this design.
@@ -322,7 +357,7 @@ public:
      *
      * @return
      */
-    std::string getCInputPortStructDefn(int blockSize = 1);
+    std::string getCInputStructDefn(int blockSize = 1);
 
     /**
      * @brief Get the structure definition for the output type
@@ -373,14 +408,13 @@ public:
     /**
      * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
      * @param cFile the cFile to emit to
-     * @param nodesWithState nodes with state in the design
      * @param blockSize the size of the block (in samples) that are processed in each call to the function
      * @param indVarName the variable that specifies the index in the block that is being computed
      */
     void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, int blockSize = 1, std::string indVarName = "");
 
     /**
-     * @brief Emits the design as a single threaded C function (using the bottom-up method)
+     * @brief Emits the design as a single threaded C function
      *
      * @note Design expansion and validation should be run before calling this function
      *
@@ -393,6 +427,100 @@ public:
      * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
      */
     void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize);
+
+    /**
+     * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C
+     * function.  A function is created for each thread which includes the intra-thread scheduler.  This scheduler is
+     * responsible for calling the partition functions as appropriate.  The scheduler also has access to the input and
+     * output FIFOs for the thread and checks the inputs for the empty state and the outputs for the full state to decide
+     * if functions should be executed.  A setup function will also be created which allocates the inter-thread
+     * FIFOs, creates the threads, binds them to cores, and them starts execution.  Seperate function will be created
+     * that enqueue data onto the input FIFOs (when not full) and dequeue data off the output FIFOs (when not empty).
+     * Blocking and non-blocking variants of these functions will be created.  Benchmarking code should call the setup
+     * function then interact with the input/output FIFO functions.  This will require the use of a core.
+     *
+     * @note (For framework devloper) The conditional statement about whether or not a context excutes needs to be made in each context it exists
+     * in.
+     *
+     * @note Partitioning should have already occurred before calling this function.
+     *
+     * @note Design expansion and validation should be run before calling this function
+     *
+     * @note To avoid dead code being emitted, prune the design before calling this function
+     *
+     * @param path path to where the output files will be generated
+     * @param fileName name of the output files (.h and a .c file will be created)
+     * @param designName The name of the design (used as the function name)
+     * @param schedType Schedule type
+     * @param fifoLength the length of the FIFOs in blocks
+     * @param blockSize the block size
+     * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
+     * @param partitionMap a vector indicating the mapping of partitions to logical CPUs.  The first element is the I/O thread.  The subsequent entries are for partitions 0, 1, 2, .... If an empty array, I/O thread is placed on CPU0 and the other partitions are placed on the CPU that equals their partition number (ex. partition 1 is placed on CPU1)
+     * @param threadDebugPrint if true, inserts print statements into the generated code which indicate the progress of the different threads as they execute
+     * @param ioFifoSize the I/O FIFO size in blocks to allocate (only used for shared memory FIFO I/O)
+     * @param printTelem if true, telemetry is printed
+     * @param telemDumpPrefix if not empty, specifies a file prefix into which telemetry from each compute thread is dumped
+     */
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix);
+    //TODO: update fifoLength to be set on a per FIFO basis
+
+    /*
+     * Discover Partitions
+     *      The I/O in/out of the design needs to be handled in some way.  For now, we will probably want to keep them
+     *      in one partition.  This will allow I/O to be handled in a single thread.  Therefore, the input and output
+     *      ports should be assigned a partition.  It may be best for them to have their own partition.  OR perhaps, it
+     *      would be better for them to be in the same partition as the blocks that directly use them.  However, this
+     *      method would require I/O's impact on performance to be
+     * Discover Partition Crossings
+     * Discover Group-able Partition Crossings
+     * Insert Inter-Partition FIFOs
+     *      FIFO module will have a similar structure to a delay or latch (EnableOutput).  FIFOs are placed in the partition of the source
+     *      because of the scheduling semantics for nodes with state.  They have no explicit state update emitter as this is handled by the
+     *      core scheduler.  For now, all FIFOs
+     *      are assumed to be at the boundaries
+     * Simple re-timing
+     *      We need to do proper re-timing but, as a first step, allow delays next to a FIFO to be re-timed into it if they are the
+     *      only connection.  This works best if state update nodes are not created when the FIFOs are inserted.  TODO: check sequence.
+     * Possible needed modifications:
+     *     When creating context nodes (or expanding nodes), need to make sure they are in the same partition as their parent (except for FIFOs)
+     *     This also applied to any nodes created during expansion.
+     *          Partitioning will probably happen after expansion but it would be a good thing to include (ie. for the case when hand partitioning is performed)
+     *          TODO: perhaps modify factory functions
+     * Discover function prototypes for each partition (the I/O is the FIFO inputs)
+     *     Can likley do this with
+     * Identify which FIFOs are contained within contexts and what FIFO contains information about the context's execution mode
+     *      Note: Only FIFOs entirely within a context may not need a value.
+     *          Note: there is an optimization for inputs into a context where values do not need to be communicated to the next thread if the
+     *          downstream context is is used in is not going to execute.
+     *      For now, will assume that FIFOs to/from a context will need to be checked (with the possible exception of to enableOutput
+     *      ports which, if not considered part of the
+     * Emit the partition, replacing any FIFO output with a variable name.  Similar to Delays being split into a constant
+     *      and a state update, FIFOs are separated into a receive and send portion.  The receive partition
+     * As we had a choice in how to handle input/output FIFOs, there is also a choice in how to handle output FIFOs
+     *      Could have the FIFO check occur as part of the function or outside of the function.
+     *      For consistency with the inputs and for modularity, we will handle the output FIFOs outside of the function
+     * Create scheduler for thread
+     *      - Checks input FIFOs.  Context Dependency is respected in check
+     *      - Execute function
+     *      - Check output FIFOs for room, stall if necessary
+     *      - Enqueue outputs (for outputs that were enabled)
+     *      - Repeat
+     * Create I/O thread
+     *      - constant (benchmarking)
+     *      - file (benchmarking)
+     *      - initialized memory (benchmarking)
+     *      - socket (get 10 GbE card and another system to act as playback)
+     * Create global scheduler
+     *      - create FIFOs
+     *      - create and start threads (passing FIFOs to them)
+     *      - create and start I/O threads
+     *      - wait for I/O threads to finish or any errors
+     *
+     * TODO: Consider other FIFO access schemes:
+     *      - Input FIFO as part of function.  Stall if empty.  Requires check dependency for contexts.
+     *      - Output FIFO as part of function.  Stall if empty.
+     *      - Output FIFO as part of function.  Check for space before function executes.  Allows scheduled write to occur interleaved with computation
+     */
 
     /**
      * @brief Emits the benchmarking drivers for the design
@@ -451,7 +579,7 @@ public:
     void createEnabledOutputsForEnabledSubsysVisualization();
 
     /**
-     * @brief Discover and mark contexts for nodes in the design.
+     * @brief Discover and mark contexts for nodes in the design (ie. sets the context stack of nodes).
      *
      * Propogates enabled subsystem contexts to its nodes (and recursively to nested enabled subsystems.
      *
@@ -463,7 +591,7 @@ public:
      *     Hierarchy is discovered by tracing decending layers of the hierarchy tree based on the number of contexts
      *     a mux is in.
      *
-     * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxess
+     * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxes
      * have been handled)
      *
      * Also updates the topLevelContextRoots for discovered context nodes
@@ -473,12 +601,15 @@ public:
 
     /**
      * @brief Encapsulate contexts inside ContextContainers and ContextFamilyContainers for the purpose of scheduling
+     * and inter-thread dependency handling for contexts
      *
      * Nodes should exist in the lowest level context they are a member of.
      *
      * Also moves the context roots for the ContextFamilyContainers inside the ContextFamilyContainer
      */
     void encapsulateContexts();
+
+    void propagatePartitionsFromSubsystemsToChildren();
 
     /**
      * @brief Discovers nodes with state in the design and creates state update nodes for them.
@@ -495,8 +626,9 @@ public:
      * from the mux and will therefore cause the node to not be included in the mux context even if it should be.  It
      * is therefore reccomended to insert the state update nodes after context discovery but before scheduling
      *
+     * @param includeContext if true, the state update node is included in the same context (and partition) as the root node
      */
-    void createStateUpdateNodes();
+    void createStateUpdateNodes(bool includeContext = false);
 
     /**
      * @brief Discovers contextRoots in the design and creates ContextVariableUpdate update nodes for them.
@@ -505,8 +637,9 @@ public:
      * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
      * when the next state update variable is assigned).
      *
+     * @param includeContext if true, inserts the new contect varaible update nodes into the subcontext they reside in, otherwise does not (handled in a later step)
      */
-    void createContextVariableUpdateNodes();
+    void createContextVariableUpdateNodes(bool includeContext = false);
 
     /**
      * @brief Find nodes with state in the design
@@ -531,6 +664,68 @@ public:
      * @return a vector of BlackBox nodes in the design
      */
     std::vector<std::shared_ptr<BlackBox>> findBlackBoxes();
+
+    /**
+     * @brief Discovers partitions in the design and the nodes that are in each partition
+     *
+     * @note: Subsystems may not have a valid partition.  Partition -1 indicates that the node has not been placed in a
+     * partition.
+     *
+     * @warning: Standard subsystems in partition -1 are not returned in the map
+     *
+     * @return A map of partitions to vectors of nodes in that partition
+     */
+    std::map<int, std::vector<std::shared_ptr<Node>>> findPartitions();
+
+    /**
+     * @brief Discovers directional crossings between nodes in different partitions
+     *
+     * This can be used to discover where inter-partition FIFOs are needed.
+     *
+     * @note: Not all inter-partition FIFOs need to be checked at all times.  For instance, if an enabled subsystem is
+     * split between partitions, the FIFOs within the enabled subsystem may be empty for some cycles.  However, the
+     * EnableOutput ports need to know that the subsystem was not enabled so that they can emit the last value.  One
+     * method to alleviate this is to have a separate FIFO which caries information about whether or not the enabled
+     * subsystem executed.  If it was, the scheduler needs to wait for data on the subsystem FIFOs.  If not, it can
+     * proceed.
+     *
+     * Another special case to note is that a partitioned enabled subsystem may not have EnabledOutput ports in each
+     * partition.  For instance, you can imagine an Enabled Subsystem being split into 3 partitions 1, 2, and 3 with the
+     * inputs occurring in partition 1, and outputs occurring in partition 3, with paths running from 1->2 and 2->3.  Even
+     * though the compute graph may not explicitally indicate the need for an arc from 1->2 indicating that the enabled
+     * subsystem was active or not, one should be included anyway for the scheduler's benifit.  (The arc may exist in
+     * the compute graph as a order constraint arc).
+     *
+     * The same issue exists for the mux contexts where a context may or may not execute.  The scheduler needs to know
+     * about this.
+     *
+     * In general, the conditional statements for contexts need to be run in each partition they are present in.  This
+     * may be inside the partition function itself an may not be expicitally handled by the scheduler.  The scheduler needs
+     * to be aware of whether or not a context executes to decide if it needs to wait on data on particular FIFOs.  An
+     * alternate to this is for the cross parition boundaries to be
+     *
+     * @warning: This function searches both direct and order constraint arcs.  This function may return crossings that do
+     * not effectively exist because of these order constraints (ex. order constraint for state update).  It is advisable
+     * to use this function before
+     *
+     * @param checkForToFromNoPartition if true, checks for arcs going to/from nodes in partition -1 and throws an error if this is encountered.  Arcs between 2 nodes in partition -1 will not cause an error
+     *
+     * @return A map of vectors which contain the arcs that go from the nodes in one partition to nodes in another partition.
+     */
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> getPartitionCrossings(bool checkForToFromNoPartition = true);
+
+    /**
+     * @brief Discovers partition crossing arcs that can be grouped together
+     *
+     * There may be cases where multiple arcs from a node in 1 partition go to several nodes inside of another
+     * parition.  Instead of creating a FIFO for each arc, a single FIFO should be created with the fanout occuring within
+     * the second parition.  This function finds arcs which can be combined into single FIFOs in this manner.
+     *
+     * @param checkForToFromNoPartition if true, checks for arcs going to/from nodes in partition -1 and throws an error if this is encountered.  Arcs between 2 nodes in partition -1 will not cause an error
+     *
+     * @return A map of vectors which contain groups arcs that go from the nodes in one partition to nodes in another partition.  Groups can contain one or several arcs
+     */
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> getGroupableCrossings(bool checkForToFromNoPartition = true);
 
     //TODO: Validate that mux contexts do not contain state elements
 
@@ -561,8 +756,11 @@ public:
      * be a single rewired arc for several original arcs.  In this case, the same ptr to the rewired arc will be returned
      * for each of the corresponding original arcs.
      *
+     * Arcs that are drivers of context roots may be re-wired into multiple arc to ContextFamilyContainers since a given
+     * context has a ContextFamilyContainer for each partition it is present in.
+     *
      * @note This function does not actually rewire existing arcs but creates a new arcs representing how the given
-     * arcs should be rewired.  The two returned vectors have a 1-1 relationship between an arc to be rewired and an arc
+     * arcs should be rewired.  The two returned vectors have a 1-many relationship between an arc to be rewired and the arcs
      * representing the result of that rewiring.  To rewire, simply disconnect the arcs from the origArcs vector.  The
      * arcs returned in contextArcs are already added to the design.
      *
@@ -570,9 +768,38 @@ public:
      * or not a context should be scheduled in the next iteration of the scheduler
      *
      */
-    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::shared_ptr<Arc>> &contextArcs);
+    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::vector<std::shared_ptr<Arc>>> &contextArcs);
+
+    /**
+     * @brief Gets the ContextFamilyContainer for the provided context root if one exists (is in the ContextRoot's map of ContextFamilyContainers).
+     *
+     * If the ContextFamilyContainer does not exist for the given partition, one is created and is added to the ContextRoot's map of ContextFamilyContainers.
+     * The existing ContextFamilyContainers for the given ContextRoot have their sibling maps updated.  The new ContextFamilyContainer has its sibling map set
+     * to include all other ContextFamilyContainers belonging to the given ContextRoot
+     *
+     * When the ContextFamilyContainer is created, an order constraint arc from the context driver is created.  This ensures that the context driver
+     * will be available in each partition that the context resides in (so long as FIFO insertion occurs after this point).
+     *
+     * @warning The created ContextFamilyContainer does not have its parent set.  This needs to be performed outside of this helper function
+     *
+     * @param contextRoot
+     * @param partition
+     * @return
+     */
+    std::shared_ptr<ContextFamilyContainer> getContextFamilyContainerCreateIfNotNoParent(std::shared_ptr<ContextRoot> contextRoot, int partition);
+
+    std::set<int> listPresentPartitions();
+
+    /**
+     * @brief This searches the graph for subsystems which have no children (either because they were empty or all of their children had been moved) and can be removed.  Upon removal, it parent subsystem is also checked
+     *
+     * Note, subsystems that are context roots are not removed
+     *
+     * @return
+     */
+    void cleanupEmptyHierarchy(std::string reason);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_DESIGN_H

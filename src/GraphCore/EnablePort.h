@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief The representation of an enable node's enable port
@@ -59,6 +59,6 @@ public:
     bool hasInternalFanout(bool imag) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEPORT_H

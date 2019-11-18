@@ -15,8 +15,8 @@
  * @brief Expandable to primitives and may have multiple implementation possibilities
  *
  * A Convenience For Referring to a Common Structure
- */
-/*@{*/
+ * @{
+*/
 
 class TappedDelay : public HighLevelNode {
     friend NodeFactory;
@@ -98,6 +98,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override ;
@@ -106,6 +108,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_TAPPEDDELAY_H

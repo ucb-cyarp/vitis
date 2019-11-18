@@ -122,3 +122,15 @@ CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue
     //Return the temporary var
     return CExpr(stateInputVar.getCVarName(imag), true);
 }
+
+std::string ContextVariableUpdate::typeNameStr(){
+    return "ContextVariableUpdate";
+}
+
+std::string ContextVariableUpdate::labelStr(){
+    std::string label = Node::labelStr();
+
+    label += "\nFunction: " + typeNameStr();
+
+    return label;
+}

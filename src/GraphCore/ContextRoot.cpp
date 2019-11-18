@@ -45,10 +45,33 @@ void ContextRoot::addContextVariableUpdateNode(std::shared_ptr<ContextVariableUp
     contextVariableUpdateNodes.push_back(contextVariableUpdateNode);
 }
 
-std::shared_ptr<ContextFamilyContainer> ContextRoot::getContextFamilyContainer() const {
-    return contextFamilyContainer;
+std::map<int, std::shared_ptr<ContextFamilyContainer>> ContextRoot::getContextFamilyContainers() const {
+    return contextFamilyContainers;
 }
 
-void ContextRoot::setContextFamilyContainer(const std::shared_ptr<ContextFamilyContainer> &contextFamilyContainer) {
-    ContextRoot::contextFamilyContainer = contextFamilyContainer;
+void ContextRoot::setContextFamilyContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &contextFamilyContainers) {
+    ContextRoot::contextFamilyContainers = contextFamilyContainers;
+}
+
+std::map<int, std::vector<std::shared_ptr<Arc>>> ContextRoot::getContextDriversPerPartition() const {
+    return contextDriversPerPartition;
+}
+
+void ContextRoot::setContextDriversPerPartition(
+        const std::map<int, std::vector<std::shared_ptr<Arc>>> &contextDriversPerPartition) {
+    ContextRoot::contextDriversPerPartition = contextDriversPerPartition;
+}
+
+std::vector<std::shared_ptr<Arc>> ContextRoot::getContextDriversForPartition(int partitionNum) const {
+    auto contextDrivers = contextDriversPerPartition.find(partitionNum);
+    if(contextDrivers == contextDriversPerPartition.end()){
+        return std::vector<std::shared_ptr<Arc>>();
+    }else{
+        return contextDrivers->second;
+    }
+}
+
+void ContextRoot::addContextDriverArcsForPartition(std::vector<std::shared_ptr<Arc>> drivers, int partitionNum){
+    //Note that map[] returns a reference so direct insertion should be possible
+    contextDriversPerPartition[partitionNum].insert(contextDriversPerPartition[partitionNum].end(), drivers.begin(), drivers.end());
 }

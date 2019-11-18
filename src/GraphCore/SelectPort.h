@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief The representation of a mux node's select port
@@ -60,6 +60,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SELECTPORT_H

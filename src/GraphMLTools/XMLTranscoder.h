@@ -12,8 +12,8 @@
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief This class is used to transcode text from a std::string to an XML string
@@ -56,6 +56,6 @@ public:
  */
 #define TranscodeToXMLCh(str) XMLTranscoder(str).xmlch()
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_XMLTRANSCODER_H

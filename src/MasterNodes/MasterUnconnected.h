@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup MasterNodes Master Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents unconnected ports in the dataflow graph
@@ -29,8 +29,10 @@ protected:
 public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
+    std::string typeNameStr() override;
 };
 
-/*@}*/
+
+/*! @} */
 
 #endif //VITIS_MASTERUNCONNECTED_H

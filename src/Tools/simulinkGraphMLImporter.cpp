@@ -43,12 +43,12 @@ int main(int argc, char* argv[]) {
     design->assignArcIDs();
 
     //Export
-    try{
+//    try{
         GraphMLExporter::exportGraphML(outputFilename, *design);
-    }catch(std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    }
+//    }catch(std::exception& e) {
+//        std::cerr << e.what() << std::endl;
+//        return 1;
+//    }
 
     return 0;
 }

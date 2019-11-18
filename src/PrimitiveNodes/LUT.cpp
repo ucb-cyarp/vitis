@@ -372,10 +372,14 @@ void LUT::validate() {
 
 }
 
+std::string LUT::typeNameStr(){
+    return "LUT";
+}
+
 std::string LUT::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: LUT\nInterpMethod:" + interpMethodToString(interpMethod) + "\nExtrapMethod: " + extrapMethodToString(extrapMethod) + "\nSearchMethod: " + searchMethodToString(searchMethod) + "\nTable: " + NumericValue::toString(tableData);
+    label += "\nFunction: " + typeNameStr() + "\nInterpMethod:" + interpMethodToString(interpMethod) + "\nExtrapMethod: " + extrapMethodToString(extrapMethod) + "\nSearchMethod: " + searchMethodToString(searchMethod) + "\nTable: " + NumericValue::toString(tableData);
 
     unsigned long dimension = breakpoints.size();
     for(unsigned long i = 1; i<=dimension; i++){

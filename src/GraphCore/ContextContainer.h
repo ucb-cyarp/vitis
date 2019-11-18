@@ -13,8 +13,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A container class used to contain nodes within a context.
@@ -72,8 +72,12 @@ public:
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
+    std::string typeNameStr() override;
+
+    std::string labelStr() override ;
+
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTCONTAINER_H

@@ -14,8 +14,8 @@
  * \addtogroup BusNodes Bus Nodes
  *
  * @brief Nodes which act on buses and convert to/from buses and standard arcs
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief An abstract class for Vector Concatenate objects
@@ -80,6 +80,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override ;
@@ -88,5 +90,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_CONCATENATE_H

@@ -17,8 +17,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a reinterpret cast between data types.  This is not a true datatype conversion but rather a cast
@@ -87,6 +87,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     //==== Propagation/Validation ====
@@ -112,6 +114,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_REINTERPRETCAST_H

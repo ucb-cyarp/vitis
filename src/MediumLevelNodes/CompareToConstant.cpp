@@ -205,10 +205,14 @@ xercesc::DOMElement *CompareToConstant::emitGraphML(xercesc::DOMDocument *doc, x
     return thisNode;
 }
 
+std::string CompareToConstant::typeNameStr(){
+    return "CompareToConstant";
+}
+
 std::string CompareToConstant::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: CompareToConstant\nCompareOp: " + Compare::compareOpToString(compareOp) + "\nCompareConst:" + NumericValue::toString(compareConst);
+    label += "\nFunction: " + typeNameStr() + "\nCompareOp: " + Compare::compareOpToString(compareOp) + "\nCompareConst:" + NumericValue::toString(compareConst);
 
     return label;
 }

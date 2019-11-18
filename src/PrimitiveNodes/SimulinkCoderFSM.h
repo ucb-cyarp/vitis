@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief This handles the special case of importing Simulink Coder Generated Stateflow FSMs
@@ -90,11 +90,11 @@ public:
 
     std::set<GraphMLParameter> graphMLParameters() override;
 
-
+    std::string typeNameStr() override;
 
 };
 
-/*@}*/
+/*! @} */
 
 
 #endif //VITIS_SIMULINKCODERFSM_H

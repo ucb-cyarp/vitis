@@ -25,7 +25,10 @@ Compare::CompareOp Compare::parseCompareOpString(std::string str) {
         return CompareOp::GEQ;
     }else if(str == "=="){
         return CompareOp::EQ;
-    }else if(str == "!="){
+    }else if(str == "!=") {
+        return CompareOp::NEQ;
+    }else if(str == "~="){
+        //This is to support Matlab Syntax
         return CompareOp::NEQ;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Compare Operator Unsupported: " + str));
@@ -115,10 +118,14 @@ Compare::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, 
     return thisNode;
 }
 
+std::string Compare::typeNameStr(){
+    return "Compare";
+}
+
 std::string Compare::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Compare\nCompareOp:" + compareOpToString(compareOp);
+    label += "\nFunction: " + typeNameStr() + "\nCompareOp:" + compareOpToString(compareOp);
 
     return label;
 }

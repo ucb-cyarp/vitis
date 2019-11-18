@@ -24,10 +24,14 @@ xercesc::DOMElement *EnableInput::emitGraphML(xercesc::DOMDocument *doc, xercesc
     return thisNode;
 }
 
+std::string EnableInput::typeNameStr(){
+    return "Enable Input";
+}
+
 std::string EnableInput::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Enable Input";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }

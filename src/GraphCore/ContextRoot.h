@@ -15,21 +15,23 @@
 
 //class Node;
 
+//Forward declaration
 class ContextFamilyContainer;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A class containing information and helper methods for nodes that create contexts
  */
 class ContextRoot {
-private:
+protected:
     std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
-    std::shared_ptr<ContextFamilyContainer> contextFamilyContainer; ///<The corresponding context family container (if it exists) for this ContextRoot
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers; ///<The corresponding context family containers (if any exists) for this ContextRoot
+    std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition; ///< Contains a map of context driver arcs to indvidual partitions (may be different arcs for each partiton).  Likley set in the encapsulateContexts method
 
 public:
     /**
@@ -75,8 +77,27 @@ public:
      */
     virtual std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() = 0;
 
-    std::shared_ptr<ContextFamilyContainer> getContextFamilyContainer() const;
-    void setContextFamilyContainer(const std::shared_ptr<ContextFamilyContainer> &contextFamilyContainer);
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> getContextFamilyContainers() const;
+    void setContextFamilyContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &contextFamilyContainers);
+
+    std::map<int, std::vector<std::shared_ptr<Arc>>> getContextDriversPerPartition() const;
+
+    void
+    setContextDriversPerPartition(const std::map<int, std::vector<std::shared_ptr<Arc>>> &contextDriversPerPartition);
+
+    /**
+     * @brief Gets the context driver arc for a particular partition
+     * @param partitionNum
+     * @return The context driver arc going to partition=parititionNum.  If no such arc exists, an empty vector is returned
+     */
+    std::vector<std::shared_ptr<Arc>> getContextDriversForPartition(int partitionNum) const;
+
+    /**
+     * @brief Add a set of context driver arcs to the ContextDriversForPartition map
+     * @param drivers the drivers to add
+     * @param partitionNum the partition to add to
+     */
+    void addContextDriverArcsForPartition(std::vector<std::shared_ptr<Arc>> drivers, int partitionNum);
 
     //==== Emit Functions ====
 
@@ -128,8 +149,9 @@ public:
      * @param cStatementQueue The current cStatement queue.  Will be modified by the call to this function
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
+     * @param partitionNum the partition under which this context is being opened
      */
-    virtual void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
+    virtual void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) = 0;
 
     /**
      * @brief Emits the statement to open a context.  This function should be called subsequent times contexts in this family are emitted (ie. when an 'else if' statement is used)
@@ -137,7 +159,7 @@ public:
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
+    virtual void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) = 0;
 
     /**
      * @brief Emits the statement to open a context.  This function should be called when the last context in this family is emitted (ie. when an 'else' or 'default' statement is used)
@@ -145,7 +167,7 @@ public:
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
+    virtual void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) = 0;
 
     /**
      * @brief Emits the statement to close a context.  This function should be called the first time a context in this family is closed (ie. when an 'if' or 'switch' statement is used)
@@ -153,7 +175,7 @@ public:
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
+    virtual void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNumber) = 0;
 
     /**
      * @brief Emits the statement to close a context.  This function should be called subsequent times contexts in this family are closed (ie. when an 'else if' statement is used)
@@ -161,7 +183,7 @@ public:
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
+    virtual void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) = 0;
 
     /**
      * @brief Emits the statement to open a context.  This function should be called when the last context in this family is emitted (ie. when an 'else' or 'default' statement is used)
@@ -169,10 +191,10 @@ public:
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
      * @param subContextNumber the sub-context being emitted
      */
-    virtual void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) = 0;
+    virtual void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) = 0;
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTROOT_H

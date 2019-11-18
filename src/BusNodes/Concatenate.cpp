@@ -47,10 +47,14 @@ Concatenate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNo
     return thisNode;
 }
 
+std::string Concatenate::typeNameStr(){
+    return "Concatenate";
+};
+
 std::string Concatenate::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Concatenate";
+    label += "\nFunction: " + typeNameStr();
 
     return label;
 }

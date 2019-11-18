@@ -142,10 +142,14 @@ xercesc::DOMElement *DataTypeConversion::emitGraphML(xercesc::DOMDocument *doc, 
     return thisNode;
 }
 
+std::string DataTypeConversion::typeNameStr(){
+    return "DataTypeConversion";
+}
+
 std::string DataTypeConversion::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: DataTypeConversion\nInheritType:" + DataTypeConversion::inheritTypeToString(inheritType);
+    label += "\nFunction: " + typeNameStr() + "\nInheritType:" + DataTypeConversion::inheritTypeToString(inheritType);
 
     //Include TgtDataType only if inheritType is SPECIFIED
     if(inheritType == InheritType::SPECIFIED){

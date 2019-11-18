@@ -52,6 +52,20 @@ bool Context::isEqOrSubContext(std::vector<Context> a, std::vector<Context> b){
     return true;
 }
 
+bool Context::isEqContext(std::vector<Context> a, std::vector<Context> b){
+    if(a.size() != b.size()){
+        return false;
+    }
+
+    for(unsigned long i = 0; i<a.size(); i++){
+        if(a[i] != b[i]){
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool Context::operator<(const Context &rhs) const {
     if (contextRoot < rhs.contextRoot)
         return true;

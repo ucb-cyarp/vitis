@@ -9,8 +9,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a special input port at the interface of an enabled subsystem.
@@ -58,6 +58,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     /**
@@ -82,6 +84,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEINPUT_H

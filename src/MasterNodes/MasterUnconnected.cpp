@@ -16,3 +16,7 @@ MasterUnconnected::MasterUnconnected(std::shared_ptr<SubSystem> parent, MasterNo
 std::shared_ptr<Node> MasterUnconnected::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<MasterUnconnected>(parent, this);
 }
+
+std::string MasterUnconnected::typeNameStr(){
+    return "Master Unconnected";
+}

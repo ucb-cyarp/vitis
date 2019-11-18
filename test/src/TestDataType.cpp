@@ -240,5 +240,5 @@ TEST(DataType, toStringC) {
     ASSERT_EQ(uint64Type.toString(DataType::StringStyle::C), "uint64_t");
 
     DataType boolType = DataType("boolean", false);
-    ASSERT_EQ(boolType.toString(DataType::StringStyle::C), "bool");
+    ASSERT_EQ(boolType.toString(DataType::StringStyle::C), "vitisBool_t");
 }

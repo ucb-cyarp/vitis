@@ -13,8 +13,8 @@ class EnabledSubSystem;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Sub-system within the flow graph.
@@ -86,6 +86,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     bool canExpand() override;
@@ -143,6 +145,6 @@ public:
                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SUBSYSTEM_H

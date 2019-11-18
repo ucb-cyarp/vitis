@@ -12,8 +12,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Simulink Multi-port Switch
@@ -119,6 +119,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     //Check of ONE_BASED that number of bits >1 if integer
@@ -127,6 +129,6 @@ public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SIMULINKMULTIPORTSWITCH_H

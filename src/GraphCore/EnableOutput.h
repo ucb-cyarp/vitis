@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a special output port at the interface of an enabled subsystem.
@@ -79,8 +79,9 @@ public:
                                                     std::map<std::string, std::string> dataKeyValueMap,
                                                     std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
-    std::string labelStr() override ;
+    std::string typeNameStr() override;
 
+    std::string labelStr() override ;
 
     /**
      * @brief Validate if the connections to this port are correct.
@@ -111,7 +112,8 @@ public:
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
-                               std::vector<std::shared_ptr<Arc>> &deleted_arcs) override;
+                               std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                               bool includeContext) override;
 
     /**
      * @brief Generate the C expression for the EnableOutput
@@ -150,6 +152,6 @@ public:
     void setInitCondition(const std::vector<NumericValue> &initCondition);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEOUTPUT_H

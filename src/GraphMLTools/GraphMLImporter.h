@@ -22,8 +22,8 @@ class EnableOutput;
  * \addtogroup GraphMLTools GraphML Import/Export Tools
  *
  * @brief A set of classes which handle the import/export of a design from/to a GraphML file.
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Contains logic for importing a GraphML description of a Simulink Design
@@ -120,6 +120,19 @@ private:
      * @return A pointer to the newly created Standard node
      */
     static std::shared_ptr<Node> importStateflowNode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    /**
+     * @brief Imports a ThreadCrossingFIFO GraphML block
+     *
+     * @note This method does not add the new node to either the design or the name/node map.
+     *
+     * @param id The id of the node
+     * @param dataKeyValueMap The map of key/value pairs for node parameters
+     * @param parent The parent Node object for the current position in the DOM
+     * @param dialect The dialect of the GraphML file being imported
+     * @return A pointer to the newly created Standard node
+     */
+    static std::shared_ptr<Node> importThreadCrossingFIFONode(std::string id, std::map<std::string, std::string> dataKeyValueMap, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
 //    /**
 //     * @brief Imports a Generic BlackBox GraphML block
@@ -220,6 +233,6 @@ public:
     static void importNodePortNames(std::shared_ptr<Node> node, std::map<std::string, std::string> dataKeyValueMap, GraphMLDialect dialect);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SIMULINKGRAPHMLIMPORTER_H

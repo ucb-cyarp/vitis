@@ -161,7 +161,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 }
 
 void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std::shared_ptr<SubSystem> moveUnder,
-                                          std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix) {
+                                          std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix, int overridePartition) {
 
     //==== Discover Herarechy ====
     std::shared_ptr<SubSystem> moveUnderParent = moveUnder->getParent();
@@ -189,6 +189,7 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
         std::string searchingFor = subsystemStack[ind]->getName();
         std::string searchingForWSuffix = searchingFor+moveSuffix;
 
+        //TODO: Refactor to not use name.  Perhaps keep a map of old subsystems to new ones when this is used
         //search through nodes within the cursor
         std::set<std::shared_ptr<Node>> cursorChildren = cursorDown->getChildren();
         std::shared_ptr<SubSystem> tgtSubsys = nullptr;
@@ -204,6 +205,7 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
         if(tgtSubsys == nullptr){
             std::shared_ptr<SubSystem> newSubsys = NodeFactory::createNode<SubSystem>(cursorDown);
             newSubsys->setName(searchingForWSuffix);
+            newSubsys->setPartitionNum(subsystemStack[ind]->getPartitionNum());
             newNodes.push_back(newSubsys);
             tgtSubsys = newSubsys;
         }
@@ -274,8 +276,39 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
     return foundNodes;
 }
 
+std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch, int partitionNum){
+    std::vector<std::shared_ptr<Node>> foundNodes;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        if(GeneralHelper::isType<Node, ContextFamilyContainer>(nodesToSearch[i]) != nullptr && nodesToSearch[i]->getPartitionNum() == partitionNum){//Check this first because ContextFamilyContainer are SubSystems
+            foundNodes.push_back(nodesToSearch[i]); //Do not recurse
+        }else if(GeneralHelper::isType<Node, SubSystem>(nodesToSearch[i]) != nullptr){ //Do not check for partition in subsystem
+            std::shared_ptr<SubSystem> subSystem = std::static_pointer_cast<SubSystem>(nodesToSearch[i]);
+            //Only add the subsystem if it is in the correct partition
+            if(subSystem->getPartitionNum() == partitionNum) {
+                foundNodes.push_back(subSystem);
+            }
+            //We will still search below subsystems of a different partition in case a subsystem is mixed (not guarenteed to be seperate like ContextFamilyContainers)
+            std::set<std::shared_ptr<Node>> childrenSetPtrOrder = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+            childrenSet.insert(childrenSetPtrOrder.begin(), childrenSetPtrOrder.end());
+            std::vector<std::shared_ptr<Node>> childrenVector;
+            childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
+
+            std::vector<std::shared_ptr<Node>> moreFoundNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector, partitionNum);
+            foundNodes.insert(foundNodes.end(), moreFoundNodes.begin(), moreFoundNodes.end());
+        }else if(nodesToSearch[i]->getPartitionNum() == partitionNum){
+            foundNodes.push_back(nodesToSearch[i]);
+        }
+    }
+
+    return foundNodes;
+}
+
 std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(TopologicalSortParameters parameters,
                                                                          std::vector<std::shared_ptr<Node>> nodesToSort,
+                                                                         bool limitRecursionToPartition,
+                                                                         int partition,
                                                                          std::vector<std::shared_ptr<Arc>> &arcsToDelete,
                                                                          std::shared_ptr<MasterOutput> outputMaster,
                                                                          std::shared_ptr<MasterInput> inputMaster,
@@ -367,6 +400,12 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
         if(GeneralHelper::isType<Node, ContextFamilyContainer>(to_sched) != nullptr){
             std::shared_ptr<ContextFamilyContainer> familyContainer = std::static_pointer_cast<ContextFamilyContainer>(to_sched);
 
+            //The context family container is now explicitally included in the schedule since
+            //additional arcs from the context drivers are created to the context family containers as part of
+            //multithreaded emit
+
+            schedule.push_back(to_sched);
+
             //Recursively schedule the nodes in this ContextContainerFamily
             //Schedule the subcontexts first
 
@@ -378,28 +417,48 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 std::vector<std::shared_ptr<Node>> childrenVector;
                 childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
-                std::vector<std::shared_ptr<Node>> nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+                std::vector<std::shared_ptr<Node>> nextLvlNodes;
+                if(limitRecursionToPartition){
+                    nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector, partition);
+                }else {
+                    nextLvlNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+                }
 
-                std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(parameters, nextLvlNodes, arcsToDelete, outputMaster, inputMaster, terminatorMaster, unconnectedMaster, visMaster);
+                std::vector<std::shared_ptr<Node>> subSched = GraphAlgs::topologicalSortDestructive(parameters,
+                                                                     nextLvlNodes, limitRecursionToPartition, partition,
+                                                                     arcsToDelete, outputMaster, inputMaster,
+                                                                     terminatorMaster, unconnectedMaster, visMaster);
                 //Add to schedule
                 schedule.insert(schedule.end(), subSched.begin(), subSched.end());
             }
 
             //Schedule the contextRoot
             std::shared_ptr<ContextRoot> contextRoot = familyContainer->getContextRoot();
+            bool schedContextRoot = true;
+            if(limitRecursionToPartition){
+                std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+                if(contextRootAsNode) {
+                    schedContextRoot = (contextRootAsNode->getPartitionNum() == partition);
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to cast a ContextRoot to a Node"));
+                }
+            }
 
-            if(contextRoot == nullptr){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to schedule a ContextRoot that is null"));
-            }else if(GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr){
-                //The context root is a mux, we just schedule this
-                schedule.push_back(GeneralHelper::isType<ContextRoot, Mux>(contextRoot)); //Schedule the Mux node (context root)
-                //Should not require finding more candidate nodes since any arc to/from it should be elevated to the ContextFamilyContainer
+            if(schedContextRoot) {
+                if (contextRoot == nullptr) {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to schedule a ContextRoot that is null"));
+                } else if (GeneralHelper::isType<ContextRoot, Mux>(contextRoot) != nullptr) {
+                    //The context root is a mux, we just schedule this
+                    schedule.push_back(GeneralHelper::isType<ContextRoot, Mux>(contextRoot)); //Schedule the Mux node (context root)
+                    //Should not require finding more candidate nodes since any arc to/from it should be elevated to the ContextFamilyContainer
 //                std::set<std::shared_ptr<Node>> moreCandidateNodes = std::dynamic_pointer_cast<Mux>(contextRoot)->getConnectedOutputNodes();
 //                candidateNodes.insert(moreCandidateNodes.begin(), moreCandidateNodes.end());
-            }else if(GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr){
-                //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
-            }else{
-                throw std::runtime_error(ErrorHelpers::genErrorStr("When scheduling, a context root was encountered which is not yet implemented"));
+                } else if (GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr) {
+                    //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
+                } else {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr(
+                            "When scheduling, a context root was encountered which is not yet implemented"));
+                }
             }
 
         }else{//----End node is a ContextContainerFamily----
@@ -429,13 +488,16 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
         std::cerr << ErrorHelpers::genErrorStr("Topological Sort: Cycle Encountered.  Candidate Nodes: ") << discoveredNodes.size() << std::endl;
         for(auto it = discoveredNodes.begin(); it != discoveredNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
-            std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
+            std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(true) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
             std::set<std::shared_ptr<Node>> connectedInputNodesPtrOrder = candidateNode->getConnectedInputNodes();
             std::set<std::shared_ptr<Node>> connectedInputNodes; //Order by ID for output
             connectedInputNodes.insert(connectedInputNodesPtrOrder.begin(), connectedInputNodesPtrOrder.end());
             for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
                 std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
-                std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(false) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;
+                std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(true) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;
+                if(std::find(nodesToSort.begin(), nodesToSort.end(), connectedInputNode) == nodesToSort.end()){
+                    std::cerr << "\t\tNot found in nodes to sort list" << std::endl;
+                }
             }
         }
         throw std::runtime_error(ErrorHelpers::genErrorStr("Topological Sort: Encountered Cycle, Unable to Sort"));
@@ -448,20 +510,25 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
                                                 std::vector<std::shared_ptr<Node>> &new_nodes,
                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                bool includeContext) {
     //Create a state update node for this delay
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(statefulNode->getParent());
     stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
+    stateUpdate->setPartitionNum(statefulNode->getPartitionNum());
     stateUpdate->setPrimaryNode(statefulNode);
     statefulNode->setStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
-    //Set context to be the same as the primary node
-    std::vector<Context> primarayContex = statefulNode->getContext();
-    stateUpdate->setContext(primarayContex);
 
-    //Add node to the lowest level context (if such a context exists
-    if(!primarayContex.empty()){
-        Context specificContext = primarayContex[primarayContex.size()-1];
-        specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+    if(includeContext) {
+        //Set context to be the same as the primary node
+        std::vector<Context> primarayContex = statefulNode->getContext();
+        stateUpdate->setContext(primarayContex);
+
+        //Add node to the lowest level context (if such a context exists
+        if (!primarayContex.empty()) {
+            Context specificContext = primarayContex[primarayContex.size() - 1];
+            specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+        }
     }
 
     new_nodes.push_back(stateUpdate);
@@ -471,6 +538,7 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
 
     for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
         std::shared_ptr<Node> connectedOutNode = *it;
+        std::string name = connectedOutNode->getFullyQualifiedName();
         if(connectedOutNode == nullptr){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered Arc with Null Dst when Wiring State Update"));
         }

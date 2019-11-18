@@ -13,11 +13,15 @@ Variable::Variable() : name("") {
 
 }
 
-Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType) {
+Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType), volatileVar(false) {
 
 }
 
-Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue){
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue), volatileVar(false){
+
+}
+
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar) : name(name), dataType(dataType), initValue(initValue), volatileVar(volatileVar){
 
 }
 
@@ -46,10 +50,10 @@ std::string Variable::getCVarName(bool imag) {
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
-std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray) {
+std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray, bool includeRef) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
-    std::string decl = cpuStorageType.toString(DataType::StringStyle::C, false, false) + " " + getCVarName(imag);
+    std::string decl = (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
 
     if(dataType.getWidth() > 1 && includeArray){
         decl += "[";
@@ -100,6 +104,11 @@ std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit
     return decl;
 }
 
+std::string Variable::getCPtrDecl(bool imag) {
+    DataType cpuStorageType = dataType.getCPUStorageType();
+    return (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " *" + getCVarName(imag);
+}
+
 std::string Variable::getName() const {
     return name;
 }
@@ -122,5 +131,13 @@ std::vector<NumericValue> Variable::getInitValue() const {
 
 void Variable::setInitValue(const std::vector<NumericValue> &initValue) {
     Variable::initValue = initValue;
+}
+
+bool Variable::isVolatileVar() const {
+    return volatileVar;
+}
+
+void Variable::setVolatileVar(bool volatileVar) {
+    Variable::volatileVar = volatileVar;
 }
 

@@ -10,8 +10,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a node which, when expanded, became an enabled subsystem.
@@ -64,6 +64,8 @@ protected:
 
     //Init should be overwritten by EnabledSubSystem
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
@@ -74,6 +76,6 @@ protected:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEDEXPANDEDNODE_H

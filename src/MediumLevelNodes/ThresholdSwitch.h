@@ -13,8 +13,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Simulink style switch (2mux) where the select line is compared to a threshold
@@ -115,6 +115,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override ;
@@ -123,6 +125,6 @@ public:
 };
 
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_THRESHOLDSWITCH_H

@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup PrimitiveNodes Primitives
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Sum Block.  Parameters dictate the signs of the inputs.
@@ -84,6 +84,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override ;
@@ -113,6 +115,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_SUM_H

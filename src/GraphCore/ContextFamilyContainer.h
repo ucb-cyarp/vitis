@@ -10,13 +10,17 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Container for context containers that should be scheduled with some order
  *
  * This is not considered a standard part of the design hierarchy but is used while scheduling
+ *
+ * @note Contexts can have multiple ContextFamilyContainers, one for each partition the context resides in
+ *
+ * A different ContextFamilyContainer exists for each partition because scheduling is handled seperatly for each partition
  */
 class ContextFamilyContainer : public SubSystem {
     friend NodeFactory;
@@ -24,6 +28,7 @@ class ContextFamilyContainer : public SubSystem {
 private:
     std::vector<std::shared_ptr<ContextContainer>> subContextContainers; ///<An ordered list of context containers, one for each subcontext.  SubContextContainer should also be children
     std::shared_ptr<ContextRoot> contextRoot; ///<The node creating this ContextFamily (should be a child after enacapsulation has completed)
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> siblingContainers;
 
     /**
      * @brief Default constructor.  Vector initialized using default behavior.
@@ -54,8 +59,10 @@ public:
     void setSubContextContainers(const std::vector<std::shared_ptr<ContextContainer>>& subContextContainers);
 
     std::shared_ptr<ContextRoot> getContextRoot() const;
-
     void setContextRoot(const std::shared_ptr<ContextRoot>&contextRoot);
+
+    const std::map<int, std::shared_ptr<ContextFamilyContainer>> getSiblingContainers() const;
+    void setSiblingContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &siblingContainers);
 
     /**
      * @brief Get a pointer to the sub-context container specified
@@ -86,8 +93,10 @@ public:
      * @warning This function should be called after ContextFamilyContainers and ContextContainers are properly encapsulated with their child nodes
      */
     void rewireArcsToContextFamilyContainerAndRecurse(std::vector<std::shared_ptr<Arc>> &arcs_to_delete);
+
+    std::string typeNameStr() override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTFAMILYCONTAINER_H

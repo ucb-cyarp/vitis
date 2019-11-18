@@ -77,10 +77,14 @@ Constant::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode,
     return thisNode;
 }
 
+std::string Constant::typeNameStr(){
+    return "Constant";
+}
+
 std::string Constant::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Constant\nValue:" + NumericValue::toString(value);
+    label += "\nFunction: " + typeNameStr() + "\nValue:" + NumericValue::toString(value);
 
     return label;
 }

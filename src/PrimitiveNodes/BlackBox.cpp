@@ -242,10 +242,14 @@ BlackBox::populatePropertiesFromGraphML(int id, std::string name, std::map<std::
     }
 }
 
+std::string BlackBox::typeNameStr(){
+    return "BlackBox";
+}
+
 std::string BlackBox::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: BlackBox\nExeCombinationalName:" + exeCombinationalName + "\nStateful: " +
+    label += "\nFunction: " + typeNameStr() + "\nExeCombinationalName:" + exeCombinationalName + "\nStateful: " +
             GeneralHelper::to_string(stateful) + "\nStateUpdateName: " + stateUpdateName;
 
     return label;
@@ -412,10 +416,11 @@ void BlackBox::emitCStateUpdate(std::vector<std::string> &cStatementQueue, Sched
 bool BlackBox::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                      std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                      std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                     std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                     bool includeContext) {
     //Create the state update node only if this block is stateful
     if(stateful){
-        return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs, includeContext);
     }
 
     return false;

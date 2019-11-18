@@ -142,10 +142,14 @@ BitwiseOperator::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gra
     return thisNode;
 }
 
+std::string BitwiseOperator::typeNameStr(){
+    return "BitwiseOperator";
+}
+
 std::string BitwiseOperator::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: BitwiseOperator\nBitwiseOp:" + bitwiseOpToString(op);
+    label += "\nFunction: " + typeNameStr() + "\nBitwiseOp:" + bitwiseOpToString(op);
 
     return label;
 }

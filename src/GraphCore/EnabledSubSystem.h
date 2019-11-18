@@ -15,8 +15,8 @@
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a subsystem whose execution can be enabled or disabled via an enable line
@@ -59,6 +59,8 @@ protected:
      * @brief Performs check of @ref Node in addition to checking the enable port
      */
     void validate() override;
+
+    std::string typeNameStr() override;
 
     std::string labelStr() override ;
 
@@ -197,13 +199,13 @@ public:
 
     bool requiresContiguousContextEmits() override;
 
-    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
-    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
-    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
+    void emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
+    void emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
 
-    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
-    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
-    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber) override;
+    void emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
+    void emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
+    void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
 
     //However, the EnableOutputs variables must be declared before the context is emitted.  It is important to recall
     // that enabled outputs are transparent latched and therefore contain a state variables that must be declared such
@@ -223,6 +225,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ENABLEDSUBSYSTEM_H

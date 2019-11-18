@@ -120,10 +120,14 @@ Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bo
     return thisNode;
 }
 
+std::string Delay::typeNameStr(){
+    return "Delay";
+}
+
 std::string Delay::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Delay\nDelayLength:" + GeneralHelper::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
+    label += "\nFunction: " + typeNameStr() + "\nDelayLength:" + GeneralHelper::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
 
     return label;
 }
@@ -207,7 +211,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             //Return the simple name (no index needed as it is not an array_
             return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
         }else{
-            return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(delayValue-1) + "]", true);
+            return CExpr(cStateVar.getCVarName(imag) + "[0]", true);
         }
     }
 }
@@ -228,14 +232,14 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
         //Emit a for loop to perform the shift for each
         std::string loopVarName = name+"_n"+GeneralHelper::to_string(id)+"_loopCounter";
 
-        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
-        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "-1];}");
-        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[0] = " + cStateInputVar.getCVarName(false) + ";");
+        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = 0; " + loopVarName + " < " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + "++){");
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + loopVarName + "] = " + cStateVar.getCVarName(false) + "[" + loopVarName + "+1];}");
+        cStatementQueue.push_back(cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue-1) + "] = " + cStateInputVar.getCVarName(false) + ";");
 
         if(cStateVar.getDataType().isComplex()){
-            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + " >= 1; " + loopVarName + "--){");
-            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "-1];}");
-            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[0] = " + cStateInputVar.getCVarName(true) + ";");
+            cStatementQueue.push_back("for(unsigned long " + loopVarName + " = 0; " + loopVarName + " < " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + "++){");
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + loopVarName + "] = " + cStateVar.getCVarName(true) + "[" + loopVarName + "+1];}");
+            cStatementQueue.push_back(cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue-1) + "] = " + cStateInputVar.getCVarName(true) + ";");
         }
     }
 
@@ -261,7 +265,7 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
     Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
     cStateInputVar = stateInputVar;
 
-    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
+    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
 
     std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
     cStatementQueue.push_back(stateInputDeclAssignRe);
@@ -282,9 +286,10 @@ std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
 bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                   std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                   std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs) {
+                                  std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                  bool includeContext) {
 
-    return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+    return GraphAlgs::createStateUpdateNodeDelayStyle(getSharedPointer(), new_nodes, deleted_nodes, new_arcs, deleted_arcs, includeContext);
 }
 
 bool Delay::hasCombinationalPath() {

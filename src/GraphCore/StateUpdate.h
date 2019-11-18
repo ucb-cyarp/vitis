@@ -11,8 +11,8 @@
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief A node that represents the state update for a node which contains state
@@ -110,8 +110,12 @@ public:
      * One case when it does is when
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
+
+    std::string typeNameStr() override;
+
+    std::string labelStr() override ;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_STATEUPDATE_H

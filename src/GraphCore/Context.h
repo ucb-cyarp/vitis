@@ -14,8 +14,8 @@ class ContextRoot;
 
 /**
  * \addtogroup GraphCore Graph Core
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a context identifier.  Contains the node which is the root of the context and the subContext number.
@@ -90,7 +90,15 @@ public:
     static bool isEqOrSubContext(std::vector<Context> a, std::vector<Context> b);
 
     /**
-     * @brief Finds the most specific common context between 2 context statcls
+     * @brief Checks if contexts a and b are the same
+     * @param a
+     * @param b
+     * @return true if a and b are equal
+     */
+    static bool isEqContext(std::vector<Context> a, std::vector<Context> b);
+
+    /**
+     * @brief Finds the most specific common context between 2 context stacks
      * @param a
      * @param b
      * @return how deep the most common context is.  Ie. the index of the most specific common context.  This index is valid for both a and b.  If no common context, -1 is returned;
@@ -99,6 +107,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXT_H

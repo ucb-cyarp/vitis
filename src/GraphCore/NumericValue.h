@@ -12,8 +12,8 @@
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief Represents a numeric value/constant in the design.  Provides method to parse strings from XML file.
@@ -180,6 +180,6 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const NumericValue &value);
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_NUMERICVALUE_H

@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a Numerically Controlled Oscillator (NCO)
@@ -115,6 +115,8 @@ public:
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type) override ;
 
+    std::string typeNameStr() override;
+
     std::string labelStr() override ;
 
     void validate() override ;
@@ -123,5 +125,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_NCO_H

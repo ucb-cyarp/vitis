@@ -83,10 +83,14 @@ Gain::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, boo
     return thisNode;
 }
 
+std::string Gain::typeNameStr(){
+    return "Gain";
+}
+
 std::string Gain::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: Gain\nGain:" + NumericValue::toString(gain);
+    label += "\nFunction: " + typeNameStr() + "\nGain:" + NumericValue::toString(gain);
 
     return label;
 }

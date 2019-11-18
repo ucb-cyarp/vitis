@@ -10,8 +10,8 @@
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief The representation of a node's output port
@@ -112,6 +112,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_OUTPUTPORT_H

@@ -11,8 +11,8 @@
 
 /**
  * \addtogroup BusNodes Bus Nodes
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief A an adapter between standard arcs and bus arcs where multiple standard arcs are grouped into a single bus arc (fan-in)
@@ -81,12 +81,14 @@ public:
 
     std::string labelStr() override ;
 
+    std::string typeNameStr() override;
+
     void validate() override ;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_VECTORFANIN_H

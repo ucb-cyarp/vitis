@@ -6,10 +6,17 @@ cmake_minimum_required(VERSION 3.5.1)
 
 project(vitis)
 
-set(CMAKE_CXX_STANDARD 11)
+#Using technique from Marcus D. Hanwell on https://blog.kitware.com/cmake-and-the-default-build-type/ to set default build type
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+            STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+            "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
 
-add_compile_options("$<$<CONFIG:DEBUG>:-O0>")
-add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
+set(CMAKE_CXX_STANDARD 11)
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     # using Clang
@@ -42,6 +49,8 @@ set(COMMON_SRCS
         src/General/TopologicalSortParameters.h
         src/General/DSPHelpers.cpp
         src/General/DSPHelpers.h
+        src/General/EmitterHelpers.cpp
+        src/General/EmitterHelpers.h
         src/General/ErrorHelpers.cpp
         src/General/ErrorHelpers.h
         src/GraphCore/SchedParams.cpp
@@ -156,6 +165,18 @@ set(COMMON_SRCS
         src/PrimitiveNodes/ReinterpretCast.h
         src/PrimitiveNodes/BitwiseOperator.cpp
         src/PrimitiveNodes/BitwiseOperator.h
+        src/PrimitiveNodes/Exp.cpp
+        src/PrimitiveNodes/Exp.h
+        src/PrimitiveNodes/Ln.cpp
+        src/PrimitiveNodes/Ln.h
+        src/PrimitiveNodes/Trigonometry/Sin.cpp
+        src/PrimitiveNodes/Trigonometry/Sin.h
+        src/PrimitiveNodes/Trigonometry/Cos.cpp
+        src/PrimitiveNodes/Trigonometry/Cos.h
+        src/PrimitiveNodes/Trigonometry/Atan.cpp
+        src/PrimitiveNodes/Trigonometry/Atan.h
+        src/PrimitiveNodes/Trigonometry/Atan2.cpp
+        src/PrimitiveNodes/Trigonometry/Atan2.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
@@ -180,6 +201,22 @@ set(COMMON_SRCS
         src/HighLevelNodes/DiscreteFIR.h
         src/HighLevelNodes/TappedDelay.cpp
         src/HighLevelNodes/TappedDelay.h
+        src/MultiThread/MultiThreadEmitterHelpers.cpp
+        src/MultiThread/MultiThreadEmitterHelpers.h
+        src/MultiThread/MultiThreadTransformHelpers.cpp
+        src/MultiThread/MultiThreadTransformHelpers.h
+        src/MultiThread/ThreadCrossingFIFO.cpp
+        src/MultiThread/ThreadCrossingFIFO.h
+        src/MultiThread/StreamIOThread.cpp
+        src/MultiThread/StreamIOThread.h
+        src/MultiThread/LocklessThreadCrossingFIFO.cpp
+        src/MultiThread/LocklessThreadCrossingFIFO.h
+        src/MultiThread/PartitionParams.cpp
+        src/MultiThread/PartitionParams.h
+        src/MultiThread/ThreadCrossingFIFOParameters.cpp
+        src/MultiThread/ThreadCrossingFIFOParameters.h
+        src/MultiThread/ConstIOThread.cpp
+        src/MultiThread/ConstIOThread.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
@@ -187,7 +224,13 @@ set(COMMON_SRCS
         src/BusNodes/VectorFanOut.cpp
         src/BusNodes/VectorFanOut.h
         src/BusNodes/Concatenate.cpp
-        src/BusNodes/Concatenate.h)
+        src/BusNodes/Concatenate.h
+        src/Estimators/EstimatorCommon.cpp
+        src/Estimators/EstimatorCommon.h
+        src/Estimators/ComputationEstimator.cpp
+        src/Estimators/ComputationEstimator.h
+        src/Estimators/CommunicationEstimator.cpp
+        src/Estimators/CommunicationEstimator.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
@@ -214,6 +257,9 @@ target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
 
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
 target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+
+add_executable(multiThreadedGenerator src/Tools/multiThreadedGenerator.cpp)
+target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES})
 
 add_executable(checkPlatformDataTypes src/Tools/checkPlatformDataTypes.cpp)
 

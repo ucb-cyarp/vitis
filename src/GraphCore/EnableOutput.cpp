@@ -72,10 +72,14 @@ std::set<GraphMLParameter> EnableOutput::graphMLParameters() {
     return parameters;
 }
 
+std::string EnableOutput::typeNameStr(){
+    return "Enable Output";
+};
+
 std::string EnableOutput::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Enable Output";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }
@@ -124,7 +128,8 @@ bool EnableOutput::hasState() {
 bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                         std::vector<std::shared_ptr<Arc>> &deleted_arcs){
+                                         std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                         bool includeContext){
 
     //Note, the enable port is a special port.  The state update node will not be directly dependent on this port since
     //any singal feeding into the EnableOutput had to pass through an enable input
@@ -132,16 +137,20 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
 
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdate->setName("StateUpdate-For-"+getName());
+    stateUpdate->setPartitionNum(partitionNum);
     stateUpdate->setPrimaryNode(getSharedPointer());
     stateUpdateNode = stateUpdate; //Set the state update node pointer in this node
-    //Set context to be the same as the primary node
-    std::vector<Context> primarayContex = getContext();
-    stateUpdate->setContext(primarayContex);
 
-    //Add node to the lowest level context (if such a context exists
-    if(!primarayContex.empty()){
-        Context specificContext = primarayContex[primarayContex.size()-1];
-        specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+    if(includeContext) {
+        //Set context to be the same as the primary node
+        std::vector<Context> primarayContext = getContext();
+        stateUpdate->setContext(primarayContext);
+
+        //Add node to the lowest level context (if such a context exists
+        if (!primarayContext.empty()) {
+            Context specificContext = primarayContext[primarayContext.size() - 1];
+            specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), stateUpdate);
+        }
     }
 
     new_nodes.push_back(stateUpdate);

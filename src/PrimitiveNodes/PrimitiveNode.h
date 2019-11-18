@@ -11,8 +11,8 @@
  * \addtogroup PrimitiveNodes Primitives
  *
  * @brief A set of primitive nodes in a Data Flow Graph
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Represents a primitive node in the Date Flow Graph
@@ -53,6 +53,6 @@ public:
     bool canExpand() override;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_PRIMITIVENODE_H

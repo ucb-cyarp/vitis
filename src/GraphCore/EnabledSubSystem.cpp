@@ -21,10 +21,14 @@ EnabledSubSystem::EnabledSubSystem() {
 EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent) : SubSystem(parent) {
 }
 
+std::string EnabledSubSystem::typeNameStr(){
+    return "Enabled Subsystem";
+}
+
 std::string EnabledSubSystem::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Enabled Subsystem";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }
@@ -332,6 +336,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
                     //The src is not in the extended context, create a new input node
                     std::shared_ptr<EnableInput> enableInput = NodeFactory::createNode<EnableInput>(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()));
                     enableInput->setName("Expanded Context Enable Input");
+                    enableInput->setPartitionNum(partitionNum);
                     addEnableInput(enableInput);
                     new_nodes.push_back(enableInput);
 
@@ -467,6 +472,8 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
                     //Check if an enable output has already been created
                     if(enableOutputNode == nullptr){
                         enableOutputNode = NodeFactory::createNode<EnableOutput>(std::dynamic_pointer_cast<SubSystem>(getSharedPointer()));
+                        enableOutputNode->setName("Expanded Context Enable Output");
+                        enableOutputNode->setPartitionNum(partitionNum);
                         enableOutputOutPort = enableOutputNode->getOutputPortCreateIfNot(0);
                         addEnableOutput(enableOutputNode);
                         new_nodes.push_back(enableOutputNode);
@@ -589,12 +596,19 @@ bool EnabledSubSystem::requiresContiguousContextEmits(){
     return false;
 }
 
-void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum){
     if(subContextNumber != 0){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Enabled Subsystem Only Has 1 Context, Tried to Open Context " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
     }
 
-    std::shared_ptr<OutputPort> enableDriverPort = getEnableSrc();
+    //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
+    std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
+    if(contextDrivers.empty()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - No context drivers availible for the given partition: " + GeneralHelper::to_string(partitionNum), getSharedPointer()));
+    }
+
+    //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
+    std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
     std::string enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
 
     std::string cExpr = "if(" + enableDriverExpr + "){";
@@ -602,17 +616,17 @@ void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatemen
     cStatementQueue.push_back(cExpr);
 }
 
-void EnabledSubSystem::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+void EnabledSubSystem::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum){
     //For EnabledSubsystems, there is no distinction between the different ContextOpen functions
-    emitCContextOpenFirst(cStatementQueue, schedType, subContextNumber);
+    emitCContextOpenFirst(cStatementQueue, schedType, subContextNumber, partitionNum);
 }
 
-void EnabledSubSystem::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+void EnabledSubSystem::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum){
     //For EnabledSubsystems, there is no distinction between the different ContextOpen functions
-    emitCContextOpenFirst(cStatementQueue, schedType, subContextNumber);
+    emitCContextOpenFirst(cStatementQueue, schedType, subContextNumber, partitionNum);
 }
 
-void EnabledSubSystem::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+void EnabledSubSystem::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum){
     if(subContextNumber != 0){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Enabled Subsystem Only Has 1 Context, Tried to Close Context " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
     }
@@ -620,14 +634,14 @@ void EnabledSubSystem::emitCContextCloseFirst(std::vector<std::string> &cStateme
     cStatementQueue.push_back("}");
 }
 
-void EnabledSubSystem::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+void EnabledSubSystem::emitCContextCloseMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum){
     //For EnabledSubsystems, there is no distinction between the different ContextClose functions
-    emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber);
+    emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber, partitionNum);
 }
 
-void EnabledSubSystem::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber){
+void EnabledSubSystem::emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum){
     //For EnabledSubsystems, there is no distinction between the different ContextClose functions
-    emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber);
+    emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber, partitionNum);
 }
 
 int EnabledSubSystem::getNumSubContexts() const{

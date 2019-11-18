@@ -24,8 +24,8 @@
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief Factory class for creating nodes.
@@ -145,6 +145,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_NODEFACTORY_H

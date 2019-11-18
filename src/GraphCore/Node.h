@@ -42,8 +42,8 @@ class MasterUnconnected;
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief Generic Node in a data flow graph DSP design
@@ -831,13 +831,15 @@ public:
      * @param deleted_nodes a vector of nodes to be deleted in the design
      * @param new_arcs a vector of new arcs added to the design
      * @param deleted_arcs a vector of arcs to be deleted from the design
+     * @param includeContext if true, the state update node is included in the same context (and partition) as the root node
      *
      * @return true if the StateUpdate node was created and inserted into the graph, false if it was not
      */
     virtual bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
                                        std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                        std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+                                       std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                       bool includeContext);
 
     /**
      * @brief Identifies if the node requires a global declaration.
@@ -873,6 +875,15 @@ public:
     virtual std::string getGlobalDecl();
 
     /**
+     * @brief Returns a set of external files that must be included.  These are provided as complete include statements
+     *
+     * ex. #include <math.h>
+     *
+     * @return A set of include statements
+     */
+    virtual std::set<std::string> getExternalIncludes();
+
+    /**
      * @brief Emits a C expressions to calculate the next value of the internal state elements.  These values will be used in @ref emitCStateUpdate
      *
      * @warning This function is separated from the @ref emitCExpr function in order to break emit cycles
@@ -898,6 +909,12 @@ public:
     virtual std::string labelStr();
 
     /**
+     * @brief Get the type name of the node as a string
+     * @return Type name of the node
+     */
+    virtual std::string typeNameStr() = 0;
+
+    /**
      * @brief Validate if the node has a valid configuration.
      * This may involve looking at arcs or nodes connected to this node.
      *
@@ -919,6 +936,30 @@ public:
      * @return true if the node can be expanded, false otherwise
      */
     virtual bool canExpand() = 0;
+
+    /**
+     * @brief Checks if all outputs (including order constraint nodes) are in the same context
+     * @return true if all outputs are in the same context, false if not
+     */
+    bool outputsInSameContext();
+
+    /**
+     * @brief If outputsInSameContext is true, returns the context of the outputs of the node.  Otherwise, throws an error
+     * @return
+     */
+    std::vector<Context> getOutputContext();
+
+    /**
+     * @brief Checks if all outputs (including order constraint nodes) are in the same partiton
+     * @return true if all outputs are in the same partition, false if not
+     */
+    bool outputsInSamePartition();
+
+    /**
+     * @brief If outputsInSameContext is true, returns the partition of the outputs of the node.  Otherwise, throws an error
+     * @return
+     */
+    int getOutputPartition();
 
     //==== Getters/Setters ====
     /**
@@ -966,6 +1007,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_NODE_H

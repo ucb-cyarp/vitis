@@ -9,8 +9,8 @@
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief A virtual port which serves as the sorce for arcs constraining the scheduling order of nodes when the destination node does not directly consume the result produced by the src node.
@@ -63,6 +63,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_ORDERCONSTRAINTOUTPUTPORT_H

@@ -289,7 +289,7 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 if(stringStyle == StringStyle::SIMULINK) {
                     return "boolean";
                 }else if(stringStyle == StringStyle::C){
-                    std::string str =  "bool";
+                    std::string str =  "vitisBool_t";  //Changing bool to be defined in an include file.  Important if working across compilers/computers that bool is defined in the same way
                     if(width > 1 && includeArray){
                         str += "[";
                         if(includeWidth){

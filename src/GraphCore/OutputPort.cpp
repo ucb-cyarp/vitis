@@ -62,11 +62,11 @@ void OutputPort::validate() {
 
     for(auto arc = (firstArc++); arc != arcs.end(); arc++){
         if((*arc).lock()->getDataType() != outputType){
-            throw std::runtime_error("Validation Failed - Output Port DataType Mismatch");
+            throw std::runtime_error("Validation Failed - Output Port DataType Mismatch (" + parent->getFullyQualifiedName() + ")");
         }
 
         if((*arc).lock()->getSampleTime() != outputSampleTime){
-            throw std::runtime_error("Validation Failed - Output Port SampleTime Mismatch");
+            throw std::runtime_error("Validation Failed - Output Port SampleTime Mismatch (" + parent->getFullyQualifiedName() + ")");
         }
     }
 }

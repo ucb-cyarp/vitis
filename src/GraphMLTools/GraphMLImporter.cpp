@@ -31,6 +31,12 @@
 #include "PrimitiveNodes/SimulinkCoderFSM.h"
 #include "PrimitiveNodes/ReinterpretCast.h"
 #include "PrimitiveNodes/BitwiseOperator.h"
+#include "PrimitiveNodes/Ln.h"
+#include "PrimitiveNodes/Exp.h"
+#include "PrimitiveNodes/Trigonometry/Sin.h"
+#include "PrimitiveNodes/Trigonometry/Cos.h"
+#include "PrimitiveNodes/Trigonometry/Atan.h"
+#include "PrimitiveNodes/Trigonometry/Atan2.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -45,6 +51,7 @@
 #include "BusNodes/VectorFanIn.h"
 #include "BusNodes/VectorFanOut.h"
 #include "BusNodes/Concatenate.h"
+#include "MultiThread/LocklessThreadCrossingFIFO.h"
 
 #include <iostream>
 #include <fstream>
@@ -414,7 +421,7 @@ int GraphMLImporter::importNodes(xercesc::DOMNode *node, Design &design, std::ma
 
 }
 
-int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect){
+int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::string, std::shared_ptr<Node>> &nodeMap, std::vector<DOMNode*> &edgeNodes, std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
     //Now need to parse the different types of nodes
 
     int nodesImported = 1; //1 for this node
@@ -422,35 +429,33 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
     //Get common info: ID
     std::string fullNodeID;
 
-    if(node->hasAttributes()) {
+    if (node->hasAttributes()) {
         DOMNamedNodeMap *nodeAttributes = node->getAttributes();
 
-        XMLCh* idXMLCh = XMLString::transcode("id");
-        DOMNode* idNode = nodeAttributes->getNamedItem(idXMLCh);
+        XMLCh *idXMLCh = XMLString::transcode("id");
+        DOMNode *idNode = nodeAttributes->getNamedItem(idXMLCh);
         XMLString::release(&idXMLCh);
 
-        if(idNode == nullptr){
+        if (idNode == nullptr) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Node with no ID encountered"));
-        }
-        else{
+        } else {
             fullNodeID = GraphMLHelper::getTranscodedString(idNode->getNodeValue());
         }
 
 
-    }else
-    {
+    } else {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Node with no ID encountered"));
     }
 
     //Construct a map of data values (children) of this node
     std::map<std::string, std::string> dataKeyValueMap;
-    DOMNode* subgraph = GraphMLImporter::graphMLDataMap(node, dataKeyValueMap);
+    DOMNode *subgraph = GraphMLImporter::graphMLDataMap(node, dataKeyValueMap);
 
     //Get the human readable instance name if one exists
     std::string name = "";
     bool hasName = false;
 
-    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+    if (dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()) {
         name = dataKeyValueMap["instance_name"];
         hasName = true;
     }
@@ -458,134 +463,134 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
     //Based of the node type, we construct nodes:
     std::string blockType = dataKeyValueMap.at("block_node_type");
 
-    if(blockType == "Subsystem"){
+    if (blockType == "Subsystem") {
         std::shared_ptr<SubSystem> newSubsystem = NodeFactory::createNode<SubSystem>(parent);
         newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if(hasName){
+        if (hasName) {
             newSubsystem->setName(name);
         }
 
         //Add node to design
         design.addNode(newSubsystem);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             design.addTopLevelNode(newSubsystem);
         }
         //Add to map
-        nodeMap[fullNodeID]=newSubsystem;
+        nodeMap[fullNodeID] = newSubsystem;
 
         //Traverse the children in the subgraph
-        if(subgraph != nullptr)
-        {
+        if (subgraph != nullptr) {
             nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newSubsystem, dialect);
         }
 
-    } else if(blockType == "Enabled Subsystem"){
+    } else if (blockType == "Enabled Subsystem") {
         std::shared_ptr<EnabledSubSystem> newEnabledSubsystem = NodeFactory::createNode<EnabledSubSystem>(parent);
         newEnabledSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if(hasName){
+        if (hasName) {
             newEnabledSubsystem->setName(name);
         }
 
         //Add node to design
         design.addNode(newEnabledSubsystem);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             design.addTopLevelNode(newEnabledSubsystem);
         }
         //Add to map
-        nodeMap[fullNodeID]=newEnabledSubsystem;
+        nodeMap[fullNodeID] = newEnabledSubsystem;
 
         //Traverse the children in the subgraph
-        if(subgraph != nullptr)
-        {
-            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem, dialect);
+        if (subgraph != nullptr) {
+            nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, newEnabledSubsystem,
+                                                          dialect);
         }
 
-    } else if(blockType == "Special Input Port"){
+    } else if (blockType == "Special Input Port") {
         std::shared_ptr<EnableInput> newNode = NodeFactory::createNode<EnableInput>(parent);
         newNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if(hasName){
+        if (hasName) {
             newNode->setName(name);
         }
 
         //Add to enableInputs of parent (EnableNodes exist directly below their EnableSubsystem parent)
         std::shared_ptr<EnabledSubSystem> parentSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
-        if(parentSubsystem){
+        if (parentSubsystem) {
             parentSubsystem->addEnableInput(newNode);
-        }else{
+        } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("EnableInput parent is not an Enabled Subsystem"));
         }
 
         //Add node to design
         design.addNode(newNode);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             throw std::runtime_error(ErrorHelpers::genErrorStr("Special Input Node cannot be at the top level"));
         }
         //Add to map
-        nodeMap[fullNodeID]=newNode;
+        nodeMap[fullNodeID] = newNode;
 
-    } else if(blockType == "Special Output Port"){
-        std::shared_ptr<EnableOutput> newNode = GraphMLImporter::importEnableOutputNode(fullNodeID, dataKeyValueMap, parent, dialect);
+    } else if (blockType == "Special Output Port") {
+        std::shared_ptr<EnableOutput> newNode = GraphMLImporter::importEnableOutputNode(fullNodeID, dataKeyValueMap,
+                                                                                        parent, dialect);
 
         //Add to enableOutputs of parent (EnableNodes exist directly below their EnableSubsystem parent)
         std::shared_ptr<EnabledSubSystem> parentSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
-        if(parentSubsystem){
+        if (parentSubsystem) {
             parentSubsystem->addEnableOutput(newNode);
-        }else{
+        } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("EnableOutput parent is not an Enabled Subsystem"));
         }
 
         //Add node to design
         design.addNode(newNode);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             throw std::runtime_error(ErrorHelpers::genErrorStr("Special Output Node cannot be at the top level"));
         }
         //Add to map
-        nodeMap[fullNodeID]=newNode;
+        nodeMap[fullNodeID] = newNode;
 
-    } else if(blockType == "Top Level"){
+    } else if (blockType == "Top Level") {
         //Should not occur
         throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered Top Level Node"));
-    } else if(blockType == "Master"){
+    } else if (blockType == "Master") {
         //Determine which master it is to add to the node map
         std::string instanceName = dataKeyValueMap.at("instance_name");
 
-        if(instanceName == "Input Master"){
+        if (instanceName == "Input Master") {
             std::shared_ptr<Node> master = design.getInputMaster();
-            nodeMap[fullNodeID]=master;
+            nodeMap[fullNodeID] = master;
             master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-            if(hasName){
+            if (hasName) {
                 master->setName(name);
             }
             importNodePortNames(master, dataKeyValueMap, dialect);
-        } else if(instanceName == "Output Master"){
+        } else if (instanceName == "Output Master") {
             std::shared_ptr<Node> master = design.getOutputMaster();
-            nodeMap[fullNodeID]=master;
+            nodeMap[fullNodeID] = master;
             master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-            if(hasName){
+            if (hasName) {
                 master->setName(name);
             }
             importNodePortNames(master, dataKeyValueMap, dialect);
-        } else if(instanceName == "Visualization Master"){
+        } else if (instanceName == "Visualization Master") {
             std::shared_ptr<Node> master = design.getVisMaster();
-            nodeMap[fullNodeID]=master;
+            nodeMap[fullNodeID] = master;
             master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-            if(hasName){
+            if (hasName) {
                 master->setName(name);
             }
             importNodePortNames(master, dataKeyValueMap, dialect);
-        } else if(instanceName == "Unconnected Master"){
+        } else if (instanceName == "Unconnected Master") {
             std::shared_ptr<Node> master = design.getUnconnectedMaster();
-            nodeMap[fullNodeID]=master;
+            nodeMap[fullNodeID] = master;
             master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-            if(hasName){
+            if (hasName) {
                 master->setName(name);
             }
             importNodePortNames(master, dataKeyValueMap, dialect);
-        } else if(instanceName == "Terminator Master"){
+        } else if (instanceName == "Terminator Master") {
             std::shared_ptr<Node> master = design.getTerminatorMaster();
-            nodeMap[fullNodeID]=master;
+            nodeMap[fullNodeID] = master;
             master->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-            if(hasName){
+            if (hasName) {
                 master->setName(name);
             }
             importNodePortNames(master, dataKeyValueMap, dialect);
@@ -593,55 +598,59 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Master Type: " + instanceName));
         }
 
-    } else if(blockType == "VectorFan"){ //This is the Simulink VectorFan type, will call the VectorFan constructor which will return either a VectorFanIn or VectorFanOut
-        std::shared_ptr<Node> newNode = GraphMLImporter::importVectorFanNode(fullNodeID, dataKeyValueMap, parent, dialect);
+    } else if (blockType ==
+               "VectorFan") { //This is the Simulink VectorFan type, will call the VectorFan constructor which will return either a VectorFanIn or VectorFanOut
+        std::shared_ptr<Node> newNode = GraphMLImporter::importVectorFanNode(fullNodeID, dataKeyValueMap, parent,
+                                                                             dialect);
         //Add new node to design and to name node map
         design.addNode(newNode);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             design.addTopLevelNode(newNode);
         }
         nodeMap[fullNodeID] = newNode;
-    } else if(blockType == "Expanded"){
-        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, nullptr, dialect); //Set parent as nullptr so it is not added to the parent
+    } else if (blockType == "Expanded") {
+        std::shared_ptr<Node> origNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, nullptr,
+                                                                             dialect); //Set parent as nullptr so it is not added to the parent
         //Do not add the orig node to the node list
 
         std::shared_ptr<ExpandedNode> expandedNode = NodeFactory::createNode<ExpandedNode>(parent, origNode);
         expandedNode->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if(hasName){
+        if (hasName) {
             expandedNode->setName(name);
         }
 
         //Add node to design
         design.addNode(expandedNode);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             design.addTopLevelNode(expandedNode);
         }
         //Add to map
-        nodeMap[fullNodeID]=expandedNode;
+        nodeMap[fullNodeID] = expandedNode;
 
         //Iterate through the children
         //Traverse the children in the subgraph
-        if(subgraph != nullptr)
-        {
+        if (subgraph != nullptr) {
             nodesImported += GraphMLImporter::importNodes(subgraph, design, nodeMap, edgeNodes, expandedNode, dialect);
         }
-    } else if(blockType == "Standard"){
-        std::shared_ptr<Node> newNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent, dialect);
+    } else if (blockType == "Standard") {
+        std::shared_ptr<Node> newNode = GraphMLImporter::importStandardNode(fullNodeID, dataKeyValueMap, parent,
+                                                                            dialect);
         //Add new node to design and to name node map
         design.addNode(newNode);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             design.addTopLevelNode(newNode);
         }
         nodeMap[fullNodeID] = newNode;
-    } else if(blockType == "Stateflow"){
-        std::shared_ptr<Node> newNode = GraphMLImporter::importStateflowNode(fullNodeID, dataKeyValueMap, parent, dialect);
+    } else if (blockType == "Stateflow") {
+        std::shared_ptr<Node> newNode = GraphMLImporter::importStateflowNode(fullNodeID, dataKeyValueMap, parent,
+                                                                             dialect);
         //Add new node to design and to name node map
         design.addNode(newNode);
-        if(parent == nullptr){//If the parent is null, add this to the top level node list
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
             design.addTopLevelNode(newNode);
         }
         nodeMap[fullNodeID] = newNode;
-    } else if(blockType == "BlackBox"){
+    } else if (blockType == "BlackBox") {
 //        std::shared_ptr<Node> newNode = GraphMLImporter::importBlackBoxNode(fullNodeID, dataKeyValueMap, parent, dialect);
 //        //Add new node to design and to name node map
 //        design.addNode(newNode);
@@ -653,6 +662,15 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         throw std::runtime_error(ErrorHelpers::genErrorStr("Generic Black Box Import Not Yet Implemented"));
         //TODO: Handle the importing of input and output access strings.  One technique is to make this similar to importNodePortNames
         //For now: Stateflow is the only blackboxed module.  The emit logic is there for the blackbox, just not the access name importing
+    } else if (blockType == "ThreadCrossingFIFO"){
+        std::shared_ptr<Node> newNode = GraphMLImporter::importThreadCrossingFIFONode(fullNodeID, dataKeyValueMap, parent, dialect);
+
+        //Add new node to design and to name node map
+        design.addNode(newNode);
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
+        nodeMap[fullNodeID] = newNode;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Block Type"));
     }
@@ -914,7 +932,27 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     }else if(blockFunction == "Delay") {
         newNode = Delay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Constant"){
-        newNode = Constant::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        std::shared_ptr<Constant> newNodeAsConstant = Constant::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        newNode = newNodeAsConstant;
+        if(name == "VITIS_PARTITION"){
+            //Check for the special case of a VITIS_PARTITION node
+            std::vector<NumericValue> constVal = newNodeAsConstant->getValue();
+            if(constVal.size() != 1){
+                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION must contain exactly 1 value", newNodeAsConstant));
+            }
+            if(constVal[0].isFractional() || constVal[0].isComplex()){
+                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION requires a real int", newNodeAsConstant));
+            }
+            if(parent == nullptr){
+                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be at the top level", newNodeAsConstant));
+            }
+            int partitionNum = newNodeAsConstant->getValue()[0].getRealInt();
+            if(partitionNum < 0){
+                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be negative", newNodeAsConstant));
+            }
+            std::cout << "VITIS_PARTITION directive of " << partitionNum << " under " << parent->getFullyQualifiedName(true) << std::endl;
+            parent->setPartitionNum(partitionNum);
+        }
     }else if(blockFunction == "Gain"){
         newNode = Gain::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Mux"){
@@ -965,6 +1003,44 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
             dataKeyValueMap["SimulinkBlockType"] = blockFunction;
         }
         newNode = DigitalDemodulator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Ln" ) { //Vitis name is Ln, Simulink Name is Math which also includes other functions
+        newNode = Ln::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Exp" ) { //Vitis name is Exp, Simulink Name is Math which also includes other functions
+        newNode = Exp::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Sin" ) { //Vitis name is Sin, Simulink Name is Trigonometry which also includes other functions
+        newNode = Sin::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Cos" ) { //Vitis name is Cos, Simulink Name is Trigonometry which also includes other functions
+        newNode = Cos::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Atan" ) { //Vitis name is Atan, Simulink Name is Trigonometry which also includes other functions
+        newNode = Atan::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Atan2" ) { //Vitis name is Atan2, Simulink Name is Trigonometry which also includes other functions
+        newNode = Atan2::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Math" && dialect == GraphMLDialect::SIMULINK_EXPORT) { //Simulink Name is Math which includes several vitis functions
+        //Need to look at the Operator Parameter to determine which node this is
+        std::string op = dataKeyValueMap.at("Operator");
+        if(op == "log") { //In Simulink, log is equivalent to ln and log10 is equivalent to log
+            newNode = Ln::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "exp"){
+            newNode = Exp::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            //TODO: implement more math functions
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Math blocks of type " + op + " are not yet supported: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+        }
+    }else if(blockFunction == "Trigonometry" && dialect == GraphMLDialect::SIMULINK_EXPORT) { //Simulink Name is Trigonometry which includes several vitis functions
+        //Need to look at the Operator Parameter to determine which node this is
+        std::string op = dataKeyValueMap.at("Operator");
+        if(op == "sin") {
+            newNode = Sin::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "cos") {
+            newNode = Cos::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "atan"){
+            newNode = Atan::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else if(op == "atan2"){
+            newNode = Atan2::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            //TODO: implement more Trigonometry functions
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Trigonometry blocks of type " + op + " are not yet supported: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+        }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }
@@ -987,6 +1063,30 @@ std::shared_ptr<Node> GraphMLImporter::importStateflowNode(std::string idStr, st
 
     std::shared_ptr<Node> newNode;
     newNode = SimulinkCoderFSM::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+
+    return newNode;
+}
+
+std::shared_ptr<Node> GraphMLImporter::importThreadCrossingFIFONode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
+    std::string blockFunction = dataKeyValueMap.at("block_function");
+
+    std::shared_ptr<Node> newNode;
+
+    if(blockFunction == "LocklessThreadCrossingFIFO") {
+        newNode = LocklessThreadCrossingFIFO::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ThreadCrossingFIFO type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+    }
 
     return newNode;
 }

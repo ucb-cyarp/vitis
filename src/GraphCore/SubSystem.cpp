@@ -70,10 +70,14 @@ SubSystem::emitGramphMLSubgraphAndChildren(xercesc::DOMDocument *doc, xercesc::D
     return graphElement;
 }
 
+std::string SubSystem::typeNameStr(){
+    return "Subsystem";
+}
+
 std::string SubSystem::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nType: Subsystem";
+    label += "\nType: " + typeNameStr();
 
     return label;
 }

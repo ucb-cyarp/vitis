@@ -202,10 +202,14 @@ xercesc::DOMElement *SimulinkMultiPortSwitch::emitGraphML(xercesc::DOMDocument *
     return thisNode;
 }
 
+std::string SimulinkMultiPortSwitch::typeNameStr(){
+    return "SimulinkMultiPortSwitch";
+}
+
 std::string SimulinkMultiPortSwitch::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: SimulinkMultiPortSwitch\nIndexType: " + indexTypeToString(indexType);
+    label += "\nFunction: " + typeNameStr() + "\nIndexType: " + indexTypeToString(indexType);
 
     return label;
 }

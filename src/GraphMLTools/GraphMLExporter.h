@@ -13,8 +13,8 @@
 
 /**
  * \addtogroup GraphMLTools GraphML Import/Export Tools
- */
-/*@{*/
+ * @{
+*/
 
 /**
  * @brief Exporter for exporting a DSP design to a GraphML file
@@ -46,6 +46,6 @@ public:
 
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_GRAPHMLEXPORTER_H

@@ -18,8 +18,8 @@ class ContextRoot;
 
 /**
 * \addtogroup GraphCore Graph Core
+* @{
 */
-/*@{*/
 
 /**
  * @brief A node that represents a Context Variable Update
@@ -104,8 +104,11 @@ public:
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
+    std::string typeNameStr() override;
+
+    std::string labelStr() override ;
 };
 
-/*@}*/
+/*! @} */
 
 #endif //VITIS_CONTEXTVARIABLEUPDATE_H
