@@ -1577,6 +1577,7 @@ void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::
     configFile << "\t\"totalTimeMetricName\": \"TotalTime_s\"," << std::endl;
     configFile << "\t\"timestampSecName\": \"TimeStamp_s\"," << std::endl;
     configFile << "\t\"timestampNSecName\": \"TimeStamp_ns\"," << std::endl;
+    configFile << "\t\"rateMSPSName\": \"Rate_msps\"," << std::endl;
 
     configFile << "\t\"schedGraphMLFile\": \"" << graphmlSchedFile << "\"" << std::endl;
 
