@@ -1630,7 +1630,9 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
     headerFile << "#include <stdint.h>" << std::endl;
+    headerFile << "#include <stdlib.h>" << std::endl;
     headerFile << "#include <stdbool.h>" << std::endl;
+    headerFile << "#include <string.h>" << std::endl;
     headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
 
     headerFile << "void* vitis_malloc_core(size_t size, int core);" << std::endl;
@@ -1647,8 +1649,6 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
     cFile << "#include \"" << filename << ".h\"" << std::endl;
     cFile << "#include <mm_malloc.h>" << std::endl;
     cFile << "#include <stdio.h>" << std::endl;
-    cFile << "#include <stdlib.h>" << std::endl;
-    cFile << "#include <string.h>" << std::endl;
     cFile << "#include <sched.h>" << std::endl;
     cFile << "#include <unistd.h>" << std::endl;
     cFile << "#include <pthread.h>" << std::endl;
