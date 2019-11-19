@@ -1643,11 +1643,15 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
 
     std::ofstream cFile;
     cFile.open(path+"/"+filename+".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#define _GNU_SOURCE" << std::endl;
     cFile << "#include \"" << filename << ".h\"" << std::endl;
     cFile << "#include <mm_malloc.h>" << std::endl;
     cFile << "#include <stdio.h>" << std::endl;
     cFile << "#include <stdlib.h>" << std::endl;
     cFile << "#include <string.h>" << std::endl;
+    cFile << "#include <sched.h>" << std::endl;
+    cFile << "#include <unistd.h>" << std::endl;
+    cFile << "#include <pthread.h>" << std::endl;
 
     cFile << "typedef struct{\n"
              "    size_t size;\n"
