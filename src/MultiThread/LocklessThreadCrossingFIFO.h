@@ -7,6 +7,8 @@
 
 #include "ThreadCrossingFIFO.h"
 
+#define THREAD_CROSSING_FIFO_ATOMIC_WIDTH (32) //This is the width of an atomic operation on the platform (4 bytes for x86_64)
+
 /**
  * \addtogroup MultiThread Multi-Thread Support
  * @{
