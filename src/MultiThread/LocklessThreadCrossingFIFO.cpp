@@ -29,16 +29,8 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
 
     if(!initalized) {
         //Offset is in blocks
-//        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
-//        newDT = newDT.getCPUStorageType();
-
-        //Index type must be the width of an atomic operation
-        if (std::ceil(std::log2(2*(fifoLength+1))) > THREAD_CROSSING_FIFO_ATOMIC_WIDTH){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, the FIFO index must fit into a " + GeneralHelper::to_string(THREAD_CROSSING_FIFO_ATOMIC_WIDTH) + " type", getSharedPointer()));
-        }
-
-        DataType newDT = DataType(false, true, false, THREAD_CROSSING_FIFO_ATOMIC_WIDTH, 0, 1);
-
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
+        newDT = newDT.getCPUStorageType();
         cWriteOffsetPtr.setDataType(newDT);
         cWriteOffsetPtr.setVolatileVar(true);
     }
@@ -53,15 +45,8 @@ Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
 
     if(!initialized){
         //Offset is in blocks
-//        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
-//        newDT = newDT.getCPUStorageType();
-
-        if (std::ceil(std::log2(2*(fifoLength+1))) > THREAD_CROSSING_FIFO_ATOMIC_WIDTH){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, the FIFO index must fit into a " + GeneralHelper::to_string(THREAD_CROSSING_FIFO_ATOMIC_WIDTH) + " type", getSharedPointer()));
-        }
-
-        DataType newDT = DataType(false, true, false, THREAD_CROSSING_FIFO_ATOMIC_WIDTH, 0, 1);
-
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
+        newDT = newDT.getCPUStorageType();
         cReadOffsetPtr.setDataType(newDT);
         cReadOffsetPtr.setVolatileVar(true);
 
