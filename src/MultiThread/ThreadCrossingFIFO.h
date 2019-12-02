@@ -89,6 +89,13 @@ protected:
     static void initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix);
 
 public:
+    enum class Roll{
+        NONE, //No defined roll (does not use cached values)
+        PRODUCER, //Uses cached producer state
+        CONSUMER, //Uses cached consumer state
+        FULL_CACHED, //For applicable functions, uses cached producer and consumer state
+    };
+
     //====Getters/Setters====
     int getFifoLength() const;
     void setFifoLength(int fifoLength);
@@ -228,10 +235,13 @@ public:
      *
      * Scoping the call to this function may be desirable to limit the scope of these local variables
      *
+     * Cached values will be used unless the roll is specified as NONE
+     *
      * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param roll the roll of the actor calling this function
      * @returns a C statements that evaluates to true if the FIFO is not empty and to false if the FIFO is empty
      */
-    virtual std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue) = 0;
+    virtual std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
 
     /**
      * @brief Emits a C statement to check if the FIFO is not full (has space for 1 or more blocks)
@@ -241,10 +251,13 @@ public:
      *
      * Scoping the call to this function may be desirable to limit the scope of these local variables
      *
+     * Cached values will be used unless the roll is specified as NONE
+     *
      * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param roll the roll of the actor calling this function
      * @returns a C statements that evaluates to true if the FIFO is not full and to false if the FIFO is full
      */
-    virtual std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue) = 0;
+    virtual std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
 
     /**
      * @brief Emits a C statement to get the number of blocks available to read from the FIFO
@@ -254,10 +267,13 @@ public:
      *
      * Scoping the call to this function may be desirable to limit the scope of these local variables
      *
+     * Cached values will be used unless the roll is specified as NONE
+     *
      * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param roll the roll of the actor calling this function
      * @returns a C statement to get the number of blocks available to read from the FIFO
      */
-    virtual std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue) = 0;
+    virtual std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
 
     /**
      * @brief Emits a C statement to get the number of blocks that can be written into the FIFO at this time
@@ -267,26 +283,39 @@ public:
      *
      * Scoping the call to this function may be desirable to limit the scope of these local variables
      *
+     * Cached values will be used unless the roll is specified as NONE
+     *
      * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param roll the roll of the actor calling this function
      * @returns a C statement to get the number of blocks that can be written into the FIFO at this time
      */
-    virtual std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue) = 0;
+    virtual std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
 
     /**
      * @brief Emits C statements which write data into the FIFO.
+     *
+     * Cached values will be used unless the roll is specified as NONE
+     *
      * @param cStatementQueue The C statements are written into this queue
      * @param src The src for data to be written into the FIFO
      * @param numBlocks The number of blocks of data to write into the FIFO
+     * @param roll the roll of the actor calling this function
+     * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
      */
-    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) = 0;
+    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Roll roll, bool pushStateAfter = true) = 0;
 
     /**
      * @brief Emits C statements which read data from the FIFO
+     *
+     * Cached values will be used unless the roll is specified as NONE
+     *
      * @param cStatementQueue The C statements are written into this queue
      * @param dst The destination for data which will be read from the FIFO
      * @param numBlocks The number of blocks to read
+     * @param roll the roll of the actor calling this function
+     * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
      */
-    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) = 0;
+    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Roll roll, bool pushStateAfter) = 0;
 
     /**
      * @brief Get a list of shared variables for the given FIFO.  These variables should be passed to the threads which
@@ -332,6 +361,50 @@ public:
      * @param cStatementQueue The C statements will be written to this queue
      */
     virtual void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+
+
+    /**
+     * @brief Creates local variables used by the FIFO access functions
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     */
+    virtual void createLocalVars(std::vector<std::string> &cStatementQueue) = 0;
+
+    /**
+     * @brief Initializes the local variables according to the roll specified
+     *
+     * If the roll is consumer, the consumer variables will be initialized
+     * If the roll is producer, the producer variables will be initialized
+     * If the roll is none, both the consumer and producer variables will be initialized
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     * @param roll the roll of the actor calling this function
+     */
+    virtual void initLocalVars(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
+
+    /**
+     * @brief Loads the local variables based on the roll
+     *
+     * If the roll is producer, the consumer variables are pulled
+     * If the roll is consumer, the producer variables are pulled
+     * If the roll is none, both the producer and consumer variables are pulled
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     * @param roll the roll of the actor calling this function
+     */
+    virtual void pullLocalVars(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
+
+    /**
+     * @brief Writes the local variables based on the roll
+     *
+     * If the roll is producer, the producer variables are pushed
+     * If the roll is consumer, the consumer variables are pushed
+     * If the roll is none, both the producer and consumer variables are pushed
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     * @param roll the roll of the actor calling this function
+     */
+    virtual void pushLocalVars(std::vector<std::string> &cStatementQueue, Roll roll) = 0;
 };
 
 

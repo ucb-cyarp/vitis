@@ -95,7 +95,7 @@ std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shar
     return statements;
 }
 
-std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck){
+std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck){
     //Began work on version which replicates context check below.  Requires context check to be replicated
     //This version simply checks
 
@@ -119,7 +119,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
     for(int i = 0; i<fifos.size(); i++) {
         //Note: do not need to check if complex since complex values come via the same FIFO as a struct
         std::vector<std::string> statementQueue;
-        std::string checkStmt = checkVarName + " &= " + (checkFull ? fifos[i]->emitCIsNotFull(statementQueue) : fifos[i]->emitCIsNotEmpty(statementQueue)) + ";";
+        std::string checkStmt = checkVarName + " &= " + (producer ? fifos[i]->emitCIsNotFull(statementQueue, ThreadCrossingFIFO::Roll::PRODUCER) : fifos[i]->emitCIsNotEmpty(statementQueue, ThreadCrossingFIFO::Roll::CONSUMER)) + ";";
         check += "{\n";
         for(unsigned int i = 0; i<statementQueue.size(); i++){
             check += statementQueue[i] + "\n";
@@ -204,6 +204,15 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
 //    check += "}\n";
 //}
 
+std::vector<std::string> MultiThreadEmitterHelpers::createFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+    std::vector<std::string> exprs;
+    for(int i = 0; i<fifos.size(); i++) {
+        fifos[i]->createLocalVars(exprs);
+    }
+
+    return exprs;
+}
+
 std::vector<std::string> MultiThreadEmitterHelpers::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
@@ -282,7 +291,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -291,13 +300,13 @@ std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector
         //The fifo reads in terms of blocks with the components stored in a structure
         //When calling the function, the relavent component of the structure is passed as an argument
 
-        fifos[i]->emitCReadFromFIFO(exprs, tmpName, 1);
+        fifos[i]->emitCReadFromFIFO(exprs, tmpName, 1, forcePull ? ThreadCrossingFIFO::Roll::NONE : ThreadCrossingFIFO::Roll::CONSUMER, pushAfter);
     }
 
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -306,7 +315,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vec
         //The fifo reads in terms of blocks with the components stored in a structure
         //When calling the function, the relavent component of the structure is passed as an argument
 
-        fifos[i]->emitCWriteToFIFO(exprs, tmpName, 1);
+        fifos[i]->emitCWriteToFIFO(exprs, tmpName, 1, forcePull ? ThreadCrossingFIFO::Roll::NONE : ThreadCrossingFIFO::Roll::PRODUCER, pushAfter);
     }
 
     return exprs;
@@ -1143,6 +1152,17 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "double timeWaitingForOutputFIFOs = 0;" << std::endl;
         cFile << "double timeWritingOutputFIFOs = 0;" << std::endl;
         cFile << "bool collectTelem = false;" << std::endl;
+    }
+
+    //Create Local Vars
+    std::vector<std::string> cachedVarDeclsInputFIFOs = MultiThreadEmitterHelpers::createFIFOLocalVars(inputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsInputFIFOs.size(); i++){
+        cFile << cachedVarDeclsInputFIFOs[i] << std::endl;
+    }
+
+    std::vector<std::string> cachedVarDeclsOutputFIFOs = MultiThreadEmitterHelpers::createFIFOLocalVars(outputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsOutputFIFOs.size(); i++){
+        cFile << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
     //Create Loop

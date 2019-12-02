@@ -57,14 +57,16 @@ public:
      * @brief Emits C code to check the state of FIFOs
      *
      * @param fifos
-     * @param checkFull if true, checks if the FIFO is full, if false, checks if the FIFO is empty
+     * @param producer if true, checks if the FIFO is full, if false, checks if the FIFO is empty
      * @param checkVarName the name of the variable used to identify if the FIFO check succeded or not.  This should be unique
      * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false, all FIFOs are checked
      * @param blocking if true, the FIFO check will repeat until all are ready.  If false, the FIFO check will not block the execution of the code proceeding it
      * @param includeThreadCancelCheck if true, includes a call to pthread_testcancel durring the FIFO check (to determine if the thread should exit)
      * @return
      */
-    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+
+    static std::vector<std::string> createFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     static std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
@@ -73,9 +75,9 @@ public:
     //Outer vector is for each fifo, the inner vector is for each port within the specified FIFO
     static std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
 
-    static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true);
 
-    static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true);
 
     /**
      * @brief Get the structure definition for a particular partition's thread

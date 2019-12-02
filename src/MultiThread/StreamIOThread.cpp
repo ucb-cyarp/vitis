@@ -465,6 +465,19 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << std::endl;
 
+    //Create Local FIFO Vars
+    std::vector<std::string> cachedVarDeclsInputFIFOs = MultiThreadEmitterHelpers::createFIFOLocalVars(inputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsInputFIFOs.size(); i++){
+        ioThread << cachedVarDeclsInputFIFOs[i] << std::endl;
+    }
+
+    std::vector<std::string> cachedVarDeclsOutputFIFOs = MultiThreadEmitterHelpers::createFIFOLocalVars(outputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsOutputFIFOs.size(); i++){
+        ioThread << cachedVarDeclsOutputFIFOs[i] << std::endl;
+    }
+
+    ioThread << std::endl;
+
     ioThread << "//Thread loop" << std::endl;
     ioThread << "while(true){" << std::endl;
     //Allocate temp Memory for linux pipe read

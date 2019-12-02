@@ -96,6 +96,17 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
         ioThread << tmpReadDecls[i] << std::endl;
     }
 
+    //Create Local FIFO Vars
+    std::vector<std::string> cachedVarDeclsInputFIFOs = MultiThreadEmitterHelpers::createFIFOLocalVars(inputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsInputFIFOs.size(); i++){
+        ioThread << cachedVarDeclsInputFIFOs[i] << std::endl;
+    }
+
+    std::vector<std::string> cachedVarDeclsOutputFIFOs = MultiThreadEmitterHelpers::createFIFOLocalVars(outputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsOutputFIFOs.size(); i++){
+        ioThread << cachedVarDeclsOutputFIFOs[i] << std::endl;
+    }
+
     ioThread << "int readCount = 0;" << std::endl;
 
     if(blockSize > 1){
