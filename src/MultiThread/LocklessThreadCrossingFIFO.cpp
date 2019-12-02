@@ -133,49 +133,78 @@ void LocklessThreadCrossingFIFO::validate() {
     ThreadCrossingFIFO::validate();
 }
 
-std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty() {
+std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty(std::vector<std::string> &cStatementQueue) {
     //Empty = (writeOffset-readOffset == 1) || (writeOffset-readOffset==-(arrayLength-1))
     //Note: This is !Empty
 
     int arrayLength = (fifoLength+1);
     int checkPoint = -(arrayLength-1);
 
-    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
-    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
+    Variable writeOffsetLocal = getCWriteOffsetPtr();
+    writeOffsetLocal.setVolatileVar(false);
+    writeOffsetLocal.setName(writeOffsetLocal.getName() + "_localTmp");
+    Variable readOffsetLocal = getCReadOffsetPtr();
+    readOffsetLocal.setVolatileVar(false);
+    readOffsetLocal.setName(readOffsetLocal.getName() + "_localTmp");
 
-    return "(!((" + derefWriteOffset + " - " + derefReadOffset + " == 1) || (" + derefWriteOffset + " - " + derefReadOffset + " == " + GeneralHelper::to_string(checkPoint) + ")))";
-    //return "(!((" + derefWriteOffset + " - " + derefReadOffset + " == 1) || (" + derefWriteOffset + " == 0 && " + derefReadOffset + " == " + GeneralHelper::to_string(arrayLength-1) + ")))";
+    cStatementQueue.push_back(writeOffsetLocal.getCVarDecl(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
+    cStatementQueue.push_back(readOffsetLocal.getCVarDecl(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
+
+    return "(!((" + writeOffsetLocal.getCVarName(false) + " - " + readOffsetLocal.getCVarName(false) + " == 1) || (" + writeOffsetLocal.getCVarName(false) + " - " + readOffsetLocal.getCVarName(false) + " == " + GeneralHelper::to_string(checkPoint) + ")))";
+    //return "(!((" + writeOffsetLocal.getCVarName(false) + " - " + readOffsetLocal.getCVarName(false) + " == 1) || (" + writeOffsetLocal.getCVarName(false) + " == 0 && " + readOffsetLocal.getCVarName(false) + " == " + GeneralHelper::to_string(arrayLength-1) + ")))";
 }
 
-std::string LocklessThreadCrossingFIFO::emitCIsNotFull() {
+std::string LocklessThreadCrossingFIFO::emitCIsNotFull(std::vector<std::string> &cStatementQueue) {
     //Full = (readOffset == writeOffset)
     //Note: This is !Full
 
-    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
-    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
+    Variable writeOffsetLocal = getCWriteOffsetPtr();
+    writeOffsetLocal.setVolatileVar(false);
+    writeOffsetLocal.setName(writeOffsetLocal.getName() + "_localTmp");
+    Variable readOffsetLocal = getCReadOffsetPtr();
+    readOffsetLocal.setVolatileVar(false);
+    readOffsetLocal.setName(readOffsetLocal.getName() + "_localTmp");
 
-    return "(" + derefReadOffset + " != " + derefWriteOffset + ")";
+    cStatementQueue.push_back(writeOffsetLocal.getCVarDecl(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
+    cStatementQueue.push_back(readOffsetLocal.getCVarDecl(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
+
+    return "(" + readOffsetLocal.getCVarName(false) + " != " + writeOffsetLocal.getCVarName(false) + ")";
 }
 
-std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead() {
+std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue) {
     //Avail to read: ((readOffset < writeOffset) ? writeOffset - readOffset - 1 : arrayLength - readOffset + writeOffset - 1)
 
-    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
-    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
+    Variable writeOffsetLocal = getCWriteOffsetPtr();
+    writeOffsetLocal.setVolatileVar(false);
+    writeOffsetLocal.setName(writeOffsetLocal.getName() + "_localTmp");
+    Variable readOffsetLocal = getCReadOffsetPtr();
+    readOffsetLocal.setVolatileVar(false);
+    readOffsetLocal.setName(readOffsetLocal.getName() + "_localTmp");
+
+    cStatementQueue.push_back(writeOffsetLocal.getCVarDecl(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
+    cStatementQueue.push_back(readOffsetLocal.getCVarDecl(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
 
     int arrayLength = fifoLength+1;
 
-    return "((" + derefReadOffset + " < " + derefWriteOffset + ") ? " + derefWriteOffset + " - " + derefReadOffset + " - 1 : " + GeneralHelper::to_string(arrayLength) + " - " + derefReadOffset + " + " + derefWriteOffset + " - 1)";
+    return "((" + readOffsetLocal.getCVarName(false) + " < " + writeOffsetLocal.getCVarName(false) + ") ? " + writeOffsetLocal.getCVarName(false) + " - " + readOffsetLocal.getCVarName(false) + " - 1 : " + GeneralHelper::to_string(arrayLength) + " - " + readOffsetLocal.getCVarName(false) + " + " + writeOffsetLocal.getCVarName(false) + " - 1)";
 }
 
-std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite() {
+std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue) {
     //Space Left: ((readOffset < writeOffset) ? arrayLength - writeOffset + readOffset : readOffset - writeOffset)
-    std::string derefWriteOffset = "*" + getCWriteOffsetPtr().getCVarName(false);
-    std::string derefReadOffset = "*" + getCReadOffsetPtr().getCVarName(false);
+
+    Variable writeOffsetLocal = getCWriteOffsetPtr();
+    writeOffsetLocal.setVolatileVar(false);
+    writeOffsetLocal.setName(writeOffsetLocal.getName() + "_localTmp");
+    Variable readOffsetLocal = getCReadOffsetPtr();
+    readOffsetLocal.setVolatileVar(false);
+    readOffsetLocal.setName(readOffsetLocal.getName() + "_localTmp");
+
+    cStatementQueue.push_back(writeOffsetLocal.getCVarDecl(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
+    cStatementQueue.push_back(readOffsetLocal.getCVarDecl(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
 
     int arrayLength = fifoLength+1;
 
-    return "((" + derefReadOffset + " < " + derefWriteOffset + ") ? " + GeneralHelper::to_string(arrayLength) + " - " + derefWriteOffset + " + " + derefReadOffset + " : " + derefReadOffset + " - " + derefWriteOffset + ")";
+    return "((" + readOffsetLocal.getCVarName(false) + " < " + writeOffsetLocal.getCVarName(false) + ") ? " + GeneralHelper::to_string(arrayLength) + " - " + writeOffsetLocal.getCVarName(false) + " + " + readOffsetLocal.getCVarName(false) + " : " + readOffsetLocal.getCVarName(false) + " - " + writeOffsetLocal.getCVarName(false) + ")";
 }
 
 void

@@ -118,7 +118,15 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
     //Emit the actual FIFO checks
     for(int i = 0; i<fifos.size(); i++) {
         //Note: do not need to check if complex since complex values come via the same FIFO as a struct
-        check += checkVarName + " &= " + (checkFull ? fifos[i]->emitCIsNotFull() : fifos[i]->emitCIsNotEmpty()) + ";\n";
+        std::vector<std::string> statementQueue;
+        std::string checkStmt = checkVarName + " &= " + (checkFull ? fifos[i]->emitCIsNotFull(statementQueue) : fifos[i]->emitCIsNotEmpty(statementQueue)) + ";";
+        check += "{\n";
+        for(unsigned int i = 0; i<statementQueue.size(); i++){
+            check += statementQueue[i] + "\n";
+        }
+        check += checkStmt + "\n";
+        check += "}\n";
+
         if(shortCircuit && blocking){
             check += "if(!" + checkVarName + "){\n";
             check += "continue;\n";

@@ -222,27 +222,55 @@ public:
 
     /**
      * @brief Emits a C statement to check if the FIFO is not empty (has 1 or more blocks ready)
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
      * @returns a C statements that evaluates to true if the FIFO is not empty and to false if the FIFO is empty
      */
-    virtual std::string emitCIsNotEmpty() = 0;
+    virtual std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue) = 0;
 
     /**
      * @brief Emits a C statement to check if the FIFO is not full (has space for 1 or more blocks)
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
      * @returns a C statements that evaluates to true if the FIFO is not full and to false if the FIFO is full
      */
-    virtual std::string emitCIsNotFull() = 0;
+    virtual std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue) = 0;
 
     /**
      * @brief Emits a C statement to get the number of blocks available to read from the FIFO
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
      * @returns a C statement to get the number of blocks available to read from the FIFO
      */
-    virtual std::string emitCNumBlocksAvailToRead() = 0;
+    virtual std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue) = 0;
 
     /**
      * @brief Emits a C statement to get the number of blocks that can be written into the FIFO at this time
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
      * @returns a C statement to get the number of blocks that can be written into the FIFO at this time
      */
-    virtual std::string emitCNumBlocksAvailToWrite() = 0;
+    virtual std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue) = 0;
 
     /**
      * @brief Emits C statements which write data into the FIFO.

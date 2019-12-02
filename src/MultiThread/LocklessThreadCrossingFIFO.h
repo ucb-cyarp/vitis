@@ -224,13 +224,13 @@ public:
 
     //==== FIFO Implementation Functions ====
 
-    std::string emitCIsNotEmpty() override;
+    std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue) override;
 
-    std::string emitCIsNotFull() override;
+    std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue) override;
 
-    std::string emitCNumBlocksAvailToRead() override;
+    std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue) override;
 
-    std::string emitCNumBlocksAvailToWrite() override;
+    std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue) override;
 
     void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) override;
 
