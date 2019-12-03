@@ -1592,7 +1592,6 @@ std::string StreamIOThread::emitSharedMemoryFIFOHelperFiles(std::string path) {
 
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
-    headerFile << "#define _DEFAULT_SOURCE" << std::endl;
 
     headerFile << "#ifndef _DEFAULT_SOURCE\n"
                   "#define _DEFAULT_SOURCE\n"
