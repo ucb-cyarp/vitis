@@ -118,7 +118,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     if(printTelem){
+        ioThread << "#ifndef _GNU_SOURCE" << std::endl;
         ioThread << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
+        ioThread << "#endif" << std::endl;
     }
     ioThread << "#include <stdio.h>" << std::endl;
     ioThread << "#include <stdlib.h>" << std::endl;

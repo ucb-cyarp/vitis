@@ -555,7 +555,9 @@ std::string EmitterHelpers::emitTelemetryHelper(std::string path, std::string fi
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path + "/" + fileName + ".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#ifndef _GNU_SOURCE" << std::endl;
     cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
+    cFile << "#endif" << std::endl;
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
     cFile << "#include <unistd.h>" << std::endl;
     cFile << "#include <time.h>" << std::endl;

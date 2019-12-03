@@ -476,8 +476,10 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
     //Include other generated headers
+    cFile << "#ifndef _GNU_SOURCE" << std::endl;
     cFile << "//Need _GNU_SOURCE, sched.h, and unistd.h for setting thread affinity in Linux" << std::endl; //Linux scheduler source for setting thread affinity (C++ did not complain not having this but C does)
     cFile << "#define _GNU_SOURCE" << std::endl;
+    cFile << "#endif" << std::endl;
     cFile << "#include <unistd.h>" << std::endl;
     cFile << "#include <sched.h>" << std::endl;
     cFile << "#include <stdio.h>" << std::endl;
@@ -979,7 +981,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
     if(collectTelem){
+        cFile << "#ifndef _GNU_SOURCE" << std::endl;
         cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
+        cFile << "#endif" << std::endl;
     }
     if(threadDebugPrint || collectTelem) {
         cFile << "#include <stdio.h>" << std::endl;
@@ -1677,7 +1681,9 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
 
     std::ofstream cFile;
     cFile.open(path+"/"+filename+".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#ifndef _GNU_SOURCE" << std::endl;
     cFile << "#define _GNU_SOURCE" << std::endl;
+    cFile << "#endif" << std::endl;
     cFile << "#include \"" << filename << ".h\"" << std::endl;
     cFile << "#include <mm_malloc.h>" << std::endl;
     cFile << "#include <stdio.h>" << std::endl;
