@@ -165,19 +165,19 @@ void LocklessThreadCrossingFIFO::validate() {
     ThreadCrossingFIFO::validate();
 }
 
-std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Roll roll) {
+std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Role role) {
     //Empty = (writeOffset-readOffset == 1) || (writeOffset-readOffset==-(arrayLength-1))
     //Note: This is !Empty
 
     int arrayLength = (fifoLength+1);
     int checkPoint = -(arrayLength-1);
 
-    if(roll == Roll::CONSUMER || roll == Roll::NONE){
+    if(role == Role::CONSUMER || role == Role::NONE){
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
     }
 
-    if(roll == Roll::PRODUCER || roll == Roll:: NONE){
+    if(role == Role::PRODUCER || role == Role:: NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
     }
@@ -186,16 +186,16 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty(std::vector<std::string>
     //return "(!((" + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " == 1) || (" + getCWriteOffsetCached().getCVarName(false) + " == 0 && " + getCReadOffsetCached().getCVarName(false) + " == " + GeneralHelper::to_string(arrayLength-1) + ")))";
 }
 
-std::string LocklessThreadCrossingFIFO::emitCIsNotFull(std::vector<std::string> &cStatementQueue, Roll roll) {
+std::string LocklessThreadCrossingFIFO::emitCIsNotFull(std::vector<std::string> &cStatementQueue, Role role) {
     //Full = (readOffset == writeOffset)
     //Note: This is !Full
 
-    if(roll == Roll::CONSUMER || roll == Roll::NONE){
+    if(role == Role::CONSUMER || role == Role::NONE){
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
     }
 
-    if(roll == Roll::PRODUCER || roll == Roll:: NONE){
+    if(role == Role::PRODUCER || role == Role:: NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
     }
@@ -203,15 +203,15 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotFull(std::vector<std::string> 
     return "(" + getCReadOffsetCached().getCVarName(false) + " != " + getCWriteOffsetCached().getCVarName(false) + ")";
 }
 
-std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Roll roll) {
+std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Role role) {
     //Avail to read: ((readOffset < writeOffset) ? writeOffset - readOffset - 1 : arrayLength - readOffset + writeOffset - 1)
 
-    if(roll == Roll::CONSUMER || roll == Roll::NONE){
+    if(role == Role::CONSUMER || role == Role::NONE){
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
     }
 
-    if(roll == Roll::PRODUCER || roll == Roll:: NONE){
+    if(role == Role::PRODUCER || role == Role:: NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
     }
@@ -221,15 +221,15 @@ std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead(std::vector<st
     return "((" + getCReadOffsetCached().getCVarName(false) + " < " + getCWriteOffsetCached().getCVarName(false) + ") ? " + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " - 1 : " + GeneralHelper::to_string(arrayLength) + " - " + getCReadOffsetCached().getCVarName(false) + " + " + getCWriteOffsetCached().getCVarName(false) + " - 1)";
 }
 
-std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Roll roll) {
+std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role role) {
     //Space Left: ((readOffset < writeOffset) ? arrayLength - writeOffset + readOffset : readOffset - writeOffset)
 
-    if(roll == Roll::CONSUMER || roll == Roll::NONE){
+    if(role == Role::CONSUMER || role == Role::NONE){
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
     }
 
-    if(roll == Roll::PRODUCER || roll == Roll:: NONE){
+    if(role == Role::PRODUCER || role == Role:: NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
     }
@@ -240,7 +240,7 @@ std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite(std::vector<s
 }
 
 void
-LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Roll roll, bool pushStateAfter) {
+LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -255,7 +255,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         //Read 1 full block
         //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Write");
-        if(roll == ThreadCrossingFIFO::Roll::NONE) {
+        if(role == ThreadCrossingFIFO::Role::NONE) {
             cStatementQueue.push_back("//Load Write Ptr");
             cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + derefSharedWriteOffsetBlocks + ";"); //Elements and blocks are the same
             cStatementQueue.push_back("");
@@ -278,7 +278,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
     }else{
         //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Write");
-        if(roll == ThreadCrossingFIFO::Roll::NONE) {
+        if(role == ThreadCrossingFIFO::Role::NONE) {
             cStatementQueue.push_back("//Load Write Ptr");
             cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + derefSharedWriteOffsetBlocks + ";"); //Elements and blocks are the same
             cStatementQueue.push_back("");
@@ -306,7 +306,7 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
 }
 
 void
-LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Roll roll, bool pushStateAfter) {
+LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -324,7 +324,7 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         //Read an entire blocks
         //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Read");
-        if(roll == ThreadCrossingFIFO::Roll::NONE) {
+        if(role == ThreadCrossingFIFO::Role::NONE) {
             cStatementQueue.push_back("//Load Read Ptr");
             cStatementQueue.push_back("int " + localReadOffsetBlocks + " = " + derefSharedReadOffsetBlocks + ";"); //Elements and blocks are the same
         }else{
@@ -348,7 +348,7 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
     }else{
         //Open a block for the write to prevent scoping issues with declared temp
         cStatementQueue.push_back("{//Begin Scope for " + name + " FIFO Read");
-        if(roll == ThreadCrossingFIFO::Roll::NONE) {
+        if(role == ThreadCrossingFIFO::Role::NONE) {
             cStatementQueue.push_back("//Load Read Ptr");
             cStatementQueue.push_back("int " + localReadOffsetBlocks + " = " + derefSharedReadOffsetBlocks + ";");
             cStatementQueue.push_back("");
@@ -495,29 +495,29 @@ void LocklessThreadCrossingFIFO::createLocalVars(std::vector<std::string> &cStat
     cStatementQueue.push_back(getCReadOffsetCached().getCVarDecl(false) + ";");
 }
 
-void LocklessThreadCrossingFIFO::initLocalVars(std::vector<std::string> &cStatementQueue, Roll roll){
-    pullLocalVars(cStatementQueue, roll);
+void LocklessThreadCrossingFIFO::initLocalVars(std::vector<std::string> &cStatementQueue, Role role){
+    pullLocalVars(cStatementQueue, role);
 }
 
-void LocklessThreadCrossingFIFO::pullLocalVars(std::vector<std::string> &cStatementQueue, Roll roll){
-    if(roll == Roll::CONSUMER || roll == Roll::NONE){
+void LocklessThreadCrossingFIFO::pullLocalVars(std::vector<std::string> &cStatementQueue, Role role){
+    if(role == Role::CONSUMER || role == Role::NONE){
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = *" + getCWriteOffsetPtr().getCVarName(false) + ";");
     }
 
-    if(roll == Roll::PRODUCER || roll == Roll::NONE){
+    if(role == Role::PRODUCER || role == Role::NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = *" + getCReadOffsetPtr().getCVarName(false) + ";");
     }
 }
 
-void LocklessThreadCrossingFIFO::pushLocalVars(std::vector<std::string> &cStatementQueue, Roll roll){
-    if(roll == Roll::CONSUMER || roll == Roll::NONE){
+void LocklessThreadCrossingFIFO::pushLocalVars(std::vector<std::string> &cStatementQueue, Role role){
+    if(role == Role::CONSUMER || role == Role::NONE){
         //Push the current read offset
         cStatementQueue.push_back("*" + getCReadOffsetPtr().getCVarName(false) + " = " + getCReadOffsetCached().getCVarName(false) + ";");
     }
 
-    if(roll == Roll::PRODUCER || roll == Roll::NONE){
+    if(role == Role::PRODUCER || role == Role::NONE){
         //Push the current write offset
         cStatementQueue.push_back("*" + getCWriteOffsetPtr().getCVarName(false) + " = " + getCWriteOffsetCached().getCVarName(false) + ";");
     }

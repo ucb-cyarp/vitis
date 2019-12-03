@@ -248,17 +248,17 @@ public:
 
     //==== FIFO Implementation Functions ====
 
-    std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Roll roll) override;
+    std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue, Roll roll) override;
+    std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Roll roll) override;
+    std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Roll roll) override;
+    std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Roll roll, bool pushStateAfter) override;
+    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role roll, bool pushStateAfter) override;
 
-    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Roll roll, bool pushStateAfter) override;
+    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role roll, bool pushStateAfter) override;
 
     std::vector<std::pair<Variable, std::string>> getFIFOSharedVariables() override;
 
@@ -268,11 +268,11 @@ public:
 
     void createLocalVars(std::vector<std::string> &cStatementQueue) override; //Creates local variables to be used
 
-    void initLocalVars(std::vector<std::string> &cStatementQueue, Roll roll) override; //Initializes the local variables declared in createLocalVars
+    void initLocalVars(std::vector<std::string> &cStatementQueue, Role role) override; //Initializes the local variables declared in createLocalVars
 
-    void pullLocalVars(std::vector<std::string> &cStatementQueue, Roll roll) override; //Loads the local variables based on the roll (producer/consumer)
+    void pullLocalVars(std::vector<std::string> &cStatementQueue, Role role) override; //Loads the local variables based on the role (producer/consumer)
 
-    void pushLocalVars(std::vector<std::string> &cStatementQueue, Roll roll) override; //Writes the local variables based on the roll (producer/consumer)
+    void pushLocalVars(std::vector<std::string> &cStatementQueue, Role role) override; //Writes the local variables based on the role (producer/consumer)
 
     /**
      * @brief Initializes the shared array with the FIFO's initial values and sets the initial read and write indexes
