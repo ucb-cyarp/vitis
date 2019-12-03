@@ -63,11 +63,11 @@ std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shar
 //            var.setDataType(varType);
 
             //We handle volatile seperatly here (because of struct name), set to false for getCPtrDecl
-            bool isVolatile = var.isVolatileVar();
-            var.setVolatileVar(false);
+            bool isAtomic = var.isAtomicVar();
+            var.setAtomicVar(false);
 
             //Check if complex
-            statements += (isVolatile ? "volatile " : "") + (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+            statements += (isAtomic ? "_Atomic " : "") + (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
         }
     }
 
@@ -82,11 +82,12 @@ std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shar
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
-            //We handle volatile seperatly here (because of struct name), set to false for getCPtrDecl
-            bool isVolatile = var.isVolatileVar();
-            var.setVolatileVar(false);
 
-            std::string outputFIFOStatement = (isVolatile ? "volatile " : "") + (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
+            //We handle volatile seperatly here (because of struct name), set to false for getCPtrDecl
+            bool isAtomic = var.isAtomicVar();
+            var.setAtomicVar(false);
+
+            std::string outputFIFOStatement = (isAtomic ? "_Atomic " : "") + (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
             statements += outputFIFOStatement;
             //statements += outputFIFOs[i]->getFIFOStructTypeName() + "* " +  var.getCVarName(false) + " = " + castStructName + "->" + var.getCVarName(false) + ";\n";
         }
@@ -337,8 +338,6 @@ std::pair<std::string, std::string> MultiThreadEmitterHelpers::getCThreadArgStru
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
-            //Pass as not volatile
-            var.setVolatileVar(false);
 
             //prototype += "\t" + inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false) +  + ";\n";
             prototype += (structName.empty() ? var.getCPtrDecl(false) : inputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + ";\n";
@@ -357,8 +356,6 @@ std::pair<std::string, std::string> MultiThreadEmitterHelpers::getCThreadArgStru
 //            DataType varType = var.getDataType();
 //            varType.setWidth(varType.getWidth()*blockSize);
 //            var.setDataType(varType);
-            //Pass as not volatile
-            var.setVolatileVar(false);
 
             //prototype += "\t" + outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false) +  + ";\n";
             prototype += (structName.empty() ? var.getCPtrDecl(false) : outputFIFOs[i]->getFIFOStructTypeName() + "* " + var.getCVarName(false)) + ";\n";
@@ -767,9 +764,9 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
                                     if(includeLrt){
-                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon\n";
+                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon -latomic\n";
                                     }else {
-                     makefileContent += "LIB=-pthread -lProfilerCommon\n";
+                     makefileContent += "LIB=-pthread -lProfilerCommon -latomic\n";
                                     }
                  makefileContent += "\n"
                                     "DEFINES=\n"
@@ -1011,7 +1008,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Include any external include statements required by nodes in the design
-    std::set<std::string> extIncludes;
     for(int i = 0; i<nodesToEmit.size(); i++){
         std::set<std::string> nodeIncludes = nodesToEmit[i]->getExternalIncludes();
         includesCFile.insert(nodeIncludes.begin(), nodeIncludes.end());
@@ -1452,7 +1448,7 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         }
 
         //Pass as not volatile
-        var.setVolatileVar(false);
+        var.setAtomicVar(false);
 
         if(i > 0){
             prototype += ", ";
@@ -1489,7 +1485,7 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         }
 
         //Pass as not volatile
-        var.setVolatileVar(false);
+        var.setAtomicVar(false);
 
         if(i > 0) {
             prototype += ", ";

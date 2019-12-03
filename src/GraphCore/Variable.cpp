@@ -13,15 +13,15 @@ Variable::Variable() : name("") {
 
 }
 
-Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType), volatileVar(false) {
+Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType), atomicVar(false) {
 
 }
 
-Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue), volatileVar(false){
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue), atomicVar(false){
 
 }
 
-Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar) : name(name), dataType(dataType), initValue(initValue), volatileVar(volatileVar){
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar) : name(name), dataType(dataType), initValue(initValue), atomicVar(volatileVar){
 
 }
 
@@ -53,7 +53,7 @@ std::string Variable::getCVarName(bool imag) {
 std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray, bool includeRef) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
-    std::string decl = (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
+    std::string decl = (atomicVar ? "_Atomic " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
 
     if(dataType.getWidth() > 1 && includeArray){
         decl += "[";
@@ -106,7 +106,7 @@ std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit
 
 std::string Variable::getCPtrDecl(bool imag) {
     DataType cpuStorageType = dataType.getCPUStorageType();
-    return (volatileVar ? "volatile " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " *" + getCVarName(imag);
+    return (atomicVar ? "_Atomic " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " *" + getCVarName(imag);
 }
 
 std::string Variable::getName() const {
@@ -133,11 +133,11 @@ void Variable::setInitValue(const std::vector<NumericValue> &initValue) {
     Variable::initValue = initValue;
 }
 
-bool Variable::isVolatileVar() const {
-    return volatileVar;
+bool Variable::isAtomicVar() const {
+    return atomicVar;
 }
 
-void Variable::setVolatileVar(bool volatileVar) {
-    Variable::volatileVar = volatileVar;
+void Variable::setAtomicVar(bool atomicVar) {
+    Variable::atomicVar = atomicVar;
 }
 

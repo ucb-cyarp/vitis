@@ -27,7 +27,7 @@ protected:
     std::string name; ///<The name of the variable
     DataType dataType; ///<The DataType of the variable
     std::vector<NumericValue> initValue; ///<The Initial value of the variable
-    bool volatileVar; ///< Indicates if the variable is volatile (used for thread crossing variables)
+    bool atomicVar; ///< Indicates if the variable is a stdatomic type
 
 public:
     Variable();
@@ -74,8 +74,8 @@ public:
     void setDataType(const DataType &dataType);
     std::vector<NumericValue> getInitValue() const;
     void setInitValue(const std::vector<NumericValue> &initValue);
-    bool isVolatileVar() const;
-    void setVolatileVar(bool volatileVar);
+    bool isAtomicVar() const;
+    void setAtomicVar(bool volatileVar);
 };
 
 /*! @} */
