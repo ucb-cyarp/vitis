@@ -289,6 +289,9 @@ public:
      * @param cStatementQueue where the C statements will be emitted
      */
     void initializeSharedVariables(std::vector<std::string> &cStatementQueue) override ;
+
+    //Need to include stdatomic
+    std::set<std::string> getExternalIncludes() override;
 };
 
 /*! @} */
