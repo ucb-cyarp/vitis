@@ -138,9 +138,15 @@ protected:
     Variable cReadOffsetPtr; ///<The C variable corresponding to the read pointer offset (in blocks)
     Variable cArrayPtr; ///<The C variable corresponding to the FIFO array
 
+    Variable cWriteOffsetCached; ///<The C variable corresponding to the cached value of the write offset (in blocks)
+    Variable cReadOffsetCached; ///<The C variable corresponding to the cached value of the read offset (in blocks)
+
     bool cWriteOffsetPtrInitialized;
     bool cReadOffsetPtrInitialized;
     bool cArrayPtrInitialized;
+
+    bool cWriteOffsetCachedInitialized;
+    bool cReadOffsetCachedInitialized;
 
     //==== Constructors ====
     /**
@@ -202,6 +208,24 @@ public:
      */
     Variable getCArrayPtr();
 
+    /**
+     * @brief Gets the cWriteOffsetCached for this FIFO.  If it has not yet been initialized, it will be initialized at this point
+     *
+     * @note This function is used internally whenever accessing the object to ensure it is initialized
+     *
+     * @return the initialized cWriteOffsetPtr for this FIFO
+     */
+    Variable getCWriteOffsetCached();
+
+    /**
+     * @brief Gets the cReadOffsetCached for this FIFO.  If it has not yet been initialized, it will be initialized at this point
+     *
+     * @note This function is used internally whenever accessing the object to ensure it is initialized
+     *
+     * @return the initialized cWriteOffsetPtr for this FIFO
+     */
+    Variable getCReadOffsetCached();
+
     //====Factory====
     //This uses a function of the abstract class to
     static std::shared_ptr<LocklessThreadCrossingFIFO> createFromGraphML(int id, std::string name,
@@ -224,23 +248,31 @@ public:
 
     //==== FIFO Implementation Functions ====
 
-    std::string emitCIsNotEmpty() override;
+    std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    std::string emitCIsNotFull() override;
+    std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    std::string emitCNumBlocksAvailToRead() override;
+    std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    std::string emitCNumBlocksAvailToWrite() override;
+    std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) override;
+    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role roll, bool pushStateAfter) override;
 
-    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) override;
+    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role roll, bool pushStateAfter) override;
 
     std::vector<std::pair<Variable, std::string>> getFIFOSharedVariables() override;
 
-    void createSharedVariables(std::vector<std::string> &cStatementQueue) override;
+    void createSharedVariables(std::vector<std::string> &cStatementQueue, int core) override;
 
     void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) override ;
+
+    void createLocalVars(std::vector<std::string> &cStatementQueue) override; //Creates local variables to be used
+
+    void initLocalVars(std::vector<std::string> &cStatementQueue, Role role) override; //Initializes the local variables declared in createLocalVars
+
+    void pullLocalVars(std::vector<std::string> &cStatementQueue, Role role) override; //Loads the local variables based on the role (producer/consumer)
+
+    void pushLocalVars(std::vector<std::string> &cStatementQueue, Role role) override; //Writes the local variables based on the role (producer/consumer)
 
     /**
      * @brief Initializes the shared array with the FIFO's initial values and sets the initial read and write indexes

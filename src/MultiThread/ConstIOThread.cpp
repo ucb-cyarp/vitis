@@ -27,15 +27,34 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
-    headerFile << "#include <stdint.h>" << std::endl;
-    headerFile << "#include <stdbool.h>" << std::endl;
-    headerFile << "#include <math.h>" << std::endl;
-    headerFile << "#include <pthread.h>" << std::endl;
+
+    std::set<std::string> includesHFile;
+
+    includesHFile.insert("#include <stdint.h>");
+    includesHFile.insert("#include <stdbool.h>");
+    includesHFile.insert("#include <math.h>");
+    includesHFile.insert("#include <pthread.h>");
     if(threadDebugPrint) {
-        headerFile << "#include <stdio.h>" << std::endl;
+        includesHFile.insert("#include <stdio.h>");
     }
-    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
-    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
+    includesHFile.insert("#include \"" + GeneralHelper::to_string(VITIS_TYPE_NAME) + ".h\"");
+    includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
+
+    //Include any external include statements required by nodes in the design
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = inputFIFOs[i]->getExternalIncludes();
+        includesHFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = outputFIFOs[i]->getExternalIncludes();
+        includesHFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(auto it = includesHFile.begin(); it != includesHFile.end(); it++){
+        headerFile << *it << std::endl;
+    }
+
     headerFile << std::endl;
 
     //Create the threadFunction argument structure for the I/O thread (includes the references to FIFO shared vars)
@@ -58,8 +77,25 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     std::ofstream ioThread;
     ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
-    ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
-    ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    std::set<std::string> includesCFile;
+    includesCFile.insert("#include \"" + fileName + ".h" + "\"");
+    includesCFile.insert("#include \"intrin_bench_default_defines.h\"");
+
+    //Include any external include statements required by nodes in the design
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = inputFIFOs[i]->getExternalIncludes();
+        includesCFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = outputFIFOs[i]->getExternalIncludes();
+        includesCFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(auto it = includesCFile.begin(); it != includesCFile.end(); it++){
+        ioThread << *it << std::endl;
+    }
+
     ioThread << std::endl;
 
     ioThread << threadFctnDecl << "{" << std::endl;
@@ -94,6 +130,19 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
     for(int i = 0; i<tmpReadDecls.size(); i++){
         ioThread << tmpReadDecls[i] << std::endl;
+    }
+
+    //Create Local FIFO Vars
+    std::vector<std::string> cachedVarDeclsInputFIFOs = MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(
+            inputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsInputFIFOs.size(); i++){
+        ioThread << cachedVarDeclsInputFIFOs[i] << std::endl;
+    }
+
+    std::vector<std::string> cachedVarDeclsOutputFIFOs = MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(
+            outputFIFOs);
+    for(unsigned long i = 0; i<cachedVarDeclsOutputFIFOs.size(); i++){
+        ioThread << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
     ioThread << "int readCount = 0;" << std::endl;

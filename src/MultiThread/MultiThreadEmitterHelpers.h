@@ -14,6 +14,9 @@
 #include <map>
 #include <vector>
 
+#define VITIS_PLATFORM_PARAMS_NAME "vitisPlatformParams"
+#define VITIS_NUMA_ALLOC_HELPERS "vitisNumaAllocHelpers"
+
 //Forward Declare
 class Node;
 class Arc;
@@ -54,14 +57,16 @@ public:
      * @brief Emits C code to check the state of FIFOs
      *
      * @param fifos
-     * @param checkFull if true, checks if the FIFO is full, if false, checks if the FIFO is empty
+     * @param producer if true, checks if the FIFO is full, if false, checks if the FIFO is empty
      * @param checkVarName the name of the variable used to identify if the FIFO check succeded or not.  This should be unique
      * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false, all FIFOs are checked
      * @param blocking if true, the FIFO check will repeat until all are ready.  If false, the FIFO check will not block the execution of the code proceeding it
      * @param includeThreadCancelCheck if true, includes a call to pthread_testcancel durring the FIFO check (to determine if the thread should exit)
      * @return
      */
-    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool checkFull, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+
+    static std::vector<std::string> createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     static std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
@@ -70,9 +75,9 @@ public:
     //Outer vector is for each fifo, the inner vector is for each port within the specified FIFO
     static std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
 
-    static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true);
 
-    static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true);
 
     /**
      * @brief Get the structure definition for a particular partition's thread
@@ -103,6 +108,14 @@ public:
      * @returns the filename of the header file
      */
     static std::string emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    /**
+     * @brief Get the core number for the specified partition number
+     * @param parititon
+     * @param partitionMap
+     * @return
+     */
+    static int getCore(int parititon, const std::vector<int> &partitionMap, bool print = false);
 
     /**
      * @brief Emits the benchmark kernel function for multi-threaded emit.  This includes allocating FIFOs and creating/starting threads.
@@ -212,6 +225,16 @@ public:
     static bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
 
     static void writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix, std::string designName, std::map<int, int> partitionToCPU, int ioPartitionNumber, std::string graphmlSchedFile);
+
+    /**
+     * @brief Writes a file that contains configuration info for the target platform including cache line size
+     * @param path
+     * @param filename
+     */
+    static void writePlatformParameters(std::string path, std::string filename, int memAlignment);
+
+    static void writeNUMAAllocHelperFiles(std::string path, std::string filename);
+
 };
 
 /*! @} */

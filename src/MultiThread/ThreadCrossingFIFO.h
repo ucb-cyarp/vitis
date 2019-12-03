@@ -89,6 +89,13 @@ protected:
     static void initializeVarIfNotAlready(std::shared_ptr<Node> node, Variable &var, bool &init, std::string suffix);
 
 public:
+    enum class Role{
+        NONE, //No defined role (does not use cached values)
+        PRODUCER, //Uses cached producer state
+        CONSUMER, //Uses cached consumer state
+        FULL_CACHED, //For applicable functions, uses cached producer and consumer state
+    };
+
     //====Getters/Setters====
     int getFifoLength() const;
     void setFifoLength(int fifoLength);
@@ -222,43 +229,93 @@ public:
 
     /**
      * @brief Emits a C statement to check if the FIFO is not empty (has 1 or more blocks ready)
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * Cached values will be used unless the role is specified as NONE
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param role the role of the actor calling this function
      * @returns a C statements that evaluates to true if the FIFO is not empty and to false if the FIFO is empty
      */
-    virtual std::string emitCIsNotEmpty() = 0;
+    virtual std::string emitCIsNotEmpty(std::vector<std::string> &cStatementQueue, Role role) = 0;
 
     /**
      * @brief Emits a C statement to check if the FIFO is not full (has space for 1 or more blocks)
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * Cached values will be used unless the role is specified as NONE
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param role the role of the actor calling this function
      * @returns a C statements that evaluates to true if the FIFO is not full and to false if the FIFO is full
      */
-    virtual std::string emitCIsNotFull() = 0;
+    virtual std::string emitCIsNotFull(std::vector<std::string> &cStatementQueue, Role role) = 0;
 
     /**
      * @brief Emits a C statement to get the number of blocks available to read from the FIFO
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * Cached values will be used unless the role is specified as NONE
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param role the role of the actor calling this function
      * @returns a C statement to get the number of blocks available to read from the FIFO
      */
-    virtual std::string emitCNumBlocksAvailToRead() = 0;
+    virtual std::string emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Role role) = 0;
 
     /**
      * @brief Emits a C statement to get the number of blocks that can be written into the FIFO at this time
+     *
+     * To avoid reading a volatile pointer more than once per check, the pointers are de-referenced and stored in local
+     * variables.  These statements are pushed onto the cStatementQueue and are referenced in the returned string.
+     *
+     * Scoping the call to this function may be desirable to limit the scope of these local variables
+     *
+     * Cached values will be used unless the role is specified as NONE
+     *
+     * @param cStatementQueue the current C statement queue.  Will be added to by the call to this function
+     * @param role the role of the actor calling this function
      * @returns a C statement to get the number of blocks that can be written into the FIFO at this time
      */
-    virtual std::string emitCNumBlocksAvailToWrite() = 0;
+    virtual std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role role) = 0;
 
     /**
      * @brief Emits C statements which write data into the FIFO.
+     *
+     * Cached values will be used unless the role is specified as NONE
+     *
      * @param cStatementQueue The C statements are written into this queue
      * @param src The src for data to be written into the FIFO
      * @param numBlocks The number of blocks of data to write into the FIFO
+     * @param role the role of the actor calling this function
+     * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
      */
-    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks) = 0;
+    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter = true) = 0;
 
     /**
      * @brief Emits C statements which read data from the FIFO
+     *
+     * Cached values will be used unless the role is specified as NONE
+     *
      * @param cStatementQueue The C statements are written into this queue
      * @param dst The destination for data which will be read from the FIFO
      * @param numBlocks The number of blocks to read
+     * @param role the role of the actor calling this function
+     * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
      */
-    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks) = 0;
+    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter) = 0;
 
     /**
      * @brief Get a list of shared variables for the given FIFO.  These variables should be passed to the threads which
@@ -284,8 +341,9 @@ public:
      * This function should be called by the function creating threads.  These variables should be passed to threads.
      *
      * @param cStatementQueue The C statements will be written to this queue
+     * @param core The core on which the memory should be allocated.  If -1, it is the core the current thread is running on (aligned_alloc).  Otherwise, it uses the vitis helper function
      */
-    virtual void createSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+    virtual void createSharedVariables(std::vector<std::string> &cStatementQueue, int core = -1) = 0;
 
     /**
      * @brief Emits C statements that initialize allocated variables
@@ -303,6 +361,50 @@ public:
      * @param cStatementQueue The C statements will be written to this queue
      */
     virtual void cleanupSharedVariables(std::vector<std::string> &cStatementQueue) = 0;
+
+
+    /**
+     * @brief Creates local variables used by the FIFO access functions
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     */
+    virtual void createLocalVars(std::vector<std::string> &cStatementQueue) = 0;
+
+    /**
+     * @brief Initializes the local variables according to the role specified
+     *
+     * If the role is consumer, the consumer variables will be initialized
+     * If the role is producer, the producer variables will be initialized
+     * If the role is none, both the consumer and producer variables will be initialized
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     * @param role the role of the actor calling this function
+     */
+    virtual void initLocalVars(std::vector<std::string> &cStatementQueue, Role role) = 0;
+
+    /**
+     * @brief Loads the local variables based on the role
+     *
+     * If the role is producer, the consumer variables are pulled
+     * If the role is consumer, the producer variables are pulled
+     * If the role is none, both the producer and consumer variables are pulled
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     * @param role the role of the actor calling this function
+     */
+    virtual void pullLocalVars(std::vector<std::string> &cStatementQueue, Role role) = 0;
+
+    /**
+     * @brief Writes the local variables based on the role
+     *
+     * If the role is producer, the producer variables are pushed
+     * If the role is consumer, the consumer variables are pushed
+     * If the role is none, both the producer and consumer variables are pushed
+     *
+     * @param cStatementQueue The C statements will be written to this queue
+     * @param role the role of the actor calling this function
+     */
+    virtual void pushLocalVars(std::vector<std::string> &cStatementQueue, Role role) = 0;
 };
 
 

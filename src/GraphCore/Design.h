@@ -460,8 +460,9 @@ public:
      * @param ioFifoSize the I/O FIFO size in blocks to allocate (only used for shared memory FIFO I/O)
      * @param printTelem if true, telemetry is printed
      * @param telemDumpPrefix if not empty, specifies a file prefix into which telemetry from each compute thread is dumped
+     * @param memAlignment the aligment (in bytes) used for FIFO buffer allocation
      */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix);
+    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters schedParams, ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize, bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*

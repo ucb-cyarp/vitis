@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         std::cout << "multiThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Multi Threaded C Function" << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint> <--printTelem> <--telemDumpPrefix>" << std::endl;
+        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> --memAlignment <MEM_ALIGNMENT>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -55,6 +55,9 @@ int main(int argc, char* argv[]) {
         std::cout << "    By default the I/O thread is placed on CPU0 and partitions are placed" << std::endl;
         std::cout << "    on the CPU that matches their partition number (ex. partition 1 is placed on CPU1)" << std::endl;
         std::cout << std::endl;
+        std::cout << "Possible MEM_ALIGNMENT (the alignment in bytes used when allocating FIFO buffers):" << std::endl;
+        std::cout << "    unsigned long memAlignment <DEFAULT = 64>" << std::endl;
+        std::cout << std::endl;
 
         return 1;
     }
@@ -68,6 +71,7 @@ int main(int argc, char* argv[]) {
     unsigned long fifoLength = 16;
     unsigned long ioFifoSize = 16;
     std::vector<int> partitionMap;
+    unsigned long memAlignment = 64;
 
     bool emitGraphMLSched = false;
     bool printNodeSched = false;
@@ -154,6 +158,20 @@ int main(int argc, char* argv[]) {
                 }
             } catch (std::invalid_argument e) {
                 std::cerr << "Invalid command line option type: --fifoLength " << argv[i] << std::endl;
+                exit(1);
+            }
+        }else if(strcmp(argv[i], "--memAlignment") == 0) {
+            i++;
+            std::string argStr = argv[i];
+            try {
+                unsigned long parsedMemAlignment = std::stoul(argStr);
+                ioFifoSize = parsedMemAlignment;
+                if(parsedMemAlignment<1){
+                    std::cerr << "Invalid command line option type: --memAlignment must be >= 1.  Currently:  " << argv[i] << std::endl;
+                    exit(1);
+                }
+            } catch (std::invalid_argument e) {
+                std::cerr << "Invalid command line option type: --memAlignment " << argv[i] << std::endl;
                 exit(1);
             }
         }else if(strcmp(argv[i], "--partitionMap") == 0) {
@@ -250,7 +268,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
 //    try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment);
 //    }catch(std::exception& e) {
 //        std::cerr << e.what() << std::endl;
 //        return 1;
