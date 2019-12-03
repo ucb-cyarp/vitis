@@ -66,7 +66,7 @@ public:
      */
     static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
 
-    static std::vector<std::string> createFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    static std::vector<std::string> createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     static std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 

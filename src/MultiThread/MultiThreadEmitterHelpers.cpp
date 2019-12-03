@@ -204,10 +204,11 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
 //    check += "}\n";
 //}
 
-std::vector<std::string> MultiThreadEmitterHelpers::createFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         fifos[i]->createLocalVars(exprs);
+        fifos[i]->initLocalVars(exprs, ThreadCrossingFIFO::Role::NONE);
     }
 
     return exprs;
