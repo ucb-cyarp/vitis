@@ -906,12 +906,26 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
-    headerFile << "#include <stdint.h>" << std::endl;
-    headerFile << "#include <stdbool.h>" << std::endl;
-    headerFile << "#include <math.h>" << std::endl;
-    headerFile << "#include <pthread.h>" << std::endl;
-    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
-    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
+
+    std::set<std::string> includesHFile;
+
+    includesHFile.insert("#include <stdint.h>");
+    includesHFile.insert("#include <stdbool.h>");
+    includesHFile.insert("#include <math.h>");
+    includesHFile.insert("#include <pthread.h>");
+    includesHFile.insert("#include \"" + std::string(VITIS_TYPE_NAME) + ".h\"");
+    includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
+
+    //Include any external include statements required by nodes in the design
+    for(int i = 0; i<nodesToEmit.size(); i++){
+        std::set<std::string> nodeIncludes = nodesToEmit[i]->getExternalIncludes();
+        includesHFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(auto it = includesHFile.begin(); it != includesHFile.end(); it++){
+        headerFile << *it << std::endl;
+    }
+
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
@@ -980,27 +994,30 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //#### Emit .c file ####
     std::ofstream cFile;
     cFile.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    std::set<std::string> includesCFile;
+
     if(collectTelem){
         cFile << "#ifndef _GNU_SOURCE" << std::endl;
         cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
         cFile << "#endif" << std::endl;
     }
     if(threadDebugPrint || collectTelem) {
-        cFile << "#include <stdio.h>" << std::endl;
+        includesCFile.insert("#include <stdio.h>");
     }
-    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    includesCFile.insert("#include \"" + fileName + ".h\"");
     if(collectTelem){
-        cFile << "#include \"" << fileNamePrefix << "_telemetry_helpers.h" << "\"" << std::endl;
+        includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h" + "\"");
     }
 
     //Include any external include statements required by nodes in the design
     std::set<std::string> extIncludes;
     for(int i = 0; i<nodesToEmit.size(); i++){
         std::set<std::string> nodeIncludes = nodesToEmit[i]->getExternalIncludes();
-        extIncludes.insert(nodeIncludes.begin(), nodeIncludes.end());
+        includesCFile.insert(nodeIncludes.begin(), nodeIncludes.end());
     }
 
-    for(auto it = extIncludes.begin(); it != extIncludes.end(); it++){
+    for(auto it = includesCFile.begin(); it != includesCFile.end(); it++){
         cFile << *it << std::endl;
     }
 

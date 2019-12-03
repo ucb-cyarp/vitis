@@ -56,21 +56,41 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
     headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
     headerFile << "#define " << fileNameUpper << "_H" << std::endl;
-    headerFile << "#include <stdint.h>" << std::endl;
-    headerFile << "#include <stdbool.h>" << std::endl;
-    headerFile << "#include <math.h>" << std::endl;
-    headerFile << "#include <pthread.h>" << std::endl;
+
+    std::set<std::string> includesHFile;
+
+    includesHFile.insert("#include <stdint.h>");
+    includesHFile.insert("#include <stdbool.h>");
+    includesHFile.insert("#include <math.h>");
+    includesHFile.insert("#include <pthread.h>");
+
     if(threadDebugPrint) {
-        headerFile << "#include <stdio.h>" << std::endl;
+        includesHFile.insert("#include <stdio.h>");
     }
     if(streamType == StreamType::SOCKET){
-        headerFile << "#define VITIS_SOCKET_LISTEN_PORT " << DEFAULT_VITIS_SOCKET_LISTEN_PORT << std::endl;
-        headerFile << "#define VITIS_SOCKET_LISTEN_ADDR " << DEFAULT_VITIS_SOCKET_LISTEN_ADDR << std::endl;
+        includesHFile.insert("#define VITIS_SOCKET_LISTEN_PORT " + GeneralHelper::to_string(DEFAULT_VITIS_SOCKET_LISTEN_PORT));
+        includesHFile.insert("#define VITIS_SOCKET_LISTEN_ADDR " + GeneralHelper::to_string(DEFAULT_VITIS_SOCKET_LISTEN_ADDR));
     }else if(streamType == StreamType::POSIX_SHARED_MEM){
-        headerFile << "#include \"" << sharedFIFOHelperHeaderName << "\"" << std::endl;
+        includesHFile.insert("#include \"" + sharedFIFOHelperHeaderName + "\"");
     }
-    headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
-    headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
+    includesHFile.insert("#include \"" + GeneralHelper::to_string(VITIS_TYPE_NAME) + ".h\"");
+    includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
+
+    //Include any external include statements required by nodes in the design
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = inputFIFOs[i]->getExternalIncludes();
+        includesHFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = outputFIFOs[i]->getExternalIncludes();
+        includesHFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(auto it = includesHFile.begin(); it != includesHFile.end(); it++){
+        headerFile << *it << std::endl;
+    }
+
     headerFile << std::endl;
 
     //Create the threadFunction argument structure for the I/O thread (includes the references to FIFO shared vars)
@@ -122,27 +142,47 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
         ioThread << "#endif" << std::endl;
     }
-    ioThread << "#include <stdio.h>" << std::endl;
-    ioThread << "#include <stdlib.h>" << std::endl;
-    ioThread << "#include <string.h>" << std::endl;
-    ioThread << "#include <sys/stat.h>" << std::endl;
-    ioThread << "#include <unistd.h>" << std::endl;
+
+    std::set<std::string> includesCFile;
+    includesCFile.insert("#include <stdio.h>");
+    includesCFile.insert("#include <stdlib.h>");
+    includesCFile.insert("#include <string.h>");
+    includesCFile.insert("#include <sys/stat.h>");
+    includesCFile.insert("#include <unistd.h>");
+
     if(streamType == StreamType::SOCKET) {
-        ioThread << "#include <sys/types.h>" << std::endl;
-        ioThread << "#include <sys/socket.h>" << std::endl;
-        ioThread << "#include <netinet/in.h>" << std::endl;
-        ioThread << "#include <arpa/inet.h>" << std::endl;
-        ioThread << "#include <sys/select.h>" << std::endl;
+        includesCFile.insert("#include <sys/types.h>");
+        includesCFile.insert("#include <sys/socket.h>");
+        includesCFile.insert("#include <netinet/in.h>");
+        includesCFile.insert("#include <arpa/inet.h>");
+        includesCFile.insert("#include <sys/select.h>");
     }
-    ioThread << "#include <time.h>" << std::endl;
-    ioThread << "#include \"" << fileName << ".h" << "\"" << std::endl;
+
+    includesCFile.insert("#include <time.h>");
+    includesCFile.insert("#include \"" + fileName + ".h\"");
     if(streamType == StreamType::SOCKET || streamType == StreamType::PIPE) {
-        ioThread << "#include \"" << fileNamePrefix << "_filestream_helpers.h" << "\"" << std::endl; //For File I/O helpers
+        includesCFile.insert("#include \"" + fileNamePrefix + "_filestream_helpers.h\""); //For File I/O helpers
     }
     if(printTelem){
-        ioThread << "#include \"" << fileNamePrefix << "_telemetry_helpers.h" << "\"" << std::endl;
+        includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h\"");
     }
-    ioThread << "#include \"intrin_bench_default_defines.h\"" << std::endl;
+    includesCFile.insert("#include \"intrin_bench_default_defines.h\"");
+
+    //Include any external include statements required by nodes in the design
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = inputFIFOs[i]->getExternalIncludes();
+        includesCFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        std::set<std::string> nodeIncludes = outputFIFOs[i]->getExternalIncludes();
+        includesCFile.insert(nodeIncludes.begin(), nodeIncludes.end());
+    }
+
+    for(auto it = includesCFile.begin(); it != includesCFile.end(); it++){
+        ioThread << *it << std::endl;
+    }
+
     ioThread << std::endl;
 
     ioThread << threadFctnDecl << "{" << std::endl;
