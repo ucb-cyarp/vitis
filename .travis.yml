@@ -1,4 +1,5 @@
 language: cpp
+version: ~> 1.0
 
 #Using trick from https://genbattle.bitbucket.io/blog/2016/01/17/c++-travis-ci/
 # https://github.com/travis-ci/travis-ci/issues/6300
@@ -14,18 +15,7 @@ before_script:
     - if [[ "$COMPILER" = "g++-5"        ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="g++-5" CC="gcc-5";              fi
     - if [[ "$COMPILER" = "clang++-3.8"  ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="clang++-3.8" CC="clang-3.8";    fi
 
-os:
-  - linux
-#  - osx
-
-dist: trusty
-#osx_image: xcode9.4
-
-#compiler:
-#  - clang
-#  - gcc
-
-matrix:
+jobs:
   include:
     - compiler: gcc
       os: linux
@@ -43,9 +33,6 @@ matrix:
       os: osx
       osx_image: xcode9.4
       env: COMPILER=clang++
-  exclude:
-    - compiler: gcc
-    - compiler: clang
 
 addons:
   apt:
