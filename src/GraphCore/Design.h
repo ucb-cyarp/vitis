@@ -562,6 +562,8 @@ public:
     /**
      * @brief Expands the enabled subsystems in the design to include combinational logic at the inputs and outputs of enabled subsystems
      *
+     * This is an *optimization pass* that can be conducted before code emit.
+     *
      * Note that expansion occurs hierarchically starting with the highest level and expanding any enabled subsystem within
      */
     void expandEnabledSubsystemContexts();

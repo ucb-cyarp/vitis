@@ -3164,6 +3164,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //        std::cout << "Partition " << nodes[i]->getPartitionNum() << ", " << nodes[i]->getFullyQualifiedName() << std::endl;
 //    }
 
+    //This is an optimization pass to widen the enabled subsystem context
     expandEnabledSubsystemContexts();
     //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
     //Is ok for them to exist (specifically order constraint arcs) after state update node and context encapsulation
@@ -3200,7 +3201,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preEncapsulate.graphml", *this);
 //    }
 
-    //Do this after FIFO insertion so that FIFOs are properly encapsulated in contexts
     //TODO: fix encapsuleate to duplicate driver arc for each ContextFamilyContainer in other partitions
     //to the given partition and add an out
     encapsulateContexts();
@@ -3238,11 +3238,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOInsert.graphml", *this);
 //    }
 
-    //Discover groupable partition crossings
+    //Discover arcs crossing partitions and what partition crossings can be grouped together
     std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings = getGroupableCrossings();
 
     std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap;
 
+    //Insert the partition crossing FIFOs
     {
         std::vector<std::shared_ptr<Node>> new_nodes;
         std::vector<std::shared_ptr<Node>> deleted_nodes;

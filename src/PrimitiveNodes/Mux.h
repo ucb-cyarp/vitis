@@ -238,6 +238,8 @@ public:
      * This method discovers mux contexts, discovers the hierarchy of contexts, set the context hierarchy in nodes
      * within the mux contexts, and sets the context node lists in the muxes
      *
+     * Because this function tries to encapsulate as much combinational logic as possible, it can be classified as a type of optimization pass.
+     *
      * @param muxes muxes at the desired level of the design
      */
     static void discoverAndMarkMuxContextsAtLevel(std::vector<std::shared_ptr<Mux>> muxes);

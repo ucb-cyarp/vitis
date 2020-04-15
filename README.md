@@ -3,8 +3,13 @@
 ## An Optimizing DSP Compiler for Data Flow Graphs
 
 ### Status:
-
 CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/vitis.svg?token=3DFsVQ6rTxi6J46pKtZ6&branch=master)](https://travis-ci.com/ucb-cyarp/vitis)
+
+### Simulink Frontend:
+[Simulink Support & Vitis Specific Simulink](src/docs/vitis_simulink.md)
+
+### Optimization Passes:
+[Currently Implemented Optimization Passes](src/docs/optimization_passes.md)
 
 ### Dependencies:
 - [CMake](https://cmake.org): Build Tool
