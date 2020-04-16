@@ -23,7 +23,7 @@ Enabled Subsystem           | EnabledSubSystem        | Input & Output Ports Con
 Constant                    | Constant                | Also used for partition declaration with name ```VITIS_PARTITION```.
 Input Port                  | MasterInput             | There is a single master shared by all system level inputs.  Converted to EnableInput if part of an enabled subsystem.  If at subsystem level, not converted
 Output Port                 | MasterOutput            | There is a single master shared by all system level outputs.  Converted to EnableOutput if part of an enabled subsystem.  If at subsystem level, not converted
-Terminator                  | MasterOutput.           | There is a single master shared by all terminators
+Terminator                  | MasterOutput            | There is a single master shared by all terminators
 Relational Operator         | Compare                 | *
 Lookup_n-D                  | LUT                     | *
 Delay                       | Delay                   | *
