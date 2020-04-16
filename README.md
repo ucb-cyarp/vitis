@@ -29,8 +29,8 @@ CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/viti
         - Tested with GCC 5 and Clang 3.8
 
 #### Dependencies:
-##### Ubuntu
-    
+##### Ubuntu:
+  
 ```
 sudo apt-get install build-essential
 sudo apt-get install cmake
@@ -40,10 +40,19 @@ sudo apt-get install doxygen
 ```
 
 ##### Mac:
+
 - Install [xcode](https://developer.apple.com/xcode)
 - Install [Brew](https://brew.sh)
 - Install Dependencies from Brew:
 
+To install the dependencies automatically from the provided ``Brewfile``, run the following command in the vitis directory:
+
+```
+brew bundle -v
+```
+
+To install the dependencies manually, run the following commands:
+  
 ```
 brew install cmake
 brew install xerces-c
