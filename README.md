@@ -20,6 +20,10 @@ CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/viti
 ## Optimization Passes:
 [Currently Implemented Optimization Passes](src/docs/optimization_passes.md)
 
+## Generator Stages:
+For detaied information on the steps taken to generate a design, see: 
+[Current Steps for Generating Designs](src/docs/generator.md).
+
 ## Installation:
 - Clone git repository
 
