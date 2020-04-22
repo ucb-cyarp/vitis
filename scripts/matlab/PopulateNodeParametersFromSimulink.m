@@ -487,7 +487,61 @@ elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Math')
         node.simulinkBlockType = 'Math';
         
         %node.dialogPropertiesNumeric('Operator') = GetParam(simulink_block_handle, 'Operator'); %The operator (log, exp, log10, ...)
-        
+
+%##### Rate Change Blocks #####
+%---- Upsample ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'dspsigops/Upsample')
+    %Change block type from 'S-Function'
+    node.simulinkBlockType = 'UpSample'; %CammelCased to match downsample
+    
+    node.dialogPropertiesNumeric('N') = GetParamEval(simulink_block_handle, 'N'); %This is the amount of upsampling (L in the dialog)
+    node.dialogPropertiesNumeric('phase') = GetParamEval(simulink_block_handle, 'phase'); %This is the phase offset (sample offset).  Can be 0 to N-1
+    node.dialogPropertiesNumeric('ic') = GetParamEval(simulink_block_handle, 'ic'); %These are the initial conditions for the block (presumably when the phase is not 0)
+    
+    %RateOptions contains the "Rate options" entry which is greyed out and
+    %is set to: 'Allow multirate processing'
+    
+    %InputProcessing contains the "Input processing" entry which is either
+    %'Elements as channels (sample based)' or 'Columns as channels 
+    %(frame based)'.  This has an impact if the input is a matrix type.
+    
+    %Note that the phase change could also be accomplished by inserting
+    %delays after the rate change with the given initial conditions.
+    
+%---- Downsample ----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'DownSample')
+    %Interestingly, this is not an S-Function like Upsample is
+    
+    node.dialogPropertiesNumeric('N') = GetParamEval(simulink_block_handle, 'N'); %This is the amount of downsampling (K in the dialog)
+    node.dialogPropertiesNumeric('phase') = GetParamEval(simulink_block_handle, 'phase'); %This is the phase offset (sample offset).  Can be 0 to N-1
+    node.dialogPropertiesNumeric('ic') = GetParamEval(simulink_block_handle, 'ic'); %These are the initial conditions for the block (presumably when the phase is not 0)
+    
+    %RateOptions contains the "Rate options" entry which not greyed out (compare to Upsample)
+    %and can be 'Allow multirate processing' or 'Enforce single-rate processing'
+    
+    %InputProcessing contains the "Input processing" entry which is either
+    %'Elements as channels (sample based)' or 'Columns as channels 
+    %(frame based)'.  This has an impact if the input is a matrix type.
+    
+%---- Repeat ----
+elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'dspsigops/Repeat')
+    %Change block type from 'S-Function'
+    node.simulinkBlockType = 'Repeat';
+    
+    node.dialogPropertiesNumeric('N') = GetParamEval(simulink_block_handle, 'N'); %This is the amount of upsampling (Repetition count in the dialog)
+    node.dialogPropertiesNumeric('ic') = GetParamEval(simulink_block_handle, 'ic'); %These are the initial conditions for the block (this is odd since there is no phase parameter)
+
+    %There is no phase parameter for this block.
+    %Note that the phase change could also be accomplished by inserting
+    %delays after the rate change with the given initial conditions.
+    
+    %RateOptions contains the "Rate options" entry which not greyed out (compare to Upsample)
+    %and can be 'Allow multirate processing' or 'Enforce single-rate processing'
+    
+    %InputProcessing contains the "Input processing" entry which is either
+    %'Elements as channels (sample based)' or 'Columns as channels 
+    %(frame based)'.  This has an impact if the input is a matrix type.
+    
 %TODO: More Blocks
 end
     
