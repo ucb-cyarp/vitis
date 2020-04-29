@@ -12,6 +12,7 @@
 #include "GraphCore/StateUpdate.h"
 #include "General/ErrorHelpers.h"
 #include "GraphMLTools/GraphMLExporter.h"
+#include "MultiRate/RateChange.h"
 
 #include <iostream>
 #include <random>
@@ -28,8 +29,8 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 
         std::shared_ptr<Node> srcNode = (*it)->getSrcPort()->getParent();
 
-        //Check if the src node is a state element or a enable node (input or output)
-        if(!(srcNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(srcNode) == nullptr){
+        //Check if the src node is a state element or a enable node (input or output), or a RateChange node
+        if(!(srcNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(srcNode) == nullptr && GeneralHelper::isType<Node, RateChange>(srcNode) == nullptr){
             //The src node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -82,7 +83,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
             //else, this node is either not in the context or there is a longer path to the node from within the context.
             //If there is a longer path to the node within the context, the longest path will eventually trigger the node to be inserted
 
-        }//else, stop traversal.  This is a state element or enable node.  Do not mark and do not recurse
+        }//else, stop traversal.  This is a state element, enable node, or RateChange.  Do not mark and do not recurse
     }
 
     return contextNodes;
@@ -100,8 +101,8 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 
         std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
 
-        //Check if the dst node is a state element or a enable node (input or output)
-        if(!(dstNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(dstNode) == nullptr){
+        //Check if the dst node is a state element, a enable node (input or output), or RateChange node
+        if(!(dstNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(dstNode) == nullptr && GeneralHelper::isType<Node, RateChange>(dstNode) == nullptr){
             //The dst node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -154,7 +155,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
             //else, this node is either not in the context or there is a longer path to the node from within the context.
             //If there is a longer path to the node within the context, the longest path will eventually trigger the node to be inserted
 
-        }//else, stop traversal.  This is a state element or enable node.  Do not mark and do not recurse
+        }//else, stop traversal.  This is a state element, enable node, or RateChange node.  Do not mark and do not recurse
     }
 
     return contextNodes;
