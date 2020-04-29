@@ -6,6 +6,7 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
 #include "NodeFactory.h"
+#include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 
 EnableInput::EnableInput() {

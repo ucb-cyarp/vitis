@@ -9,6 +9,7 @@
 #include "StateUpdate.h"
 #include "General/GeneralHelper.h"
 #include <iostream>
+#include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 
 EnableOutput::EnableOutput() {
