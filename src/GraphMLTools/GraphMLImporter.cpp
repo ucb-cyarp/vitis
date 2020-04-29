@@ -14,6 +14,7 @@
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
+#include "MultiRate/ClockDomain.h"
 
 #include "PrimitiveNodes/Sum.h"
 #include "PrimitiveNodes/Product.h"
@@ -52,6 +53,10 @@
 #include "BusNodes/VectorFanOut.h"
 #include "BusNodes/Concatenate.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
+#include "MultiRate/RateChange.h"
+#include "MultiRate/Downsample.h"
+#include "MultiRate/Upsample.h"
+#include "MultiRate/Repeat.h"
 
 #include <iostream>
 #include <fstream>
@@ -64,6 +69,8 @@
 #include "General/ErrorHelpers.h"
 
 using namespace xercesc;
+
+#define VITIS_SIMULINK_CLOCK_DOMAIN_PREFIX "VITIS_CLOCK_DOMAIN" ///<This prefix is used in Vitis Simulink to Declare Subsystems as Clock Domains
 
 std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, GraphMLDialect dialect)
 {
@@ -212,6 +219,15 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
         std::vector<std::shared_ptr<Node>> nodes = design->getNodes();
         for(auto node = nodes.begin(); node != nodes.end(); node++){
             (*node)->propagateProperties();
+        }
+
+        //Discover Clock domain parameters/hierarchy and associate RateChange nodes with ClockDomains
+        // - This needs to be done before validation
+        for(auto node = nodes.begin(); node != nodes.end(); node++){
+            if(GeneralHelper::isType<Node, ClockDomain>(*node)){
+                std::shared_ptr<ClockDomain> clkDomain = std::static_pointer_cast<ClockDomain>(*node);
+                clkDomain->discoverClockDomainParameters();
+            }
         }
 
         //Validate nodes (get the node vector again in case nodes were added)
@@ -463,12 +479,37 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
     //Based of the node type, we construct nodes:
     std::string blockType = dataKeyValueMap.at("block_node_type");
 
-    if (blockType == "Subsystem") {
-        std::shared_ptr<SubSystem> newSubsystem = NodeFactory::createNode<SubSystem>(parent);
-        newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if (hasName) {
+    if (blockType == "Subsystem" || blockType == "ClockDomain") {
+        std::shared_ptr<SubSystem> newSubsystem;
+
+        if(blockType == "Subsystem"){
+            //Check if the Subsystem is a Clock Domain (defined using Subsystems in Vitis Simulink)
+            if (dialect == GraphMLDialect::SIMULINK_EXPORT && hasName) {
+                std::string simulinkClockDomainPrefix = VITIS_SIMULINK_CLOCK_DOMAIN_PREFIX;
+                if (name.compare(0, simulinkClockDomainPrefix.length(), simulinkClockDomainPrefix) == 0) {
+                    //Found a ClockDomain declared in simulink, instantiate a ClockDomain instead
+                    //Note that properties of clock domains are discovered in a later stage of the import via
+                    //ClockDomain::discoverClockDomainParameters
+                    newSubsystem = NodeFactory::createNode<ClockDomain>(parent);
+                } else {
+                    newSubsystem = NodeFactory::createNode<SubSystem>(parent);
+                }
+            } else {
+                newSubsystem = NodeFactory::createNode<SubSystem>(parent);
+            }
+        }
+        else{
+            //Block Type is ClockDomain
+            //Note that properties of clock domains are discovered in a later stage of the import via
+            //ClockDomain::discoverClockDomainParameters
+            newSubsystem = NodeFactory::createNode<ClockDomain>(parent);
+        }
+
+        if(hasName){
             newSubsystem->setName(name);
         }
+
+        newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
 
         //Add node to design
         design.addNode(newSubsystem);
@@ -664,6 +705,21 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //For now: Stateflow is the only blackboxed module.  The emit logic is there for the blackbox, just not the access name importing
     } else if (blockType == "ThreadCrossingFIFO"){
         std::shared_ptr<Node> newNode = GraphMLImporter::importThreadCrossingFIFONode(fullNodeID, dataKeyValueMap, parent, dialect);
+
+        //Add new node to design and to name node map
+        design.addNode(newNode);
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
+        nodeMap[fullNodeID] = newNode;
+    } else if (blockType == "RateChange") {
+        //When the RateChange nodes are imported, they are not yet associated with ClockDomains.  This is because, while
+        //we can identify the clock domain a RateChange is under based on the hierarchy, we can't tell if it is an
+        //input or output until the arcs have been imported.  We can then check to see if the src or destination nodes
+        //are nested under the ClockDomain or not.  Because of this, the association of rate change nodes to clock domains
+        //occurs later
+
+        std::shared_ptr<Node> newNode = GraphMLImporter::importRateChangeNode(fullNodeID, dataKeyValueMap, parent, dialect);
 
         //Add new node to design and to name node map
         design.addNode(newNode);
@@ -1043,6 +1099,34 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+    }
+
+    return newNode;
+}
+
+std::shared_ptr<RateChange> GraphMLImporter::importRateChangeNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
+    std::string blockFunction = dataKeyValueMap.at("block_function");
+
+    std::shared_ptr<RateChange> newNode;
+
+    if(blockFunction == "Downsample" || blockFunction == "DownSample"){ //Vitis name is Downsample.  Simulink name is DownSample
+        newNode = Downsample::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Upsample" || blockFunction == "UpSample"){ //Vitis name is Upsample.  Simulink name is UpSample
+        newNode = Upsample::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Repeat"){
+        newNode = Repeat::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown RateChange block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }
 
     return newNode;

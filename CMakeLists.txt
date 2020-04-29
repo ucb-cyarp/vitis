@@ -217,6 +217,18 @@ set(COMMON_SRCS
         src/MultiThread/ThreadCrossingFIFOParameters.h
         src/MultiThread/ConstIOThread.cpp
         src/MultiThread/ConstIOThread.h
+        src/MultiRate/MultiRateHelpers.cpp
+        src/MultiRate/MultiRateHelpers.h
+        src/MultiRate/ClockDomain.cpp
+        src/MultiRate/ClockDomain.h
+        src/MultiRate/RateChange.cpp
+        src/MultiRate/RateChange.h
+        src/MultiRate/Upsample.cpp
+        src/MultiRate/Upsample.h
+        src/MultiRate/Downsample.cpp
+        src/MultiRate/Downsample.h
+        src/MultiRate/Repeat.cpp
+        src/MultiRate/Repeat.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp

@@ -42,6 +42,8 @@
 #include "Estimators/ComputationEstimator.h"
 #include "Estimators/CommunicationEstimator.h"
 
+#include "MultiRate/MultiRateHelpers.h"
+
 //==== Constructors
 Design::Design() {
     inputMaster = NodeFactory::createNode<MasterInput>();
@@ -1882,6 +1884,47 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     }
 
     designCopy.arcs = arcCopiesOrdered;
+
+    //Update ClockDomain ports (Using arc copies)
+    for (unsigned long i = 0; i < numNodes; i++) {
+        if(GeneralHelper::isType<Node, ClockDomain>(nodes[i])){
+            std::shared_ptr<ClockDomain> origClkDomain = std::static_pointer_cast<ClockDomain>(nodes[i]);
+            std::shared_ptr<ClockDomain> cloneClkDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClkDomain]);
+
+            //Update the IO input ports
+            std::set<std::shared_ptr<OutputPort>> origInputs = origClkDomain->getIoInput();
+            for(auto origPort = origInputs.begin(); origPort != origInputs.end(); origPort++){
+                //Get one of the output arcs of this port (dosn't matter which one but there should be at least one since it was connected to a node in the clock domain)
+                std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
+                //Get the cloned arc
+                std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                //Get the source port of this cloned arc (for which this arc is an output)
+                std::shared_ptr<OutputPort> clonePort = cloneArc->getSrcPort();
+                //Add this to the set
+                cloneClkDomain->addIOInput(clonePort);
+            }
+
+            //Update the IO output ports
+            std::set<std::shared_ptr<InputPort>> origOutputs = origClkDomain->getIoOutput();
+            for(auto origPort = origInputs.begin(); origPort != origInputs.end(); origPort++){
+                //Get the input arc to this port (it should exist as it was conneted to a node in the clock domain
+                std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
+                //Get the cloned arc
+                std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                //Get the destination port of this cloned arc (for which this arc is an input)
+                std::shared_ptr<InputPort> clonePort = cloneArc->getDstPort();
+                //Add this to the set
+                cloneClkDomain->addIOOutput(clonePort);
+            }
+        }
+    }
+
+    //Update master port clock domain references
+    MultiRateHelpers::cloneMasterNodePortClockDomains(inputMaster, designCopy.inputMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(outputMaster, designCopy.outputMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(visMaster, designCopy.visMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(unconnectedMaster, designCopy.unconnectedMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(terminatorMaster, designCopy.terminatorMaster, origToCopyNode);
 
     //Copy topLevelNode entries
     for(unsigned long i = 0; i<numTopLevelNodes; i++){
