@@ -355,10 +355,8 @@ void Design::addRemoveNodesAndArcs(std::vector<std::shared_ptr<Node>> &new_nodes
     }
 
     for(auto node = deleted_nodes.begin(); node != deleted_nodes.end(); node++){
-        //Remove the node from it's parent's children list (if it has a parent) -> this is important when the graph is traversed hierarchically)
-        if((*node)->getParent()){
-            (*node)->getParent()->removeChild(*node);
-        }
+        //Remove the node from it's parent's children list allong with any other references the node is aware of
+        (*node)->removeKnownReferences();
 
         //Erase pattern using iterators from https://en.cppreference.com/w/cpp/container/vector/erase
         for(auto candidate = nodes.begin(); candidate != nodes.end(); ){//Will handle iteration in body since erase returns next iterator pos
@@ -1813,7 +1811,7 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 nodeCopyAsContextRoot->setContextFamilyContainers(copyContextFamilyContainerMap);
 
                 //Copy SubContextNodes
-                int numSubContexts = nodeCopyAsContextRoot->getNumSubContexts();
+                int numSubContexts = origNodeAsContextRoot->getNumSubContexts();
                 for(int j = 0; j<numSubContexts; j++){
                     std::vector<std::shared_ptr<Node>> origContextNodes = origNodeAsContextRoot->getSubContextNodes(j);
 
@@ -1897,6 +1895,9 @@ void Design::removeNode(std::shared_ptr<Node> node) {
     //Disconnect arcs from the node
     std::set<std::shared_ptr<Arc>> disconnectedArcs = node->disconnectNode();
 
+    //Remove any known references
+    node->removeKnownReferences();
+
     //Check if the node is a master node
     if(GeneralHelper::isType<Node, MasterNode>(node) != nullptr){
         //Master Node
@@ -1976,27 +1977,10 @@ unsigned long Design::prune(bool includeVisMaster) {
         //Disconnect, erase nodes, remove from candidate set (if it is included)
         for(auto it = nodesWithZeroOutDeg.begin(); it != nodesWithZeroOutDeg.end(); it++){
             std::set<std::shared_ptr<Arc>> arcsToRemove = (*it)->disconnectNode();
-            //Check for the corner case that the node is an enabled input or output
-            //If so, it needs to be removed from the parent's enabled port lists
-            std::shared_ptr<EnableInput> asEnableInput = GeneralHelper::isType<Node, EnableInput>(*it);
-            if(asEnableInput){
-                std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = GeneralHelper::isType<Node, EnabledSubSystem>(asEnableInput->getParent());
-                if(parentAsEnabledSubsystem){
-                    parentAsEnabledSubsystem->removeEnableInput(asEnableInput);
-                }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("When pruning EnabledInput node, could not remove node from EnableNode lists of parent", (*it)->getSharedPointer()));
-                }
-            }else{
-                std::shared_ptr<EnableOutput> asEnableOutput = GeneralHelper::isType<Node, EnableOutput>(*it);
-                if(asEnableOutput){
-                    std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = GeneralHelper::isType<Node, EnabledSubSystem>(asEnableOutput->getParent());
-                    if(parentAsEnabledSubsystem){
-                        parentAsEnabledSubsystem->removeEnableOutput(asEnableOutput);
-                    }else{
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("When pruning EnabledOutput node, could not remove node from EnableNode lists of parent", (*it)->getSharedPointer()));
-                    }
-                }
-            }
+            //All nodes need to be removed from their parent while some node, such as EnableInput and EnableOutput,
+            //need to remove additional references to themselves before being deleted.  These tasks are now handled
+            //by removeKnownReferences
+            (*it)->removeKnownReferences();
 
             arcsDeleted.insert(arcsDeleted.end(), arcsToRemove.begin(), arcsToRemove.end());
             nodesDeleted.push_back(*it);
@@ -2031,10 +2015,7 @@ unsigned long Design::prune(bool includeVisMaster) {
     for(auto it = nodesDeleted.begin(); it != nodesDeleted.end(); it++){
         std::shared_ptr<Node> nodeToDelete = *it;
         std::cout << "Pruned Node: " << nodeToDelete->getFullyQualifiedName(true) << " [ID: " << nodeToDelete->getId() << "]" << std::endl;
-        //Remove the node from it's parent's children list (if it has a parent) -> this is important when the graph is traversed hierarchically)
-        if(nodeToDelete->getParent()){
-            nodeToDelete->getParent()->removeChild(nodeToDelete);
-        }
+        //Removal from parent now occurs as part of the removeKnownReferences function executed above
         nodes.erase(std::remove(nodes.begin(), nodes.end(), nodeToDelete), nodes.end());
         topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), nodeToDelete), topLevelNodes.end()); //Also remove from top lvl node (if applicable)
     }
@@ -2334,9 +2315,7 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
     }
 
     for(auto it = nodesToRemove.begin(); it != nodesToRemove.end(); it++){
-        if((*it)->getParent()){
-            (*it)->getParent()->removeChild(*it);
-        }
+        (*it)->removeKnownReferences();
 
         designClone.nodes.erase(std::remove(designClone.nodes.begin(), designClone.nodes.end(), *it), designClone.nodes.end());
         designClone.topLevelNodes.erase(std::remove(designClone.topLevelNodes.begin(), designClone.topLevelNodes.end(), *it), designClone.topLevelNodes.end());

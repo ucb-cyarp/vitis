@@ -304,6 +304,20 @@ std::shared_ptr<SubSystem> Node::getParent() {
     return parent;
 }
 
+void Node::removeKnownReferences(){
+    //Remove from parent
+    if(parent != nullptr){
+        parent->removeChild(getSharedPointer());
+    }
+
+    //Remove from context root
+    if(context.size() > 0){
+        std::shared_ptr<ContextRoot> contextRoot = context[context.size()-1].getContextRoot();
+        int subcontext = context[context.size()-1].getSubContext();
+        context[context.size()-1].getContextRoot()->removeSubContextNode(subcontext, getSharedPointer());
+    }
+}
+
 std::string
 Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
             bool checkFanout, bool forceFanout) {

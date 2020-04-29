@@ -32,5 +32,6 @@ public:
 
 };
 
+/*! @} */
 
 #endif //VITIS_CONSTIOTHREAD_H

@@ -6,6 +6,7 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
 #include "NodeFactory.h"
+#include "General/ErrorHelpers.h"
 
 EnableInput::EnableInput() {
 
@@ -92,4 +93,17 @@ CExpr EnableInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
 
     return CExpr(inputExpr, false);
 
+}
+
+void EnableInput::removeKnownReferences() {
+    Node::removeKnownReferences();
+
+    //Remove from EnableSubsystem EnableInput List
+    std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = GeneralHelper::isType<Node, EnabledSubSystem>(parent);
+    if(parentAsEnabledSubsystem){
+        std::shared_ptr<EnableInput> this_cast = std::static_pointer_cast<EnableInput>(getSharedPointer());
+        parentAsEnabledSubsystem->removeEnableInput(this_cast);
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When removing EnabledInput node, could not remove node from EnableNode lists of parent", getSharedPointer()));
+    }
 }

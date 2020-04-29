@@ -9,6 +9,7 @@
 #include "StateUpdate.h"
 #include "General/GeneralHelper.h"
 #include <iostream>
+#include "General/ErrorHelpers.h"
 
 EnableOutput::EnableOutput() {
 
@@ -281,4 +282,17 @@ void EnableOutput::setInitCondition(const std::vector<NumericValue> &initConditi
 
 bool EnableOutput::hasCombinationalPath() {
     return true; //When transparent, latch has a combinational path
+}
+
+void EnableOutput::removeKnownReferences() {
+    Node::removeKnownReferences();
+
+    //Remove from EnableSubsystem EnableInput List
+    std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = GeneralHelper::isType<Node, EnabledSubSystem>(parent);
+    if(parentAsEnabledSubsystem){
+        std::shared_ptr<EnableOutput> this_cast = std::static_pointer_cast<EnableOutput>(getSharedPointer());
+        parentAsEnabledSubsystem->removeEnableOutput(this_cast);
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When removing EnableOutput node, could not remove node from EnableNode lists of parent", getSharedPointer()));
+    }
 }

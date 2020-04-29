@@ -19,9 +19,6 @@
 #include "EnableInput.h"
 #include "EnableOutput.h"
 
-
-
-
 /**
 * \addtogroup GraphCore Graph Core
 * @{

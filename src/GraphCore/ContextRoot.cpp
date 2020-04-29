@@ -15,6 +15,11 @@ void ContextRoot::addSubContextNode(unsigned long subContext, std::shared_ptr<No
 }
 
 std::vector<std::shared_ptr<Node>> ContextRoot::getSubContextNodes(unsigned long subContext) {
+    //Create sub-vectors if needed (may happen if no nodes are in the requested subcontext)
+    while(nodesInSubContexts.size() < (subContext+1)){
+        nodesInSubContexts.push_back(std::vector<std::shared_ptr<Node>>());
+    }
+
     return nodesInSubContexts[subContext];
 }
 

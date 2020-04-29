@@ -186,7 +186,7 @@ EnabledSubSystem::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gr
 }
 
 EnabledSubSystem::EnabledSubSystem(std::shared_ptr<SubSystem> parent, EnabledSubSystem* orig) : SubSystem(parent, orig) {
-    //Do  not copy the Enable Input and Output Lists
+    //Do not copy the Enable Input and Output Lists
 }
 
 std::shared_ptr<Node> EnabledSubSystem::shallowClone(std::shared_ptr<SubSystem> parent) {

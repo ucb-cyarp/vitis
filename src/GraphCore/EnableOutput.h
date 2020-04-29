@@ -150,6 +150,11 @@ public:
 //    void setNextStateVar(const Variable &nextStateVar);
     std::vector<NumericValue> getInitCondition() const;
     void setInitCondition(const std::vector<NumericValue> &initCondition);
+
+    /**
+     * @brief Also removes this node from the list of EnableInputs in the parent EnabledSubsystem
+     */
+    void removeKnownReferences() override;
 };
 
 /*! @} */

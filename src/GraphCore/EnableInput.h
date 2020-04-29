@@ -82,6 +82,10 @@ public:
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
+    /**
+     * @brief Also removes this node from the list of EnableInputs in the parent EnabledSubsystem
+     */
+    void removeKnownReferences() override;
 };
 
 /*! @} */

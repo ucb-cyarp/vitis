@@ -609,6 +609,21 @@ public:
     std::shared_ptr<SubSystem> getParent();
 
     /**
+     * @brief Removes known references to this node (based on information the node has)
+     *
+     * This includes:
+     *  - removing the node from its parent (if it has one)
+     *  - removing itself from the context root it is under (if one has been populated)
+     *
+     * Typically the links removed are from container type object that this node is a part of.
+     *
+     * This function may be overridden/extended by other node types which have more complex.
+     * For example, EnableInputs may extend this function to remove themselves from lists in EnabledSubsystems
+     *
+     */
+    virtual void removeKnownReferences();
+
+    /**
      * @brief Get the fully qualified human readable name of the node
      *
      * A typical fully qualified name would be "subsysName/nodeName"

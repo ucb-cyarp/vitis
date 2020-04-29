@@ -266,6 +266,8 @@ public:
      * @return
      */
     static std::string getSpaces(int numSpaces);
+
+    static int gcd(int a, int b);
 };
 
 /*! @} */

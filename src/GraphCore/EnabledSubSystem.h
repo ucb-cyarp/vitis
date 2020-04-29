@@ -55,6 +55,7 @@ protected:
      */
     EnabledSubSystem(std::shared_ptr<SubSystem> parent, EnabledSubSystem* orig);
 
+public:
     /**
      * @brief Performs check of @ref Node in addition to checking the enable port
      */
@@ -64,7 +65,6 @@ protected:
 
     std::string labelStr() override ;
 
-public:
     void addEnableInput(std::shared_ptr<EnableInput> &input);
     void addEnableOutput(std::shared_ptr<EnableOutput> &output);
 

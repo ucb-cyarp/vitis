@@ -938,17 +938,17 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
             //Check for the special case of a VITIS_PARTITION node
             std::vector<NumericValue> constVal = newNodeAsConstant->getValue();
             if(constVal.size() != 1){
-                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION must contain exactly 1 value", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION must contain exactly 1 value", newNodeAsConstant));
             }
             if(constVal[0].isFractional() || constVal[0].isComplex()){
-                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION requires a real int", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION requires a real int", newNodeAsConstant));
             }
             if(parent == nullptr){
-                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be at the top level", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be at the top level", newNodeAsConstant));
             }
             int partitionNum = newNodeAsConstant->getValue()[0].getRealInt();
             if(partitionNum < 0){
-                std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be negative", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be negative", newNodeAsConstant));
             }
             std::cout << "VITIS_PARTITION directive of " << partitionNum << " under " << parent->getFullyQualifiedName(true) << std::endl;
             parent->setPartitionNum(partitionNum);

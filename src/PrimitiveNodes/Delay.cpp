@@ -69,8 +69,7 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
         //Simulink Names -- Numeric.DelayLength, Numeric.InitialCondition
         delayStr = dataKeyValueMap.at("Numeric.DelayLength");
         initialConditionStr = dataKeyValueMap.at("Numeric.InitialCondition");
-    } else
-    {
+    } else {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Delay", newNode));
     }
 

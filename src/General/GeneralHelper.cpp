@@ -167,3 +167,27 @@ std::string GeneralHelper::getSpaces(int numSpaces){
 
     return str;
 }
+
+int GeneralHelper::gcd(int a, int b){
+    int dividend;
+    int divisor;
+
+    if(a > b){
+        dividend = a;
+        divisor = b;
+    }else{
+        dividend = b;
+        divisor = a;
+    }
+
+    bool done = false;
+
+    while(divisor != 0){
+        int remainder = dividend % divisor;
+        dividend = divisor;
+        divisor = remainder;
+    }
+
+    //Should never get here
+    return dividend;
+}
