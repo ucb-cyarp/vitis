@@ -170,7 +170,19 @@ if(isChart)
         new_special_nodes = [new_special_nodes, block_ir_node];
     end
 else
-    [block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
+    %Check if this is a rate change / RateChange node
+    isRateChange = strcmp(get_param(node_simulink_handle, 'ReferenceBlock'), 'dspsigops/Upsample') || ...
+                   strcmp(node_block_type, 'DownSample') || ...
+                   strcmp(get_param(node_simulink_handle, 'ReferenceBlock'), 'dspsigops/Repeat');
+   
+    if(isRateChange)
+        [block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'RateChange', node_handle_ir_map, system_ir_node);
+        if node_created
+            new_special_nodes = [new_special_nodes, block_ir_node];
+        end
+    else
+        [block_ir_node, node_created] = GraphNode.createNodeIfNotAlready(node_simulink_handle, 'Standard', node_handle_ir_map, system_ir_node);
+    end
 end
     
 if node_created

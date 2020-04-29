@@ -335,13 +335,13 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         if ~src_ir_node.isMaster() && ~dst_ir_node.isMaster()
             %Check both port data types
             
-            if ~src_ir_node.isSpecial() || src_ir_node.isStateflow()
+            if ~src_ir_node.isSpecial() || src_ir_node.isStateflow() || src_ir_node.isRateChange()
                 src_port_handle = getSimulinkOutputPortHandle(src_ir_node.simulinkHandle, src_ir_port_number);
             else
                 src_port_handle = src_ir_node.getSpecialNodeSimulinkPortHandle();
             end
                 
-            if ~dst_ir_node.isSpecial() || dst_ir_node.isStateflow()
+            if ~dst_ir_node.isSpecial() || dst_ir_node.isStateflow() || dst_ir_node.isRateChange()
                 dst_port_handle =  getSimulinkInputPortHandle(dst_ir_node.simulinkHandle, dst_ir_port_number);
             else
                 %This is a special node, get the datatype from the output
@@ -394,7 +394,7 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         elseif ~src_ir_node.isMaster() && dst_ir_node.isMaster()
             %Pull directly from src port.  Do not check
             
-            if ~src_ir_node.isSpecial() || src_ir_node.isStateflow()
+            if ~src_ir_node.isSpecial() || src_ir_node.isStateflow() || src_ir_node.isRateChange()
                 src_port_handle = getSimulinkOutputPortHandle(src_ir_node.simulinkHandle, src_ir_port_number);
             else
                 src_port_handle = src_ir_node.getSpecialNodeSimulinkPortHandle();
@@ -414,7 +414,7 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         elseif src_ir_node.isMaster() && ~dst_ir_node.isMaster()
             %Pull directly from dst port.  Do not check
 
-            if ~dst_ir_node.isSpecial() || dst_ir_node.isStateflow()
+            if ~dst_ir_node.isSpecial() || dst_ir_node.isStateflow() || dst_ir_node.isRateChange()
                 dst_port_handle =  getSimulinkInputPortHandle(dst_ir_node.simulinkHandle, dst_ir_port_number);
             else
                 %This is a special node, get the datatype from the output
@@ -469,7 +469,7 @@ classdef GraphArc < handle & matlab.mixin.Copyable
         
         %Pull directly from src port.  Do not check
 
-        if ~src_ir_node.isSpecial() || src_ir_node.isStateflow()
+        if ~src_ir_node.isSpecial() || src_ir_node.isStateflow() || src_ir_node.isRateChange()
             src_port_handle = getSimulinkOutputPortHandle(src_ir_node.simulinkHandle, src_ir_port_number);
         else
             src_port_handle = src_ir_node.getSpecialNodeSimulinkPortHandle();

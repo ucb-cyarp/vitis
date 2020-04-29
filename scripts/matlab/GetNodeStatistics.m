@@ -56,9 +56,16 @@ for iter = 1:length(nodes)
         else
             countMap(key) = 1;
         end
+    elseif(node.nodeType == 10)
+        key = sprintf(generalFormatStr, 'RateChange');
+        if(isKey(countMap, key))
+            countMap(key) = countMap(key) + 1;
+        else
+            countMap(key) = 1;
+        end
     elseif(node.nodeType ~= 0)
         key = sprintf(generalFormatStr, 'Special Node');
-        if(isKey(countMap, 'Special Node'))
+        if(isKey(countMap, key))
             countMap(key) = countMap(key) + 1;
         else
             countMap(key) = 1;

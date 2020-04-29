@@ -160,7 +160,7 @@ end
 for i = 1:length(special_nodes)
     special_node = special_nodes(i);
     
-    if ~special_node.isStateflow()
+    if ~special_node.isStateflow() && ~special_node.isRateChange()
         %==== Wire Special Input / Special Output Node ====
         %Get the enable driver from the parent node
         %Special nodes are direct children of the enabled subsystem node which
