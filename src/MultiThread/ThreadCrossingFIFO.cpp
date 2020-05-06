@@ -392,7 +392,7 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
     return CExpr(expr, true);
 }
 
-void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //This does not do anything.  The read/write operations are handled by the core schedulers
 }
 

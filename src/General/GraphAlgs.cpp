@@ -228,6 +228,7 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                          std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
 
     for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
@@ -235,14 +236,20 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
         (*it)->setContext(contextStack);
 
         //Recurse
-        if(GeneralHelper::isType<Node, Mux>(*it) != nullptr){
+        if(GeneralHelper::isType<Node, Mux>(*it) != nullptr) {
             discoveredMux.push_back(std::dynamic_pointer_cast<Mux>(*it));
+        }else if(GeneralHelper::isType<Node, ClockDomain>(*it) != nullptr){//Check this first because ClockDomains are SubSystems
+            std::shared_ptr<ClockDomain> foundClkDomain = std::dynamic_pointer_cast<ClockDomain>(*it);
+            if(!foundClkDomain->isSpecialized()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When discovering contexts, found an unspecialized ClockDomain.  Specialization into UpsampleClockDomain or DownsampleClockDomain should occure before context discovery", foundClkDomain));
+            }
+            discoveredClockDomains.push_back(foundClkDomain);
         }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr){//Check this first because EnabledSubSystems are SubSystems
             discoveredEnabledSubSystems.push_back(std::dynamic_pointer_cast<EnabledSubSystem>(*it));
         }else if(GeneralHelper::isType<Node, SubSystem>(*it) != nullptr){
             std::shared_ptr<SubSystem> subSystem = std::dynamic_pointer_cast<SubSystem>(*it);
             subSystem->discoverAndUpdateContexts(contextStack, discoveredMux, discoveredEnabledSubSystems,
-                                                 discoveredGeneral);
+                                                 discoveredClockDomains, discoveredGeneral);
         }else{
             discoveredGeneral.push_back(*it);
         }
@@ -518,7 +525,7 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
     stateUpdate->setPartitionNum(statefulNode->getPartitionNum());
     stateUpdate->setPrimaryNode(statefulNode);
-    statefulNode->setStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
+    statefulNode->addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
 
     if(includeContext) {
         //Set context to be the same as the primary node

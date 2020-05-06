@@ -5,6 +5,8 @@
 #include "Repeat.h"
 #include "General/ErrorHelpers.h"
 #include "GraphCore/NodeFactory.h"
+#include "RepeatOutput.h"
+#include "General/EmitterHelpers.h"
 
 Repeat::Repeat() : upsampleRatio(0) {
 
@@ -18,6 +20,10 @@ Repeat::Repeat(std::shared_ptr<SubSystem> parent, Repeat* orig) : RateChange(par
 
 }
 
+void Repeat::populateParametersExceptRateChangeNodes(std::shared_ptr<Repeat> orig) {
+    upsampleRatio = orig->getUpsampleRatio();
+}
+
 int Repeat::getUpsampleRatio() const {
     return upsampleRatio;
 }
@@ -26,12 +32,11 @@ void Repeat::setUpsampleRatio(int upsampleRatio) {
     Repeat::upsampleRatio = upsampleRatio;
 }
 
-std::shared_ptr<Repeat>
-Repeat::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
-    std::shared_ptr<Repeat> newNode = NodeFactory::createNode<Repeat>(parent);
-    newNode->setId(id);
-    newNode->setName(name);
+void Repeat::populateRepeatParametersFromGraphML(int id, std::string name,
+                                                     std::map<std::string, std::string> dataKeyValueMap,
+                                                     GraphMLDialect dialect) {
+    setId(id);
+    setName(name);
 
     //Note:  Repeat does not have a phase parameter in simulink and thus it will not be checked.
 
@@ -43,10 +48,22 @@ Repeat::createFromGraphML(int id, std::string name, std::map<std::string, std::s
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         upsampleRatioStr = dataKeyValueMap.at("Numeric.N");
     } else {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Repeat", newNode));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Repeat", getSharedPointer()));
     }
 
-    newNode->upsampleRatio = std::stoi(upsampleRatioStr);
+    upsampleRatio = std::stoi(upsampleRatioStr);
+}
+
+void Repeat::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement *thisNode) {
+    GraphMLHelper::addDataNode(doc, thisNode, "UpsampleRatio", GeneralHelper::to_string(upsampleRatio));
+}
+
+std::shared_ptr<Repeat>
+Repeat::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
+                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    std::shared_ptr<Repeat> newNode = NodeFactory::createNode<Repeat>(parent);
+
+    newNode->populateRepeatParametersFromGraphML(id, name, dataKeyValueMap, dialect);
 
     return newNode;
 }
@@ -69,7 +86,7 @@ Repeat::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, b
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Repeat");
 
-    GraphMLHelper::addDataNode(doc, thisNode, "UpsampleRatio", GeneralHelper::to_string(upsampleRatio));
+    Repeat::emitGraphMLProperties(doc, thisNode);
 
     return thisNode;
 }
@@ -123,4 +140,36 @@ std::shared_ptr<Node> Repeat::shallowClone(std::shared_ptr<SubSystem> parent) {
 
 std::pair<int, int> Repeat::getRateChangeRatio(){
     return std::pair<int, int>(upsampleRatio, 1);
+}
+
+std::shared_ptr<RateChange>
+Repeat::convertToRateChangeInputOutput(bool convertToInput, std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                       std::vector<std::shared_ptr<Arc>> &arcToRemove) {
+    //Note that addRemoveNodesAndArcs will call removeKnownReferences
+
+    std::shared_ptr<Repeat> specificRcNode;
+
+    if(convertToInput){
+        //TODO: Implement
+        throw std::runtime_error(
+                ErrorHelpers::genErrorStr("RepeatInput not yet implemented", getSharedPointer()));
+    }else {
+        //Create New node and transfer parameters
+        std::shared_ptr<RepeatOutput> repeatOutput = NodeFactory::createNode<RepeatOutput>(parent);
+        nodesToAdd.push_back(repeatOutput); //Add to design
+        specificRcNode = repeatOutput;
+
+        std::shared_ptr<Repeat> thisAsRepeat = std::static_pointer_cast<Repeat>(getSharedPointer());
+        repeatOutput->populateParametersExceptRateChangeNodes(thisAsRepeat);
+
+        //Rewire arcs
+        EmitterHelpers::transferArcs(thisAsRepeat, repeatOutput);
+
+        //Add this node to the nodes to be removed
+        nodesToRemove.push_back(thisAsRepeat);
+    }
+
+    return specificRcNode;
 }

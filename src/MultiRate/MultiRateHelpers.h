@@ -161,6 +161,8 @@ public:
      * @param origToCopyNode a map of
      */
     static void cloneMasterNodePortClockDomains(std::shared_ptr<MasterNode> origMaster, std::shared_ptr<MasterNode> clonedMaster, const std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode);
+
+    static void validateSpecialiedClockDomain(std::shared_ptr<ClockDomain> clkDomain);
 };
 
 /*! @} */

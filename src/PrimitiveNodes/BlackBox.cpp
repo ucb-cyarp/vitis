@@ -406,7 +406,7 @@ void BlackBox::emitCExprNextState(std::vector<std::string> &cStatementQueue, Sch
     //This is because, even though the blackbox may have state, there is no seperated functions which
 }
 
-void BlackBox::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void BlackBox::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //If this node is stateful, emit the state update
     if(stateful) {
         cStatementQueue.push_back(stateUpdateName+"();");

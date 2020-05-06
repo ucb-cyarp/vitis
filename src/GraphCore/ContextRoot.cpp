@@ -3,6 +3,7 @@
 //
 
 #include "ContextRoot.h"
+#include "Node.h"
 #include <algorithm>
 
 void ContextRoot::addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node) {
@@ -79,4 +80,15 @@ std::vector<std::shared_ptr<Arc>> ContextRoot::getContextDriversForPartition(int
 void ContextRoot::addContextDriverArcsForPartition(std::vector<std::shared_ptr<Arc>> drivers, int partitionNum){
     //Note that map[] returns a reference so direct insertion should be possible
     contextDriversPerPartition[partitionNum].insert(contextDriversPerPartition[partitionNum].end(), drivers.begin(), drivers.end());
+}
+
+std::set<int> ContextRoot::partitionsInContext(){
+    std::set<int> partitions;
+    for(auto subcontextNodes = nodesInSubContexts.begin(); subcontextNodes != nodesInSubContexts.end(); subcontextNodes++){
+        for(auto node = subcontextNodes->begin(); node != subcontextNodes->end(); node++) {
+            partitions.insert((*node)->getPartitionNum());
+        }
+    }
+
+    return partitions;
 }

@@ -1,48 +1,41 @@
 //
-// Created by Christopher Yarp on 6/26/18.
+// Created by Christopher Yarp on 4/29/20.
 //
 
-#ifndef VITIS_ENABLEOUTPUT_H
-#define VITIS_ENABLEOUTPUT_H
+#ifndef VITIS_REPEATOUTPUT_H
+#define VITIS_REPEATOUTPUT_H
 
-#include <memory>
-
-#include "EnableNode.h"
-#include "Node.h"
-#include "SubSystem.h"
-#include "Variable.h"
-#include "GraphMLTools/GraphMLDialect.h"
+#include "Repeat.h"
+#include "GraphCore/NodeFactory.h"
 
 /**
- * \addtogroup GraphCore Graph Core
+ * \addtogroup MultiRate Multi-Rate Support Nodes
  * @{
 */
 
 /**
- * @brief Represents a special output port at the interface of an enabled subsystem.
+ * @brief This represents a Repeat at the output of a DownsampleClockDomain
  *
- * If not enabled, the previous value of this node is fed to the downstream logic.
- * If enabled, the calculated value is fed to the downstream logic as usual.
+ * It mirrors the general functionality of the EnableOutput in that it behaves like a latch
  */
-class EnableOutput : public EnableNode{
+class RepeatOutput : public Repeat {
 friend class NodeFactory;
 
 private:
     Variable stateVar; ///<The state variable for the latch
-//    Variable nextStateVar; ///<The temporary variable for holding the next state for the latch
     std::vector<NumericValue> initCondition; ///<The Initial condition of this output port
 
 protected:
     /**
      * @brief Default constructor
      */
-    EnableOutput();
+    RepeatOutput();
 
     /**
      * @brief Construct a node with a given parent
      * @param parent parent of new node
      */
-    explicit EnableOutput(std::shared_ptr<SubSystem> parent);
+    explicit RepeatOutput(std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
@@ -56,15 +49,21 @@ protected:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig);
+    RepeatOutput(std::shared_ptr<SubSystem> parent, RepeatOutput* orig);
 
 public:
+    //==== Getters & Setters ====
+    Variable getStateVar() const;
+    void setStateVar(const Variable &stateVar);
+    std::vector<NumericValue> getInitCondition() const;
+    void setInitCondition(const std::vector<NumericValue> &initCondition);
+
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 
     std::set<GraphMLParameter> graphMLParameters() override;
 
     /**
-     * @brief Creates a EnableOutput node from a GraphML Description
+     * @brief Creates a RepeatOutput node from a GraphML Description
      *
      * @note This function does not add the node to the design or to the nodeID/pointer map
      *
@@ -75,22 +74,14 @@ public:
      * @param dialect The dialect of the GraphML file being imported
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<EnableOutput> createFromGraphML(int id, std::string name,
-                                                    std::map<std::string, std::string> dataKeyValueMap,
-                                                    std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+    static std::shared_ptr<RepeatOutput> createFromGraphML(int id, std::string name,
+                                                           std::map<std::string, std::string> dataKeyValueMap,
+                                                           std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     std::string typeNameStr() override;
 
     std::string labelStr() override ;
 
-    /**
-     * @brief Validate if the connections to this port are correct.
-     *
-     *   - Verify that the input port is a boolean type (and width 1).  Also Verify 1 and only 1 arc is connected
-     *   - Checks that the port is in the EnabledSubsystem EnabledOutput list
-     *
-     * If an invalid configuration is detected, the function will throw an exception
-     */
     void validate() override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
@@ -102,10 +93,10 @@ public:
     bool hasCombinationalPath() override;
 
     /**
-     * @brief Creates a the StateUpdate node for the EnableOutput
+     * @brief Creates a the StateUpdate node for the RepeatOutput
      *
-     * Because the EnableOutput is a transparent latch, the update is placed between the input node to the EnableOutput
-     * and itself.  The update to the state occurres immediatly when the input is calculated.  The emitCExprNextState
+     * Because the EnableOutput is a transparent latch, the update is placed between the input node to the RepeatOutput
+     * and itself.  The update to the state occurs immediately when the input is calculated.  The emitCExprNextState
      * function does nothing for the EnableOutput.  The emitCExpr always returns the state element.
      *
      */
@@ -116,7 +107,7 @@ public:
                                bool includeContext) override;
 
     /**
-     * @brief Generate the C expression for the EnableOutput
+     * @brief Generate the C expression for the RepeatOutput
      *
      * This function simply returns the name of the state variable
      */
@@ -131,32 +122,14 @@ public:
      */
     std::vector<Variable> getCStateVars() override;
 
-//    /**
-//     * @brief Calculates the next state for the latch
-//     *
-//     * Should be immediatly assigned
-//     */
-//    void emitCExprNextState(std::vector<std::string> &cStatementQueue) override;
-
     /**
      * @brief Sets the latch (state) from the calculated input
      */
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
-    //==== Getters & Setters ====
-    Variable getStateVar() const;
-    void setStateVar(const Variable &stateVar);
-//    Variable getNextStateVar() const;
-//    void setNextStateVar(const Variable &nextStateVar);
-    std::vector<NumericValue> getInitCondition() const;
-    void setInitCondition(const std::vector<NumericValue> &initCondition);
-
-    /**
-     * @brief Also removes this node from the list of EnableInputs in the parent EnabledSubsystem
-     */
-    void removeKnownReferences() override;
+    bool isSpecialized() override;
 };
 
 /*! @} */
 
-#endif //VITIS_ENABLEOUTPUT_H
+#endif //VITIS_REPEATOUTPUT_H

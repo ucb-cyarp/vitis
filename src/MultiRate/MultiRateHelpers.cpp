@@ -295,3 +295,29 @@ void MultiRateHelpers::cloneMasterNodePortClockDomains(std::shared_ptr<MasterNod
         clonedMaster->setPortClkDomain(clonePort, cloneClkDomain);
     }
 }
+
+void MultiRateHelpers::validateSpecialiedClockDomain(std::shared_ptr<ClockDomain> clkDomain) {
+    //Check that the input nodes are expanded and inputs
+    std::set<std::shared_ptr<RateChange>> rateChangeIn = clkDomain->getRateChangeIn();
+    for(auto it = rateChangeIn.begin(); it != rateChangeIn.end(); it++){
+        if(!(*it)->isSpecialized()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when validating DownsampleClockDomain - A RateChange input was not specialized", clkDomain));
+        }
+
+        if(!(*it)->isInput()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when validating DownsampleClockDomain - A RateChange input was not a specialized input", clkDomain));
+        }
+    }
+
+    //Check that the output nodes are expanded and inputs
+    std::set<std::shared_ptr<RateChange>> rateChangeOut = clkDomain->getRateChangeOut();
+    for(auto it = rateChangeOut.begin(); it != rateChangeOut.end(); it++){
+        if(!(*it)->isSpecialized()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when validating DownsampleClockDomain - A RateChange output was not specialized", clkDomain));
+        }
+
+        if((*it)->isInput()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when validating DownsampleClockDomain - A RateChange output was not a specialized output", clkDomain));
+        }
+    }
+}

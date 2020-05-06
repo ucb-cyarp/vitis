@@ -10,6 +10,7 @@
 #include "Node.h"
 
 class EnabledSubSystem;
+class ClockDomain;
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -118,19 +119,23 @@ public:
      *
      * @param contextStack The context stack at this point.  Nodes under this subsystem
      * @param discoveredMux a vector modified to include discovered muxes
-     * @param discoveredEnabledSubSystems a vector modified to include disc
+     * @param discoveredEnabledSubSystems a vector modified to include discovered EnabledSubsystems
+     * @param discoveredClockDomains a vector modified to include discovered ClockDomains
      * @param discoveredGeneral a vector modified to include discovered general nodes
      */
     void discoverAndUpdateContexts(std::vector<Context> contextStack, std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                    std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                   std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                    std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 
     /**
-     * @brief Order Constrains Zero Input Nodes Within the Subsystems to be scheduled ater all the nodes in the predecessorNodes list
+     * @brief Order Constrains Zero Input Nodes Within the Subsystems to be scheduled after all the nodes in the predecessorNodes list
      *
      * This function is called recursivly into each subsystem
      *
      * Is overwritten by EnabledSubsystem to add its own enable driver nodes to the list of predecessor Nodes
+     *
+     * @deprecated This has since been deprictaed after the introduction of multiple clock domains
      *
      * @param predecessorNodes The list of predecessor nodes from which to add order constraint arcs to
      * @param new_nodes

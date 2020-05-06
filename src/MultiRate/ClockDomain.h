@@ -15,6 +15,8 @@ class RateChange;
 
 /**
  * \addtogroup MultiRate Multi-Rate Support Nodes
+ * @brief Nodes for multi-rate support in Vitis designs
+ *
  * @{
 */
 
@@ -32,7 +34,6 @@ protected:
     std::set<std::shared_ptr<OutputPort>> ioInput; ///<The set of I/O ports that directly connect to the inputs of nodes in this clock domain.  These should be MasterInput Ports
     std::set<std::shared_ptr<InputPort>> ioOutput; ///<The set of I/O ports that directly connect to the outputs of nodes in this clock domain.  These should be MasterOutput Ports
 
-private:
     /**
      * @brief Default constructor
      */
@@ -57,6 +58,19 @@ private:
      * @param orig The origional node from which a shallow copy is being made
      */
     ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig);
+
+    /**
+     * @brief This is a work function for shallowCloneWithChildren functionality in clockDomains.
+     *
+     * This does the bulk of the work for shallowCloneWithChildren and is seperated because the clone method for
+     * the subclasses of clock domain is the same except for
+     *
+     * @param parent
+     * @param nodeCopies
+     * @param origToCopyNode
+     * @param copyToOrigNode
+     */
+    void shallowCloneWithChildrenWork(std::shared_ptr<ClockDomain> clonedNode, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
 
 public:
     //==== Getters & Setters ====
@@ -86,6 +100,33 @@ public:
     void removeIOOutput(std::shared_ptr<InputPort> output);
 
     /**
+     * @brief Copy parameters from another clock domain except for the lists of RateChange nodes
+     *
+     * This is used when specializing a clock domain
+     *
+     * @param orig the clock domain to copy from
+     */
+    virtual void populateParametersExceptRateChangeNodes(std::shared_ptr<ClockDomain> orig);
+
+    /**
+     * @brief Check if the clock domain has been specialized (ie. has been converted to an Updample
+     * @return
+     */
+    virtual bool isSpecialized();
+
+    /**
+     * @brief Discover and mark contexts for nodes at and within this ClockDomain
+     *
+     * This is a very similar operation to EnabledSubsystem::discoverAndMarkContexts
+     *
+     * @note This function will error out if called on the general ClockDomain as it is not a ContextRoot itself
+     *
+     * @param contextStack the context stack up to this node
+     * @return nodes in the context
+     */
+    virtual std::vector<std::shared_ptr<Node>> discoverAndMarkContexts(std::vector<Context> contextStack);
+
+    /**
      * @brief Get the rate of this clock domain relative to the base rate
      * @return The rate of this clock domain vs. the base rate in the form <numerator, denominator>
      */
@@ -103,12 +144,33 @@ public:
      * @warning: After conversion, any references to the old node should be converted to the new node.  If provided as
      * a reference, the node will be removed from the design.
      *
+     * @warning: This method does not change the references in the context stacks of child nodes.  This function should be run before
+     * context discovery and marking
+     *
      * @param convertToInput if true, the node is converted to an input.  if false, the node is converted to an output
      * @return a pointer to the newly created node
      */
+    virtual std::shared_ptr<ClockDomain> convertToUpsampleDownsampleDomain(bool convertToUpsampleDomain,
+                                                                           std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                                           std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                                                           std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                                           std::vector<std::shared_ptr<Arc>> &arcToRemove);
 
-//    virtual std::shared_ptr<ClockDomain> convertToUpsampleDownsampleDomain(bool convertToUpsampleDomain, std::shared_ptr<Design> design = nullptr);
-    //TODO Implement clone and children.  Need to clone rate change nodes, set their pointers to the Clock Domain, and add them to the set of
+    /**
+     * @brief Specializes the ClockDomain to a DownsampleClockDomain or an UpsampleClockDomain
+     *
+     * @note this should be called after discoverClockDomainParameters
+     *
+     * @param nodesToAdd
+     * @param nodesToRemove
+     * @param arcsToAdd
+     * @param arcToRemove
+     * @return
+     */
+    std::shared_ptr<ClockDomain> specializeClockDomain(std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                       std::vector<std::shared_ptr<Arc>> &arcToRemove);
 
     /**
      * @brief Searches for rate change nodes and IO input/output ports connected to this clock domain.  Also sets the
@@ -140,8 +202,27 @@ public:
 
     //Do not need to override emitGramphMLSubgraphAndChildren.  Use the same function as a standard subsystem
 
+    /**
+     * @brief Creates any required supporting nodes for the clock domain.
+     *
+     * This is similar to expansion except that clockdomain cannot use the standard expansion mechanism because
+     * it would force the creation of an ExpandedSubsystem with the clock domain in essence removed from the design.
+     *
+     * As part of this function, I/O outputs from the clock domain have bridging nodes created for them.  These bridging
+     * nodes provide a mechanism to get the output out of the clock domain scope
+     *
+     * @param nodesToAdd
+     * @param nodesToRemove
+     * @param arcsToAdd
+     * @param arcToRemove
+     * @param includeContext if true, contexts are set for the added nodes.  This should be set to true if contexts have already been discovered and marked.  It should be set to false if contexts have not been discovered/marked yet
+     */
+    virtual void createSupportNodes(std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                            std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                            std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                            std::vector<std::shared_ptr<Arc>> &arcToRemove,
+                            bool includeContext);
 
-    //TODO: Implement discoverAndMarkContexts in subclasses
 };
 
 /*! @} */

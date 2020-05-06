@@ -1,21 +1,12 @@
 //
-// Created by Christopher Yarp on 7/6/18.
+// Created by Christopher Yarp on 5/2/20.
 //
 
-#ifndef VITIS_DELAY_H
-#define VITIS_DELAY_H
-
-#include <vector>
-#include <memory>
-#include <map>
-#include <string>
-#include <complex>
+#ifndef VITIS_WRAPPINGCOUNTER_H
+#define VITIS_WRAPPINGCOUNTER_H
 
 #include "PrimitiveNode.h"
-#include "GraphCore/NumericValue.h"
-#include "GraphMLTools/GraphMLDialect.h"
-#include "GraphCore/StateUpdate.h"
-
+#include "GraphCore/NodeFactory.h"
 
 /**
  * \addtogroup PrimitiveNodes Primitives
@@ -23,34 +14,35 @@
 */
 
 /**
- * @brief Represents a Delay (z^-1) Block
+ * @brief Represent an unconditional counter that counts up to a specified value then wraps back to 0
+ *
+ * @note This is currently a primitive node to support context driver replication for DownsampleClockDomains
  */
-class Delay : public PrimitiveNode{
+class WrappingCounter : public PrimitiveNode{
     friend NodeFactory;
+
 private:
-    int delayValue; ///<The amount of delay in this node
-    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Length must match the delay value.  The initial condition that will be presented first is at index 0
-    Variable cStateVar; ///<The C variable storing the state of the delay
-    Variable cStateInputVar; ///<the C temporary variable holding the input to state before the update
-    //TODO: Re-evaluate if numeric value should be stored as double/complex double (like Matlab does).  An advantage to providing a class that can contain both is that there is less risk of an int being store improperly and full 64 bit integers can be represented.
-    //TODO: Advantage of storing std::complex is that each element is smaller (does not need to allocate both a double and int version)
+    int countTo; ///<The value to count up to.  This value is never reached and serves as the modulus for the counter
+    int initCondition; ///<The initial state of the counter
+    Variable cStateVar; ///<The C variable storing the state of the counter
+    //There is no need to have an input variable since the counter increments unconditionally by 1
 
     //==== Constructors ====
     /**
-     * @brief Constructs an empty delay node
+     * @brief Constructs an empty WrappingCounter node
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
-    Delay();
+    WrappingCounter();
 
     /**
-     * @brief Constructs an empty delay node with a given parent.  This node is not added to the children list of the parent.
+     * @brief Constructs an empty WrappingCounter node with a given parent.  This node is not added to the children list of the parent.
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      *
      * @param parent parent node
      */
-    explicit Delay(std::shared_ptr<SubSystem> parent);
+    explicit WrappingCounter(std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
@@ -64,14 +56,16 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    Delay(std::shared_ptr<SubSystem> parent, Delay* orig);
+    WrappingCounter(std::shared_ptr<SubSystem> parent, WrappingCounter* orig);
 
 public:
     //====Getters/Setters====
-    int getDelayValue() const;
-    void setDelayValue(int delayValue);
-    std::vector<NumericValue> getInitCondition() const;
-    void setInitCondition(const std::vector<NumericValue> &initCondition);
+    int getCountTo() const;
+    void setCountTo(int countTo);
+    int getInitCondition() const;
+    void setInitCondition(int initCondition);
+    Variable getCStateVar() const;
+    void setCStateVar(const Variable &cStateVar);
 
     //====Factories====
     /**
@@ -86,7 +80,7 @@ public:
      * @param dialect The dialect of the GraphML file being imported
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<Delay> createFromGraphML(int id, std::string name,
+    static std::shared_ptr<WrappingCounter> createFromGraphML(int id, std::string name,
                                                     std::map<std::string, std::string> dataKeyValueMap,
                                                     std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
@@ -118,14 +112,10 @@ public:
     /**
      * @brief Creates a the StateUpdate node for the Delay
      *
-     * Creates the state update for the node.
+     * Creates the state update for the WrappingCounter.
      *
      * The StateUpdate Node is dependent on:
-     *   - Next state calculated (calculated when Delay node scheduled) -> order constraint on delay node
-     *      - The next state is stored in a temporary.  This would be redundant (the preceding operation should produce
-     *        a single assignmnent to a temporary) except for the case when there is another state element.  In that case
-     *        a temporary variable is not
-     *   - Each node dependent on the output of the delay (order constraint only)
+     *   - Each node dependent on the output of the WrappingCounter (order constraint only)
      *
      */
     bool createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
@@ -138,5 +128,4 @@ public:
 
 /*! @} */
 
-
-#endif //VITIS_DELAY_H
+#endif //VITIS_WRAPPINGCOUNTER_H

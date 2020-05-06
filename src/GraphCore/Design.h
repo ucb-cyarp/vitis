@@ -32,6 +32,7 @@ class BlackBox;
 class ContextFamilyContainer;
 class ContextContainer;
 class ThreadCrossingFIFO;
+class ClockDomain;
 
 //This Class
 
@@ -237,6 +238,10 @@ public:
      * @param printNodeSched if true, print the node schedule to the console
      * @param schedulePartitions if true, each partition in the design is scheduled seperatly
      *
+     * @warning: UpsampleClockDomains currently rely on all of their nodes being scheduled together (ie not being split up).
+     * This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
+     * later, a method for having vector intermediates would be required.
+     *
      * @return the number of nodes pruned (if prune is true)
      */
     unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched, bool schedulePartitions);
@@ -276,7 +281,7 @@ public:
      * @brief Verify that the graph has topological ordering
      * @param checkOutputMaster if true, checks the schedule state of the output master
      */
-    void verifyTopologicalOrder(bool checkOutputMaster);
+    void verifyTopologicalOrder(bool checkOutputMaster, SchedParams::SchedType schedType);
 
     /**
      * @brief Get a node by its name path
@@ -631,7 +636,7 @@ public:
      *
      * @param includeContext if true, the state update node is included in the same context (and partition) as the root node
      */
-    void createStateUpdateNodes(bool includeContext = false);
+    void createStateUpdateNodes(bool includeContext);
 
     /**
      * @brief Discovers contextRoots in the design and creates ContextVariableUpdate update nodes for them.
@@ -733,11 +738,16 @@ public:
     //TODO: Validate that mux contexts do not contain state elements
 
     /**
-     * @brief OrderConstraint Nodes with Zero Inputs in EnabledSubsystems (and nested within) in Design
+     * @brief OrderConstraint Nodes with Zero Inputs in Contexts
      *
-     * @note Apply this after expanding enabled sybsystem contexts
+     * This is to prevent nodes with 0 inputs in a context from being scheduled before the context drivers are computed
+     *
+     * @note Apply this after partitioning, replicating context drivers, and the creation of partition specific context drivers
+     *
+     * @note This is only needed if ContextFamilyNodes are not scheduled as a single unit.
+     *
      */
-    void orderConstrainZeroInputNodes();
+    void orderConstrainZeroInputNodes(); //TODO: Use if scheduler changed to no longer schedule contexts as a single unit
 
     /**
      * @brief "Rewires" arcs that go between nodes in different contexts to be between contexts themselves (used primarily for scheduling)
@@ -754,13 +764,10 @@ public:
      * When rewiring the src, it is set to 1 context below the lowest common context of the src and dst on the src side.
      * When rewiring the dst, it is set to 1 context below the lowest common context of the src and dst on the dst side.
      *
-     * Arcs that are the drivers of the contextRoot are also "rewired".  Note that there may be multiple driver arcs for
-     * a context (ex. enabled subsystems have an arc to each EnabledInput and EnabledOutput).  In this case, there may
-     * be a single rewired arc for several original arcs.  In this case, the same ptr to the rewired arc will be returned
-     * for each of the corresponding original arcs.
-     *
-     * Arcs that are drivers of context roots may be re-wired into multiple arc to ContextFamilyContainers since a given
-     * context has a ContextFamilyContainer for each partition it is present in.
+     * @note: During encapsulation, which should occure before this is called, the context root driver arcs are
+     * added as order constraint arcs for each ContextFamilyContainer created for a given ContextRoot.
+     * For scheduling purposes, these order constraint arcs are what should be considered when scheduling rather
+     * than the original context driver.  So, the origional context driver is disconnected by this function.
      *
      * @note This function does not actually rewire existing arcs but creates a new arcs representing how the given
      * arcs should be rewired.  The two returned vectors have a 1-many relationship between an arc to be rewired and the arcs
@@ -783,6 +790,9 @@ public:
      * When the ContextFamilyContainer is created, an order constraint arc from the context driver is created.  This ensures that the context driver
      * will be available in each partition that the context resides in (so long as FIFO insertion occurs after this point).
      *
+     * @note In cases where a ContexRoot has multiple driver arcs that all come from the same source port (ex. EnabledSubsystems
+     * where each EnableInput and EnableOutput has a driver arc), only a single order constraint port is created.
+     *
      * @warning The created ContextFamilyContainer does not have its parent set.  This needs to be performed outside of this helper function
      *
      * @param contextRoot
@@ -801,6 +811,40 @@ public:
      * @return
      */
     void cleanupEmptyHierarchy(std::string reason);
+
+    /**
+     * @brief Replicates context root drivers if requested by the ContextRoot
+     *
+     * New driver arcs will be created as OrderConstraint arcs to the ContextRoot.
+     *
+     * The driver will have a duplicate copy created for the pariton it is in.  However,
+     * a new OrderConstraint arc will be created for that same partition.
+     *
+     * @warning: This currently only support replicating a single node with no inputs
+     * and a single output arc to the context root
+     *
+     * @warning: This should be done before context discovery since new nodes can be created in the process
+     */
+    void replicateContextRootDriversIfRequested();
+
+    /**
+     * @brief Specialize ClockDomains into UpsampleClockDomains or DownsampleClockDomains
+     *
+     * @returns a new vector of ClockDomain nodes since new nodes are created to replace each clock domain durring specialization.  Already specialized ClockDomains are returned unchanged
+     */
+    std::vector<std::shared_ptr<ClockDomain>> specializeClockDomains(std::vector<std::shared_ptr<ClockDomain>> clockDomains);
+
+    /**
+     * @brief Creates support nodes for ClockDomains
+     */
+    void createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext);
+
+    /**
+     * @brief Find ClockDomains in design
+     */
+    std::vector<std::shared_ptr<ClockDomain>> findClockDomains();
+
+
 };
 
 /*! @} */

@@ -154,13 +154,14 @@ void
 SubSystem::discoverAndUpdateContexts(std::vector<Context> contextStack,
                                      std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                      std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                     std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                      std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
     std::set<std::shared_ptr<Node>, Node::PtrID_Compare> idOrderedChildren;
     idOrderedChildren.insert(children.begin(), children.end());
     std::vector<std::shared_ptr<Node>> childrenVector;
     childrenVector.insert(childrenVector.end(), idOrderedChildren.begin(), idOrderedChildren.end());
     GraphAlgs::discoverAndUpdateContexts(childrenVector, contextStack, discoveredMux, discoveredEnabledSubSystems,
-                                         discoveredGeneral);
+                                         discoveredClockDomains, discoveredGeneral);
 }
 
 void SubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,

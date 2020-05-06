@@ -48,8 +48,9 @@ std::shared_ptr<Node> StateUpdate::shallowClone(std::shared_ptr<SubSystem> paren
     return NodeFactory::shallowCloneNode<StateUpdate>(parent, this);
 }
 
-void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
-    primaryNode->emitCStateUpdate(cStatementQueue, schedType);
+void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
+    std::shared_ptr<StateUpdate> thisAsStateUpdate = std::static_pointer_cast<StateUpdate>(getSharedPointer());
+    primaryNode->emitCStateUpdate(cStatementQueue, schedType, thisAsStateUpdate);
 }
 
 std::set<GraphMLParameter> StateUpdate::graphMLParameters() {

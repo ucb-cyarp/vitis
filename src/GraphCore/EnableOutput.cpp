@@ -116,7 +116,7 @@ void EnableOutput::validate() {
     }
 }
 
-EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig), stateVar(orig->stateVar) { }
+EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig), stateVar(orig->stateVar), initCondition(orig->initCondition) { }
 //EnableOutput::EnableOutput(std::shared_ptr<SubSystem> parent, EnableOutput* orig) : EnableNode(parent, orig), stateVar(orig->stateVar), nextStateVar(orig->nextStateVar) { }
 
 std::shared_ptr<Node> EnableOutput::shallowClone(std::shared_ptr<SubSystem> parent) {
@@ -141,7 +141,7 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     stateUpdate->setName("StateUpdate-For-"+getName());
     stateUpdate->setPartitionNum(partitionNum);
     stateUpdate->setPrimaryNode(getSharedPointer());
-    stateUpdateNode = stateUpdate; //Set the state update node pointer in this node
+    addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
 
     if(includeContext) {
         //Set context to be the same as the primary node
@@ -217,7 +217,7 @@ CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPa
 //    }
 //}
 
-void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     DataType inputDataType = getInputPort(0)->getDataType();
     std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
     int srcOutPortNum = srcPort->getPortNum();

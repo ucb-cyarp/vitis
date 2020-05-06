@@ -22,8 +22,6 @@
 class RateChange : public Node {
 friend class NodeFactory;
 protected:
-    std::shared_ptr<ClockDomain> clockDomain; ///<The clock domain that this rate change is associated with
-
     /**
      * @brief Default constructor for RateChange
      */
@@ -74,7 +72,11 @@ public:
      * @param convertToInput if true, the node is converted to an input.  if false, the node is converted to an output
      * @return a pointer to the newly created node
      */
-//    virtual std::shared_ptr<RateChange> convertToRateChangeInputOutput(bool convertToInput, std::shared_ptr<Design> design = nullptr) = 0;
+    virtual std::shared_ptr<RateChange> convertToRateChangeInputOutput(bool convertToInput,
+                                                                       std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                                       std::vector<std::shared_ptr<Arc>> &arcToRemove) = 0;
 
     /**
      * @brief Also removes this node from the list of RateChange nodes in the assocted clock domain if the reference to the
@@ -85,6 +87,21 @@ public:
     void validate() override;
 
     bool canExpand() override;
+
+    /**
+     * @brief Check if the RateChange node is specialised (ie. has been converted into an Input or Output specialization)
+     * @return
+     */
+    virtual bool isSpecialized();
+
+    /**
+     * @brief Check if the RateChange node is a specialized input
+     *
+     * @note Only valid if isSpecialized() return true (ie. is already specialized)
+     *
+     * @return Return true if a specialized input, return false if an output
+     */
+    virtual bool isInput();
 };
 
 /*! @} */

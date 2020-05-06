@@ -215,7 +215,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     }
 }
 
-void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //TODO: Implement Vector Support (Need 2D state)
     if(delayValue == 0){
         return; //No state to update
@@ -242,7 +242,7 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
         }
     }
 
-    Node::emitCStateUpdate(cStatementQueue, schedType);
+    Node::emitCStateUpdate(cStatementQueue, schedType, stateUpdateSrc);
 }
 
 void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {

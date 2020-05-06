@@ -12,6 +12,7 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/EmitterHelpers.h"
 
 ClockDomain::ClockDomain() {
 }
@@ -19,8 +20,20 @@ ClockDomain::ClockDomain() {
 ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent) : SubSystem(parent) {
 }
 
-ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) : SubSystem(parent, orig) {
+ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) : SubSystem(parent, orig), upsampleRatio(orig->upsampleRatio), downsampleRatio(orig->downsampleRatio) {
     //Do not copy the pointers to the RateChange nodes.  This is handled by the shallowCloneWithChildren
+}
+
+void ClockDomain::populateParametersExceptRateChangeNodes(std::shared_ptr<ClockDomain> orig) {
+    upsampleRatio = orig->getUpsampleRatio();
+    downsampleRatio = orig->getDownsampleRatio();
+
+    ioInput = orig->getIoInput();
+    ioOutput = orig->getIoOutput();
+
+    //Do not copy these:
+    //    std::set<std::shared_ptr<RateChange>> rateChangeIn;
+    //    std::set<std::shared_ptr<RateChange>> rateChangeOut;
 }
 
 int ClockDomain::getUpsampleRatio() const {
@@ -490,6 +503,13 @@ void ClockDomain::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
     //Copy this node
     std::shared_ptr<ClockDomain> clonedNode = std::dynamic_pointer_cast<ClockDomain>(shallowClone(parent));
 
+    ClockDomain::shallowCloneWithChildrenWork(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode);
+}
+
+void ClockDomain::shallowCloneWithChildrenWork(std::shared_ptr<ClockDomain> clonedNode,
+                                               std::vector<std::shared_ptr<Node>> &nodeCopies,
+                                               std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
+                                               std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) {
     //Put into vectors and maps
     nodeCopies.push_back(clonedNode);
     origToCopyNode[shared_from_this()] = clonedNode;
@@ -510,5 +530,116 @@ void ClockDomain::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
     for(auto it = rateChangeOut.begin(); it != rateChangeOut.end(); it++){
         std::shared_ptr<RateChange> rateChangeCopy = std::dynamic_pointer_cast<RateChange>(origToCopyNode[*it]);
         clonedNode->addRateChangeOut(rateChangeCopy);
+    }
+}
+
+bool ClockDomain::isSpecialized() {
+    return false;
+}
+
+std::vector<std::shared_ptr<Node>> ClockDomain::discoverAndMarkContexts(std::vector<Context> contextStack) {
+
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot perform context discovery with un-specialized ClockDomain", getSharedPointer()));
+
+    return std::vector<std::shared_ptr<Node>>();
+}
+
+void ClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                     std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                     std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                     std::vector<std::shared_ptr<Arc>> &arcToRemove,
+                                     bool includeContext) {
+    //This should be implemented in the subclasses
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot create support nodes for un-specialized ClockDomain", getSharedPointer()));
+}
+
+std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool convertToUpsampleDomain,
+                                                                            std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                                            std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                                                            std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                                            std::vector<std::shared_ptr<Arc>> &arcsToRemove) {
+    //Note that addRemoveNodesAndArcs will call removeKnownReferences
+
+    std::shared_ptr<ClockDomain> specificClkDomain;
+
+    if(convertToUpsampleDomain){
+        //TODO: Implement
+        throw std::runtime_error(ErrorHelpers::genErrorStr("UpsampleClockDomains not yet implemented", getSharedPointer()));
+    }else{
+        //Create
+        std::shared_ptr<DownsampleClockDomain> downsampleClockDomain = NodeFactory::createNode<DownsampleClockDomain>(parent);
+        nodesToAdd.push_back(downsampleClockDomain);
+        specificClkDomain = specificClkDomain;
+
+        std::shared_ptr<ClockDomain> thisAsClockDomain = std::static_pointer_cast<ClockDomain>(getSharedPointer());
+        downsampleClockDomain->populateParametersExceptRateChangeNodes(thisAsClockDomain);
+        EmitterHelpers::transferArcs(thisAsClockDomain, downsampleClockDomain);
+
+        //Move nodes under the new ClockDomain
+        //Do this before specializing the RateChange nodes so they have the correct parent
+        std::set<std::shared_ptr<Node>> childrenSetCopy = getChildren();
+        for(auto child = childrenSetCopy.begin(); child != childrenSetCopy.end(); child++){
+            (*child)->setParent(downsampleClockDomain);
+            //Also remove their references from the old parent.  We got a copy of the set first so this is OK
+            removeChild(*child);
+        }
+
+        //Convert the RateChange inputs and RateChange outputs
+        std::set<std::shared_ptr<RateChange>> rateChangeInCopy = getRateChangeIn();
+        for(auto rcIn = rateChangeInCopy.begin(); rcIn != rateChangeInCopy.end(); rcIn++){
+            if(!(*rcIn)->isSpecialized()) {
+                //This function will add the new node
+                //It will also re-wire the node
+                std::shared_ptr<RateChange> newRcIn = (*rcIn)->convertToRateChangeInputOutput(true, nodesToAdd,
+                                                                                              nodesToRemove, arcsToAdd,
+                                                                                              arcsToRemove);
+                //Add as a rate change input to the new clockDomain
+                downsampleClockDomain->addRateChangeIn(newRcIn);
+
+                //Remove the original RateChange node from the original ClockDomain (since it had been moved out from the origional clock domain, the removeKnownReferences function will miss the ptr)
+                removeRateChangeIn(*rcIn);
+
+                //rcIn is added to the remove convertToRateChangeInputOutput
+            }
+        }
+
+        std::set<std::shared_ptr<RateChange>> rateChangeOutCopy = getRateChangeOut();
+        for(auto rcOut = rateChangeOutCopy.begin(); rcOut != rateChangeOutCopy.end(); rcOut++){
+            if(!(*rcOut)->isSpecialized()) {
+                //This function will add the new node
+                //It will also re-wire the node
+                std::shared_ptr<RateChange> newRcOut = (*rcOut)->convertToRateChangeInputOutput(false, nodesToAdd,
+                                                                                                nodesToRemove,
+                                                                                                arcsToAdd,
+                                                                                                arcsToRemove);
+                //Add as a rate change input to the new clockDomain
+                downsampleClockDomain->addRateChangeOut(newRcOut);
+
+                //Remove the original RateChange node from the original ClockDomain (since it had been moved out from the origional clock domain, the removeKnownReferences function will miss the ptr)
+                removeRateChangeOut(*rcOut);
+
+                //rcOut is added to the remove convertToRateChangeInputOutput
+            }
+        }
+
+        //Mark this node for delete
+        nodesToRemove.push_back(getSharedPointer());
+    }
+
+    return specificClkDomain;
+}
+
+std::shared_ptr<ClockDomain> ClockDomain::specializeClockDomain(std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                                std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                                                std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                                std::vector<std::shared_ptr<Arc>> &arcToRemove){
+    if(upsampleRatio != 0 && downsampleRatio != 0){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("ClockDomain has both upsample and downsample ratios, cannot convert to a single Upsample or Downsample clock domain", getSharedPointer()));
+    }
+
+    if(upsampleRatio != 0){
+        return convertToUpsampleDownsampleDomain(true, nodesToAdd, nodesToRemove, arcsToAdd, arcToRemove);
+    }else{
+        return convertToUpsampleDownsampleDomain(false, nodesToAdd, nodesToRemove, arcsToAdd, arcToRemove);
     }
 }

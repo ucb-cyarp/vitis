@@ -311,10 +311,17 @@ void Node::removeKnownReferences(){
     }
 
     //Remove from context root
-    if(context.size() > 0){
+//    for(int i = 0; i<context.size(); i++){
+//        std::shared_ptr<ContextRoot> contextRoot = context[i].getContextRoot();
+//        int subcontext = context[i].getSubContext();
+//        contextRoot->removeSubContextNode(subcontext, getSharedPointer());
+//    }
+
+    //Should only be in lowest level
+    if(context.size()>0){
         std::shared_ptr<ContextRoot> contextRoot = context[context.size()-1].getContextRoot();
         int subcontext = context[context.size()-1].getSubContext();
-        context[context.size()-1].getContextRoot()->removeSubContextNode(subcontext, getSharedPointer());
+        contextRoot->removeSubContextNode(subcontext, getSharedPointer());
     }
 }
 
@@ -437,13 +444,21 @@ bool Node::hasCombinationalPath(){
     return true;
 }
 
-std::shared_ptr<StateUpdate> Node::getStateUpdateNode(){
+std::vector<std::shared_ptr<StateUpdate>> Node::getStateUpdateNodes(){
     //default has no state
-    return stateUpdateNode;
+    return stateUpdateNodes;
 }
 
-void Node::setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
-    stateUpdateNode = stateUpdate;
+void Node::setStateUpdateNodes(std::vector<std::shared_ptr<StateUpdate>> stateUpdates){
+    stateUpdateNodes = stateUpdates;
+}
+
+void Node::addStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
+    stateUpdateNodes.push_back(stateUpdate);
+}
+
+void Node::removeStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
+    stateUpdateNodes.erase(std::remove(stateUpdateNodes.begin(), stateUpdateNodes.end(), stateUpdate), stateUpdateNodes.end());
 }
 
 bool Node::hasGlobalDecl(){
@@ -464,7 +479,7 @@ std::vector<Variable> Node::getCStateVars() {
     return std::vector<Variable>();
 }
 
-void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //Default behavior is no action (since default is to have no state)
 }
 

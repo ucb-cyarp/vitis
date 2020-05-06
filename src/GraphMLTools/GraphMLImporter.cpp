@@ -38,6 +38,7 @@
 #include "PrimitiveNodes/Trigonometry/Cos.h"
 #include "PrimitiveNodes/Trigonometry/Atan.h"
 #include "PrimitiveNodes/Trigonometry/Atan2.h"
+#include "PrimitiveNodes/WrappingCounter.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -57,6 +58,10 @@
 #include "MultiRate/Downsample.h"
 #include "MultiRate/Upsample.h"
 #include "MultiRate/Repeat.h"
+#include "MultiRate/DownsampleInput.h"
+#include "MultiRate/UpsampleOutput.h"
+#include "MultiRate/RepeatOutput.h"
+#include "MultiRate/DownsampleClockDomain.h"
 
 #include <iostream>
 #include <fstream>
@@ -500,9 +505,13 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         }
         else{
             //Block Type is ClockDomain
-            //Note that properties of clock domains are discovered in a later stage of the import via
-            //ClockDomain::discoverClockDomainParameters
-            newSubsystem = NodeFactory::createNode<ClockDomain>(parent);
+            if(blockType == "DownsampleClockDomain"){
+                newSubsystem = NodeFactory::createNode<DownsampleClockDomain>(parent);
+            }else {
+                //Note that properties of clock domains are discovered in a later stage of the import via
+                //ClockDomain::discoverClockDomainParameters
+                newSubsystem = NodeFactory::createNode<ClockDomain>(parent);
+            }
         }
 
         if(hasName){
@@ -1097,6 +1106,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
             //TODO: implement more Trigonometry functions
             throw std::runtime_error(ErrorHelpers::genErrorStr("Trigonometry blocks of type " + op + " are not yet supported: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
         }
+    }else if(blockFunction == "WrappingCounter"){ //--This is a Vitis Only Node --
+        newNode = WrappingCounter::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }
@@ -1125,6 +1136,12 @@ std::shared_ptr<RateChange> GraphMLImporter::importRateChangeNode(std::string id
         newNode = Upsample::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Repeat"){
         newNode = Repeat::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "UpsampleOutput"){
+        newNode = UpsampleOutput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "RepeatOutput"){
+        newNode = RepeatOutput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DownsampleInput"){
+        newNode = DownsampleInput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown RateChange block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }

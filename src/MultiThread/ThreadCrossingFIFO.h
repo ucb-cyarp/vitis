@@ -208,7 +208,7 @@ public:
      * @param cStatementQueue
      * @param schedType
      */
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override = 0;
 

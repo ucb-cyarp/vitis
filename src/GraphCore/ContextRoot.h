@@ -28,7 +28,7 @@ class ContextFamilyContainer;
  */
 class ContextRoot {
 protected:
-    std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not in sub-contexts)
+    std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not nodes in nested contexts)
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
     std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers; ///<The corresponding context family containers (if any exists) for this ContextRoot
     std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition; ///< Contains a map of context driver arcs to indvidual partitions (may be different arcs for each partiton).  Likley set in the encapsulateContexts method
@@ -76,6 +76,26 @@ public:
      * @return a vector of arcs that drive the decision for the context
      */
     virtual std::vector<std::shared_ptr<Arc>> getContextDecisionDriver() = 0;
+
+    /**
+     * @brief Tells the context encapsulation method that the context driver should be replicated for each partition
+     * instead of a partition crossing arc being created
+     *
+     * @warning There is currently a limitation that, if this returns true, only a single node with no inputs is supported
+     *          If that nodes has state, the state update node insertion should occur after the copies are created
+     *
+     * @return
+     */
+    virtual bool shouldReplicateContextDriver() = 0;
+
+    /**
+     * @brief Get a list of partitions that exist within the context
+     *
+     * Based on nodesInSubContexts
+     *
+     * @return
+     */
+    std::set<int> partitionsInContext();
 
     std::map<int, std::shared_ptr<ContextFamilyContainer>> getContextFamilyContainers() const;
     void setContextFamilyContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &contextFamilyContainers);

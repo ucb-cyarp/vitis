@@ -14,6 +14,10 @@
 #include <MultiRate/Downsample.h>
 #include <MultiRate/ClockDomain.h>
 #include <MasterNodes/MasterNode.h>
+#include <MultiRate/DownsampleClockDomain.h>
+#include <MultiRate/DownsampleInput.h>
+#include <MultiRate/RepeatOutput.h>
+#include <MultiRate/UpsampleOutput.h>
 
 
 #include "Node.h"

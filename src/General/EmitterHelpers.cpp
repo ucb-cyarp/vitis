@@ -352,7 +352,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
                   << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
 
             std::vector<std::string> stateUpdateExprs;
-            (*it)->emitCStateUpdate(stateUpdateExprs, schedType);
+            (*it)->emitCStateUpdate(stateUpdateExprs, schedType, nullptr); //Do not pass a stateUpdateSrc since this is emitting the StateUpdate for a primary node.  The StateUpdate node will set stateUpdateSrc to itself when calling the function in the primary node
 
             for (unsigned long j = 0; j < stateUpdateExprs.size(); j++) {
                 cFile << stateUpdateExprs[j] << std::endl;
@@ -576,4 +576,62 @@ std::string EmitterHelpers::emitTelemetryHelper(std::string path, std::string fi
     cFile.close();
 
     return fileName+".h";
+}
+
+void EmitterHelpers::transferArcs(std::shared_ptr<Node> from, std::shared_ptr<Node> to){
+    int fromInDeg = from->inDegree();
+    int fromOutDeg = from->outDegree();
+
+    int inCount = 0;
+    int outCount = 0;
+
+    //Copy standard arcs
+    std::vector<std::shared_ptr<InputPort>> origInputPorts = from->getInputPorts();
+    for(int i = 0; i<origInputPorts.size(); i++){
+        int portNum = origInputPorts[i]->getPortNum();
+        std::set<std::shared_ptr<Arc>> inArcs = origInputPorts[i]->getArcs();
+        inCount += inArcs.size();
+
+        for(auto inArc = inArcs.begin(); inArc != inArcs.end(); inArc++){
+            (*inArc)->setDstPortUpdateNewUpdatePrev(to->getInputPortCreateIfNot(portNum));
+        }
+    }
+
+    std::vector<std::shared_ptr<OutputPort>> origOutputPorts = from->getOutputPorts();
+    for(int i = 0; i<origOutputPorts.size(); i++){
+        int portNum = origOutputPorts[i]->getPortNum();
+        std::set<std::shared_ptr<Arc>> outArcs = origOutputPorts[i]->getArcs();
+        outCount += outArcs.size();
+
+        for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
+            (*outArc)->setSrcPortUpdateNewUpdatePrev(to->getOutputPortCreateIfNot(portNum));
+        }
+    }
+
+    //Move order constraint arcs
+    std::shared_ptr<InputPort> origOrderConstraintInputPort = from->getOrderConstraintInputPort();
+    if(origOrderConstraintInputPort){
+        std::set<std::shared_ptr<Arc>> inArcs = origOrderConstraintInputPort->getArcs();
+
+        inCount += inArcs.size();
+
+        for(auto inArc = inArcs.begin(); inArc != inArcs.end(); inArc++){
+            (*inArc)->setDstPortUpdateNewUpdatePrev(to->getOrderConstraintInputPortCreateIfNot());
+        }
+    }
+
+    std::shared_ptr<OutputPort> origOrderConstraintOutputPort = from->getOrderConstraintOutputPort();
+    if(origOrderConstraintOutputPort){
+        std::set<std::shared_ptr<Arc>> outArcs = origOrderConstraintOutputPort->getArcs();
+
+        outCount += outArcs.size();
+
+        for(auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++){
+            (*outArc)->setSrcPortUpdateNewUpdatePrev(to->getOrderConstraintOutputPortCreateIfNot());
+        }
+    }
+
+    if(inCount != fromInDeg || outCount != fromOutDeg){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When moving arcs, the number of arcs moved did not match the in+out degree.  This could be because of a special port", from));
+    }
 }

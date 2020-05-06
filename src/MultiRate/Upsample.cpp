@@ -5,6 +5,7 @@
 #include "Upsample.h"
 #include "General/ErrorHelpers.h"
 #include "GraphCore/NodeFactory.h"
+#include "General/EmitterHelpers.h"
 
 Upsample::Upsample() : upsampleRatio(0) {
 }
@@ -18,6 +19,10 @@ Upsample::Upsample(std::shared_ptr<SubSystem> parent, Upsample *orig) : RateChan
 
 }
 
+void Upsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Upsample> orig) {
+    upsampleRatio = orig->getUpsampleRatio();
+}
+
 int Upsample::getUpsampleRatio() const {
     return upsampleRatio;
 }
@@ -26,22 +31,20 @@ void Upsample::setUpsampleRatio(int upsampleRatio) {
     Upsample::upsampleRatio = upsampleRatio;
 }
 
-std::shared_ptr<Upsample>
-Upsample::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
-    std::shared_ptr<Upsample> newNode = NodeFactory::createNode<Upsample>(parent);
-    newNode->setId(id);
-    newNode->setName(name);
+void Upsample::populateUpsampleParametersFromGraphML(int id, std::string name,
+                                                   std::map<std::string, std::string> dataKeyValueMap,
+                                                   GraphMLDialect dialect) {
+    setId(id);
+    setName(name);
 
     if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //==== Check Supported Config (Only if Simulink Import)====
         std::string phaseStr = dataKeyValueMap.at("Numeric.phase");
         int phase = std::stoi(phaseStr);
         if(phase!=0){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Upsample blocks must have phase 0", newNode));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Upsample blocks must have phase 0", getSharedPointer()));
         }
     }
-
 
     std::string upsampleRatioStr;
 
@@ -51,10 +54,22 @@ Upsample::createFromGraphML(int id, std::string name, std::map<std::string, std:
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         upsampleRatioStr = dataKeyValueMap.at("Numeric.N");
     } else {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Upsample", newNode));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Upsample", getSharedPointer()));
     }
 
-    newNode->upsampleRatio = std::stoi(upsampleRatioStr);
+    upsampleRatio = std::stoi(upsampleRatioStr);
+}
+
+void Upsample::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement *thisNode) {
+    GraphMLHelper::addDataNode(doc, thisNode, "UpsampleRatio", GeneralHelper::to_string(upsampleRatio));
+}
+
+std::shared_ptr<Upsample>
+Upsample::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
+                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    std::shared_ptr<Upsample> newNode = NodeFactory::createNode<Upsample>(parent);
+
+    newNode->populateUpsampleParametersFromGraphML(id, name, dataKeyValueMap, dialect);
 
     return newNode;
 }
@@ -77,7 +92,7 @@ Upsample::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode,
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Upsample");
 
-    GraphMLHelper::addDataNode(doc, thisNode, "UpsampleRatio", GeneralHelper::to_string(upsampleRatio));
+    emitGraphMLProperties(doc, thisNode);
 
     return thisNode;
 }
@@ -124,4 +139,36 @@ std::shared_ptr<Node> Upsample::shallowClone(std::shared_ptr<SubSystem> parent) 
 
 std::pair<int, int> Upsample::getRateChangeRatio(){
     return std::pair<int, int>(upsampleRatio, 1);
+}
+
+std::shared_ptr<RateChange>
+Upsample::convertToRateChangeInputOutput(bool convertToInput, std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                         std::vector<std::shared_ptr<Arc>> &arcToRemove) {
+    //Note that addRemoveNodesAndArcs will call removeKnownReferences
+
+    std::shared_ptr<UpsampleOutput> specificRcNode;
+
+    if(convertToInput){
+        //TODO: Implement
+        throw std::runtime_error(
+                ErrorHelpers::genErrorStr("Upsample not yet implemented", getSharedPointer()));
+    }else {
+        //Create New node and transfer parameters
+        std::shared_ptr<UpsampleOutput> upsampleOutput = NodeFactory::createNode<UpsampleOutput>(parent);
+        nodesToAdd.push_back(upsampleOutput); //Add to design
+        specificRcNode = upsampleOutput;
+
+        std::shared_ptr<Upsample> thisAsUpsample = std::static_pointer_cast<Upsample>(getSharedPointer());
+        upsampleOutput->populateParametersExceptRateChangeNodes(thisAsUpsample);
+
+        //Rewire arcs
+        EmitterHelpers::transferArcs(thisAsUpsample, upsampleOutput);
+
+        //Add this node to the nodes to be removed
+        nodesToRemove.push_back(thisAsUpsample);
+    }
+
+    return specificRcNode;
 }

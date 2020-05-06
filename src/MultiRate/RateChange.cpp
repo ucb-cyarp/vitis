@@ -4,12 +4,13 @@
 
 #include "RateChange.h"
 #include "General/ErrorHelpers.h"
+#include "MultiRateHelpers.h"
 
-RateChange::RateChange() : clockDomain(nullptr) {
+RateChange::RateChange() {
 
 }
 
-RateChange::RateChange(std::shared_ptr<SubSystem> parent) : Node(parent), clockDomain(nullptr) {
+RateChange::RateChange(std::shared_ptr<SubSystem> parent) : Node(parent) {
 
 }
 
@@ -20,11 +21,10 @@ RateChange::RateChange(std::shared_ptr<SubSystem> parent, RateChange *orig) : No
 void RateChange::removeKnownReferences() {
     Node::removeKnownReferences();
 
-    //Also, remove from ClockDomain if reference set
-    if(clockDomain){
-        std::shared_ptr<RateChange> this_cast = std::static_pointer_cast<RateChange>(getSharedPointer());
-        clockDomain->removeRateChange(this_cast);
-    }
+    //Also, remove from ClockDomain
+    std::shared_ptr<ClockDomain> clockDomain = MultiRateHelpers::findClockDomain(getSharedPointer());
+    std::shared_ptr<RateChange> this_cast = std::static_pointer_cast<RateChange>(getSharedPointer());
+    clockDomain->removeRateChange(this_cast);
 }
 
 void RateChange::validate(){
@@ -42,5 +42,13 @@ void RateChange::validate(){
 }
 
 bool RateChange::canExpand() {
+    return false;
+}
+
+bool RateChange::isSpecialized() {
+    return false;
+}
+
+bool RateChange::isInput() {
     return false;
 }

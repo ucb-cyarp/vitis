@@ -94,22 +94,28 @@ public:
     static void moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std::shared_ptr<SubSystem> moveUnder, std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix = "_moved", int overridePartition = -1);
 
     /**
-     * @brief Discovers all the nodes at this level in the context hierarchy (including at enabled subsystems and muxes).
+     * @brief Discovers all the nodes at this level in the context hierarchy (including at enabled subsystems, muxes, and ClockDomains).
      *
-     * Also finds muxes and enabled enabled within subsystems (and below).
+     * Also finds muxes, enabled subsystems, and clock domains within subsystems (and below).
      *
-     * @note Does not recurse into enabled subsystems
+     * @note Does not recurse into enabled subsystems or ClockDomains
+     *
+     * @note ClockDomains are not ContextRoots until they are specialized (ie. are Upsample or Downsample ClockDomains)
+     * This function will check this before adding it to the list.  Discovering and updating contexts should occur
+     * after the specialization of clock domains
      *
      * @param nodesToSearch a set of nodes within this level of the design
      * @param contextStack The context stack at this point.  Nodes at this level will be updated with this context stack
      * @param discoveredMux a vector modified to include discovered muxes
      * @param discoveredEnabledSubSystems a vector modified to include discovered enabled subsystems
+     * @param discoveredClockDomains a vector modified to include discovered ClockDomains
      * @param discoveredGeneral a vector modified to include discovered general nodes
      */
     static void discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nodesToSearch,
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                          std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 
     /**

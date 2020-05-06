@@ -6,6 +6,8 @@
 #include "GraphCore/NodeFactory.h"
 #include "General/ErrorHelpers.h"
 #include "MultiRateHelpers.h"
+#include "DownsampleInput.h"
+#include "General/EmitterHelpers.h"
 
 Downsample::Downsample() : downsampleRatio(0) {
 
@@ -19,6 +21,10 @@ Downsample::Downsample(std::shared_ptr<SubSystem> parent, Downsample *orig) : Ra
 
 }
 
+void Downsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Downsample> orig) {
+    downsampleRatio = orig->getDownsampleRatio();
+}
+
 int Downsample::getDownsampleRatio() const {
     return downsampleRatio;
 }
@@ -27,22 +33,20 @@ void Downsample::setDownsampleRatio(int downsampleRatio) {
     Downsample::downsampleRatio = downsampleRatio;
 }
 
-std::shared_ptr<Downsample>
-Downsample::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
-                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
-    std::shared_ptr<Downsample> newNode = NodeFactory::createNode<Downsample>(parent);
-    newNode->setId(id);
-    newNode->setName(name);
+void Downsample::populateDownsampleParametersFromGraphML(int id, std::string name,
+                                                         std::map<std::string, std::string> dataKeyValueMap,
+                                                         GraphMLDialect dialect){
+    setId(id);
+    setName(name);
 
     if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //==== Check Supported Config (Only if Simulink Import)====
         std::string phaseStr = dataKeyValueMap.at("Numeric.phase");
         int phase = std::stoi(phaseStr);
         if(phase!=0){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Downsample blocks must have phase 0", newNode));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Downsample blocks must have phase 0", getSharedPointer()));
         }
     }
-
 
     std::string downsampleRatioStr;
 
@@ -52,10 +56,18 @@ Downsample::createFromGraphML(int id, std::string name, std::map<std::string, st
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         downsampleRatioStr = dataKeyValueMap.at("Numeric.N");
     } else {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Downsample", newNode));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Downsample", getSharedPointer()));
     }
 
-    newNode->downsampleRatio = std::stoi(downsampleRatioStr);
+    downsampleRatio = std::stoi(downsampleRatioStr);
+}
+
+std::shared_ptr<Downsample>
+Downsample::createFromGraphML(int id, std::string name, std::map<std::string, std::string> dataKeyValueMap,
+                            std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    std::shared_ptr<Downsample> newNode = NodeFactory::createNode<Downsample>(parent);
+
+    newNode->populateDownsampleParametersFromGraphML(id, name, dataKeyValueMap, dialect);
 
     return newNode;
 }
@@ -69,16 +81,19 @@ std::set<GraphMLParameter> Downsample::graphMLParameters() {
     return parameters;
 }
 
+void Downsample::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement* thisNode){
+    GraphMLHelper::addDataNode(doc, thisNode, "DownsampleRatio", GeneralHelper::to_string(downsampleRatio));
+}
+
 xercesc::DOMElement *
 Downsample::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
     xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
     if(include_block_node_type) {
         GraphMLHelper::addDataNode(doc, thisNode, "block_node_type", "RateChange"); //This is a special type of block called a RateChange
     }
+    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Downsample");
 
-    GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Upsample");
-
-    GraphMLHelper::addDataNode(doc, thisNode, "DownsampleRatio", GeneralHelper::to_string(downsampleRatio));
+    emitGraphMLProperties(doc, thisNode);
 
     return thisNode;
 }
@@ -122,14 +137,42 @@ void Downsample::validate() {
     }
 }
 
-//For the generic upsample node, it will be claimed that is combinational with no state.  In the specialized implementation
-//versions for inputs and outputs, this may change.  It should be converted to a specialized version before state elements
-//are introduced.  This should probably be done after pruning.
-
 std::shared_ptr<Node> Downsample::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Downsample>(parent, this);
 }
 
 std::pair<int, int> Downsample::getRateChangeRatio(){
     return std::pair<int, int>(1, downsampleRatio);
+}
+
+std::shared_ptr<RateChange>
+Downsample::convertToRateChangeInputOutput(bool convertToInput, std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                           std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                           std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                           std::vector<std::shared_ptr<Arc>> &arcToRemove) {
+    //Note that addRemoveNodesAndArcs will call removeKnownReferences
+
+    std::shared_ptr<Downsample> specificRcNode;
+
+    if(convertToInput){
+        //Create New node and transfer parameters
+        std::shared_ptr<DownsampleInput> downsampleInput = NodeFactory::createNode<DownsampleInput>(parent);
+        nodesToAdd.push_back(downsampleInput); //Add to design
+        specificRcNode = downsampleInput;
+
+        std::shared_ptr<Downsample> thisAsDownsample = std::static_pointer_cast<Downsample>(getSharedPointer());
+        downsampleInput->populateParametersExceptRateChangeNodes(thisAsDownsample);
+
+        //Rewire arcs
+        EmitterHelpers::transferArcs(thisAsDownsample, downsampleInput);
+
+        //Add this node to the nodes to be removed
+        nodesToRemove.push_back(thisAsDownsample);
+    }else {
+        //TODO: Implement
+        throw std::runtime_error(
+                ErrorHelpers::genErrorStr("DownsampleOutput not yet implemented", getSharedPointer()));
+    }
+
+    return specificRcNode;
 }

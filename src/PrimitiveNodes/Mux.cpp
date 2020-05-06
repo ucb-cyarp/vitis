@@ -836,3 +836,7 @@ std::vector<std::shared_ptr<Arc>> Mux::getContextDecisionDriver() {
 
     return arcs;
 }
+
+bool Mux::shouldReplicateContextDriver() {
+    return false;
+}

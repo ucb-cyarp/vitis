@@ -14,6 +14,7 @@
 
 //Forward declare
 class Node;
+class Arc;
 class ContextRoot;
 class BlackBox;
 class MasterOutput;
@@ -117,6 +118,22 @@ public:
      * @returns the filename of the header file
      */
     static std::string emitTelemetryHelper(std::string path, std::string fileNamePrefix);
+
+
+    /**
+     * @brief Transfers arcs from one node to another.
+     *
+     * The function re-wires existing arcs rather than creating new arcs.
+     *
+     * @warning This function only copies direct input/output and OrderConstraint input/output arcs
+     *
+     * A check is performed to make sure all arcs are moved.  If not all arcs are moved, it is likley that
+     * other ports exist for the node
+     *
+     * @param from the node to transfer arcs from
+     * @param to the node to transfer arcs to
+     */
+    static void transferArcs(std::shared_ptr<Node> from, std::shared_ptr<Node> to);
 };
 
 /*! @} */

@@ -100,6 +100,8 @@ set(COMMON_SRCS
         src/GraphCore/CExpr.h
         src/GraphCore/Context.cpp
         src/GraphCore/Context.h
+        src/GraphCore/ContextHelper.cpp
+        src/GraphCore/ContextHelper.h
         src/GraphCore/ContextContainer.cpp
         src/GraphCore/ContextContainer.h
         src/GraphCore/ContextFamilyContainer.cpp
@@ -177,6 +179,8 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Trigonometry/Atan.h
         src/PrimitiveNodes/Trigonometry/Atan2.cpp
         src/PrimitiveNodes/Trigonometry/Atan2.h
+        src/PrimitiveNodes/WrappingCounter.cpp
+        src/PrimitiveNodes/WrappingCounter.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
@@ -229,6 +233,16 @@ set(COMMON_SRCS
         src/MultiRate/Downsample.h
         src/MultiRate/Repeat.cpp
         src/MultiRate/Repeat.h
+        src/MultiRate/UpsampleClockDomain.cpp
+        src/MultiRate/UpsampleClockDomain.h
+        src/MultiRate/DownsampleClockDomain.cpp
+        src/MultiRate/DownsampleClockDomain.h
+        src/MultiRate/UpsampleOutput.cpp
+        src/MultiRate/UpsampleOutput.h
+        src/MultiRate/RepeatOutput.cpp
+        src/MultiRate/RepeatOutput.h
+        src/MultiRate/DownsampleInput.cpp
+        src/MultiRate/DownsampleInput.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
