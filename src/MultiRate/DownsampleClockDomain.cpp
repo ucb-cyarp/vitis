@@ -112,6 +112,8 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
                                                bool includeContext) {
     //Create a WrappingCounter as the context driver of the ClockDomain
     std::shared_ptr<WrappingCounter> driverNode = NodeFactory::createNode<WrappingCounter>(parent);
+    driverNode->setName(name+"_Counter");
+    driverNode->setPartitionNum(partitionNum);
     nodesToAdd.push_back(driverNode);
     driverNode->setCountTo(downsampleRatio);
     driverNode->setInitCondition(0);
@@ -130,8 +132,7 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
     }
 
     //Create arc
-    int bitsRequired = log2(downsampleRatio);
-    DataType driverArcDataType = DataType(false, false, false, bitsRequired, 0, 1);
+    DataType driverArcDataType = DataType(false, false, false, 1, 0, 1);
     driverArcDataType = driverArcDataType.getCPUStorageType();
 
     //TODO: Fix Arc Rate, currently unused
@@ -160,26 +161,40 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
 
         //TODO: Remove check
         if(ioArcs.size() != 1){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("While creating intermediate nodes for clock domain I/O outputs, found a flagged output that does not have exaclty 1 input arc", getSharedPointer()));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("While creating intermediate nodes for clock domain I/O outputs, found a flagged output that does not have exactly 1 input arc, has " + GeneralHelper::to_string(ioArcs.size()), getSharedPointer()));
         }
         std::shared_ptr<Arc> ioArc = (*ioArcs.begin());
+        std::shared_ptr<Node> srcNode = ioArc->getSrcPort()->getParent();
+        std::shared_ptr<RateChange> srcNodeAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
 
-        //Create repeat node with this node as the parent
-        std::shared_ptr<RepeatOutput> intermediateNode = NodeFactory::createNode<RepeatOutput>(thisAsDownsampleClockDomain);
-        nodesToAdd.push_back(intermediateNode);
-
-        //Set context if includeContext, add this node to the context stack as ContextRoots do not include themselves in their context stack
-        if(includeContext){
-            intermediateNode->setContext(context);
+        bool insertBridge = false;
+        if(srcNodeAsRateChange){
+            //Check if the RateChange is an output and it's clock domain is this node.  If it is, then no bridge is required.  Otherwise a bridging node is requires
+            if(!(MultiRateHelpers::findClockDomain(srcNode) == thisAsDownsampleClockDomain && !srcNodeAsRateChange->isInput())){
+                insertBridge = true;
+            }
         }
 
-        //Rewire origional arc to repeat
-        ioArc->setDstPortUpdateNewUpdatePrev(intermediateNode->getInputPortCreateIfNot(0));
+        if(insertBridge){
+            //Create repeat node with this node as the parent
+            std::shared_ptr<RepeatOutput> intermediateNode = NodeFactory::createNode<RepeatOutput>(thisAsDownsampleClockDomain);
+            intermediateNode->setName((*ioPort)->getName() + "_ClockDomainBridge");
+            intermediateNode->setPartitionNum(srcNode->getPartitionNum());
+            nodesToAdd.push_back(intermediateNode);
 
-        //Create new arc to ioPort
-        //TODO: properly set arc rate.  Currently unused
-        std::shared_ptr<Arc> newArc = Arc::connectNodes(intermediateNode->getOutputPortCreateIfNot(0), *ioPort, ioArc->getDataType());
-        arcsToAdd.push_back(newArc);
+            //Set context if includeContext, add this node to the context stack as ContextRoots do not include themselves in their context stack
+            if(includeContext){
+                intermediateNode->setContext(context);
+            }
+
+            //Rewire origional arc to repeat
+            ioArc->setDstPortUpdateNewUpdatePrev(intermediateNode->getInputPortCreateIfNot(0));
+
+            //Create new arc to ioPort
+            //TODO: properly set arc rate.  Currently unused
+            std::shared_ptr<Arc> newArc = Arc::connectNodes(intermediateNode->getOutputPortCreateIfNot(0), *ioPort, ioArc->getDataType());
+            arcsToAdd.push_back(newArc);
+        }
     }
 }
 

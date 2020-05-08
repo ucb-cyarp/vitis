@@ -101,6 +101,8 @@ public:
     void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
 
     bool shouldReplicateContextDriver() override;
+
+    //Also need to modify GraphAlgs::topologicalSortDestructive to handle this type of ContextRoot
 };
 
 /*! @} */

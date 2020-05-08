@@ -29,6 +29,7 @@ private:
     std::vector<std::shared_ptr<ContextContainer>> subContextContainers; ///<An ordered list of context containers, one for each subcontext.  SubContextContainer should also be children
     std::shared_ptr<ContextRoot> contextRoot; ///<The node creating this ContextFamily (should be a child after encapsulation has completed)
     std::map<int, std::shared_ptr<ContextFamilyContainer>> siblingContainers; ///<Contains references to sibling ContextFamilyContainers in different partitions.  That is, ContextFamilyContainers that correspond to the same ContextRoot but are for different partitions.  These are likely created during encapsulation
+    std::shared_ptr<DummyReplica> dummyNode; ///<If no context root is present in the ContextFamilyContainer, there may be a dummy node in its place.  This is a reference to the dummy node so that it can be scheduled
 
     /**
      * @brief Default constructor.  Vector initialized using default behavior.
@@ -63,6 +64,9 @@ public:
 
     const std::map<int, std::shared_ptr<ContextFamilyContainer>> getSiblingContainers() const;
     void setSiblingContainers(const std::map<int, std::shared_ptr<ContextFamilyContainer>> &siblingContainers);
+
+    std::shared_ptr<DummyReplica> getDummyNode() const;
+    void setDummyNode(const std::shared_ptr <DummyReplica> &dummyNode);
 
     /**
      * @brief Get a pointer to the sub-context container specified

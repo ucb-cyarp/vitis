@@ -3,6 +3,7 @@
 //
 
 #include "ClockDomain.h"
+#include "DownsampleClockDomain.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 #include "MultiRateHelpers.h"
@@ -13,6 +14,8 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/EmitterHelpers.h"
+
+#include <iostream>
 
 ClockDomain::ClockDomain() {
 }
@@ -25,6 +28,9 @@ ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) :
 }
 
 void ClockDomain::populateParametersExceptRateChangeNodes(std::shared_ptr<ClockDomain> orig) {
+    name = orig->getName();
+    partitionNum = orig->getPartitionNum();
+    schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
     downsampleRatio = orig->getDownsampleRatio();
 
@@ -344,6 +350,14 @@ void ClockDomain::validate() {
 }
 
 void ClockDomain::discoverClockDomainParameters() {
+    //Reset the paraeters to allow re-discovery to occure
+    upsampleRatio = 1;
+    downsampleRatio = 1;
+    rateChangeIn.clear();
+    rateChangeOut.clear();
+    ioInput.clear();
+    ioOutput.clear();
+
     std::shared_ptr<ClockDomain> thisAsClkDomain = std::static_pointer_cast<ClockDomain>(getSharedPointer());
     //Find all the nodes under this clock domain
 
@@ -521,7 +535,7 @@ void ClockDomain::shallowCloneWithChildrenWork(std::shared_ptr<ClockDomain> clon
         (*it)->shallowCloneWithChildren(clonedNode, nodeCopies, origToCopyNode, copyToOrigNode); //Use the copied node as the parent
     }
 
-    //Run through the rate change nodes and convert the pointers
+    //Run through the rate change nodes and convert the pointers (should be copied by this point)
     for(auto it = rateChangeIn.begin(); it != rateChangeIn.end(); it++){
         std::shared_ptr<RateChange> rateChangeCopy = std::dynamic_pointer_cast<RateChange>(origToCopyNode[*it]);
         clonedNode->addRateChangeIn(rateChangeCopy);
@@ -569,7 +583,7 @@ std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool
         //Create
         std::shared_ptr<DownsampleClockDomain> downsampleClockDomain = NodeFactory::createNode<DownsampleClockDomain>(parent);
         nodesToAdd.push_back(downsampleClockDomain);
-        specificClkDomain = specificClkDomain;
+        specificClkDomain = downsampleClockDomain;
 
         std::shared_ptr<ClockDomain> thisAsClockDomain = std::static_pointer_cast<ClockDomain>(getSharedPointer());
         downsampleClockDomain->populateParametersExceptRateChangeNodes(thisAsClockDomain);
@@ -580,6 +594,7 @@ std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool
         std::set<std::shared_ptr<Node>> childrenSetCopy = getChildren();
         for(auto child = childrenSetCopy.begin(); child != childrenSetCopy.end(); child++){
             (*child)->setParent(downsampleClockDomain);
+            downsampleClockDomain->addChild(*child);
             //Also remove their references from the old parent.  We got a copy of the set first so this is OK
             removeChild(*child);
         }
@@ -633,11 +648,11 @@ std::shared_ptr<ClockDomain> ClockDomain::specializeClockDomain(std::vector<std:
                                                                 std::vector<std::shared_ptr<Node>> &nodesToRemove,
                                                                 std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                                                 std::vector<std::shared_ptr<Arc>> &arcToRemove){
-    if(upsampleRatio != 0 && downsampleRatio != 0){
+    if(upsampleRatio != 1 && downsampleRatio != 1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("ClockDomain has both upsample and downsample ratios, cannot convert to a single Upsample or Downsample clock domain", getSharedPointer()));
     }
 
-    if(upsampleRatio != 0){
+    if(upsampleRatio != 1){
         return convertToUpsampleDownsampleDomain(true, nodesToAdd, nodesToRemove, arcsToAdd, arcToRemove);
     }else{
         return convertToUpsampleDownsampleDomain(false, nodesToAdd, nodesToRemove, arcsToAdd, arcToRemove);

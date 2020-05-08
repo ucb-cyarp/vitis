@@ -26,6 +26,7 @@
 #include "ContextContainer.h"
 #include "ContextFamilyContainer.h"
 #include "ContextRoot.h"
+#include "DummyReplica.h"
 
 #include "GraphCore/StateUpdate.h"
 
@@ -43,6 +44,7 @@
 #include "Estimators/CommunicationEstimator.h"
 
 #include "MultiRate/MultiRateHelpers.h"
+#include "MultiRate/DownsampleClockDomain.h"
 
 //==== Constructors
 Design::Design() {
@@ -527,6 +529,29 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
+
+        std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
+        //TODO Optimize this so a second pass is not needed
+        //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
+        //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
+        resetMasterNodeClockDomainLinks();
+        MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
+
+        //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
+        clockDomains = specializeClockDomains(clockDomains);
+        assignNodeIDs();
+        assignArcIDs();
+        //This also converts RateChangeNodes to Input or Output implementations.
+        //This is done before other operations since these operations replace the objects because the class is changed to a subclass
+
+        //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
+        createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
+        assignNodeIDs();
+        assignArcIDs();
+
+        //Check the ClockDomain rates are appropriate
+        MultiRateHelpers::validateClockDomainRates(clockDomains);
+
         expandEnabledSubsystemContexts();
         //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
         //Is ok for them to exist (specifically order constraint arcs) after state update node and context encapsulation
@@ -1824,6 +1849,19 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                         nodeCopyAsContextRoot->addSubContextNode(j, origToCopyNode[origContextNodes[k]]);
                     }
                 }
+
+                //Copy Dummy Nodes
+                std::map<int, std::shared_ptr<DummyReplica>> origDummyReplicas = origNodeAsContextRoot->getDummyReplicas();
+                for(auto origDummyNode = origDummyReplicas.begin(); origDummyNode != origDummyReplicas.end(); origDummyNode++){
+                    std::shared_ptr<Node> copyDummyReplicaNode = origToCopyNode[origDummyNode->second];
+                    std::shared_ptr<DummyReplica> copyDummyReplica = std::dynamic_pointer_cast<DummyReplica>(copyDummyReplicaNode);
+                    if(copyDummyReplica) {
+                        nodeCopyAsContextRoot->setDummyReplica(origDummyNode->first, copyDummyReplica);
+                    }else{
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find cloned dummy node", nodeCopies[i]));
+                    }
+                }
+
             }else{
                 throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a ContextRoot");
             }
@@ -1854,7 +1892,25 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 contextFamilyContainerCopy->setContextRoot(nullptr);
             }
 
+            //Copy DummyNode
+
             //subContextContainers are handled in the clone method
+            if(contextFamilyContainerOrig->getDummyNode() != nullptr){
+                std::shared_ptr<Node> dummyCopyAsNode = origToCopyNode[contextFamilyContainerOrig->getDummyNode()];
+                std::shared_ptr<DummyReplica> dummyCopy = std::dynamic_pointer_cast<DummyReplica>(dummyCopyAsNode);
+                contextFamilyContainerCopy->setDummyNode(dummyCopy);
+            }else{
+                contextFamilyContainerCopy->setDummyNode(nullptr);
+            }
+        }
+
+        if(GeneralHelper::isType<Node, DummyReplica>(nodeCopies[i]) != nullptr){
+            //Set the dummyOf field
+            std::shared_ptr<DummyReplica> copyNodeAsDummyReplica = std::static_pointer_cast<DummyReplica>(nodeCopies[i]);
+            std::shared_ptr<DummyReplica> origNodeAsDummyReplica = std::dynamic_pointer_cast<DummyReplica>(copyToOrigNode[copyNodeAsDummyReplica]);
+            std::shared_ptr<ContextRoot> origDummyOf = origNodeAsDummyReplica->getDummyOf();
+            std::shared_ptr<Node> copyDummyOf = origToCopyNode[std::dynamic_pointer_cast<Node>(origDummyOf)];
+            copyNodeAsDummyReplica->setDummyOf(std::dynamic_pointer_cast<ContextRoot>(copyDummyOf));
         }
     }
 
@@ -2682,6 +2738,25 @@ void Design::encapsulateContexts() {
         contextFamilyContainer->addChild(asNode);
         contextFamilyContainer->setContextRoot(contextRootNodes[i]);
         asNode->setParent(contextFamilyContainer);
+
+        //Also move dummy nodes of this ContextRoot into their relevent ContextFamilyContainers
+        std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas = contextRootNodes[i]->getDummyReplicas();
+        for(auto dummyPair = dummyReplicas.begin(); dummyPair != dummyReplicas.end(); dummyPair++){
+            int dummyPartition = dummyPair->first;
+            std::shared_ptr<DummyReplica> dummyNode = dummyPair->second;
+            std::shared_ptr<SubSystem> dummyOrigParent = dummyNode->getParent();
+
+            //Move the dummy node
+            if(dummyOrigParent != nullptr){
+                dummyOrigParent->removeChild(dummyNode);
+            }
+
+            std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = getContextFamilyContainerCreateIfNotNoParent(contextRootNodes[i], dummyPartition);
+            contextFamilyContainer->addChild(dummyNode);
+            //Set as the dummy node for ContextFamilyContainer
+            contextFamilyContainer->setDummyNode(dummyNode);
+            dummyNode->setParent(contextFamilyContainer);
+        }
     }
 
     //Iterate through the ContextFamilyContainers (which should all be created now) and set the parent based on the context.
@@ -2829,12 +2904,18 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
         //arcs to the ContextRoots are elevated to the ContextFamily container for that ContextRoot as if it were in its
         //own subcontext.  We will therefore check for context roots and temporarily insert a dummy context entry
         std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getSrcPort()->getParent());
+        std::shared_ptr<DummyReplica> srcAsDummyReplica = GeneralHelper::isType<Node, DummyReplica>(candidateArc->getSrcPort()->getParent());
         if(srcAsContextRoot){
             srcContext.push_back(Context(srcAsContextRoot, -1));
+        }else if(srcAsDummyReplica){
+            srcContext.push_back(Context(srcAsDummyReplica->getDummyOf(), -1));
         }
         std::shared_ptr<ContextRoot> dstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getDstPort()->getParent());
+        std::shared_ptr<DummyReplica> dstAsDummyReplica = GeneralHelper::isType<Node, DummyReplica>(candidateArc->getDstPort()->getParent());
         if(dstAsContextRoot){
             dstContext.push_back(Context(dstAsContextRoot, -1));
+        }else if(dstAsDummyReplica){
+            dstContext.push_back(Context(dstAsDummyReplica->getDummyOf(), -1));
         }
 
         bool rewireSrc = false;
@@ -3117,6 +3198,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     prune(true); //TODO: Change to false if vis re-included
 
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
+    //TODO Optimize this so a second pass is not needed
+    //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
+    //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
+    resetMasterNodeClockDomainLinks();
+    MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
+
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
 //        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
@@ -3133,17 +3221,33 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
 
     //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
-    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
     clockDomains = specializeClockDomains(clockDomains);
     assignNodeIDs();
     assignArcIDs();
     //This also converts RateChangeNodes to Input or Output implementations.
     //This is done before other operations since these operations replace the objects because the class is changed to a subclass
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
+//    }
+
     //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
     createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
     assignNodeIDs();
     assignArcIDs();
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
+//    }
+
+    //Check the ClockDomain rates are appropriate
+    MultiRateHelpers::validateClockDomainRates(clockDomains);
 
     std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
 
@@ -3212,17 +3316,17 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //TODO: Partition Here
 
-    //Replicate ContextRoot Drivers (if should be replicated) for each partition
-    //Do this before ContextDiscovery and Marking
-    replicateContextRootDriversIfRequested();
-    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
-    assignArcIDs();
-
     //TODO: Modify to not stop at FIFOs with no initial state when finding Mux contexts.  FIFOs with initial state are are treated as containing delays.  FIFOs without initial state treated like wires.
     //Do this after FIFO insertion so that FIFOs are properly marked
     discoverAndMarkContexts();
 //        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
 //        assignArcIDs();
+
+    //Replicate ContextRoot Drivers (if should be replicated) for each partition
+    //Do this after ContextDiscovery and Marking but before encapsulation
+    replicateContextRootDriversIfRequested();
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
 
     //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
@@ -3317,11 +3421,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
 
     //Set FIFO length and block size here (do before delay ingest)
-    //TODO: update to be sized on a per FIFO basis
     for(int i = 0; i<fifoVec.size(); i++){
         fifoVec[i]->setFifoLength(fifoLength);
-        fifoVec[i]->setBlockSize(blockSize);
     }
+//    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
 
     //TODO: Retime Here
 
@@ -3402,7 +3505,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-    //TODO: Also Replicate State Update Nodes for Drivers and add to list
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphAfterStateUpdate.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphAfterStateUpdate.graphml", *this);
+//    }
 
     //TODO: Validate deadlock free (no cycles with 0 initial fifo state, disallow context driver "cycles")
 
@@ -3606,6 +3714,7 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
         nodes.push_back(familyContainer);
         familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition));
         familyContainer->setPartitionNum(partition);
+        familyContainer->setContextRoot(contextRoot);
 
         //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
         std::vector<Context> origContext = asNode->getContext();
@@ -3768,25 +3877,58 @@ void Design::replicateContextRootDriversIfRequested(){
             for(auto partitionIt = contextPartitions.begin(); partitionIt != contextPartitions.end(); partitionIt++){
                 int partition = *partitionIt;
                 std::shared_ptr<Node> partitionContextDriver;
+                std::shared_ptr<Node> partitionContextDst;
                 if(driverSrc->getPartitionNum() == partition){
                     //Reuse the existing node
                     //Replicate the arc
                     partitionContextDriver = driverSrc;
+                    partitionContextDst = contextRootAsNode;
                 }else{
                     //Replicate the node
                     std::shared_ptr<Node> clonedDriver = driverSrc->shallowClone(driverSrc->getParent());
+                    //The clone method copies the node ID allong with the other parameters.  When making a copy of the design,
+                    //this is desired but, since both nodes will be present in this design, it is not desierable
+                    //reset the ID to -1 so that it can be assigned later.
+                    //TODO: Make ID copy an option in shallowClone
+                    clonedDriver->setId(-1);
+                    clonedDriver->setName(driverSrc->getName() + "_Replicated_Partition_" + GeneralHelper::to_string(partition));
+                    clonedDriver->setPartitionNum(partition); //Also set the partition number
+                    std::vector<Context> origContext = driverSrc->getContext();
+                    clonedDriver->setContext(origContext);
+                    if(origContext.size()>0){ //Add the replicated node to the ContextRoot if appropriate
+                        std::shared_ptr<ContextRoot> contextRoot = origContext[origContext.size()-1].getContextRoot();
+                        int subContext = origContext[origContext.size()-1].getSubContext();
+                        contextRoot->addSubContextNode(subContext, clonedDriver);
+                    }
+
                     partitionContextDriver = clonedDriver;
-                    std::vector<std::shared_ptr<Node>> clonedDrivedVec = {clonedDriver};
+
+                    //Create a dummy node
+                    std::shared_ptr<DummyReplica> dummyContextRoot = NodeFactory::createNode<DummyReplica>(contextRootAsNode->getParent());
+                    dummyContextRoot->setName(contextRootAsNode->getName() + "_Dummy_Partition_" + GeneralHelper::to_string(partition));
+                    dummyContextRoot->setPartitionNum(partition); //Also set the partition number
+                    dummyContextRoot->setDummyOf(contextRoot);
+                    std::vector<Context> contextRootContext = contextRootAsNode->getContext();
+                    dummyContextRoot->setContext(contextRootContext);
+                    if(contextRootContext.size()>0){ //Add the replicated node to the ContextRoot if appropriate
+                        std::shared_ptr<ContextRoot> contextRoot = contextRootContext[contextRootContext.size()-1].getContextRoot();
+                        int subContext = contextRootContext[contextRootContext.size()-1].getSubContext();
+                        contextRoot->addSubContextNode(subContext, dummyContextRoot);
+                    }
+                    contextRoot->setDummyReplica(partition, dummyContextRoot);
+                    partitionContextDst = dummyContextRoot;
+
+                    std::vector<std::shared_ptr<Node>> clonedDriverVec = {clonedDriver, dummyContextRoot};
                     std::vector<std::shared_ptr<Node>> emptyNodeVec;
                     std::vector<std::shared_ptr<Arc>> emptyArcVec;
 
                     //Add replicated node to design
-                    addRemoveNodesAndArcs(clonedDrivedVec, emptyNodeVec, emptyArcVec, emptyArcVec);
+                    addRemoveNodesAndArcs(clonedDriverVec, emptyNodeVec, emptyArcVec, emptyArcVec);
                 }
 
                 //Create a new arc for the node
-                std::shared_ptr<OutputPort> partitionDriverPort = partitionContextDriver->getOutputPort(driverSrcPort->getPortNum());
-                std::shared_ptr<Arc> partitionDriverArc = Arc::connectNodes(partitionDriverPort, contextRootAsNode->getOrderConstraintInputPortCreateIfNot(), driverArc->getDataType(), driverArc->getSampleTime());
+                std::shared_ptr<OutputPort> partitionDriverPort = partitionContextDriver->getOutputPortCreateIfNot(driverSrcPort->getPortNum());
+                std::shared_ptr<Arc> partitionDriverArc = Arc::connectNodes(partitionDriverPort, partitionContextDst->getOrderConstraintInputPortCreateIfNot(), driverArc->getDataType(), driverArc->getSampleTime());
                 std::vector<std::shared_ptr<Arc>> newArcVec = {partitionDriverArc};
                 std::vector<std::shared_ptr<Node>> emptyNodeVec;
                 std::vector<std::shared_ptr<Arc>> emptyArcVec;
@@ -3838,4 +3980,12 @@ void Design::createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDoma
         clockDomains[i]->createSupportNodes(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, includeContext);
         addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
     }
+}
+
+void Design::resetMasterNodeClockDomainLinks() {
+    inputMaster->resetIoClockDomains();
+    outputMaster->resetIoClockDomains();
+    visMaster->resetIoClockDomains();
+    unconnectedMaster->resetIoClockDomains();
+    terminatorMaster->resetIoClockDomains();
 }

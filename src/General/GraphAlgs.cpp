@@ -6,6 +6,7 @@
 #include "GraphAlgs.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/EnabledSubSystem.h"
+#include "GraphCore/DummyReplica.h"
 #include "PrimitiveNodes/Mux.h"
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
@@ -13,6 +14,7 @@
 #include "General/ErrorHelpers.h"
 #include "GraphMLTools/GraphMLExporter.h"
 #include "MultiRate/RateChange.h"
+#include "MultiRate/DownsampleClockDomain.h"
 
 #include <iostream>
 #include <random>
@@ -440,16 +442,17 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 schedule.insert(schedule.end(), subSched.begin(), subSched.end());
             }
 
-            //Schedule the contextRoot
+            //Schedule the contextRoot if in the correct partition
             std::shared_ptr<ContextRoot> contextRoot = familyContainer->getContextRoot();
             bool schedContextRoot = true;
-            if(limitRecursionToPartition){
-                std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
-                if(contextRootAsNode) {
+
+            std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+            if(contextRootAsNode) {
+                if(limitRecursionToPartition) {
                     schedContextRoot = (contextRootAsNode->getPartitionNum() == partition);
-                }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to cast a ContextRoot to a Node"));
                 }
+            }else{
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to cast a ContextRoot to a Node"));
             }
 
             if(schedContextRoot) {
@@ -463,10 +466,30 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 //                candidateNodes.insert(moreCandidateNodes.begin(), moreCandidateNodes.end());
                 } else if (GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr) {
                     //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
-                } else {
+                } else if (GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot) != nullptr) {
+                    //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
+                    //However, the context drivers go directly to the DownsampleClockDomain so it needs to be explicitally scheduled
+                    //even though it does not emit any actual c
+                    schedule.push_back(GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot)); //Schedule the Mux node (context root)
+                }else {
                     throw std::runtime_error(ErrorHelpers::genErrorStr(
                             "When scheduling, a context root was encountered which is not yet implemented"));
                 }
+            }
+
+            //Schedule the Dummy Node if it is the correct partition (and it exists)
+            std::shared_ptr<DummyReplica> dummyNode = familyContainer->getDummyNode();
+            bool schedDummyNode = false;
+            if(dummyNode != nullptr) {
+                if (limitRecursionToPartition) {
+                    schedDummyNode = dummyNode->getPartitionNum() == partition;
+                }else{
+                    schedDummyNode = true;
+                }
+            }
+
+            if(schedDummyNode){
+                schedule.push_back(dummyNode);
             }
 
         }else{//----End node is a ContextContainerFamily----

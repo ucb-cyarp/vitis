@@ -182,6 +182,7 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
     std::shared_ptr<StateUpdate> stateUpdateZero = NodeFactory::createNode<StateUpdate>(zeroParentNode);
     stateUpdateZero->setName("StateUpdate-For-" + getName() + "-Zero");
     stateUpdateZero->setPartitionNum(partitionNum);
+    stateUpdateZero->setContext(zeroFillContext);
     stateUpdateZero->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdateZero);
 

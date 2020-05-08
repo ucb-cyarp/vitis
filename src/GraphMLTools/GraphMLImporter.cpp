@@ -11,6 +11,7 @@
 #include "GraphCore/ExpandedNode.h"
 #include "GraphCore/SubSystem.h"
 #include "GraphCore/EnabledSubSystem.h"
+#include "GraphCore/DummyReplica.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
@@ -1108,6 +1109,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         }
     }else if(blockFunction == "WrappingCounter"){ //--This is a Vitis Only Node --
         newNode = WrappingCounter::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DummyReplica" ) { //Vitis only node
+        newNode = DummyReplica::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }

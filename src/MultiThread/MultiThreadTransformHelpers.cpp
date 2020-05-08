@@ -98,7 +98,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                 //Check if it is connected to any other node
 
                 //TODO: For now, delay absorption should occur before stateUpdateNode are inserted.  Consider loosing this requirement.  With stateUpdateNodes, no delay connected to a FIFO will have only 1 dependant node (since the state update will be one od
-                if (srcDelay->getStateUpdateNodes().size() != 1) { //Delay should only have 1 StateUpdate node
+                if (srcDelay->getStateUpdateNodes().size() != 0) {
                     throw std::runtime_error(ErrorHelpers::genErrorStr(
                             "FIFO Delay Absorption should be run before State Update Node Insertion",
                             srcDelay));

@@ -22,6 +22,9 @@ Downsample::Downsample(std::shared_ptr<SubSystem> parent, Downsample *orig) : Ra
 }
 
 void Downsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Downsample> orig) {
+    name = orig->getName();
+    partitionNum = orig->getPartitionNum();
+    schedOrder = orig->getSchedOrder();
     downsampleRatio = orig->getDownsampleRatio();
 }
 

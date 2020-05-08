@@ -139,3 +139,6 @@ std::shared_ptr<ClockDomain> MasterNode::getPortClkDomain(std::shared_ptr<InputP
     }
 }
 
+void MasterNode::resetIoClockDomains() {
+    ioClockDomains.clear();
+}

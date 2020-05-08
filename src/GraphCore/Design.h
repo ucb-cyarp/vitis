@@ -823,7 +823,7 @@ public:
      * @warning: This currently only support replicating a single node with no inputs
      * and a single output arc to the context root
      *
-     * @warning: This should be done before context discovery since new nodes can be created in the process
+     * @warning: This should be done after context discovery but before encapsulation
      */
     void replicateContextRootDriversIfRequested();
 
@@ -844,6 +844,10 @@ public:
      */
     std::vector<std::shared_ptr<ClockDomain>> findClockDomains();
 
+    /**
+     * @brief Resets the clock domain links in the design master nodes
+     */
+    void resetMasterNodeClockDomainLinks();
 
 };
 

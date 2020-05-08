@@ -54,7 +54,7 @@ public:
                 //This is a ClockDomain, add it to the list but do not proceed into it
             }else if(GeneralHelper::isType<Node, SubSystem>(*it)){
                 //This is another type of subsystem, add it to the list and proceed to search inside
-                std::shared_ptr<SubSystem> asSubSystem = std::static_pointer_cast<SubSystem>(asSubSystem);
+                std::shared_ptr<SubSystem> asSubSystem = std::static_pointer_cast<SubSystem>(*it);
                 std::set<std::shared_ptr<Node>> innerNodes = getNodesInClockDomainHelper(asSubSystem->getChildren());
 
                 foundNodes.insert(innerNodes.begin(), innerNodes.end());
@@ -163,6 +163,21 @@ public:
     static void cloneMasterNodePortClockDomains(std::shared_ptr<MasterNode> origMaster, std::shared_ptr<MasterNode> clonedMaster, const std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode);
 
     static void validateSpecialiedClockDomain(std::shared_ptr<ClockDomain> clkDomain);
+
+    /**
+     * @brief Validates that the ClockDomains rates are acceptable
+     *
+     * For now, it validates that the clock domains are either interger upsamples or integer downsamples from the base rate
+     *
+     * @param clockDomainsInDesign a list of clock domains in the design
+     */
+    static void validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
+
+    static void validateIOBlockSizes();
+
+    static void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
+
+    static void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 };
 
 /*! @} */

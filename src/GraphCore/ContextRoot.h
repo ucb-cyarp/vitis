@@ -11,12 +11,14 @@
 #include "Node.h"
 #include "Variable.h"
 #include "ContextVariableUpdate.h"
+//#include "DummyReplica.h"
 //#include "ContextFamilyContainer.h"
 
 //class Node;
 
 //Forward declaration
 class ContextFamilyContainer;
+class DummyReplica;
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -31,7 +33,8 @@ protected:
     std::vector<std::vector<std::shared_ptr<Node>>> nodesInSubContexts; ///<A vector of nodes in the context (but not nodes in nested contexts)
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
     std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers; ///<The corresponding context family containers (if any exists) for this ContextRoot
-    std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition; ///< Contains a map of context driver arcs to indvidual partitions (may be different arcs for each partiton).  Likley set in the encapsulateContexts method
+    std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition; ///<Contains a map of context driver arcs to indvidual partitions (may be different arcs for each partiton).  Likley set in the encapsulateContexts method
+    std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas; ///<A map of DummyReplica nodes for partitions this context root exists in.  These are typicallyt created if ContextDriver replication occurs
 
 public:
     /**
@@ -70,6 +73,14 @@ public:
             const std::vector<std::shared_ptr<ContextVariableUpdate>> &contextVariableUpdateNodes);
 
     void addContextVariableUpdateNode(std::shared_ptr<ContextVariableUpdate> contextVariableUpdateNode);
+
+    std::map<int, std::shared_ptr<DummyReplica>> getDummyReplicas() const;
+
+    void setDummyReplicas(const std::map<int, std::shared_ptr<DummyReplica>> &dummyReplicas);
+
+    std::shared_ptr<DummyReplica> getDummyReplica(int partition);
+
+    void setDummyReplica(int partition, std::shared_ptr<DummyReplica> dummyReplica);
 
     /**
      * @brief Gets the arc(s) that drive the decision for the context

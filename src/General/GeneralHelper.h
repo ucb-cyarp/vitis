@@ -174,7 +174,7 @@ public:
     template<typename origT, typename removeT>
     static void removeAll(origT &orig, removeT &toRemove){
         for(auto removeIt = toRemove.begin(); removeIt != toRemove.end(); removeIt++){
-            orig.erase(std::remove(orig.begin(), orig.end(), *removeIt));
+            orig.erase(std::remove(orig.begin(), orig.end(), *removeIt), orig.end());
         }
     }
 

@@ -147,7 +147,7 @@ std::vector<Variable> WrappingCounter::getCStateVars() {
     std::vector<Variable> vars;
 
     //There is a single state variable for the counter.
-    DataType stateType = getInputPort(0)->getDataType();
+    DataType stateType = getOutputPort(0)->getDataType();
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
 
@@ -168,11 +168,11 @@ void WrappingCounter::emitCExprNextState(std::vector<std::string> &cStatementQue
 CExpr WrappingCounter::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                  int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
+    if(getOutputPort(0)->getDataType().getWidth()>1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
+    return CExpr(cStateVar.getCVarName(imag) + "==0", false); //This is a variable name therefore inform the cEmit function
 }
 
 void WrappingCounter::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {

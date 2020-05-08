@@ -3,6 +3,7 @@
 //
 
 #include "Upsample.h"
+#include "UpsampleOutput.h"
 #include "General/ErrorHelpers.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/EmitterHelpers.h"
@@ -20,6 +21,9 @@ Upsample::Upsample(std::shared_ptr<SubSystem> parent, Upsample *orig) : RateChan
 }
 
 void Upsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Upsample> orig) {
+    name = orig->getName();
+    partitionNum = orig->getPartitionNum();
+    schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
 }
 

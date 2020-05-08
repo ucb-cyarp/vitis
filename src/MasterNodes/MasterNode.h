@@ -50,6 +50,7 @@ public:
     void setIndVarName(const std::string &indVarName);
     std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> getIoClockDomains() const;
     void setIoClockDomains(const std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> &ioClockDomains);
+    void resetIoClockDomains();
 
     void setPortClkDomain(std::shared_ptr<InputPort> port, std::shared_ptr<ClockDomain> clkDomain);
     void setPortClkDomain(std::shared_ptr<OutputPort> port, std::shared_ptr<ClockDomain> clkDomain);

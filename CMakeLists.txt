@@ -112,6 +112,8 @@ set(COMMON_SRCS
         src/GraphCore/ContextVariableUpdate.h
         src/GraphCore/StateUpdate.cpp
         src/GraphCore/StateUpdate.h
+        src/GraphCore/DummyReplica.cpp
+        src/GraphCore/DummyReplica.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp

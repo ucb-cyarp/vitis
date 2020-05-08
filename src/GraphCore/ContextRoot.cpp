@@ -5,6 +5,7 @@
 #include "ContextRoot.h"
 #include "Node.h"
 #include <algorithm>
+#include "DummyReplica.h"
 
 void ContextRoot::addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node) {
     //Create sub-vectors if needed
@@ -91,4 +92,25 @@ std::set<int> ContextRoot::partitionsInContext(){
     }
 
     return partitions;
+}
+
+std::map<int, std::shared_ptr<DummyReplica>> ContextRoot::getDummyReplicas() const {
+    return dummyReplicas;
+}
+
+void ContextRoot::setDummyReplicas(const std::map<int, std::shared_ptr<DummyReplica>> &dummyReplicas) {
+    ContextRoot::dummyReplicas = dummyReplicas;
+}
+
+std::shared_ptr<DummyReplica> ContextRoot::getDummyReplica(int partition) {
+    auto dummyReplica = dummyReplicas.find(partition);
+
+    if(dummyReplica != dummyReplicas.end()){
+        return dummyReplica->second;
+    }
+    return nullptr;
+}
+
+void ContextRoot::setDummyReplica(int partition, std::shared_ptr<DummyReplica> dummyReplica){
+    dummyReplicas[partition] = dummyReplica;
 }

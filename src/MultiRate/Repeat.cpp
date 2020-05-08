@@ -21,6 +21,9 @@ Repeat::Repeat(std::shared_ptr<SubSystem> parent, Repeat* orig) : RateChange(par
 }
 
 void Repeat::populateParametersExceptRateChangeNodes(std::shared_ptr<Repeat> orig) {
+    name = orig->getName();
+    partitionNum = orig->getPartitionNum();
+    schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
 }
 

@@ -11,6 +11,7 @@
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
 #include "RateChange.h"
+#include "MultiThread/ThreadCrossingFIFO.h"
 
 std::set<std::shared_ptr<Node>>
 MultiRateHelpers::getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch) {
@@ -277,22 +278,31 @@ std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputP
 
 void MultiRateHelpers::cloneMasterNodePortClockDomains(std::shared_ptr<MasterNode> origMaster, std::shared_ptr<MasterNode> clonedMaster, const std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode) {
     //Update master port clock domain references
-    std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> inputMasterClockDomains = origMaster->getIoClockDomains();
-    for (auto portClkDomain = inputMasterClockDomains.begin();
-        portClkDomain != inputMasterClockDomains.end(); portClkDomain++) {
+    std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> origMasterClockDomains = origMaster->getIoClockDomains();
+    for (auto portClkDomain = origMasterClockDomains.begin();
+        portClkDomain != origMasterClockDomains.end(); portClkDomain++) {
 
         std::shared_ptr<Port> origPort = portClkDomain->first;
         std::shared_ptr<ClockDomain> origClkDomain = portClkDomain->second;
 
-    //Get clone port based on port number
-        std::shared_ptr<OutputPort> clonePort = clonedMaster->getOutputPort(origPort->getPortNum());
         std::shared_ptr<ClockDomain> cloneClkDomain = nullptr;
-
         if (origClkDomain != nullptr) {
-            cloneClkDomain = std::dynamic_pointer_cast<ClockDomain>((origToCopyNode.find(origClkDomain))->second);
+            auto cloneClkDomainNodeFind = origToCopyNode.find(origClkDomain);
+            if(cloneClkDomainNodeFind == origToCopyNode.end()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Clock domain was not cloned", origClkDomain));
+            }
+            cloneClkDomain = std::dynamic_pointer_cast<ClockDomain>(cloneClkDomainNodeFind->second);
         }
 
-        clonedMaster->setPortClkDomain(clonePort, cloneClkDomain);
+        //Get clone port based on port number
+        std::shared_ptr<Port> clonePort;
+        if(GeneralHelper::isType<Port, OutputPort>(origPort)) {
+            std::shared_ptr<OutputPort> clonePort = clonedMaster->getOutputPort(origPort->getPortNum());
+            clonedMaster->setPortClkDomain(clonePort, cloneClkDomain);
+        }else{
+            std::shared_ptr<InputPort> clonePort = clonedMaster->getInputPort(origPort->getPortNum());
+            clonedMaster->setPortClkDomain(clonePort, cloneClkDomain);
+        }
     }
 }
 
@@ -319,5 +329,57 @@ void MultiRateHelpers::validateSpecialiedClockDomain(std::shared_ptr<ClockDomain
         if((*it)->isInput()){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Error when validating DownsampleClockDomain - A RateChange output was not a specialized output", clkDomain));
         }
+    }
+}
+
+void MultiRateHelpers::validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign) {
+    for(unsigned long i = 0; i<clockDomainsInDesign.size(); i++){
+        std::pair<int, int> clockDomainRate = clockDomainsInDesign[i]->getRateRelativeToBase();
+
+        //Check that neither the upsample or downsample coefficient are 0.
+        if(clockDomainRate.first <= 0 || clockDomainRate.second <= 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Rate Relative to Base cannot have a 0 in either the numerator or denominator", clockDomainsInDesign[i]));
+        }
+
+        //Check that at most one of the coefficients is not 1
+        if(clockDomainRate.first != 1 && clockDomainRate.second != 1){
+            //TODO: Support arbitrary resampling
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Rate Relative to Base must be an integer upsample or downsample factor ", clockDomainsInDesign[i]));
+        }
+    }
+}
+
+void MultiRateHelpers::setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs,
+                                              int blockSize, bool setFIFOBlockSize) {
+
+    for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++){
+        std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
+
+        std::shared_ptr<ClockDomain> fifoClockDomain = findClockDomain(threadCrossingFIFO);
+
+        std::pair<int, int> rateRelativeToBase;
+
+        if(fifoClockDomain){
+            rateRelativeToBase = fifoClockDomain->getRateRelativeToBase();
+        }else{
+            //This is at the base rate
+            rateRelativeToBase = std::pair<int, int>(1, 1);
+        }
+
+        int blockSizeScaled = blockSize*rateRelativeToBase.first;
+        if(blockSizeScaled%rateRelativeToBase.second != 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Block Size for FIFO after adjustment for ClockDomain is not an integer", threadCrossingFIFO));
+        }
+
+        if(setFIFOBlockSize){
+            blockSizeScaled /= rateRelativeToBase.second;
+            threadCrossingFIFO->setBlockSize(blockSizeScaled);
+        }
+    }
+}
+
+void MultiRateHelpers::rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign) {
+    for(unsigned long i = 0; i<clockDomainsInDesign.size(); i++){
+        clockDomainsInDesign[i]->discoverClockDomainParameters();
     }
 }
