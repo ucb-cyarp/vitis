@@ -3423,6 +3423,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Set FIFO length and block size here (do before delay ingest)
     for(int i = 0; i<fifoVec.size(); i++){
         fifoVec[i]->setFifoLength(fifoLength);
+        fifoVec[i]->setBlockSize(blockSize); //TODO: Remove this when setAndValidateFifoBlockSizes implemented below
     }
 //    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
 

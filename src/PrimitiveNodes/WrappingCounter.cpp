@@ -147,7 +147,8 @@ std::vector<Variable> WrappingCounter::getCStateVars() {
     std::vector<Variable> vars;
 
     //There is a single state variable for the counter.
-    DataType stateType = getOutputPort(0)->getDataType();
+    DataType stateType(false, false, false, log2(countTo), 0, 1);
+    stateType = stateType.getCPUStorageType();
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
 
@@ -177,7 +178,7 @@ CExpr WrappingCounter::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
 void WrappingCounter::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     cStatementQueue.push_back(cStateVar.getCVarName(false) + " = " +
-                    cStateVar.getCVarName(false) + " < (" + GeneralHelper::to_string(countTo) + "-1) ? " +
+                    cStateVar.getCVarName(false) + " < " + GeneralHelper::to_string(countTo-1) + " ? " +
                     cStateVar.getCVarName(false) + " + 1 : 0;");
 }
 
