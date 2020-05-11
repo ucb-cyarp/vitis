@@ -193,99 +193,6 @@ end
 %captured
 top_system_func([], [], [], 'term');
 
-%% Generate Stateflow C
-%Do this after terminating model as this will change (and then restore) the
-%model config.
-
-stateflow_nodes = [];
-for i = 1:length(special_nodes)
-    special_node = special_nodes(i);
-    
-    if special_node.isStateflow()
-       %Check if name already exists
-       for j = 1:length(stateflow_nodes)
-           checking_node = stateflow_nodes(j);
-           if strcmp(checking_node.name, special_node.name)
-               error(['Multiple Stateflow Charts have the same name.  Statflow chart are currently required to be unique for export: ' special_node.getFullSimulinkPath() ', ' checking_node.getFullSimulinkPath()]);
-           end
-       end
-       %If no duplicate found (error not created)
-       stateflow_nodes = [stateflow_nodes, special_node];
-    end
-end
-
-%Change to a temp dir
-current_dir = pwd;
-paths = path;
-contains_path = contains(path, current_dir);
-if(~contains_path)
-    addpath(current_dir);
-end
-rtwdemodir();
-
-%Get the orig model config
-orig_model_config = getActiveConfigSet(simulink_file);
-
-%Create a copy of the config with the codegen options set.  Keeps model
-%solver settings.
-curTime = datetime;
-new_cfg_name = [orig_model_config.Name '-tmp' num2str(round(posixtime(curTime)))];
-
-stateflow_codegen_model_config = CreateStateFlowCodeGenCS(orig_model_config);
-stateflow_codegen_model_config.Name = new_cfg_name;
-attachConfigSet(simulink_file, stateflow_codegen_model_config);
-setActiveConfigSet(simulink_file, new_cfg_name);
-
-for i = 1:length(stateflow_nodes)
-    special_node = stateflow_nodes(i);
-    
-    if verbose >= 1
-        disp(['[SimulinkToGraphML] Generating C Code for Stateflow Chart: ' special_node.getFullSimulinkPath()]);
-    end
-
-    %Build the model
-    rtwbuild(special_node.getFullSimulinkPath(), 'generateCodeOnly', true);
-
-    %Read the generated files & set them as a node property
-    gen_dir_path = [special_node.name '_ert_rtw'];
-    c_file = fopen([gen_dir_path '/' special_node.name '.c'], 'r');
-    c_file_content = fread(c_file, '*char');
-    fclose(c_file);
-    c_file_content = transpose(c_file_content);
-
-    h_file = fopen([gen_dir_path '/' special_node.name '.h'], 'r');
-    h_file_content = fread(h_file, '*char');
-    fclose(h_file);
-    h_file_content = transpose(h_file_content);
-
-    rtwtypes_file = fopen([gen_dir_path '/rtwtypes.h'], 'r');
-    rtwtypes_content = fread(rtwtypes_file, '*char');
-    fclose(rtwtypes_file);
-    rtwtypes_content = transpose(rtwtypes_content);
-
-    h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
-    c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
-
-    special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
-    special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
-    special_node.dialogProperties('init_function') = [special_node.name '_initialize'];
-    special_node.dialogProperties('output_function') = [special_node.name '_output'];
-    special_node.dialogProperties('state_update_function') = [special_node.name '_update'];
-    special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U'];
-    special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y'];
-    special_node.dialogProperties('state_struct_name') = [special_node.name '_DW'];
-end
-
-%Restore orig model config set
-setActiveConfigSet(simulink_file, orig_model_config.Name);
-%Remove stateflow codegen config set
-detachConfigSet(simulink_file, new_cfg_name);
-
-cd(current_dir);
-if(~contains_path)
-    rmpath(current_dir);
-end
-
 %% Expand graph & cleanup busses
 
 if verbose >= 1
@@ -319,6 +226,108 @@ end
 for i = 1:length(arcs)
     arc = arcs(i);
     arc.arcId = i;
+end
+
+%% Generate Stateflow C
+%Do this after Node IDs are assigned so it can be usede for namespacing
+%generated functions.
+%Do this after terminating model as this will change (and then restore) the
+%model config.
+
+stateflow_nodes = [];
+for i = 1:length(special_nodes)
+    special_node = special_nodes(i);
+    
+    if special_node.isStateflow()
+       %Check if name already exists
+%        for j = 1:length(stateflow_nodes)
+%            checking_node = stateflow_nodes(j);
+%            if strcmp(checking_node.name, special_node.name)
+%                error(['Multiple Stateflow Charts have the same name.  Statflow chart are currently required to be unique for export: ' special_node.getFullSimulinkPath() ', ' checking_node.getFullSimulinkPath()]);
+%            end
+%        end
+       %If no duplicate found (error not created)
+       stateflow_nodes = [stateflow_nodes, special_node];
+    end
+end
+
+%Change to a temp dir
+current_dir = pwd;
+paths = path;
+contains_path = contains(path, current_dir);
+if(~contains_path)
+    addpath(current_dir);
+end
+rtwdemodir();
+
+%Get the orig model config
+orig_model_config = getActiveConfigSet(simulink_file);
+
+for i = 1:length(stateflow_nodes)
+    special_node = stateflow_nodes(i);
+    
+    if verbose >= 1
+        disp(['[SimulinkToGraphML] Generating C Code for Stateflow Chart: ' special_node.getFullSimulinkPath() ' ID: ' num2str(special_node.nodeId)]);
+    end
+    
+    %Create a Config for this node with the Node ID inserted into the variable names
+    curTime = datetime;
+    new_cfg_name = [orig_model_config.Name '-tmp' num2str(round(posixtime(curTime)))];
+    
+    %Create a copy of the config with the codegen options set.  Keeps model
+    %solver settings.
+    stateflow_codegen_model_config = CreateStateFlowCodeGenCS(orig_model_config, special_node.nodeId);
+    stateflow_codegen_model_config.Name = new_cfg_name;
+    attachConfigSet(simulink_file, stateflow_codegen_model_config);
+    setActiveConfigSet(simulink_file, new_cfg_name);
+    
+    %Create a new FunctionTemplate
+    [origDataDictionaryName, dictionaryTmpName, dataDictionary] = ConfigFunctionTemplate(simulink_file, special_node.nodeId);
+    
+    %Build the model
+    rtwbuild(special_node.getFullSimulinkPath(), 'generateCodeOnly', true);
+
+    %Read the generated files & set them as a node property
+    gen_dir_path = [special_node.name '_ert_rtw'];
+    c_file = fopen([gen_dir_path '/' special_node.name '_FSM' num2str(special_node.nodeId) '.c'], 'r');
+    c_file_content = fread(c_file, '*char');
+    fclose(c_file);
+    c_file_content = transpose(c_file_content);
+
+    h_file = fopen([gen_dir_path '/' special_node.name '_FSM' num2str(special_node.nodeId) '.h'], 'r');
+    h_file_content = fread(h_file, '*char');
+    fclose(h_file);
+    h_file_content = transpose(h_file_content);
+
+    rtwtypes_file = fopen([gen_dir_path '/rtwtypes.h'], 'r');
+    rtwtypes_content = fread(rtwtypes_file, '*char');
+    fclose(rtwtypes_file);
+    rtwtypes_content = transpose(rtwtypes_content);
+
+    h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
+    c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
+
+    special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
+    special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
+    special_node.dialogProperties('init_function') = [special_node.name '_initialize_FSM' num2str(special_node.nodeId)];
+    special_node.dialogProperties('output_function') = [special_node.name '_output_FSM' num2str(special_node.nodeId)];
+    special_node.dialogProperties('state_update_function') = [special_node.name '_update_FSM' num2str(special_node.nodeId)];
+    special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U_FSM' num2str(special_node.nodeId)];
+    special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y_FSM' num2str(special_node.nodeId)];
+    special_node.dialogProperties('state_struct_name') = [special_node.name '_DW_FSM' num2str(special_node.nodeId)];
+    
+    %Remove the temporary new FunctionTemplate
+    CleanupFunctionTemplate(simulink_file, origDataDictionaryName, dictionaryTmpName, dataDictionary);
+    
+    %Restore orig model config set
+    setActiveConfigSet(simulink_file, orig_model_config.Name);
+    %Remove stateflow codegen config set
+    detachConfigSet(simulink_file, new_cfg_name);
+end
+
+cd(current_dir);
+if(~contains_path)
+    rmpath(current_dir);
 end
 
 %% Get Set of Parameters from Nodes

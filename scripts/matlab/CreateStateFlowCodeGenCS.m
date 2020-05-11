@@ -1,4 +1,4 @@
-function codegen_cs = CreateStateFlowCodeGenCS(orig_cs)
+function codegen_cs = CreateStateFlowCodeGenCS(orig_cs, id)
 %CreateCodeGenCS Creates a copy of the given orig_cs with code generation
 %option set for Stateflow generation
 
@@ -64,17 +64,17 @@ codegen_cs.set_param('SimulinkDataObjDesc', 'on');   % Simulink data object desc
 codegen_cs.set_param('ReqsInCode', 'off');   % Requirements in block comments
 codegen_cs.set_param('EnableCustomComments', 'off');   % Custom comments (MPT objects only)
 codegen_cs.set_param('MATLABFcnDesc', 'off');   % MATLAB user comments
-codegen_cs.set_param('CustomSymbolStrGlobalVar', '$R$N$M');   % Global variables
-codegen_cs.set_param('CustomSymbolStrType', '$N$R$M_T');   % Global types
-codegen_cs.set_param('CustomSymbolStrField', '$N$M');   % Field name of global types
-codegen_cs.set_param('CustomSymbolStrFcn', '$R$N$M$F');   % Subsystem methods
-codegen_cs.set_param('CustomSymbolStrFcnArg', 'rt$I$N$M');   % Subsystem method arguments
-codegen_cs.set_param('CustomSymbolStrTmpVar', '$N$M');   % Local temporary variables
-codegen_cs.set_param('CustomSymbolStrBlkIO', 'rtb_$N$M');   % Local block output variables
-codegen_cs.set_param('CustomSymbolStrMacro', '$R$N$M');   % Constant macros
-codegen_cs.set_param('CustomSymbolStrUtil', '$N$C');   % Shared utilities
-codegen_cs.set_param('CustomSymbolStrEmxType', 'emxArray_$M$N');   % EMX array types identifier format
-codegen_cs.set_param('CustomSymbolStrEmxFcn', 'emx$M$N');   % EMX array utility functions identifier format
+codegen_cs.set_param('CustomSymbolStrGlobalVar', ['$R$N$M_FSM' num2str(id)]);   % Global variables
+codegen_cs.set_param('CustomSymbolStrType', ['$N$R$M_FSM' num2str(id) '_T']);   % Global types
+codegen_cs.set_param('CustomSymbolStrField', ['$N$M_FSM' num2str(id)]);   % Field name of global types
+codegen_cs.set_param('CustomSymbolStrFcn', ['$R$N$M_FSM' num2str(id) '_$F']);   % Subsystem methods
+codegen_cs.set_param('CustomSymbolStrFcnArg', ['rt$I$N$M_FSM' num2str(id)]);   % Subsystem method arguments
+codegen_cs.set_param('CustomSymbolStrTmpVar', ['$N$M_FSM' num2str(id)]);   % Local temporary variables
+codegen_cs.set_param('CustomSymbolStrBlkIO', ['rtb_$N$M_FSM' num2str(id)]);   % Local block output variables
+codegen_cs.set_param('CustomSymbolStrMacro', ['$R$N$M_FSM' num2str(id)]);   % Constant macros
+codegen_cs.set_param('CustomSymbolStrUtil', ['$N$C_FSM' num2str(id)]);   % Shared utilities
+codegen_cs.set_param('CustomSymbolStrEmxType', ['emxArray_$M$N_FSM' num2str(id)]);   % EMX array types identifier format
+codegen_cs.set_param('CustomSymbolStrEmxFcn', ['emx$M$N_FSM' num2str(id)]);   % EMX array utility functions identifier format
 codegen_cs.set_param('MangleLength', 1);   % Minimum mangle length
 codegen_cs.set_param('SharedChecksumLength', 8);   % Shared checksum length
 codegen_cs.set_param('MaxIdLength', 255);   % Maximum identifier length
@@ -131,6 +131,9 @@ codegen_cs.set_param('MemSecDataConstants', 'Default');   % Memory section for c
 codegen_cs.set_param('GlobalDataDefinition', 'Auto');   % Data definition
 codegen_cs.set_param('GlobalDataReference', 'Auto');   % Data declaration
 codegen_cs.set_param('ExtMode', 'off');   % External mode
+%Adding parameters for setting the filename
+codegen_cs.set_param('ERTHeaderFileRootName', ['$R_FSM' num2str(id) '$E']);   % Header files
+codegen_cs.set_param('ERTSourceFileRootName', ['$R_FSM' num2str(id) '$E']);   % Source files
 codegen_cs.set_param('ERTFilePackagingFormat', 'Compact');   % File packaging format
 codegen_cs.set_param('EnableUserReplacementTypes', 'off');   % Replace data type names in the generated code
 codegen_cs.set_param('ConvertIfToSwitch', 'on');   % Convert if-elseif-else patterns to switch-case statements
