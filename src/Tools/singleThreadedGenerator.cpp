@@ -11,6 +11,7 @@
 #include "GraphCore/Design.h"
 #include "GraphMLTools/GraphMLDialect.h"
 #include "General/ErrorHelpers.h"
+#include "General/FileIOHelpers.h"
 
 int main(int argc, char* argv[]) {
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
@@ -158,6 +159,8 @@ int main(int argc, char* argv[]) {
 //    for(unsigned long i = 0; i<nodes.size(); i++){
 //        std::cout << "[" << i << "]: " << arcs[i]->getSrcPort()->getParent()->getFullyQualifiedName() << " -> " << arcs[i]->getDstPort()->getParent()->getFullyQualifiedName() << std::endl;
 //    }
+
+    FileIOHelpers::createDirectoryIfDoesNotExist(outputDir, true);
 
     //Emit C
     try{

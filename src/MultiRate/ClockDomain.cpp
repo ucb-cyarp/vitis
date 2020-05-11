@@ -298,7 +298,7 @@ void ClockDomain::validate() {
 
         //Check for Output IO
         std::set<std::shared_ptr<Arc>> outputArcs = (*it)->getDirectOutputArcs();
-        for (auto arc = inputArcs.begin(); arc != inputArcs.end(); arc++) {
+        for (auto arc = outputArcs.begin(); arc != outputArcs.end(); arc++) {
             std::shared_ptr<Node> dst = (*arc)->getDstPort()->getParent();
 
             if (GeneralHelper::isType<Node, MasterOutput>(dst)) {
@@ -635,6 +635,25 @@ std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool
 
                 //rcOut is added to the remove convertToRateChangeInputOutput
             }
+        }
+
+        //Change any I/O Ports in the master nodes to point to the new ClockDomain object
+        for(auto ioInputPort = ioInput.begin(); ioInputPort != ioInput.end(); ioInputPort++){
+            std::shared_ptr<OutputPort> input = (*ioInputPort);
+            std::shared_ptr<MasterInput> inputMaster = GeneralHelper::isType<Node, MasterInput>(input->getParent());
+            if(inputMaster == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when updating an ioInput port's ClockDomain when specializing this ClockDomain.  The referenced input is not from a MasterInput", getSharedPointer()));
+            }
+            inputMaster->setPortClkDomain(input, downsampleClockDomain);
+        }
+
+        for(auto ioOutputPort = ioOutput.begin(); ioOutputPort != ioOutput.end(); ioOutputPort++){
+            std::shared_ptr<InputPort> output = (*ioOutputPort);
+            std::shared_ptr<MasterOutput> outputMaster = GeneralHelper::isType<Node, MasterOutput>(output->getParent());
+            if(outputMaster == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when updating an ioOutput port's ClockDomain when specializing this ClockDomain.  The referenced input is not from a MasterOutput", getSharedPointer()));
+            }
+            outputMaster->setPortClkDomain(output, downsampleClockDomain);
         }
 
         //Mark this node for delete
