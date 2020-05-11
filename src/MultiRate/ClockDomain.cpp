@@ -181,7 +181,7 @@ void ClockDomain::validate() {
             std::set<std::shared_ptr<Arc>> inputArcs = (*node)->getDirectInputArcs();
             for (auto arc = inputArcs.begin(); arc != inputArcs.end(); arc++) {
 
-                if(checkedArcs.find(*arc) != checkedArcs.end()){ //Don't double check
+                if(checkedArcs.find(*arc) == checkedArcs.end()){ //Don't double check
                     checkedArcs.insert(*arc);
 
                     //Check if the src node is in the same clock domain
@@ -228,7 +228,7 @@ void ClockDomain::validate() {
             std::set<std::shared_ptr<Arc>> outputArcs = (*node)->getDirectOutputArcs();
             for (auto arc = outputArcs.begin(); arc != outputArcs.end(); arc++) {
 
-                if(checkedArcs.find(*arc) != checkedArcs.end()){ //Don't double check
+                if(checkedArcs.find(*arc) == checkedArcs.end()){ //Don't double check
                     checkedArcs.insert(*arc);
 
                     //Check if the dst node is in the same clock domain
@@ -322,13 +322,13 @@ void ClockDomain::validate() {
     //Check input ports found size matches that of the member variable.  Note that things put into the portsFound list were already check against
     if(ioInputPortsFound.size() != ioInput.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Number of MasterInputPorts found to be connected to nodes in the ClockDomain does"
-                                                           "not match the number in ioInputPorts", getSharedPointer()));
+                                                           " not match the number in ioInputPorts", getSharedPointer()));
     }
 
     //Check output ports found
-    if(ioInputPortsFound.size() != ioInput.size()){
+    if(ioOutputPortsFound.size() != ioOutput.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Number of MasterInputPorts found to be connected to nodes in the ClockDomain does"
-                                                           "not match the number in ioInputPorts", getSharedPointer()));
+                                                           " not match the number in ioInputPorts", getSharedPointer()));
     }
 
     //Check that all input rate change blocks have the appropriate rate changes
