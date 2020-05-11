@@ -466,6 +466,8 @@ std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<Master
 }
 
 std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName, int blockSize) {
+    //TODO: Change this function to use the MasterIO Port ClockDomain
+    //Trace where this function is called from (IO Port)
     std::string prototype = "#pragma pack(push, 4)\n";
     prototype += "typedef struct {\n";
 

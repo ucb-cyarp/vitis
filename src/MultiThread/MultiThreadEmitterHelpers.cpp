@@ -875,6 +875,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         blockIndVar = "blkInd";
     }
 
+    //TODO: Discover clock rates of all input and output FIFOs
+    //Create a counter for each one, base rate is redundant
+    //Set the FIFO index variable to the approprate index variable for its rate.
+
     //Set the index variable in the input FIFOs
     for(int i = 0; i<inputFIFOs.size(); i++){
         inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVar);
@@ -890,6 +894,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
 
+    //TODO: Looks like Block Size is only passed to see if it is > 1, simplify
     std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize);
     std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
     std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
@@ -1067,6 +1072,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //emit inner loop
     DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
     if(blockSize > 1) {
+        //TODO: Set the other index variables to 0 here
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
     }
 
@@ -1078,6 +1084,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     if(blockSize > 1) {
+        //TODO: Increment the other variables or wrap them around.  Ternary operator is good for this
         cFile << "}" << std::endl;
     }
 

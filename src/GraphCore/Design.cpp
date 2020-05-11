@@ -3425,6 +3425,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         fifoVec[i]->setFifoLength(fifoLength);
         fifoVec[i]->setBlockSize(blockSize); //TODO: Remove this when setAndValidateFifoBlockSizes implemented below
     }
+    //TODO: FIFOs are inserted between IO Master nodes and the logic in the other partitions
+    //These FIFOs should have their rate set based on the MasterNode Port
 //    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
 
     //TODO: Retime Here
@@ -3580,6 +3582,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
+            //Note that all I/O into and out of the partitions threads is via thread crossing FIFOs from the IO_PARTITION thread
             MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint, printTelem, telemDumpPrefix, false);
         }
     }
@@ -3629,6 +3632,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         partitionSet.insert(it->first);
     }
 
+    //TODO: Modify Drivers to look at MasterIO
     std::vector<Variable> inputVars = getCInputVariables();
 
     //++++Emit Const I/O Driver++++

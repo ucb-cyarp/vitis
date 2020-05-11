@@ -117,6 +117,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     sortIntoBundles(masterInputVars, masterOutputVars,masterInputBundles,masterOutputBundles, bundles);
 
     //For each bundle, create a IO Port structure definition
+    //TODO: Change so that the PortStructure uses the relative rate of each of the inputs to adjust block size
     for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++){
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
         headerFile << EmitterHelpers::getCIOPortStructDefn(it->second, inputStructTypeName, blockSize) << std::endl;
@@ -1268,6 +1269,8 @@ void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Var
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Multi dimension arrays are not currently supported for master input ports"));
                 }else{
                     //Simple array
+                    //TODO Confirm that this works with block sizes adjusted for port rates.  It looks like it should if the
+                    //structure is updated properly
                     ioThread << "memcpy(" << tmpName << ".port" << fifoPortNum << "_real, " << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << ", sizeof(" << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << "));" << std::endl;
@@ -1503,6 +1506,8 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
 void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std::vector<Variable> masterOutputVars,
                                       std::map<int, std::vector<Variable>> &masterInputBundles,
                                       std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles) {
+    //TODO: Possibly Update this to also export the relative clock rates of each input/output so that the block sizes
+    //can be adapted
     //Sort I/O varaibles into bundles - each bundle will have a separate stream
     //the default bundle is bundle 0
 
