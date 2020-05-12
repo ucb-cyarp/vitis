@@ -3198,13 +3198,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     prune(true); //TODO: Change to false if vis re-included
 
-    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
-    //TODO Optimize this so a second pass is not needed
-    //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
-    //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
-    resetMasterNodeClockDomainLinks();
-    MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
-
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
 //        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
@@ -3218,36 +3211,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //This removal is used to avoid uneeccisary communication to the unconnected and terminator masters (FIFOs
     //would potentially be inserted where they are not needed).
     //Note what nodes and ports are disconnected
-
-
-    //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
-    clockDomains = specializeClockDomains(clockDomains);
-    assignNodeIDs();
-    assignArcIDs();
-    //This also converts RateChangeNodes to Input or Output implementations.
-    //This is done before other operations since these operations replace the objects because the class is changed to a subclass
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
-//    }
-
-    //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
-    createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
-    assignNodeIDs();
-    assignArcIDs();
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
-//    }
-
-    //Check the ClockDomain rates are appropriate
-    MultiRateHelpers::validateClockDomainRates(clockDomains);
 
     std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
 
@@ -3297,6 +3260,50 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //    for(int i = 0; i<nodes.size(); i++){
 //        std::cout << "Partition " << nodes[i]->getPartitionNum() << ", " << nodes[i]->getFullyQualifiedName() << std::endl;
 //    }
+
+    //=== Handle Clock Domains ===
+    //Should do this after all pruning has taken place (and all node disconnects have taken place)
+    //Should do after disconnects take place so that no arcs are going to the terminator master as the clock domain
+    //discovery and check logic does not distinguish between the actual output master and the terminator master
+    //since they are both MasterOutputs
+    //TODO: re-evaluate this
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
+    //TODO Optimize this so a second pass is not needed
+    //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
+    //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
+    resetMasterNodeClockDomainLinks();
+    MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
+
+    //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
+    clockDomains = specializeClockDomains(clockDomains);
+    assignNodeIDs();
+    assignArcIDs();
+    //This also converts RateChangeNodes to Input or Output implementations.
+    //This is done before other operations since these operations replace the objects because the class is changed to a subclass
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
+//    }
+
+    //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
+    createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
+    assignNodeIDs();
+    assignArcIDs();
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
+//    }
+
+    //Check the ClockDomain rates are appropriate
+    MultiRateHelpers::validateClockDomainRates(clockDomains);
+
+    //==== Proceeed with Context Discovery ====
 
     //This is an optimization pass to widen the enabled subsystem context
     expandEnabledSubsystemContexts();
