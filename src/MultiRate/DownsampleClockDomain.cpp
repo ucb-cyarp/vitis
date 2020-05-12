@@ -173,6 +173,8 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
             if(!(MultiRateHelpers::findClockDomain(srcNode) == thisAsDownsampleClockDomain && !srcNodeAsRateChange->isInput())){
                 insertBridge = true;
             }
+        }else{
+            insertBridge = true;
         }
 
         if(insertBridge){
