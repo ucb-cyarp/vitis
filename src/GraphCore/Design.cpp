@@ -187,7 +187,8 @@ void Design::assignArcIDs() {
 
     for(unsigned long i = 0; i<numArcs; i++){
         if(arcs[i]->getId()<0){
-            arcs[i]->setId(newID);
+            std::shared_ptr<Arc> arcToSet = arcs[i];
+            arcToSet->setId(newID);
             newID++;
         }
     }
@@ -1957,6 +1958,9 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
                 //Get the cloned arc
                 std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                if(cloneArc == nullptr){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying ports of clock domain", nodes[i]));
+                }
                 //Get the source port of this cloned arc (for which this arc is an output)
                 std::shared_ptr<OutputPort> clonePort = cloneArc->getSrcPort();
                 //Add this to the set
@@ -1970,6 +1974,9 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
                 //Get the cloned arc
                 std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                if(cloneArc == nullptr){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying ports of clock domain", nodes[i]));
+                }
                 //Get the destination port of this cloned arc (for which this arc is an input)
                 std::shared_ptr<InputPort> clonePort = cloneArc->getDstPort();
                 //Add this to the set
@@ -1982,11 +1989,17 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
             if(GeneralHelper::isType<Node, DownsampleClockDomain>(nodes[i])){
                 std::shared_ptr<DownsampleClockDomain> origClkDomainDownsample = std::static_pointer_cast<DownsampleClockDomain>(nodes[i]);
-                std::shared_ptr<DownsampleClockDomain> cloneClkDomainDownsample = std::dynamic_pointer_cast<DownsampleClockDomain>(origToCopyNode[origClkDomain]);
+                std::shared_ptr<DownsampleClockDomain> cloneClkDomainDownsample = std::dynamic_pointer_cast<DownsampleClockDomain>(origToCopyNode[origClkDomainDownsample]);
 
                 std::shared_ptr<Arc> origDriver = origClkDomainDownsample->getContextDriver();
                 if(origDriver) {
-                    cloneClkDomainDownsample->setContextDriver(origToCopyArc[origDriver]);
+                    std::shared_ptr<Arc> copyArc = origToCopyArc[origDriver];
+                    if(copyArc == nullptr){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain", nodes[i]));
+                    }
+                    cloneClkDomainDownsample->setContextDriver(copyArc);
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain.  No driver", nodes[i]));
                 }
             }
 
@@ -2166,7 +2179,8 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster, SchedParams::SchedTy
     for(unsigned long i = 0; i<arcs.size(); i++){
         //Check if the src node is a constant or the input master node
         //If so, do not check the ordering
-        std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
+        std::shared_ptr<Arc> arc = arcs[i];
+        std::shared_ptr<Node> srcNode = arc->getSrcPort()->getParent();
 
         //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
         //Otherwise the outputs of nodes with state are considered constants
@@ -2732,6 +2746,9 @@ void Design::encapsulateContexts() {
 
         if(origParent != nullptr){
             origParent->removeChild(asNode);
+        }else{
+            //If has no parent, remove from topLevelNodes
+            topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), asNode), topLevelNodes.end());
         }
 
         std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = getContextFamilyContainerCreateIfNotNoParent(contextRootNodes[i], asNode->getPartitionNum());
@@ -2869,12 +2886,18 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
     //Mark the origional (before encapsulation) ContextDriverArcs for deletion
     for(unsigned long i = 0; i<contextRoots.size(); i++){
-        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoots[i]->getContextDecisionDriver();
+        std::shared_ptr<ContextRoot> contextRoot = contextRoots[i];
+        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
             //The driver arcs must have the destination re-wired.  At a minimum, they should be rewired to
             //the context container node.  However, if they exist inside of a nested context, the destination
             //may need to be rewired to another context family container higher in the hierarchy
+
+            //TODO: Remove check
+            if(driverArcs[j] == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Null Arc discovered when rewiring driver arcs"));
+            }
 
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);

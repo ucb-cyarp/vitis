@@ -21,7 +21,7 @@ DownsampleClockDomain::DownsampleClockDomain(std::shared_ptr<SubSystem> parent) 
 
 }
 
-DownsampleClockDomain::DownsampleClockDomain(std::shared_ptr<SubSystem> parent, DownsampleClockDomain *orig) : ClockDomain(parent, orig), contextDriver(orig->contextDriver) {
+DownsampleClockDomain::DownsampleClockDomain(std::shared_ptr<SubSystem> parent, DownsampleClockDomain *orig) : ClockDomain(parent, orig), contextDriver(nullptr) {
 
 }
 
