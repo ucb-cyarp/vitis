@@ -305,7 +305,7 @@ for i = 1:length(stateflow_nodes)
     rtwtypes_content = transpose(rtwtypes_content);
 
     h_file_with_rtwtypes = strrep(h_file_content, '#include "rtwtypes.h"', rtwtypes_content);
-    c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '.h"'], '');
+    c_file_include_removed = strrep(c_file_content, ['#include "' special_node.name '_FSM' num2str(special_node.nodeId) '.h"'], '');
 
     special_node.dialogProperties('CppHeaderContent') = h_file_with_rtwtypes;
     special_node.dialogProperties('CppBodyContent') = c_file_include_removed;
