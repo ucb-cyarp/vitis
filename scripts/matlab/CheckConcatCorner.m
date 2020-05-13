@@ -52,7 +52,7 @@ else
     end
     
     in_arcs_to_remove = [];
-    for i = length(node.in_arcs)
+    for i = 1:length(node.in_arcs)
         in_arc = node.in_arcs(i);
         
         if in_arc.width == 1
