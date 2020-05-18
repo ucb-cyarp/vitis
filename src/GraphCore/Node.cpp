@@ -425,7 +425,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
 
 CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPort, bool imag) {
     //For now, the default behavior is to return an error message stating that the emitCExpr has not yet been implemented for this node.
-    throw std::runtime_error("emitCExpr not yet implemented for node: \n" + labelStr());
+    throw std::runtime_error("emitCExpr not yet implemented for node: " + getFullyQualifiedName() + " \n" + labelStr());
 
     return CExpr();
 }
