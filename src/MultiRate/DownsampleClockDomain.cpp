@@ -21,7 +21,7 @@ DownsampleClockDomain::DownsampleClockDomain(std::shared_ptr<SubSystem> parent) 
 
 }
 
-DownsampleClockDomain::DownsampleClockDomain(std::shared_ptr<SubSystem> parent, DownsampleClockDomain *orig) : ClockDomain(parent, orig), contextDriver(orig->contextDriver) {
+DownsampleClockDomain::DownsampleClockDomain(std::shared_ptr<SubSystem> parent, DownsampleClockDomain *orig) : ClockDomain(parent, orig), contextDriver(nullptr) {
 
 }
 
@@ -173,6 +173,8 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
             if(!(MultiRateHelpers::findClockDomain(srcNode) == thisAsDownsampleClockDomain && !srcNodeAsRateChange->isInput())){
                 insertBridge = true;
             }
+        }else{
+            insertBridge = true;
         }
 
         if(insertBridge){

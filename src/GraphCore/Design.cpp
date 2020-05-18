@@ -187,7 +187,8 @@ void Design::assignArcIDs() {
 
     for(unsigned long i = 0; i<numArcs; i++){
         if(arcs[i]->getId()<0){
-            arcs[i]->setId(newID);
+            std::shared_ptr<Arc> arcToSet = arcs[i];
+            arcToSet->setId(newID);
             newID++;
         }
     }
@@ -1957,6 +1958,9 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
                 //Get the cloned arc
                 std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                if(cloneArc == nullptr){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying ports of clock domain", nodes[i]));
+                }
                 //Get the source port of this cloned arc (for which this arc is an output)
                 std::shared_ptr<OutputPort> clonePort = cloneArc->getSrcPort();
                 //Add this to the set
@@ -1970,6 +1974,9 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
                 //Get the cloned arc
                 std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                if(cloneArc == nullptr){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying ports of clock domain", nodes[i]));
+                }
                 //Get the destination port of this cloned arc (for which this arc is an input)
                 std::shared_ptr<InputPort> clonePort = cloneArc->getDstPort();
                 //Add this to the set
@@ -1982,11 +1989,17 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
             if(GeneralHelper::isType<Node, DownsampleClockDomain>(nodes[i])){
                 std::shared_ptr<DownsampleClockDomain> origClkDomainDownsample = std::static_pointer_cast<DownsampleClockDomain>(nodes[i]);
-                std::shared_ptr<DownsampleClockDomain> cloneClkDomainDownsample = std::dynamic_pointer_cast<DownsampleClockDomain>(origToCopyNode[origClkDomain]);
+                std::shared_ptr<DownsampleClockDomain> cloneClkDomainDownsample = std::dynamic_pointer_cast<DownsampleClockDomain>(origToCopyNode[origClkDomainDownsample]);
 
                 std::shared_ptr<Arc> origDriver = origClkDomainDownsample->getContextDriver();
                 if(origDriver) {
-                    cloneClkDomainDownsample->setContextDriver(origToCopyArc[origDriver]);
+                    std::shared_ptr<Arc> copyArc = origToCopyArc[origDriver];
+                    if(copyArc == nullptr){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain", nodes[i]));
+                    }
+                    cloneClkDomainDownsample->setContextDriver(copyArc);
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain.  No driver", nodes[i]));
                 }
             }
 
@@ -2166,7 +2179,8 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster, SchedParams::SchedTy
     for(unsigned long i = 0; i<arcs.size(); i++){
         //Check if the src node is a constant or the input master node
         //If so, do not check the ordering
-        std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
+        std::shared_ptr<Arc> arc = arcs[i];
+        std::shared_ptr<Node> srcNode = arc->getSrcPort()->getParent();
 
         //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
         //Otherwise the outputs of nodes with state are considered constants
@@ -2732,6 +2746,9 @@ void Design::encapsulateContexts() {
 
         if(origParent != nullptr){
             origParent->removeChild(asNode);
+        }else{
+            //If has no parent, remove from topLevelNodes
+            topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), asNode), topLevelNodes.end());
         }
 
         std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = getContextFamilyContainerCreateIfNotNoParent(contextRootNodes[i], asNode->getPartitionNum());
@@ -2869,12 +2886,18 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
 
     //Mark the origional (before encapsulation) ContextDriverArcs for deletion
     for(unsigned long i = 0; i<contextRoots.size(); i++){
-        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoots[i]->getContextDecisionDriver();
+        std::shared_ptr<ContextRoot> contextRoot = contextRoots[i];
+        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
             //The driver arcs must have the destination re-wired.  At a minimum, they should be rewired to
             //the context container node.  However, if they exist inside of a nested context, the destination
             //may need to be rewired to another context family container higher in the hierarchy
+
+            //TODO: Remove check
+            if(driverArcs[j] == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Null Arc discovered when rewiring driver arcs"));
+            }
 
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
@@ -3198,13 +3221,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     prune(true); //TODO: Change to false if vis re-included
 
-    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
-    //TODO Optimize this so a second pass is not needed
-    //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
-    //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
-    resetMasterNodeClockDomainLinks();
-    MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
-
 //    if(emitGraphMLSched) {
 //        //Export GraphML (for debugging)
 //        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
@@ -3218,36 +3234,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //This removal is used to avoid uneeccisary communication to the unconnected and terminator masters (FIFOs
     //would potentially be inserted where they are not needed).
     //Note what nodes and ports are disconnected
-
-
-    //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
-    clockDomains = specializeClockDomains(clockDomains);
-    assignNodeIDs();
-    assignArcIDs();
-    //This also converts RateChangeNodes to Input or Output implementations.
-    //This is done before other operations since these operations replace the objects because the class is changed to a subclass
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
-//    }
-
-    //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
-    createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
-    assignNodeIDs();
-    assignArcIDs();
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
-//    }
-
-    //Check the ClockDomain rates are appropriate
-    MultiRateHelpers::validateClockDomainRates(clockDomains);
 
     std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
 
@@ -3297,6 +3283,50 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //    for(int i = 0; i<nodes.size(); i++){
 //        std::cout << "Partition " << nodes[i]->getPartitionNum() << ", " << nodes[i]->getFullyQualifiedName() << std::endl;
 //    }
+
+    //=== Handle Clock Domains ===
+    //Should do this after all pruning has taken place (and all node disconnects have taken place)
+    //Should do after disconnects take place so that no arcs are going to the terminator master as the clock domain
+    //discovery and check logic does not distinguish between the actual output master and the terminator master
+    //since they are both MasterOutputs
+    //TODO: re-evaluate this
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
+    //TODO Optimize this so a second pass is not needed
+    //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
+    //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
+    resetMasterNodeClockDomainLinks();
+    MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
+
+    //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
+    clockDomains = specializeClockDomains(clockDomains);
+    assignNodeIDs();
+    assignArcIDs();
+    //This also converts RateChangeNodes to Input or Output implementations.
+    //This is done before other operations since these operations replace the objects because the class is changed to a subclass
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
+//    }
+
+    //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
+    createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
+    assignNodeIDs();
+    assignArcIDs();
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
+//    }
+
+    //Check the ClockDomain rates are appropriate
+    MultiRateHelpers::validateClockDomainRates(clockDomains);
+
+    //==== Proceeed with Context Discovery ====
 
     //This is an optimization pass to widen the enabled subsystem context
     expandEnabledSubsystemContexts();

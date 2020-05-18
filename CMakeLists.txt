@@ -53,6 +53,8 @@ set(COMMON_SRCS
         src/General/EmitterHelpers.h
         src/General/ErrorHelpers.cpp
         src/General/ErrorHelpers.h
+        src/General/FileIOHelpers.cpp
+        src/General/FileIOHelpers.h
         src/GraphCore/SchedParams.cpp
         src/GraphCore/SchedParams.h
         src/GraphCore/Node.cpp
@@ -271,23 +273,24 @@ add_library(VitisLib STATIC ${COMMON_SRCS})
 #This was based off the CLion boost import snippit
 # see https://cmake.org/cmake/help/latest/module/FindXercesC.html
 find_package(XercesC)
-include_directories(${XercesC_INCLUDE_DIRS})
+find_package(Boost REQUIRED filesystem)
+include_directories(${XercesC_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 #==== Executables ====
 add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
-target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(simulinkGraphmlDOMPrint src/Tools/simulinkGraphmlDOMPrint.cpp)
-target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(designExpander src/Tools/designExpander.cpp)
-target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
-target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(multiThreadedGenerator src/Tools/multiThreadedGenerator.cpp)
-target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(checkPlatformDataTypes src/Tools/checkPlatformDataTypes.cpp)
 

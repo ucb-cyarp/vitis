@@ -174,14 +174,14 @@ void ClockDomain::validate() {
     std::set<std::shared_ptr<Port>> ioInputPortsFound;
     std::set<std::shared_ptr<Port>> ioOutputPortsFound;
     for(auto node = nodesInDomain.begin(); node != nodesInDomain.end(); node++){
-        //Don't check the rate change nodes since they follow other rules
+        //Don't check the rate change nodes since they follow other rules.
         if(GeneralHelper::isType<Node, RateChange>(*node) == nullptr) {
 
             //Check the input arcs of the node
             std::set<std::shared_ptr<Arc>> inputArcs = (*node)->getDirectInputArcs();
             for (auto arc = inputArcs.begin(); arc != inputArcs.end(); arc++) {
 
-                if(checkedArcs.find(*arc) != checkedArcs.end()){ //Don't double check
+                if(checkedArcs.find(*arc) == checkedArcs.end()){ //Don't double check
                     checkedArcs.insert(*arc);
 
                     //Check if the src node is in the same clock domain
@@ -199,17 +199,19 @@ void ClockDomain::validate() {
                                     "Found a node in clock domain " + getFullyQualifiedName() + ", " + (*node)->getFullyQualifiedName()
                                     + ", that is connected to a MasterInput but which is not in the ioInput set", getSharedPointer()));
                         }
-                    }else if(GeneralHelper::isType<Node, RateChange>(src)){
+                    }else if(GeneralHelper::isType<Node, RateChange>(src)) {
                         std::shared_ptr<ClockDomain> srcDomain = MultiRateHelpers::findClockDomain(src);
 
                         //It is OK if the source is a rate change node in the same clock domain or one level below (an output)
                         std::shared_ptr<ClockDomain> selfAsClkDomain = std::static_pointer_cast<ClockDomain>(getSharedPointer());
-                        if(!MultiRateHelpers::isClkDomainOrOneLvlNested(srcDomain, selfAsClkDomain)){
+                        if (!MultiRateHelpers::isClkDomainOrOneLvlNested(srcDomain, selfAsClkDomain)) {
                             throw std::runtime_error(ErrorHelpers::genErrorStr(
-                                    "Found a node in clock domain " + getFullyQualifiedName() + ", " + (*node)->getFullyQualifiedName()
-                                    + ", that is connected to a rate change node that is not in the current domain and is not from one nested domain: "
+                                    "Found a node in clock domain " + getFullyQualifiedName() + ", " + (*node)->getFullyQualifiedName() +
+                                    ", that is connected to a rate change node that is not in the current domain and is not from one nested domain: "
                                     + src->getFullyQualifiedName(), getSharedPointer()));
                         }
+                    }else if(GeneralHelper::isType<Node, MasterUnconnected>(src)){
+                        //Connections to the MasterUnconnected are not checked as they have special semantics
                     }else{
                         //The src is another type of node (not a MasterInput or a Rate Change Node
                         std::shared_ptr<ClockDomain> srcDomain = MultiRateHelpers::findClockDomain(src);
@@ -228,7 +230,7 @@ void ClockDomain::validate() {
             std::set<std::shared_ptr<Arc>> outputArcs = (*node)->getDirectOutputArcs();
             for (auto arc = outputArcs.begin(); arc != outputArcs.end(); arc++) {
 
-                if(checkedArcs.find(*arc) != checkedArcs.end()){ //Don't double check
+                if(checkedArcs.find(*arc) == checkedArcs.end()){ //Don't double check
                     checkedArcs.insert(*arc);
 
                     //Check if the dst node is in the same clock domain
@@ -257,6 +259,8 @@ void ClockDomain::validate() {
                                     + ", that is connected to a rate change node that is not in the current domain and is not from one nested domain: "
                                     + dst->getFullyQualifiedName(), getSharedPointer()));
                         }
+                    }else if(GeneralHelper::isType<Node, MasterUnconnected>(dst)){
+                        //Connections to the MasterUnconnected are not checked as they have special semantics
                     }else{
                         std::shared_ptr<ClockDomain> dstDomain = MultiRateHelpers::findClockDomain(dst);
 
@@ -298,7 +302,7 @@ void ClockDomain::validate() {
 
         //Check for Output IO
         std::set<std::shared_ptr<Arc>> outputArcs = (*it)->getDirectOutputArcs();
-        for (auto arc = inputArcs.begin(); arc != inputArcs.end(); arc++) {
+        for (auto arc = outputArcs.begin(); arc != outputArcs.end(); arc++) {
             std::shared_ptr<Node> dst = (*arc)->getDstPort()->getParent();
 
             if (GeneralHelper::isType<Node, MasterOutput>(dst)) {
@@ -322,13 +326,13 @@ void ClockDomain::validate() {
     //Check input ports found size matches that of the member variable.  Note that things put into the portsFound list were already check against
     if(ioInputPortsFound.size() != ioInput.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Number of MasterInputPorts found to be connected to nodes in the ClockDomain does"
-                                                           "not match the number in ioInputPorts", getSharedPointer()));
+                                                           " not match the number in ioInputPorts", getSharedPointer()));
     }
 
     //Check output ports found
-    if(ioInputPortsFound.size() != ioInput.size()){
+    if(ioOutputPortsFound.size() != ioOutput.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Number of MasterInputPorts found to be connected to nodes in the ClockDomain does"
-                                                           "not match the number in ioInputPorts", getSharedPointer()));
+                                                           " not match the number in ioInputPorts", getSharedPointer()));
     }
 
     //Check that all input rate change blocks have the appropriate rate changes
@@ -635,6 +639,25 @@ std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool
 
                 //rcOut is added to the remove convertToRateChangeInputOutput
             }
+        }
+
+        //Change any I/O Ports in the master nodes to point to the new ClockDomain object
+        for(auto ioInputPort = ioInput.begin(); ioInputPort != ioInput.end(); ioInputPort++){
+            std::shared_ptr<OutputPort> input = (*ioInputPort);
+            std::shared_ptr<MasterInput> inputMaster = GeneralHelper::isType<Node, MasterInput>(input->getParent());
+            if(inputMaster == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when updating an ioInput port's ClockDomain when specializing this ClockDomain.  The referenced input is not from a MasterInput", getSharedPointer()));
+            }
+            inputMaster->setPortClkDomain(input, downsampleClockDomain);
+        }
+
+        for(auto ioOutputPort = ioOutput.begin(); ioOutputPort != ioOutput.end(); ioOutputPort++){
+            std::shared_ptr<InputPort> output = (*ioOutputPort);
+            std::shared_ptr<MasterOutput> outputMaster = GeneralHelper::isType<Node, MasterOutput>(output->getParent());
+            if(outputMaster == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when updating an ioOutput port's ClockDomain when specializing this ClockDomain.  The referenced input is not from a MasterOutput", getSharedPointer()));
+            }
+            outputMaster->setPortClkDomain(output, downsampleClockDomain);
         }
 
         //Mark this node for delete

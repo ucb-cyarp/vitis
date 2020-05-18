@@ -40,6 +40,7 @@ addons:
 #    - llvm-toolchain-trusty-3.8
     packages:
     - cmake
+    - libboost-all-dev
     - libxerces-c-dev
     - clang-3.8
     - gcc-5

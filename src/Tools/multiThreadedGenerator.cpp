@@ -12,6 +12,7 @@
 #include "GraphMLTools/GraphMLDialect.h"
 #include "MultiThread/PartitionParams.h"
 #include "General/ErrorHelpers.h"
+#include "General/FileIOHelpers.h"
 
 int main(int argc, char* argv[]) {
 
@@ -266,13 +267,15 @@ int main(int argc, char* argv[]) {
         //TODO: Other cases?
     }
 
+    FileIOHelpers::createDirectoryIfDoesNotExist(outputDir, true);
+
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
-//    try{
+    try{
         design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment);
-//    }catch(std::exception& e) {
-//        std::cerr << e.what() << std::endl;
-//        return 1;
-//    }
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }

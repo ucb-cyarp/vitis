@@ -66,7 +66,7 @@ codegen_cs.set_param('EnableCustomComments', 'off');   % Custom comments (MPT ob
 codegen_cs.set_param('MATLABFcnDesc', 'off');   % MATLAB user comments
 codegen_cs.set_param('CustomSymbolStrGlobalVar', ['$R$N$M_FSM' num2str(id)]);   % Global variables
 codegen_cs.set_param('CustomSymbolStrType', ['$N$R$M_FSM' num2str(id) '_T']);   % Global types
-codegen_cs.set_param('CustomSymbolStrField', ['$N$M_FSM' num2str(id)]);   % Field name of global types
+codegen_cs.set_param('CustomSymbolStrField', '$N$M');   % Field name of global types //Keep this the standard name convention since the struct type is already in a namespace
 codegen_cs.set_param('CustomSymbolStrFcn', ['$R$N$M_FSM' num2str(id) '_$F']);   % Subsystem methods
 codegen_cs.set_param('CustomSymbolStrFcnArg', ['rt$I$N$M_FSM' num2str(id)]);   % Subsystem method arguments
 codegen_cs.set_param('CustomSymbolStrTmpVar', ['$N$M_FSM' num2str(id)]);   % Local temporary variables

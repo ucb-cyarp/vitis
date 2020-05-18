@@ -7,6 +7,7 @@ CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/viti
 ## Dependencies:
 - [CMake](https://cmake.org): Build Tool
 - [Apache Xerces-C](https://xerces.apache.org/xerces-c): XML Parser
+- [Boost](https://www.boost.org/): For Platform Independent FileIO
 - [Google Test (gtest)](https://github.com/google/googletest): Testing Framework
 - gcc or clang: C++ Compiler
 - lcov (if using GCC): Coverage Report Generator
@@ -36,6 +37,7 @@ For detaied information on the steps taken to generate a design, see:
   
 ```
 sudo apt-get install build-essential
+sudo apt-get install libboost-all-dev
 sudo apt-get install cmake
 sudo apt-get install libxerces-c-dev
 sudo apt-get install graphviz
@@ -58,6 +60,7 @@ To install the dependencies manually, run the following commands:
   
 ```
 brew install cmake
+brew install boost
 brew install xerces-c
 brew install graphviz
 brew install doxygen
