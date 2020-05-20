@@ -566,7 +566,7 @@ void ClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>> &nodesTo
                                      std::vector<std::shared_ptr<Node>> &nodesToRemove,
                                      std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                      std::vector<std::shared_ptr<Arc>> &arcToRemove,
-                                     bool includeContext) {
+                                     bool includeContext, bool includeOutputBridgeNodes) {
     //This should be implemented in the subclasses
     throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot create support nodes for un-specialized ClockDomain", getSharedPointer()));
 }

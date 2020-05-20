@@ -109,7 +109,7 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
                                                std::vector<std::shared_ptr<Node>> &nodesToRemove,
                                                std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                                std::vector<std::shared_ptr<Arc>> &arcToRemove,
-                                               bool includeContext) {
+                                               bool includeContext, bool includeOutputBridgeNodes) {
     //Create a WrappingCounter as the context driver of the ClockDomain
     std::shared_ptr<WrappingCounter> driverNode = NodeFactory::createNode<WrappingCounter>(parent);
     driverNode->setName(name+"_Counter");
@@ -154,48 +154,50 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
         context.emplace_back(thisAsDownsampleClockDomain, 0);
     }
 
-    //Runs through the list of IO output ports.  Note, each port should only have 1 input arc which should be the
-    //driver arc
-    for(auto ioPort = ioOutput.begin(); ioPort != ioOutput.end(); ioPort++){
-        std::set<std::shared_ptr<Arc>> ioArcs = (*ioPort)->getArcs();
+    if(includeOutputBridgeNodes) {
+        //Runs through the list of IO output ports.  Note, each port should only have 1 input arc which should be the
+        //driver arc
+        for(auto ioPort = ioOutput.begin(); ioPort != ioOutput.end(); ioPort++){
+            std::set<std::shared_ptr<Arc>> ioArcs = (*ioPort)->getArcs();
 
-        //TODO: Remove check
-        if(ioArcs.size() != 1){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("While creating intermediate nodes for clock domain I/O outputs, found a flagged output that does not have exactly 1 input arc, has " + GeneralHelper::to_string(ioArcs.size()), getSharedPointer()));
-        }
-        std::shared_ptr<Arc> ioArc = (*ioArcs.begin());
-        std::shared_ptr<Node> srcNode = ioArc->getSrcPort()->getParent();
-        std::shared_ptr<RateChange> srcNodeAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
+            //TODO: Remove check
+            if(ioArcs.size() != 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("While creating intermediate nodes for clock domain I/O outputs, found a flagged output that does not have exactly 1 input arc, has " + GeneralHelper::to_string(ioArcs.size()), getSharedPointer()));
+            }
+            std::shared_ptr<Arc> ioArc = (*ioArcs.begin());
+            std::shared_ptr<Node> srcNode = ioArc->getSrcPort()->getParent();
+            std::shared_ptr<RateChange> srcNodeAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
 
-        bool insertBridge = false;
-        if(srcNodeAsRateChange){
-            //Check if the RateChange is an output and it's clock domain is this node.  If it is, then no bridge is required.  Otherwise a bridging node is requires
-            if(!(MultiRateHelpers::findClockDomain(srcNode) == thisAsDownsampleClockDomain && !srcNodeAsRateChange->isInput())){
+            bool insertBridge = false;
+            if(srcNodeAsRateChange){
+                //Check if the RateChange is an output and it's clock domain is this node.  If it is, then no bridge is required.  Otherwise a bridging node is requires
+                if(!(MultiRateHelpers::findClockDomain(srcNode) == thisAsDownsampleClockDomain && !srcNodeAsRateChange->isInput())){
+                    insertBridge = true;
+                }
+            }else{
                 insertBridge = true;
             }
-        }else{
-            insertBridge = true;
-        }
 
-        if(insertBridge){
-            //Create repeat node with this node as the parent
-            std::shared_ptr<RepeatOutput> intermediateNode = NodeFactory::createNode<RepeatOutput>(thisAsDownsampleClockDomain);
-            intermediateNode->setName((*ioPort)->getName() + "_ClockDomainBridge");
-            intermediateNode->setPartitionNum(srcNode->getPartitionNum());
-            nodesToAdd.push_back(intermediateNode);
+            if(insertBridge){
+                //Create repeat node with this node as the parent
+                std::shared_ptr<RepeatOutput> intermediateNode = NodeFactory::createNode<RepeatOutput>(thisAsDownsampleClockDomain);
+                intermediateNode->setName((*ioPort)->getName() + "_ClockDomainBridge");
+                intermediateNode->setPartitionNum(srcNode->getPartitionNum());
+                nodesToAdd.push_back(intermediateNode);
 
-            //Set context if includeContext, add this node to the context stack as ContextRoots do not include themselves in their context stack
-            if(includeContext){
-                intermediateNode->setContext(context);
+                //Set context if includeContext, add this node to the context stack as ContextRoots do not include themselves in their context stack
+                if(includeContext){
+                    intermediateNode->setContext(context);
+                }
+
+                //Rewire origional arc to repeat
+                ioArc->setDstPortUpdateNewUpdatePrev(intermediateNode->getInputPortCreateIfNot(0));
+
+                //Create new arc to ioPort
+                //TODO: properly set arc rate.  Currently unused
+                std::shared_ptr<Arc> newArc = Arc::connectNodes(intermediateNode->getOutputPortCreateIfNot(0), *ioPort, ioArc->getDataType());
+                arcsToAdd.push_back(newArc);
             }
-
-            //Rewire origional arc to repeat
-            ioArc->setDstPortUpdateNewUpdatePrev(intermediateNode->getInputPortCreateIfNot(0));
-
-            //Create new arc to ioPort
-            //TODO: properly set arc rate.  Currently unused
-            std::shared_ptr<Arc> newArc = Arc::connectNodes(intermediateNode->getOutputPortCreateIfNot(0), *ioPort, ioArc->getDataType());
-            arcsToAdd.push_back(newArc);
         }
     }
 }

@@ -818,7 +818,7 @@ public:
     /**
      * @brief Creates support nodes for ClockDomains
      */
-    void createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext);
+    void createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext, bool includeOutputBridgingNodes);
 
     /**
      * @brief Find ClockDomains in design

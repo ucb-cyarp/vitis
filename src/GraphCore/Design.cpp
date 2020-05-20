@@ -542,7 +542,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         //This is done before other operations since these operations replace the objects because the class is changed to a subclass
 
         //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
-        createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
+        createClockDomainSupportNodes(clockDomains, false, true); //Have not done context discovery & marking yet so do not request context inclusion
         assignNodeIDs();
         assignArcIDs();
 
@@ -3329,7 +3329,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //    }
 
     //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
-    createClockDomainSupportNodes(clockDomains, false); //Have not done context discovery & marking yet so do not request context inclusion
+    createClockDomainSupportNodes(clockDomains, false, false); //Have not done context discovery & marking yet so do not request context inclusion
     assignNodeIDs();
     assignArcIDs();
 
@@ -4037,11 +4037,11 @@ std::vector<std::shared_ptr<ClockDomain>> Design::specializeClockDomains(std::ve
     return specializedDomains;
 }
 
-void Design::createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext) {
+void Design::createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext, bool includeOutputBridgingNodes) {
     for(unsigned long i = 0; i<clockDomains.size(); i++){
         std::vector<std::shared_ptr<Node>> nodesToAdd, nodesToRemove;
         std::vector<std::shared_ptr<Arc>> arcsToAdd, arcsToRemove;
-        clockDomains[i]->createSupportNodes(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, includeContext);
+        clockDomains[i]->createSupportNodes(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, includeContext, includeOutputBridgingNodes);
         addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
     }
 }

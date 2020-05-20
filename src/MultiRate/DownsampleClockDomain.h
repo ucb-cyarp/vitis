@@ -80,7 +80,7 @@ public:
                             std::vector<std::shared_ptr<Node>> &nodesToRemove,
                             std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                             std::vector<std::shared_ptr<Arc>> &arcToRemove,
-                            bool includeContext) override;
+                            bool includeContext, bool includeOutputBridgeNodes) override;
 
     //==== Implement Context Root Functions ====
     int getNumSubContexts() const override;

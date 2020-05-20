@@ -208,20 +208,21 @@ public:
      * This is similar to expansion except that clockdomain cannot use the standard expansion mechanism because
      * it would force the creation of an ExpandedSubsystem with the clock domain in essence removed from the design.
      *
-     * As part of this function, I/O outputs from the clock domain have bridging nodes created for them.  These bridging
-     * nodes provide a mechanism to get the output out of the clock domain scope
+     * Bridging nodes are not required for multirate designs because the FIFO node serves that purpose
+     * These nodes are required for single threaded
      *
      * @param nodesToAdd
      * @param nodesToRemove
      * @param arcsToAdd
      * @param arcToRemove
      * @param includeContext if true, contexts are set for the added nodes.  This should be set to true if contexts have already been discovered and marked.  It should be set to false if contexts have not been discovered/marked yet
+     * @param includeOutputBridgeNodes if true, bridging nodes are inserted for outputs.  This is necessary for singleThreaded emits that do not use FIFOs
      */
     virtual void createSupportNodes(std::vector<std::shared_ptr<Node>> &nodesToAdd,
                             std::vector<std::shared_ptr<Node>> &nodesToRemove,
                             std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                             std::vector<std::shared_ptr<Arc>> &arcToRemove,
-                            bool includeContext);
+                            bool includeContext, bool includeOutputBridgeNodes);
 
 };
 
