@@ -142,3 +142,20 @@ std::shared_ptr<ClockDomain> MasterNode::getPortClkDomain(std::shared_ptr<InputP
 void MasterNode::resetIoClockDomains() {
     ioClockDomains.clear();
 }
+
+std::set<std::shared_ptr<ClockDomain>> MasterNode::getClockDomains() {
+    std::set<std::shared_ptr<ClockDomain>> clockDomains;
+
+    if(ioClockDomains.size() < inputPorts.size() + outputPorts.size()){
+        //There is a port without an entry in the map.  This means the port is at the base rate
+        //add this to the set
+        clockDomains.insert(nullptr);
+    }
+
+    for(auto ioClkDomainPair = ioClockDomains.begin(); ioClkDomainPair != ioClockDomains.end(); ioClkDomainPair++){
+        std::shared_ptr<ClockDomain> ioClkDomain = ioClkDomainPair->second;
+        clockDomains.insert(ioClkDomain);
+    }
+
+    return clockDomains;
+}

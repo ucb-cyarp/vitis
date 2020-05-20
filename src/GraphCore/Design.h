@@ -304,9 +304,9 @@ public:
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
-     * @return a vector of input variables ordered by the input port number
+     * @return a vector of input variables ordered by the input port number along with the rate of the input
      */
-    std::vector<Variable> getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables();
 
     /**
      * @brief Get the output variables for this design
@@ -315,9 +315,9 @@ public:
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
-     * @return a vector of input variables ordered by the input port number
+     * @return a vector of input variables ordered by the input port number along with the rate of the input
      */
-    std::vector<Variable> getCOutputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables();
 
     /**
      * @brief Get the argument portion of the C function prototype for this design.
@@ -344,25 +344,6 @@ public:
      * @return argument portion of the C function prototype for this design
      */
     std::string getCFunctionArgPrototype(bool forceArray);
-
-    /**
-     * @brief Get the structure definition for the Input ports
-     *
-     * The struture definition takes the form of
-     *
-     * typedef struct Input{
-     *     type1 var1;
-     *     type2 var2;
-     *     ...
-     * }
-     *
-     * This is used by the driver generator.
-     *
-     * @param blockSize the block size (in samples).  The width is multiplied by this number
-     *
-     * @return
-     */
-    std::string getCInputStructDefn(int blockSize = 1);
 
     /**
      * @brief Get the structure definition for the output type
@@ -848,6 +829,12 @@ public:
      * @brief Resets the clock domain links in the design master nodes
      */
     void resetMasterNodeClockDomainLinks();
+
+    /**
+     * @brief Finds the clock domain rates for each partition in the design
+     * @return
+     */
+    std::map<int, std::set<std::pair<int, int>>> findPartitionClockDomainRates();
 
 };
 

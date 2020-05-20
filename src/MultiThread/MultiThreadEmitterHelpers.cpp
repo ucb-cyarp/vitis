@@ -244,6 +244,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
         std::string structType = fifos[i]->getFIFOStructTypeName();
         exprs.push_back(structType + " " + tmpName + ";");
 
+        //Gets block size from FIFO directly so no changes are required to support multiple clock domains
         int blockSize = fifos[i]->getBlockSize();
 
         for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
@@ -651,7 +652,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
+void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
     //#### Emit Driver File ####
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
@@ -721,7 +722,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -871,22 +872,44 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     std::string blockIndVar = "";
 
+    //The base block size should be validated before this point to ensure that it is acceptible in light of the clock domains present
+    //If no downsample domains are present, a base block size of 1 is valid
+    //However, for upsample domains, the index variable will still be emitted and set to 0.  However, it will not be incremented
+    //because, with a base blockSize of 1, the upsample domains will produce/consume their entire block in 1 iteration
+
     if(blockSize > 1) {
-        blockIndVar = "blkInd";
+        blockIndVar = getClkDomainIndVarName(std::pair<int, int>(1, 1), false);
     }
 
-    //TODO: Discover clock rates of all input and output FIFOs
+    //Discover clock rates of all input and output FIFOs
     //Create a counter for each one, base rate is redundant
     //Set the FIFO index variable to the approprate index variable for its rate.
 
+    std::set<std::pair<int, int>> fifoClockDomainRates;
+
     //Set the index variable in the input FIFOs
     for(int i = 0; i<inputFIFOs.size(); i++){
-        inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVar);
+        //Create the index variable name based on the base
+        std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomain();
+        std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+        inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVarStr);
+        if(clkDomain){
+            fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+        }else {
+            fifoClockDomainRates.emplace(1, 1);
+        }
     }
 
     //Also need to set the index variable of the output FIFOs
     for(int i = 0; i<outputFIFOs.size(); i++){
-        outputFIFOs[i]->setCBlockIndexVarOutputName(blockIndVar);
+        std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomain();
+        std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+        outputFIFOs[i]->setCBlockIndexVarOutputName(blockIndVarStr);
+        if(clkDomain){
+            fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+        }else {
+            fifoClockDomainRates.emplace(1, 1);
+        }
     }
 
     //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
@@ -894,7 +917,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
 
-    //TODO: Looks like Block Size is only passed to see if it is > 1, simplify
     std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize);
     std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
     std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
@@ -1069,6 +1091,27 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << computeFctnProto << "{" << std::endl;
 
+    //Create and init clock domain indexes
+    for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
+        std::pair<int, int> clkDomainRate = *clkDomainRateIt;
+        if(clkDomainRate != std::pair<int, int>(1, 1)) {
+            DataType varDt = DataType(false, false, false, (int) std::ceil(
+                    std::log2(blockSize * clkDomainRate.first / clkDomainRate.second) + 1), 0, 1);
+            std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
+            cFile << varDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " " << indVarStr
+                  << " = 0;" << std::endl;
+            //Only emit the counter var if the denominator is not 1, otherwise, the index unconditionally increments
+            if (clkDomainRate.second != 1) {
+                DataType varCounterDt = DataType(false, false, false,
+                                                 (int) std::ceil(std::log2(blockSize * clkDomainRate.second) + 1), 0,
+                                                 1);
+                std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
+                cFile << varCounterDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " "
+                      << indVarCounterStr << " = 0;" << std::endl;
+            }
+        }
+    }
+
     //emit inner loop
     DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
     if(blockSize > 1) {
@@ -1084,7 +1127,27 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     if(blockSize > 1) {
-        //TODO: Increment the other variables or wrap them around.  Ternary operator is good for this
+        //Increment the counter variables or wrap them around.  Increment the index variables on wraparound
+        for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
+            std::pair<int, int> clkDomainRate = *clkDomainRateIt;
+            if(clkDomainRate != std::pair<int, int>(1, 1)) {
+                std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
+                if (clkDomainRate.second == 1) {
+                    //Just increment the index
+                    cFile << indVarStr << " += " << clkDomainRate.first << std::endl;
+                } else {
+                    //Increment the counter and conditionaly wrap and increment the index
+                    std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
+                    cFile << "if(" << indVarCounterStr << " < " << (clkDomainRate.second-1) << "){" << std::endl;
+                    cFile << indVarCounterStr << "++;" << std::endl;
+                    cFile << "}else{" << std::endl;
+                    cFile << indVarCounterStr << " = 0;" << std::endl;
+                    cFile << indVarStr << " += " << clkDomainRate.first << ";" << std::endl;
+                    cFile << "}" << std::endl;
+                }
+            }
+        }
+
         cFile << "}" << std::endl;
     }
 
@@ -1949,4 +2012,28 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
              "#endif" << std::endl;
 
     cFile.close();
+}
+
+std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter) {
+    std::string indVarName = BLOCK_IND_VAR_PREFIX;
+
+    if(clkDomainRate != std::pair<int, int>(1, 1)){
+        indVarName += "_N" + GeneralHelper::to_string(clkDomainRate.first) + "_D" + GeneralHelper::to_string(clkDomainRate.second);
+    }
+
+    if(counter){
+        indVarName += "_C";
+    }
+
+    return indVarName;
+}
+
+std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter) {
+    std::pair<int, int> rate = std::pair<int, int>(1, 1);
+
+    if(clkDomain){
+        rate = clkDomain->getRateRelativeToBase();
+    }
+
+    return getClkDomainIndVarName(rate, counter);
 }

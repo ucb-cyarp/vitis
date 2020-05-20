@@ -527,3 +527,11 @@ std::string ThreadCrossingFIFO::createFIFOStruct(){
     structStr += "} " + typeName + ";";
     return structStr;
 }
+
+std::shared_ptr<ClockDomain> ThreadCrossingFIFO::getClockDomain() const {
+    return clockDomain;
+}
+
+void ThreadCrossingFIFO::setClockDomain(const std::shared_ptr<ClockDomain> &clockDomain) {
+    ThreadCrossingFIFO::clockDomain = clockDomain;
+}

@@ -4,9 +4,11 @@
 
 #include "MultiRateHelpers.h"
 #include "General/GeneralHelper.h"
+#include "General/EmitterHelpers.h"
 #include "General/ErrorHelpers.h"
 #include "ClockDomain.h"
 #include "GraphCore/Node.h"
+#include "GraphCore/ContextFamilyContainer.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
@@ -28,7 +30,36 @@ std::shared_ptr<ClockDomain> MultiRateHelpers::findClockDomain(std::shared_ptr<N
         if(GeneralHelper::isType<Node, ClockDomain>(parent)){
             clkDomain = std::static_pointer_cast<ClockDomain>(parent);
             cursor = nullptr;
-        }else{
+        }else if(GeneralHelper::isType<Node, ContextFamilyContainer>(parent)){
+            std::shared_ptr<ContextFamilyContainer> parentAsContextFamilyContainer = std::dynamic_pointer_cast<ContextFamilyContainer>(parent);
+            //Encapsulation has already occured, check if the context driver of this ContextFamilyContainer
+            //is a ClockDomain
+
+            //Also, since a ClockDomain is placed inside of the ContextFamilyContainer, check that the context driver
+            //is not this node
+
+            std::shared_ptr<ContextRoot> parentContextRoot = parentAsContextFamilyContainer->getContextRoot();
+
+            std::shared_ptr<ContextRoot> cursorAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(cursor);
+            if(cursorAsContextRoot != nullptr && cursorAsContextRoot == parentContextRoot){
+                //The parent is the context Family container for the cursor
+                //Continue going up
+                cursor = parent;
+            }else{
+                //Check if the parent ContextRoot is a clock domain
+                std::shared_ptr<ClockDomain> parentContextRootAsClkDomain = GeneralHelper::isType<ContextRoot, ClockDomain>(parentContextRoot);
+
+                if(parentContextRootAsClkDomain){
+                    //The ParentContextFamilyContainer is for a clock domain
+                    clkDomain = parentContextRootAsClkDomain;
+                    cursor = nullptr;
+                }else{
+                    //The ContextFamilyContainer is for something else, keep going up
+                    cursor = parent;
+                }
+            }
+        }
+        else{
             cursor = parent;
         }
     }
@@ -355,7 +386,8 @@ void MultiRateHelpers::setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<
     for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++){
         std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
 
-        std::shared_ptr<ClockDomain> fifoClockDomain = findClockDomain(threadCrossingFIFO);
+        //Note that clock domains need to be discovered before this is valid
+        std::shared_ptr<ClockDomain> fifoClockDomain = threadCrossingFIFO->getClockDomain();
 
         std::pair<int, int> rateRelativeToBase;
 
@@ -381,5 +413,107 @@ void MultiRateHelpers::setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<
 void MultiRateHelpers::rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign) {
     for(unsigned long i = 0; i<clockDomainsInDesign.size(); i++){
         clockDomainsInDesign[i]->discoverClockDomainParameters();
+    }
+}
+
+void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs) {
+    //Primairly exists because FIFOs are placed in the context of the source.  FIFOs that are connected to the MasterInput
+    //node should have the clock domain of the particular input port.
+
+    //FIFOs connected to the MasterOutput nodes is less problematic as it will be in the context of the source (except
+    //if it is connected to an EnableOutput or RateChangeOutput in which case it is in one context above).  It will be
+    //the rate will be checked against the rate of the output ports
+
+
+    for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++) {
+        std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
+
+        //Check if the FIFOs are connected to IO masters
+        std::set<std::shared_ptr<Arc>> inputMasterConnections = EmitterHelpers::getConnectionsToMasterInputNode(
+                threadCrossingFIFO, true);
+        std::set<std::shared_ptr<Arc>> outputMasterConnections = EmitterHelpers::getConnectionsToMasterOutputNodes(
+                threadCrossingFIFO, true);
+
+        //Set clock domain based on input port if connected to input master
+        if(inputMasterConnections.size() > 1){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("InputFIFO has more than 1 input arc when setting the clock domain", threadCrossingFIFO));
+        }
+
+        //Set the clock domain
+        if(inputMasterConnections.size() == 1){
+            std::shared_ptr<OutputPort> srcPort = (*inputMasterConnections.begin())->getSrcPort();
+            std::shared_ptr<MasterInput> masterInput = GeneralHelper::isType<Node, MasterInput>(srcPort->getParent());
+
+            //TODO: Remove Check
+            if(masterInput == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when setting ClockDomain based on Input", threadCrossingFIFO));
+            }
+
+            //TODO: Remove Check
+            //Check that the discovered clock domain is null
+            std::shared_ptr<ClockDomain> foundClockDomain = findClockDomain(threadCrossingFIFO);
+            if(foundClockDomain){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When setting clock domain based on connection to input master, the FIFO was found another clock domain", threadCrossingFIFO));
+            }
+
+            //Set based on input port
+            std::shared_ptr<ClockDomain> clkDomain = masterInput->getPortClkDomain(srcPort);
+            threadCrossingFIFO->setClockDomain(clkDomain);
+        }else{
+            //Set the clock domain based on context
+            std::shared_ptr<ClockDomain> clkDomain = findClockDomain(threadCrossingFIFO);
+            threadCrossingFIFO->setClockDomain(clkDomain);
+        }
+
+        std::pair<int, int> clockDomainRate = std::pair<int, int>(1, 1);
+
+        if(!outputMasterConnections.empty()){
+            std::shared_ptr<ClockDomain> clockDomain = threadCrossingFIFO->getClockDomain();
+            if(clockDomain) {
+                clockDomainRate = clockDomain->getRateRelativeToBase();
+            }else{
+                clockDomainRate = std::pair<int, int>(1, 1);
+            }
+        }
+
+        //TODO: Remove check
+        //Check the clock domain
+        for(auto arc = outputMasterConnections.begin(); arc != outputMasterConnections.end(); arc++){
+            std::shared_ptr<InputPort> dstPort = (*arc)->getDstPort();
+            std::shared_ptr<MasterOutput> masterOutput = GeneralHelper::isType<Node, MasterOutput>(dstPort->getParent());
+
+            //TODO: Remove check
+            if(masterOutput == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Error when checking ClockDomain of FIFO against OutputMaster port", threadCrossingFIFO));
+            }
+
+            std::shared_ptr<ClockDomain> clockDomainOutput = masterOutput->getPortClkDomain(dstPort);
+            std::pair<int, int> clockDomainOutputRate = std::pair<int, int>(1, 1);
+            if(clockDomainOutput){
+                clockDomainOutputRate = clockDomainOutput->getRateRelativeToBase();
+            }
+
+            if(clockDomainRate != clockDomainOutputRate){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO connected to a MasterOutput where it's discovered clock domain rate is not the same as the MasterOuput port", threadCrossingFIFO));
+            }
+        }
+    }
+}
+
+void MultiRateHelpers::checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize) {
+    for(auto master = masterNodes.begin(); master != masterNodes.end(); master++){
+        std::shared_ptr<MasterNode> masterNode = *master;
+
+        std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> clockDomainMap = masterNode->getIoClockDomains();
+
+        for(auto clkDomainPair = clockDomainMap.begin(); clkDomainPair != clockDomainMap.end(); clkDomainPair++){
+            std::shared_ptr<ClockDomain> clkDomain = clkDomainPair->second;
+
+            std::pair<int, int> clkDomainRate = clkDomain->getRateRelativeToBase();
+
+            if((blockSize*clkDomainRate.first)%clkDomainRate.second != 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Found port " + GeneralHelper::to_string(clkDomainPair->first->getPortNum()) + " whose block size is non-integer: " + GeneralHelper::to_string(double(blockSize)*clkDomainRate.first/clkDomainRate.second), masterNode));
+            }
+        }
     }
 }

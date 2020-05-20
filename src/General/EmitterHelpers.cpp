@@ -419,14 +419,16 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
     }
 }
 
-std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
+std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
     unsigned long numPorts = inputMaster->getOutputPorts().size();
 
     std::vector<Variable> inputVars;
+    std::vector<std::pair<int, int>> inputRates;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
+        std::shared_ptr<ClockDomain> inputClkDomain = inputMaster->getPortClkDomain(input);
 
         //TODO: This is a sanity check for the above todo
         if(input->getPortNum() != i){
@@ -437,19 +439,26 @@ std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterI
 
         Variable var = Variable(inputMaster->getCInputName(i), portDataType);
         inputVars.push_back(var);
+        if(inputClkDomain){
+            inputRates.push_back(inputClkDomain->getRateRelativeToBase());
+        }else{
+            inputRates.emplace_back(1, 1);
+        }
     }
 
-    return inputVars;
+    return std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>>(inputVars, inputRates);
 }
 
-std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
+std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
     std::vector<Variable> outputVars;
+    std::vector<std::pair<int, int>> outputRates;
 
     unsigned long numPorts = outputMaster->getInputPorts().size();
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
+        std::shared_ptr<ClockDomain> outputClkDomain = outputMaster->getPortClkDomain(output);
 
         //TODO: This is a sanity check for the above todo
         if(output->getPortNum() != i){
@@ -460,12 +469,17 @@ std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<Master
 
         Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
         outputVars.push_back(var);
+        if(outputClkDomain){
+            outputRates.push_back(outputClkDomain->getRateRelativeToBase());
+        }else{
+            outputRates.emplace_back(1, 1);
+        }
     }
 
-    return outputVars;
+    return std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>>(outputVars, outputRates);
 }
 
-std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName, int blockSize) {
+std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::vector<int> portBlockSizes, std::string structTypeName) {
     //TODO: Change this function to use the MasterIO Port ClockDomain
     //Trace where this function is called from (IO Port)
     std::string prototype = "#pragma pack(push, 4)\n";
@@ -475,7 +489,7 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
         Variable var = portVars[i];
 
         DataType varType = var.getDataType();
-        varType.setWidth(varType.getWidth()*blockSize);
+        varType.setWidth(varType.getWidth()*portBlockSizes[i]);
         var.setDataType(varType);
 
         prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
@@ -636,4 +650,49 @@ void EmitterHelpers::transferArcs(std::shared_ptr<Node> from, std::shared_ptr<No
     if(inCount != fromInDeg || outCount != fromOutDeg){
         throw std::runtime_error(ErrorHelpers::genErrorStr("When moving arcs, the number of arcs moved did not match the in+out degree.  This could be because of a special port", from));
     }
+}
+
+std::set<std::shared_ptr<Arc>> EmitterHelpers::getConnectionsToMasterInputNode(std::shared_ptr<Node> node, bool directOnly) {
+    std::set<std::shared_ptr<Arc>> masterArcs;
+
+    std::set<std::shared_ptr<Arc>> inputArcs = directOnly ? node->getDirectInputArcs() : node->getInputArcs();
+
+    for(auto arc = inputArcs.begin(); arc != inputArcs.end(); arc++){
+        std::shared_ptr<OutputPort> srcPort = (*arc)->getSrcPort();
+        std::shared_ptr<Node> src = srcPort->getParent();
+        std::shared_ptr<MasterInput> srcAsMasterInput = GeneralHelper::isType<Node, MasterInput>(src);
+        if(srcAsMasterInput){
+            masterArcs.insert(*arc);
+        }
+    }
+
+    return masterArcs;
+}
+
+std::set<std::shared_ptr<Arc>>
+EmitterHelpers::getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bool directOnly) {
+    std::set<std::shared_ptr<Arc>> masterArcs;
+
+    std::set<std::shared_ptr<Arc>> outputArcs = directOnly ? node->getDirectOutputArcs() : node->getOutputArcs();
+
+    for(auto arc = outputArcs.begin(); arc != outputArcs.end(); arc++){
+        std::shared_ptr<InputPort> dstPort = (*arc)->getDstPort();
+        std::shared_ptr<Node> src = dstPort->getParent();
+        std::shared_ptr<MasterOutput> dstAsMasterOutput = GeneralHelper::isType<Node, MasterOutput>(src);
+        if(dstAsMasterOutput){
+            masterArcs.insert(*arc);
+        }
+    }
+
+    return masterArcs;
+}
+
+std::vector<int>
+EmitterHelpers::getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase) {
+    std::vector<int> blockSizes;
+    for(unsigned long i = 0; i<rates.size(); i++){
+        blockSizes.push_back(blockSizeBase*rates[i].first/rates[i].second);
+    }
+
+    return blockSizes;
 }

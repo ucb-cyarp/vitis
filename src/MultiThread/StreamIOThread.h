@@ -24,10 +24,6 @@ public:
         POSIX_SHARED_MEM ///< POSIX Shared Memory
     };
 
-    static std::string getInputStructDefn(std::shared_ptr<MasterInput> inputMaster, std::string structTypeName, int blockSize);
-
-    static std::string getOutputStructDefn(std::shared_ptr<MasterOutput> outputMaster, std::string structTypeName, int blockSize);
-
     /**
      * @brief Gets a mapping of input port numbers to FIFOs (and FIFO ports).  Each input may be used by more than 1 FIFO, thus why the map returns an array.
      * @param inputFIFOs
@@ -65,8 +61,9 @@ public:
     static void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
 
     static void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
-                                std::map<int, std::vector<Variable>> &masterInputBundles,
-                                std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles);
+                                std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
+                                std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterInputBundles,
+                                std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterOutputBundles, std::set<int> &bundles);
 
     /**
      * @brief Emits the helper files for working with shared memory fifos which use the POSIX API

@@ -441,18 +441,19 @@ std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePat
     return cursor;
 }
 
-std::vector<Variable> Design::getCInputVariables() {
+std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> Design::getCInputVariables() {
     return EmitterHelpers::getCInputVariables(inputMaster);
 }
 
-std::vector<Variable> Design::getCOutputVariables() {
+std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> Design::getCOutputVariables() {
     return EmitterHelpers::getCOutputVariables(outputMaster);
 }
 
 std::string Design::getCFunctionArgPrototype(bool forceArray) {
     std::string prototype = "";
 
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarsWithRates = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarsWithRates.first;
     unsigned long numInputVars = inputVars.size();
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
@@ -502,15 +503,10 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
     return prototype;
 }
 
-std::string Design::getCInputStructDefn(int blockSize){
-    std::vector<Variable> inputVars = getCInputVariables();
-    return EmitterHelpers::getCIOPortStructDefn(inputVars, "InputType", blockSize);
-
-}
-
 std::string Design::getCOutputStructDefn(int blockSize) {
-    std::vector<Variable> outputVars = getCOutputVariables();
-    return EmitterHelpers::getCIOPortStructDefn(outputVars, "OutputType", blockSize);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> outputVarsPairdWithRates = getCOutputVariables();
+    std::vector<int> blockSizes = EmitterHelpers::getBlockSizesFromRates(outputVarsPairdWithRates.second, blockSize);
+    return EmitterHelpers::getCIOPortStructDefn(outputVarsPairdWithRates.first, blockSizes, "OutputType");
 }
 
 void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, unsigned long blockSize, bool emitGraphMLSched, bool printNodeSched){
@@ -592,6 +588,10 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
 
         scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched, false); //Pruned before inserting state update nodes
         verifyTopologicalOrder(true, schedType);
+
+        //TODO: ValidateIO Block
+
+        //TODO: Create variables for clock domains
 
         if(emitGraphMLSched) {
             //Export GraphML (for debugging)
@@ -970,6 +970,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     //emit inner loop
     DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
     if(blockSize > 1) {
+        //TODO: Creatr other variables for clock domains
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
     }
 
@@ -1000,6 +1001,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     }
 
     if(blockSize > 1) {
+        //TODO: Increment other variables here
         cFile << "}" << std::endl;
     }
 
@@ -1081,7 +1083,8 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
                    "\tunsigned long outputCount;\n";
 
     //Generate loop
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePairs = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarRatePairs.first;
     unsigned long numInputVars = inputVars.size();
 
     std::vector<NumericValue> defaultArgs;
@@ -1098,6 +1101,7 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
 
     std::string fctnCall = designName + "(";
 
+    //TODO: Update for clock domains
     if(blockSize >1) {
         //For a block size greater than 1, constant arrays need to be created
         for (unsigned long i = 0; i < numInputVars; i++) {
@@ -1376,7 +1380,8 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     benchKernelMem << "\t" << designName << "_reset();\n";
 
     //Cast the input and output arrays to the correct type
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePairs = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarRatePairs.first;
     unsigned long numInputVars = inputVars.size();
     int inCur = 0; //This is used to track the current index in the input array since it may not allign with i (due to mixed real and imag inputs)
     for(unsigned long i = 0; i<numInputVars; i++){
@@ -1391,6 +1396,8 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
 
     //Cast output array
     benchKernelMem << "\tOutputType* outArr = (OutputType*) out[0];" << std::endl;
+
+    //TODO: Update for clock domains
 
     //Generate loop
     benchKernelMem << "\tunsigned long outputCount;\n";
@@ -1912,6 +1919,16 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
             std::shared_ptr<ContextRoot> origDummyOf = origNodeAsDummyReplica->getDummyOf();
             std::shared_ptr<Node> copyDummyOf = origToCopyNode[std::dynamic_pointer_cast<Node>(origDummyOf)];
             copyNodeAsDummyReplica->setDummyOf(std::dynamic_pointer_cast<ContextRoot>(copyDummyOf));
+        }
+
+        if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodeCopies[i]) != nullptr){
+            std::shared_ptr<ThreadCrossingFIFO> copyNodeAsThreadCrossingFIFO = std::static_pointer_cast<ThreadCrossingFIFO>(nodeCopies[i]);
+            std::shared_ptr<ThreadCrossingFIFO> origNodeAsThreadCrossingFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(copyToOrigNode[copyNodeAsThreadCrossingFIFO]);
+            std::shared_ptr<ClockDomain> origClockDomain = origNodeAsThreadCrossingFIFO->getClockDomain();
+            if(origClockDomain) {
+                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomain]);
+                copyNodeAsThreadCrossingFIFO->setClockDomain(cloneClockDomain);
+            }
         }
     }
 
@@ -3423,6 +3440,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
         switch (fifoType) {
             case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
+                //Note that FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChangeOutput in which case they are placed one level up).
                 fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
                 break;
             default:
@@ -3453,11 +3471,15 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Set FIFO length and block size here (do before delay ingest)
     for(int i = 0; i<fifoVec.size(); i++){
         fifoVec[i]->setFifoLength(fifoLength);
-        fifoVec[i]->setBlockSize(blockSize); //TODO: Remove this when setAndValidateFifoBlockSizes implemented below
+//        fifoVec[i]->setBlockSize(blockSize); //TODO: Remove this when setAndValidateFifoBlockSizes implemented below
     }
-    //TODO: FIFOs are inserted between IO Master nodes and the logic in the other partitions
-    //These FIFOs should have their rate set based on the MasterNode Port
-//    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
+
+    //Since FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChange output),
+    //FIFOs connected to the input master should have their rate set based on the port rate of the input master.
+    //FIFOs connected to the output master should have their rate properly set based on the ClockDomain they are in, especially
+    //since any FIFO connected to a RateChange output will be placed in the next context up.
+    MultiRateHelpers::setFIFOClockDomains(fifoVec);
+    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
 
     //TODO: Retime Here
 
@@ -3590,6 +3612,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         }
     }
 
+    //Get the ClockDomainRates in each partition (to report)
+//    std::map<int, std::set<std::pair<int, int>>> partitionClockDomainRates = findPartitionClockDomainRates();
+
     std::cout << "Partition Node Count Report:" << std::endl;
     ComputationEstimator::printComputeInstanceTable(counts, names);
     std::cout << std::endl;
@@ -3613,7 +3638,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
             //Note that all I/O into and out of the partitions threads is via thread crossing FIFOs from the IO_PARTITION thread
-            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint, printTelem, telemDumpPrefix, false);
+            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
+                                                            inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
+                                                            path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
+                                                            threadDebugPrint, printTelem, telemDumpPrefix, false);
         }
     }
 
@@ -3663,7 +3691,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
 
     //TODO: Modify Drivers to look at MasterIO
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePair = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarRatePair.first;
 
     //++++Emit Const I/O Driver++++
     ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
@@ -3673,10 +3702,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, constIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix, false, otherCFiles);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles);
 
     //++++Emit Linux Pipe I/O Driver++++
     StreamIOThread::emitFileStreamHelpers(path, fileName);
@@ -3693,13 +3722,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, pipeIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, pipeIOSuffix, inputVars);
 
     //Emit the client handlers
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix, false, otherCFilesFileStream);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream);
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
@@ -3712,10 +3741,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, socketIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix, false, otherCFilesFileStream);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream);
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
@@ -3729,12 +3758,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, sharedMemoryFIFOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);
 
     //Emit the benchmark makefile
     std::vector<std::string> otherCFilesSharedMem = otherCFiles;
     otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.
@@ -4023,4 +4052,51 @@ void Design::resetMasterNodeClockDomainLinks() {
     visMaster->resetIoClockDomains();
     unconnectedMaster->resetIoClockDomains();
     terminatorMaster->resetIoClockDomains();
+}
+
+std::map<int, std::set<std::pair<int, int>>> Design::findPartitionClockDomainRates() {
+    std::map<int, std::set<std::pair<int, int>>> clockDomains;
+
+    //Find clock domains in IO
+    //Only looking at Input, Output, and Visualization.  Unconnected and Terminated are unnessasary
+    std::set<std::pair<int, int>> ioRates;
+    std::vector<std::shared_ptr<MasterNode>> mastersToInclude = {inputMaster, outputMaster, visMaster};
+    for(int i = 0; i<mastersToInclude.size(); i++) {
+        std::shared_ptr<MasterNode> master = mastersToInclude[i];
+        std::set<std::shared_ptr<ClockDomain>> inputClockDomains = master->getClockDomains();
+        for (auto clkDomain = inputClockDomains.begin(); clkDomain != inputClockDomains.end(); clkDomain++) {
+            if (*clkDomain == nullptr) {
+                ioRates.emplace(1, 1);
+            } else {
+                ioRates.insert((*clkDomain)->getRateRelativeToBase());
+            }
+        }
+    }
+    clockDomains[IO_PARTITION_NUM] = ioRates;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        int partition = nodes[i]->getPartitionNum();
+
+        //Do not include clock domains themselves in this
+        if(GeneralHelper::isType<Node, ClockDomain>(nodes[i]) == nullptr) {
+            std::shared_ptr<ClockDomain> clkDomain;
+
+            //Note that FIFOs report their clock domain differently in order to handle the case when they are connected directly to the InputMaster
+            if (GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i])) {
+                std::shared_ptr<ThreadCrossingFIFO> fifo = std::dynamic_pointer_cast<ThreadCrossingFIFO>(nodes[i]);
+                clkDomain = fifo->getClockDomain();
+            } else {
+                clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
+            }
+
+            if (clkDomain == nullptr) {
+                clockDomains[partition].emplace(1, 1);
+            } else {
+                std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                clockDomains[partition].insert(rate);
+            }
+        }
+    }
+
+    return clockDomains;
 }

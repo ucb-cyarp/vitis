@@ -173,8 +173,28 @@ public:
      */
     static void validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 
-    static void validateIOBlockSizes();
+    static void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
 
+    /**
+     * @brief Checks the IO block sizes are integers (after accounting for clock domains)
+     *
+     * @note: This is redundant for MultithreadedEmit because IO is communicated to the compute threads via FIFOs and this check is also performed there
+     *
+     * @param masterNodes
+     * @param blockSize
+     */
+    static void checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize);
+
+    /**
+     * @brief Sets the block sizes of FIFOs and validates that they are integer length
+     *
+     * Note that since the IO thread communicates with the compute threads via FIFOs, this sets
+     *
+     *
+     * @param threadCrossingFIFOs
+     * @param blockSize
+     * @param setFIFOBlockSize
+     */
     static void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
 
     static void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);

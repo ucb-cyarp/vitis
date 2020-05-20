@@ -22,6 +22,7 @@ class Node;
 class Arc;
 class ThreadCrossingFIFO;
 class MasterOutput;
+class ClockDomain;
 
 /**
  * \addtogroup MultiThread Multi-Thread Support
@@ -29,6 +30,7 @@ class MasterOutput;
  */
 
 #define IO_PARTITION_NUM -2
+#define BLOCK_IND_VAR_PREFIX "blkInd"
 
 /**
  * @brief Contains helper methods for Multi-Threaded Emitters
@@ -138,7 +140,7 @@ public:
      * @param ioBenchmarkSuffix
      * @param inputVars
      */
-    static void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
+    static void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
 
     /**
      * @brief Emits a makefile for benchmarking multithreaded emits
@@ -147,11 +149,10 @@ public:
      * @param path
      * @param fileNamePrefix
      * @param designName
-     * @param blockSize
      * @param ioBenchmarkSuffix
      * @param includeLrt if true, includes -lrt to the linker options
      */
-    static void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc);
+    static void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)
@@ -170,7 +171,7 @@ public:
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
      * @param outputMaster a pointer to the output master of the design being emitted
-     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
+     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function.  This is the size for the base rate.
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
      * @param printTelem if true, prints telemetry on the thread's execution
@@ -234,6 +235,21 @@ public:
     static void writePlatformParameters(std::string path, std::string filename, int memAlignment);
 
     static void writeNUMAAllocHelperFiles(std::string path, std::string filename);
+
+    /**
+     * @brief Get the index variable name for a particular clock domain rate relative to the base rate
+     * @param clkDomainRate
+     * @param counter if true, this is the counter variable used for tracking when to increment the associated index.  If false, it is the index
+     * @return
+     */
+    static std::string getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter);
+
+    /**
+     * @brief Get the index variable name for a particular clock domain
+     * @param clkDomainRate
+     * @return
+     */
+    static std::string getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter);
 
 };
 

@@ -6,6 +6,7 @@
 #define VITIS_EMITTERHELPERS_H
 
 #include <vector>
+#include <set>
 #include <memory>
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
@@ -59,9 +60,9 @@ public:
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
-     * @return a vector of input variables ordered by the input port number.  The ith element of the array is the ith input port.
+     * @return a vector of input variables ordered by the input port number paired with their rate relative to the baseRate.  The ith element of the array is the ith input port.
      */
-    static std::vector<Variable> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
+    static std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
 
     /**
      * @brief Get the output variables for this design
@@ -70,9 +71,9 @@ public:
      *
      * @warning Assumes the design has already been validated (ie. has at exactly one arc per port).
      *
-     * @return a vector of output variables ordered by the output port number.  The ith element of the array is the ith output port.
+     * @return a vector of output variables ordered by the output port number paired with their rate relative to the baseRate.  The ith element of the array is the ith output port.
      */
-    static std::vector<Variable> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+    static std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
 
     /**
      * @brief Get the structure definition for the Input/Output ports
@@ -88,12 +89,12 @@ public:
      * This is used by the driver generator.
      *
      * @param portVariables the port variables for the design (either input or output) (in accending port order)
-     * @param blockSize the block size (in samples).  The width is multiplied by this number
+     * @param portBlockSizes the block size (in samples) each port.  The width is multiplied by this number
      * @param the type name of the struct being created
      *
      * @return
      */
-    static std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::string structTypeName, int blockSize = 1);
+    static std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::vector<int> portBlockSizes, std::string structTypeName);
 
     /**
      * @brief Outputs the type header
@@ -134,6 +135,30 @@ public:
      * @param to the node to transfer arcs to
      */
     static void transferArcs(std::shared_ptr<Node> from, std::shared_ptr<Node> to);
+
+    /**
+     * @brief Finds any arcs connecting the given node to the MasterInput Node
+     * @param node
+     * @param directOnly if true, only the direct input arcs are searched
+     * @return
+     */
+    static std::set<std::shared_ptr<Arc>> getConnectionsToMasterInputNode(std::shared_ptr<Node> node, bool directOnly);
+
+    /**
+     * @brief Finds any arcs connecting the given node to MasterOutput Nodes
+     * @param node
+     * @param directOnly if true, only the direct input arcs are searched
+     * @return
+     */
+    static std::set<std::shared_ptr<Arc>> getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bool directOnly);
+
+    /**
+     * @brief Get block sizes from rates
+     * @param rates
+     * @param blockSizeBase
+     * @return
+     */
+    static std::vector<int> getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase);
 };
 
 /*! @} */
