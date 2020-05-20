@@ -123,20 +123,47 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     sortIntoBundles(masterInputVars, masterOutputVars, masterInputVarBlockSizes, masterOutputVarBlockSizes, masterInputBundles, masterOutputBundles, bundles);
 
     //For each bundle, create a IO Port structure definition
-    //TODO: Change so that the PortStructure uses the relative rate of each of the inputs to adjust block size
+
     for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++){
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-        std::vector<Variable> vars;
-        std::vector<int> blkSizes;
+        std::vector<int> blkSizes = it->second.second;
 
+        std::string bundleBlockSizeName = GeneralHelper::toUpper(designName) + "_INPUT_BUNDLE" + GeneralHelper::to_string(it->first) + "_BLOCKSIZE";
+
+        int blockSize = 0;
+        for(unsigned long i = 0; i<blkSizes.size(); i++){
+            if(i == 0){
+                blockSize = blkSizes[i];
+            }else{
+                if(blockSize != blkSizes[i]){
+                    std::cerr << "WARNING: A port of input bundle " << GeneralHelper::to_string(it->first) << " has a different rate than the other ports. " << bundleBlockSizeName << " may be unreliable as an indication of the block size" << std::endl;
+                }
+            }
+        }
+
+        headerFile << "#define " << bundleBlockSizeName << " (" << blockSize << ")" << std::endl;
         headerFile << EmitterHelpers::getCIOPortStructDefn(it->second.first, it->second.second, inputStructTypeName) << std::endl;
         headerFile << std::endl;
     }
 
     for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++){
         std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-        std::vector<Variable> vars;
-        std::vector<int> blkSizes;
+        std::vector<int> blkSizes = it->second.second;
+
+        std::string bundleBlockSizeName = GeneralHelper::toUpper(designName) + "_OUTPUT_BUNDLE" + GeneralHelper::to_string(it->first) + "_BLOCKSIZE";
+
+        int blockSize = 0;
+        for(unsigned long i = 0; i<blkSizes.size(); i++){
+            if(i == 0){
+                blockSize = blkSizes[i];
+            }else{
+                if(blockSize != blkSizes[i]){
+                    std::cerr << "WARNING: A port of output bundle " << GeneralHelper::to_string(it->first) << " has a different rate than the other ports. " << bundleBlockSizeName << " may be unreliable as an indication of the block size" << std::endl;
+                }
+            }
+        }
+
+        headerFile << "#define " << bundleBlockSizeName << " (" << blockSize << ")" << std::endl;
 
         headerFile << EmitterHelpers::getCIOPortStructDefn(it->second.first, it->second.second, outputStructTypeName) << std::endl;
         headerFile << std::endl;
