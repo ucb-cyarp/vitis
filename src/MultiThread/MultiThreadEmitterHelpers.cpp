@@ -1284,11 +1284,11 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", "
                   << std::endl;
             cFile << "rateMSps, ";
-            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
-            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
-            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
-            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
-            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
+            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/durationSinceStart*100, ";
+            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/durationSinceStart*100, ";
+            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/durationSinceStart*100, ";
+            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/durationSinceStart*100, ";
+            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/durationSinceStart*100, ";
             cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
         }
         if (!telemDumpFilePrefix.empty()) {
@@ -1298,7 +1298,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
                      "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
                      "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
-                     "durationTelemMisc, timeTotal);" << std::endl;
+                     "durationTelemMisc, durationSinceStart);" << std::endl;
 
             //flush the file
             cFile << "fflush(telemDumpFile);" << std::endl;
