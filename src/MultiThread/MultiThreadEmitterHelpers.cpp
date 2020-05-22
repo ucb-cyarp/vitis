@@ -1716,6 +1716,11 @@ void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::
     configFile << "\t\"timestampSecName\": \"TimeStamp_s\"," << std::endl;
     configFile << "\t\"timestampNSecName\": \"TimeStamp_ns\"," << std::endl;
     configFile << "\t\"rateMSPSName\": \"Rate_msps\"," << std::endl;
+    configFile << "\t\"waitingForInputFIFOsMetricName\": \"WaitingForInputFIFOs_s\"," << std::endl;
+    configFile << "\t\"readingInputFIFOsMetricName\": \"ReadingInputFIFOs_s\"," << std::endl;
+    configFile << "\t\"waitingForOutputFIFOsMetricName\": \"WaitingForOutputFIFOs_s\"," << std::endl;
+    configFile << "\t\"writingOutputFIFOsMetricName\": \"WritingOutputFIFOs_s\"," << std::endl;
+    configFile << "\t\"telemetryMiscMetricName\": \"Telemetry_Misc_s\"," << std::endl;
 
     configFile << "\t\"schedGraphMLFile\": \"" << graphmlSchedFile << "\"" << std::endl;
 
