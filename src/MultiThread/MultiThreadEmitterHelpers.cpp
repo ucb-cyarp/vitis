@@ -1258,6 +1258,68 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Create Loop
     cFile << "while(1){" << std::endl;
 
+    //Move telemetry reporting to start of loop for more consistent telemetry reporting (no longer inside a single transaction)
+    //The start time is before any of the telemetry is printed/written so, what is effectively captured is the time to report telemetry
+    //for the last interval + the time to evaluate the current interval.  In this case, nothing is double counted.
+    if(collectTelem){
+        //Emit timer reporting
+        cFile << "timespec_t currentTime;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
+        cFile << "if(duration >= printDuration){" << std::endl;
+        cFile << "lastPrint = currentTime;" << std::endl;
+        cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
+        cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
+        cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
+        if (printTelem) {
+            //Print the telemetry information to stdout
+            cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", "
+                  << std::endl;
+            cFile << "rateMSps, ";
+            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
+            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
+            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
+            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
+            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
+            cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
+        }
+        if (!telemDumpFilePrefix.empty()) {
+            //Write the telemetry to the file
+            //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
+            //The partition number is included in the filename and is not written to the file
+            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
+                     "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
+                     "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
+                     "durationTelemMisc, timeTotal);" << std::endl;
+
+            //flush the file
+            cFile << "fflush(telemDumpFile);" << std::endl;
+            cFile << std::endl;
+        }
+
+        if (!telemAvg) {
+            //Reset the counters for the next collection interval.
+            cFile << "startTime = currentTime;" << std::endl;
+            cFile << "rxSamples = 0;" << std::endl;
+            cFile << "timeTotal = 0;" << std::endl;
+            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
+            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
+            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
+            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
+            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+        }
+
+        cFile << "}" << std::endl;
+    }
+
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " waiting for inputs ...\\n\");"
               << std::endl;
@@ -1280,69 +1342,15 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStop);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-
-        //Emit timer reporting
-        cFile << "rxSamples += " << blockSize << ";" << std::endl;
-        cFile << "timespec_t currentTime;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
-        cFile << "if(duration >= printDuration){" << std::endl;
-        cFile << "lastPrint = currentTime;" << std::endl;
-        cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
-        cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-        cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
-        if(printTelem) {
-            //Print the telemetry information to stdout
-            cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", " << std::endl;
-            cFile << "rateMSps, ";
-            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
-            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
-            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
-            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
-            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
-            cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
-        }
-        if(!telemDumpFilePrefix.empty()){
-            //Write the telemetry to the file
-            //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
-            //The partition number is included in the filename and is not written to the file
-            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
-                     "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
-                     "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
-                     "durationTelemMisc, timeTotal);" << std::endl;
-
-            //flush the file
-            cFile << "fflush(telemDumpFile);" << std::endl;
-            cFile << std::endl;
-        }
-
-        if(!telemAvg){
-            //Reset the counters for the next collection interval.
-            cFile << "startTime = waitingForInputFIFOsStart;" << std::endl;
-            cFile << "rxSamples = 0;" << std::endl;
-            cFile << "timeTotal = 0;" << std::endl;
-            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
-            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
-            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
-            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
-            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
-        }
-
-        cFile << "}" << std::endl;
-
-        //Now, finish timeReadingExtFIFO
-        cFile << "double durationWaitingForInputFIFOs = difftimespec(&waitingForInputFIFOsStop, &waitingForInputFIFOsStart);" << std::endl;
+        cFile
+                << "double durationWaitingForInputFIFOs = difftimespec(&waitingForInputFIFOsStop, &waitingForInputFIFOsStart);"
+                << std::endl;
         cFile << "timeWaitingForInputFIFOs += durationWaitingForInputFIFOs;" << std::endl;
         cFile << "timeTotal += durationWaitingForInputFIFOs;" << std::endl;
+    }
 
+    if(collectTelem){
+        //Now, time how long it takes to read the FIFO
         cFile << "timespec_t readingInputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStart);" << std::endl;
@@ -1373,6 +1381,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
         cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
         cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
+        cFile << "rxSamples += " << blockSize << ";" << std::endl;
     }
 
     //Create temp entries for outputs
