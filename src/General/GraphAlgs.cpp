@@ -365,6 +365,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 
     std::default_random_engine rndGen(parameters.getRandSeed());
 
+    std::vector<std::shared_ptr<Node>> nodesWithZeroInDegHolding; //This is used by the DFS blocking heuristic as a temporary store for nodes which have 0 indegree.  This allows N nodes that are independent to be scheduled
+    int schedInDFSBlock = 0;
+
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
         //Schedule Nodes with Zero In Degree
@@ -376,6 +379,10 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 break;
 
             case TopologicalSortParameters::Heuristic::DFS:
+                ind = nodesWithZeroInDeg.size() - 1;
+                break;
+
+            case TopologicalSortParameters::Heuristic::DFS_BLOCKED:
                 ind = nodesWithZeroInDeg.size() - 1;
                 break;
 
@@ -496,6 +503,10 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
             schedule.push_back(to_sched);
         }
 
+        //If this is the nth scheduling, add the zero degree nodes holding to the list
+        //Or, if there are no nodes in the zero degree list, add the nodes
+        //Reset the scheduling counter
+
         //Find discovered nodes from the candidate list (that are in the nodes to be sorted set)
         //Also, find nodes with zero in degree
         for(auto it = candidateNodes.begin(); it != candidateNodes.end(); it++) {
@@ -507,11 +518,28 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                     discoveredNodes.insert(candidateNode);
 
                     if (candidateNode->inDegree() == 0) {
-                        nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS and DFS.  Dequeuing determines BFS or DFS
+                        if(parameters.getHeuristic() == TopologicalSortParameters::Heuristic::BFS || parameters.getHeuristic() == TopologicalSortParameters::Heuristic::DFS) {
+                            nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS and DFS.  Dequeuing determines BFS or DFS
+                        }else if(parameters.getHeuristic() == TopologicalSortParameters::Heuristic::DFS_BLOCKED){
+                            nodesWithZeroInDegHolding.push_back(candidateNode);
+                        }else{
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Scheduling Heuristic"));
+                        }
                     }
                 }
             }
         }
+
+        if(parameters.getHeuristic() == TopologicalSortParameters::Heuristic::DFS_BLOCKED){
+            if(nodesWithZeroInDeg.empty() || schedInDFSBlock >= parameters.getRandSeed()){ //RandomSeed is a temporary standin for the dfs block size of number of independent instructions to try to schedule together
+                nodesWithZeroInDeg.insert(nodesWithZeroInDeg.end(), nodesWithZeroInDegHolding.begin(), nodesWithZeroInDegHolding.end());
+                nodesWithZeroInDegHolding.clear();
+                schedInDFSBlock = 0;
+            }else{
+                schedInDFSBlock++;
+            }
+        }
+
     }
 
     //If there are still viable discovered nodes, there was a cycle.

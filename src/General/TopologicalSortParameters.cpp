@@ -38,6 +38,8 @@ TopologicalSortParameters::Heuristic TopologicalSortParameters::parseHeuristicSt
         return Heuristic::BFS;
     }else if(str == "DFS" || str == "dfs"){
         return Heuristic::DFS;
+    }else if(str == "DFS_BLOCKED" || str == "dfs_blocked"){
+        return Heuristic::DFS_BLOCKED;
     }else if(str == "RANDOM" || str == "random" || str == "RAND" || str == "rand") {
         return Heuristic::RANDOM;
     }else{
@@ -50,6 +52,8 @@ std::string TopologicalSortParameters::heuristicToString(TopologicalSortParamete
         return "BFS";
     }else if(schedType == Heuristic::DFS) {
         return "DFS";
+    }else if(schedType == Heuristic::DFS_BLOCKED) {
+        return "DFS_BLOCKED";
     }else if(schedType == Heuristic::RANDOM){
         return "RANDOM";
     }else{

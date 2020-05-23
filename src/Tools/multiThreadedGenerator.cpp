@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
     ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType = ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86;
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;//This is the only supported scheduler for multi-threaded emit
     TopologicalSortParameters::Heuristic heuristic = TopologicalSortParameters::Heuristic::BFS;
-    unsigned long randSeed = 0;
+    unsigned long randSeed = 4;
     unsigned long blockSize = 1;
     unsigned long fifoLength = 16;
     unsigned long ioFifoSize = 16;
