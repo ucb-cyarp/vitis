@@ -347,6 +347,14 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
             }
         } else if (GeneralHelper::isType<Node, StateUpdate>(*it) != nullptr) {
             std::shared_ptr<StateUpdate> stateUpdateNode = std::dynamic_pointer_cast<StateUpdate>(*it);
+
+            //Emit the StateUpdate node's outputs first so that any downstream dependency (ex. a latch that it is connected to)
+            //will have access to the value passed through.
+            //Note that this fixes a possible bug when the input of the node is a delay.  The delay could possibly update before
+            //a downstream latch updated.
+
+            emitNode(*it, cFile, schedType);
+
             //Emit state update
             cFile << std::endl << "//---- State Update for "
                   << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
@@ -376,46 +384,50 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
         } else {
             //Emit standard node
+            emitNode(*it, cFile, schedType);
 
-            //Emit comment
-            cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " ----" << std::endl;
-
-            unsigned long numOutputPorts = (*it)->getOutputPorts().size();
-            //Emit each output port
-            //TODO: now checks for unconnected output ports.  Validate
-            for (unsigned long i = 0; i < numOutputPorts; i++) {
-                std::shared_ptr<OutputPort> outputPortBeingEmitted = (*it)->getOutputPort(i);
-                if (!outputPortBeingEmitted->getArcs().empty()) {
-
-                    std::vector<std::string> cStatementsRe;
-                    //Emit real component (force fanout)
-                    (*it)->emitC(cStatementsRe, schedType, i, false, true,
-                                 true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
-
-                    for (unsigned long j = 0; j < cStatementsRe.size(); j++) {
-                        cFile << cStatementsRe[j] << std::endl;
-                    }
-
-                    if ((*it)->getOutputPort(i)->getDataType().isComplex()) {
-                        //Emit imag component (force fanout)
-                        std::vector<std::string> cStatementsIm;
-                        //Emit real component (force fanout)
-                        (*it)->emitC(cStatementsIm, schedType, i, true, true,
-                                     true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
-
-                        for (unsigned long j = 0; j < cStatementsIm.size(); j++) {
-                            cFile << cStatementsIm[j] << std::endl;
-                        }
-                    }
-                } else {
-                    std::cout << "Output Port " << i << " of " << (*it)->getFullyQualifiedName() << "[ID: "
-                              << (*it)->getId() << "] not emitted because it is unconnected" << std::endl;
-                }
-            }
         }
 
         lastEmittedContext = nodeContext;
 
+    }
+}
+
+void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &cFile, SchedParams::SchedType schedType){
+    //Emit comment
+    cFile << std::endl << "//---- Calculate " << nodeToEmit->getFullyQualifiedName() << " ----" << std::endl;
+
+    unsigned long numOutputPorts = nodeToEmit->getOutputPorts().size();
+    //Emit each output port
+    //TODO: now checks for unconnected output ports.  Validate
+    for (unsigned long i = 0; i < numOutputPorts; i++) {
+        std::shared_ptr<OutputPort> outputPortBeingEmitted = nodeToEmit->getOutputPort(i);
+        if (!outputPortBeingEmitted->getArcs().empty()) {
+
+            std::vector<std::string> cStatementsRe;
+            //Emit real component (force fanout)
+            nodeToEmit->emitC(cStatementsRe, schedType, i, false, true,
+                         true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+            for (unsigned long j = 0; j < cStatementsRe.size(); j++) {
+                cFile << cStatementsRe[j] << std::endl;
+            }
+
+            if (nodeToEmit->getOutputPort(i)->getDataType().isComplex()) {
+                //Emit imag component (force fanout)
+                std::vector<std::string> cStatementsIm;
+                //Emit real component (force fanout)
+                nodeToEmit->emitC(cStatementsIm, schedType, i, true, true,
+                             true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
+
+                for (unsigned long j = 0; j < cStatementsIm.size(); j++) {
+                    cFile << cStatementsIm[j] << std::endl;
+                }
+            }
+        } else {
+            std::cout << "Output Port " << i << " of " << nodeToEmit->getFullyQualifiedName() << "[ID: "
+                      << nodeToEmit->getId() << "] not emitted because it is unconnected" << std::endl;
+        }
     }
 }
 

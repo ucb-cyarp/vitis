@@ -54,6 +54,17 @@ public:
     static void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
 
     /**
+     * @brief A helper function for emitting a single node
+     *
+     * Outputs are checked to see if they are connected and only the connected outputs are emitted
+     *
+     * @param nodeToEmit
+     * @param cFile
+     * @param schedType
+     */
+    static void emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &cFile, SchedParams::SchedType schedType);
+
+    /**
      * @brief Get the input variables for this design
      *
      * The input names take the form: portName_portNum
