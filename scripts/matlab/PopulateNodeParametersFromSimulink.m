@@ -202,6 +202,10 @@ elseif strcmp(node.simulinkBlockType, 'Product')
     %Because it is not always a number, it cannot be reliably parsed into a
     %number
     
+    %Multiplication: Indicates if multiplication is element wise or matrix
+    %   - 'Element-wise(.*)' : Element Wise
+    %   - 'Matrix(*)'        : Matrix
+    
     %OutDataTypeStr: output datatype str
     %  A valid type is 'Inherit: Inherit via internal rule'
   
@@ -271,12 +275,17 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     
     index_options = get_param(simulink_block_handle, 'IndexOptionArray');
     
-    if ~strcmp(index_options{1}, 'Index vector (dialog)')
-        error('Seletor is currently only supported when the Index Option is set to ''Index vector (dialog)''');
+    if ~strcmp(index_options{1}, 'Index vector (dialog)') && ~strcmp(index_options{1}, 'Starting index (port)') && ~strcmp(index_options{1}, 'Starting index (dialog)')
+        error('Seletor is currently only supported when the Index Option is set to ''Index vector (dialog)'', ''Starting index (port)'', or ''Starting index (dialog)''');
     end
     
+    %This is where we get the index vector when the index_options is 'Index vector (dialog)'
     index_params = GetParamEval(simulink_block_handle, 'IndexParamArray');
     node.dialogPropertiesNumeric('IndexParamArray') = index_params{1};
+        
+    %This is where we get the output vector width (starting index comes from the port) when the index_options is 'Starting index (port)'
+    output_size_array = GetParamEval(simulink_block_handle, 'OutputSizeArray');
+    node.dialogPropertiesNumeric('OutputSizeArray') = output_size_array{1};
     
     node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
     

@@ -1,4 +1,4 @@
-function simulink_to_graphml(simulink_file, system, graphml_filename, verbose_in)
+function simulink_to_graphml(simulink_file, system, graphml_filename, expand, verbose_in)
 %simulink_to_graphml Converts a simulink system to a GraphML file.
 %   Detailed explanation goes here
 
@@ -195,21 +195,25 @@ top_system_func([], [], [], 'term');
 
 %% Expand graph & cleanup busses
 
-if verbose >= 1
-    disp('[SimulinkToGraphML] **** Expanding Nodes & Cleaning Up Busses ****');
-end
+if expand
+    if verbose >= 1
+        disp('[SimulinkToGraphML] **** Expanding Nodes & Cleaning Up Busses ****');
+    end
 
-[new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, master_nodes, unconnected_master_node);
-nodes = [nodes, new_nodes];
-nodes = [nodes, synth_vector_fans];
+    [new_nodes, synth_vector_fans, new_arcs, arcs_to_delete] = ExpandBlocks(nodes, master_nodes, unconnected_master_node);
+    nodes = [nodes, new_nodes];
+    nodes = [nodes, synth_vector_fans];
 
-%Some of the arcs to be deleted may be in the new arcs list.  Add arcs
-%first, then process deletions
-arcs = [arcs, new_arcs];
+    %Some of the arcs to be deleted may be in the new arcs list.  Add arcs
+    %first, then process deletions
+    arcs = [arcs, new_arcs];
 
-for i = 1:length(arcs_to_delete)
-    arc_to_delete = arcs_to_delete(i);
-    arcs(arcs == arc_to_delete) = [];
+    for i = 1:length(arcs_to_delete)
+        arc_to_delete = arcs_to_delete(i);
+        arcs(arcs == arc_to_delete) = [];
+    end
+else
+    disp('[SimulinkToGraphML] **** Skipping Node Expansion ****');
 end
 
 %% Assign Unique Ids To each Node and Arc

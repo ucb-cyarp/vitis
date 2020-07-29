@@ -15,8 +15,8 @@ for iter = 1:length(nodes)
     end
 end
 
-formatStr = ['%-' num2str(maxBlockTypeLen) 's | Inputs: %3d - %5s'];
-generalFormatStr = ['%-' num2str(maxBlockTypeLen) 's |                    '];
+formatStr = ['%-' num2str(maxBlockTypeLen) 's | Inputs: %3d - %5s - %3s'];
+generalFormatStr = ['%-' num2str(maxBlockTypeLen) 's |                          '];
 
 for iter = 1:length(nodes)
     node = nodes(iter);
@@ -80,6 +80,11 @@ for iter = 1:length(nodes)
         foundComplex = false;
         foundReal = false;
         
+        %Check for scalar / matrix
+        foundScalar = false;
+        foundVector = false;
+        foundMatrix = false;
+        
         for arcIter = 1:length(node.in_arcs)
             arc = node.in_arcs(arcIter);
             
@@ -88,6 +93,30 @@ for iter = 1:length(nodes)
             else
                 foundReal = true;
             end
+            
+            if(arc.dimension(1) == 1)
+                if(arc.dimension(2) == 1)
+                    foundScalar = true;
+                elseif(arc.dimension(2) > 1)
+                    foundVector = true;
+                end
+            elseif(arc.dimension(1) > 1)
+                foundDir = false;
+                %It is possible for a scalar value to be expressed as
+                %having a larger dimension (NCO appears to do this for ex).
+                % Catch this when reporting.
+                for dir = 2:length(arc.dimension)
+                    if arc.dimension(dir)>1
+                        foundDir = true;
+                    end
+                end
+                if foundDir
+                    foundMatrix = true;
+                else
+                    foundScalar = true;
+                end
+            end
+            
         end
         
         complexity = 'N/A';
@@ -99,7 +128,25 @@ for iter = 1:length(nodes)
             complexity = 'Real';
         end
         
-        key = sprintf(formatStr, blockType, numInputs, complexity);
+        mat = '';
+        if(foundMatrix)
+            mat = [mat, 'M'];
+        else
+            mat = [mat, ' '];
+        end
+        if(foundVector)
+            mat = [mat, 'V'];
+        else
+            mat = [mat, ' '];
+        end
+        if(foundScalar)
+            mat = [mat, 'S'];
+        else
+            mat = [mat, ' '];
+        end
+        
+        
+        key = sprintf(formatStr, blockType, numInputs, complexity, mat);
         
         if(isKey(countMap, key))
             countMap(key) = countMap(key) + 1;
