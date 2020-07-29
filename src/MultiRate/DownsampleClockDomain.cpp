@@ -132,7 +132,7 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
     }
 
     //Create arc
-    DataType driverArcDataType = DataType(false, false, false, 1, 0, 1);
+    DataType driverArcDataType = DataType(false, false, false, 1, 0, {1});
     driverArcDataType = driverArcDataType.getCPUStorageType();
 
     //TODO: Fix Arc Rate, currently unused

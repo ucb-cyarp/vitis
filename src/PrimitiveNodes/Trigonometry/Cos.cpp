@@ -110,7 +110,7 @@ CExpr Cos::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     DataType dstType = getOutputPort(0)->getDataType();
 
     //TODO: Implement Vector Support
-    if (getInputPort(0)->getDataType().getWidth() > 1) {
+    if (!getInputPort(0)->getDataType().isScalar()) {
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Cos Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
@@ -125,10 +125,10 @@ CExpr Cos::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     DataType rtnType;
     std::string fctnCall;
     if(inputType.getTotalBits() <= 32){
-        rtnType = DataType(true, true, false, 32, 0, 1); //The cosf function returns a float
+        rtnType = DataType(true, true, false, 32, 0, {1}); //The cosf function returns a float
         fctnCall = "cosf(" + inputExpr + ")";
     }else{
-        rtnType = DataType(true, true, false, 64, 0, 1); //The cos function returns a double
+        rtnType = DataType(true, true, false, 64, 0, {1}); //The cos function returns a double
         fctnCall = "cos(" + inputExpr + ")";
     }
 

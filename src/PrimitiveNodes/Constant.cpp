@@ -5,6 +5,7 @@
 #include "Constant.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 Constant::Constant() {
 
@@ -107,7 +108,7 @@ void Constant::validate() {
     }
 
     //Check that width of value is the width of the output
-    if(value.size() != getOutputPort(0)->getDataType().getWidth()){
+    if(value.size() != getOutputPort(0)->getDataType().numberOfElements()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Width of Value Does Not Match Width of Output", getSharedPointer()));
     }
 }
@@ -118,47 +119,29 @@ CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams
     DataType outputType = outputPort->getDataType();
 
     DataType outputTypeSingle = outputType;
-    outputTypeSingle.setWidth(1);
+    outputTypeSingle.setDimensions({1});
     DataType outputCPUType = outputTypeSingle.getCPUStorageType(); //Want the CPU type to not have the array suffix since the cast will be for each element
 
     //Should have already validated and checked width of datatype and value match
 
-    std::string expr = "";
-
-    //Check if the type has width > 1, if so, need to emit an array
-    unsigned long width = value.size();
-
-    if(width == 1){
-        expr += "(";
+    if(outputType.isScalar()){
+        std::string expr = "(";
 
         //Emit datatype (the CPU type used for storage)
         expr += "(" + outputCPUType.toString(DataType::StringStyle::C) + ") ";
         //Emit value
         expr += value[0].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
         expr += ")";
+        return CExpr(expr, false);
     }else{
-        //Emit an array
+        //Return the globally declared array
+        std::string constVarName = name + "_n" + GeneralHelper::to_string(id) + "_ConstVal";
+        //Should be called after arcs have been added
+        DataType outputStorageType = outputType.getCPUStorageType();
+        Variable constVar = Variable(constVarName, outputStorageType);
 
-        std::string storageTypeStr = outputCPUType.toString(DataType::StringStyle::C);
-
-        expr += "{";
-
-        //Emit datatype (the CPU type used for storage)
-        expr += "(" + storageTypeStr + ") ";
-        //Emit Value
-        expr += value[0].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
-
-        for(unsigned long i = 0; i<width; i++){
-            //Emit datatype (the CPU type used for storage)
-            expr += ", (" + storageTypeStr + ") ";
-            //Emit Value
-            expr += value[i].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
-        }
-
-        expr += "}";
+        return CExpr(constVar.getCVarName(imag), true);
     }
-
-    return CExpr(expr, false);
 }
 
 std::string
@@ -175,6 +158,37 @@ Constant::Constant(std::shared_ptr<SubSystem> parent, Constant* orig) : Primitiv
 
 std::shared_ptr<Node> Constant::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Constant>(parent, this);
+}
+
+bool Constant::hasGlobalDecl() {
+    //The constant is declared globally if it is a vector/matrix;
+    return value.size() > 1;
+}
+
+std::string Constant::getGlobalDecl() {
+    //Should be validated before this point
+    if(value.size()>1){
+        //Emit an array
+        std::string constVarName = name + "_n" + GeneralHelper::to_string(id) + "_ConstVal";
+
+        //Should be called after arcs have been added
+        DataType outputType = getOutputPort(0)->getDataType();
+        DataType outputStorageType = outputType.getCPUStorageType();
+        Variable constVar = Variable(constVarName, outputStorageType);
+
+        std::vector<int> outputDimensions = outputType.getDimensions();
+        std::string expr = constVar.getCVarDecl(false, true, false, true, false) +
+                " = " +  EmitterHelpers::arrayLiteral(outputDimensions, value, false, outputType, outputStorageType) + ";";
+
+        if(outputType.isComplex()){
+            expr += "\n" + constVar.getCVarDecl(true, true, false, true, false) +
+                   " = " +  EmitterHelpers::arrayLiteral(outputDimensions, value, true, outputType, outputStorageType) + ";";
+        }
+
+        return expr;
+    }
+
+    return "";
 }
 
 

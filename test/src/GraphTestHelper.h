@@ -43,9 +43,9 @@ public:
      * @param complexExpected
      * @param totalBitsExpected
      * @param fractionalBitsExpected
-     * @param widthExpected
+     * @param dimensionsExpected
      */
-    static void verifyDataType(DataType dataType, bool floatingPtExpected, bool signedTypeExpected, bool complexExpected, int totalBitsExpected, int fractionalBitsExpected, int widthExpected);
+    static void verifyDataType(DataType dataType, bool floatingPtExpected, bool signedTypeExpected, bool complexExpected, int totalBitsExpected, int fractionalBitsExpected, std::vector<int> dimensionsExpected);
 
     /**
      * @brief Verify that the port numbers for input and output ports are correct

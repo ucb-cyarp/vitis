@@ -8,7 +8,8 @@
 #include "GraphCore/Node.h"
 #include <memory>
 
-#define VITIS_STD_ERROR_PREAMBLE "vitis"
+#define VITIS_STD_ERROR_PREAMBLE "vitis - Error"
+#define VITIS_STD_WARNING_PREAMBLE "vitis - Warning"
 
 /**
  * \addtogroup General General Helper Classes
@@ -37,6 +38,15 @@ public:
 
     //Version from node
     static std::string genErrorStr(std::string errorText, std::shared_ptr<Node> node);
+
+    //Version with default preamble
+    static std::string genWarningStr(std::string errorText, std::string errorContext);
+
+    //Version with default preamble and no context
+    static std::string genWarningStr(std::string errorText);
+
+    //Version from node
+    static std::string genWarningStr(std::string errorText, std::shared_ptr<Node> node);
 
 };
 

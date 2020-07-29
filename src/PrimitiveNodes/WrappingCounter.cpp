@@ -147,7 +147,7 @@ std::vector<Variable> WrappingCounter::getCStateVars() {
     std::vector<Variable> vars;
 
     //There is a single state variable for the counter.
-    DataType stateType(false, false, false, log2(countTo), 0, 1);
+    DataType stateType(false, false, false, log2(countTo), 0, {1});
     stateType = stateType.getCPUStorageType();
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
@@ -169,7 +169,7 @@ void WrappingCounter::emitCExprNextState(std::vector<std::string> &cStatementQue
 CExpr WrappingCounter::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                  int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getOutputPort(0)->getDataType().getWidth()>1){
+    if(!getOutputPort(0)->getDataType().isScalar()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 

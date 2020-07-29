@@ -292,16 +292,22 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
                 //emit the assignment
                 Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-                int varWidth = outputVar.getDataType().getWidth();
+
+                //Note that with matrix/vector ports an added dimension is prepended to the array when the block size is >1
+                //Because of C/C++ array semantics, this results in the elements for each block being stored
+                //contiguously.  For multidimensional arrays (ex. array[][5][5]), the index of the block can found
+                //by simply employing array[block].  The compiler knows the size of the latter 2 dimensions.
+                int varElements = outputVar.getDataType().numberOfElements();
                 int varBytes = outputVar.getDataType().getCPUStorageType().getTotalBits() / 8;
-                if (varWidth > 1) {
+                if (!outputVar.getDataType().isScalar()) {
                     if (blockSize > 1) {
-                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << "+" << blockSize
-                              << "*" << indVarName << ", " << expr_re << ", " << varWidth * varBytes << ");"
+                        //Can use the
+                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false)
+                              << "[" << indVarName << "], " << expr_re << ", " << varElements * varBytes << ");"
                               << std::endl;
                     } else {
                         cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << ", " << expr_re << ", "
-                              << varWidth * varBytes << ");" << std::endl;
+                              << varElements * varBytes << ");" << std::endl;
                     }
                 } else {
                     if (blockSize > 1) {
@@ -325,14 +331,14 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
                     }
 
                     //emit the assignment
-                    if (varWidth > 1) {
+                    if (!outputVar.getDataType().isScalar()) {
                         if (blockSize > 1) {
-                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << "+" << blockSize
-                                  << "*" << indVarName << ", " << expr_im << ", " << varWidth * varBytes << ");"
+                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true)
+                                  << "[" << indVarName << "], " << expr_im << ", " << varElements * varBytes << ");"
                                   << std::endl;
                         } else {
                             cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << ", " << expr_im << ", "
-                                  << varWidth * varBytes << ");" << std::endl;
+                                  << varElements * varBytes << ");" << std::endl;
                         }
                     } else {
                         if (blockSize > 1) {
@@ -365,7 +371,6 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
             for (unsigned long j = 0; j < stateUpdateExprs.size(); j++) {
                 cFile << stateUpdateExprs[j] << std::endl;
             }
-
         } else if ((*it)->hasState()) {
             //Call emit for state element input
             //The state element output is treated similarly to a constant and a variable name is always returned
@@ -501,7 +506,11 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
         Variable var = portVars[i];
 
         DataType varType = var.getDataType();
-        varType.setWidth(varType.getWidth()*portBlockSizes[i]);
+        //Expand the width of the type by another dimension.  If scalar, extend the length
+        //accordingly.
+        varType = varType.expandForBlock(portBlockSizes[i]);
+        //Note, these changes to dimensions do not propagate outside of this function
+
         var.setDataType(varType);
 
         prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
@@ -707,4 +716,73 @@ EmitterHelpers::getBlockSizesFromRates(const std::vector<std::pair<int, int>> &r
     }
 
     return blockSizes;
+}
+
+//Val index is a reference so that it can be incremented in the base case
+std::string EmitterHelpers::arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<NumericValue> &val, int &valIndex, bool imag, DataType valType, DataType storageType){
+    std::string str = "";
+
+    if(dimIndex >= dimensions.size()){
+        //Base case, just emit the value, with no {}
+        std::string storageTypeStr = storageType.toString(DataType::StringStyle::C);
+
+        str = "(" + storageTypeStr + ")" + val[valIndex].toStringComponent(imag, valType);
+        valIndex++;
+    }else{
+        str += "{";
+
+        for(int i = 0; i<dimensions[dimIndex]; i++){
+            if(i > 0){
+                str += ", ";
+            }
+
+            str += arrayLiteralWorker(dimensions, dimIndex+1, val, valIndex, imag, valType, storageType);
+        }
+
+        str += "}";
+    }
+
+    return str;
+}
+
+std::string EmitterHelpers::arrayLiteral(std::vector<int> &dimensions, std::vector<NumericValue> val, bool imag, DataType valType, DataType storageType){
+    int idx = 0;
+    return arrayLiteralWorker(dimensions, 0, val, idx, imag, valType, storageType);
+}
+
+std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>>
+EmitterHelpers::generateVectorMatrixForLoops(const std::vector<int>& dimensions) {
+    std::vector<std::string> loopDecls;
+    std::vector<std::string> loopVars;
+    std::vector<std::string> loopClose;
+
+    for(unsigned long i = 0; i<dimensions.size(); i++){
+        //The index variable will be indDim# where # is the dimension number
+        loopVars.push_back("indDim" + GeneralHelper::to_string(i));
+
+        loopDecls.push_back("for(unsigned long " + loopVars[i] + "; " + loopVars[i] + "<" + GeneralHelper::to_string(dimensions[i]) + "; " + loopVars[i] + "++){");
+        loopClose.emplace_back("}");
+    }
+
+    return std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>>(loopDecls, loopVars, loopClose);
+}
+
+std::vector<int> EmitterHelpers::memIdx2ArrayIdx(int idx, std::vector<int> dimensions){
+    int idxRemaining = idx;
+    int divBy = 1;
+    for(int i = 0; i<dimensions.size(); i++){
+        divBy *= dimensions[i];
+    }
+
+    std::vector<int> arrayIdx;
+
+    //The traversal order is because the largest diemnsions increments the most quickly when itterating through memory in C/C++
+    for(int i = 0; i<dimensions.size(); i++){
+        divBy /= dimensions[i];
+        int localIdx = idxRemaining / divBy;
+        idxRemaining -= localIdx*divBy;
+        arrayIdx.push_back(localIdx);
+    }
+
+    return arrayIdx;
 }

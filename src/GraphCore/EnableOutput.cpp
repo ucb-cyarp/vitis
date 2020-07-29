@@ -11,6 +11,7 @@
 #include <iostream>
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 EnableOutput::EnableOutput() {
 
@@ -179,7 +180,7 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
 
 CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
+    if(!getInputPort(0)->getDataType().isScalar()){
         throw std::runtime_error("C Emit Error - EnableOutput Support for Vector Types has Not Yet Been Implemented");
     }
 
@@ -188,34 +189,9 @@ CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPa
     return CExpr(stateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
 }
 
-//void EnableOutput::emitCExprNextState(std::vector<std::string> &cStatementQueue){
-//    DataType inputDataType = getInputPort(0)->getDataType();
-//    std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
-//    int srcOutPortNum = srcPort->getPortNum();
-//    std::shared_ptr<Node> srcNode = srcPort->getParent();
-//
-//    //Emit the upstream
-//    std::string inputExprRe = srcNode->emitC(cStatementQueue, srcOutPortNum, false);
-//    std::string inputExprIm;
-//
-//    if(inputDataType.isComplex()){
-//        inputExprIm = srcNode->emitC(cStatementQueue, srcOutPortNum, true);
-//    }
-//
-//    //Assign the expr to a special variable defined here (before the state update)
-//    std::string stateInputName = name + "_n" + GeneralHelper::to_string(id) + "_state_input";
-//    Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
-//    nextStateVar = stateInputVar;
-//
-//    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanout
-//
-//    std::string stateInputDeclAssignRe = stateInputVar.getCVarDecl(false, false, false, false) + " = " + inputExprRe + ";";
-//    cStatementQueue.push_back(stateInputDeclAssignRe);
-//    if(inputDataType.isComplex()){
-//        std::string stateInputDeclAssignIm = stateInputVar.getCVarDecl(true, false, false, false) + " = " + inputExprIm + ";";
-//        cStatementQueue.push_back(stateInputDeclAssignIm);
-//    }
-//}
+//Because the EnableOutput is preceeded by it's corresponding state update node, that node will create a temporary
+//to pass any value through.  If it is a scalar, the temporary will be created by the scheduler.  If a vector, the
+//StateUpdateNode creates an explicit variable.
 
 void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     DataType inputDataType = getInputPort(0)->getDataType();
@@ -231,13 +207,32 @@ void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, S
         inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
     }
 
-    //TODO: Implement Vector Support
+    //If the output is a vector, construct a for loop
+    std::vector<std::string> forLoopIndexVars;
+    std::vector<std::string> forLoopClose;
+    if(!inputDataType.isScalar()){
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(inputDataType.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        forLoopIndexVars = std::get<1>(forLoopStrs);
+        forLoopClose = std::get<2>(forLoopStrs);
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+    }
 
     //The state variable is not an array
-    cStatementQueue.push_back(stateVar.getCVarName(false) + " = " + inputExprRe + ";");
+    cStatementQueue.push_back(stateVar.getCVarName(false) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + " = " +
+    inputExprRe + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + ";");
 
     if(stateVar.getDataType().isComplex()){
-        cStatementQueue.push_back(stateVar.getCVarName(true) + " = " + inputExprIm + ";");
+        cStatementQueue.push_back(stateVar.getCVarName(true) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + " = " +
+        inputExprIm + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + ";");
+    }
+
+    //Close for loop
+    if(!inputDataType.isScalar()){
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
     }
 }
 
@@ -245,8 +240,6 @@ std::vector<Variable> EnableOutput::getCStateVars() {
     std::vector<Variable> vars;
 
     DataType stateType = getInputPort(0)->getDataType();
-
-    //TODO: Extend to support vectors (must declare 2D array for state)
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
     Variable var = Variable(varName, stateType, initCondition);

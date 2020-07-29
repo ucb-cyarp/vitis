@@ -268,6 +268,13 @@ public:
     static std::string getSpaces(int numSpaces);
 
     static int gcd(int a, int b);
+
+    /**
+     * @brief Parses an (XML) string representation of an integer vector into an integer vector
+     * @param str
+     * @return
+     */
+    static std::vector<int> parseIntVecStr(std::string str);
 };
 
 /*! @} */

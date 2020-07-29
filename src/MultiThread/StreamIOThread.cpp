@@ -590,7 +590,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "//Copy Between Input Buffers" << std::endl;
         ioThread << "if(" << extInputBufferFilledName << " && !" << toComputeFIFOFilledName << "){" << std::endl;
 
-        copyIOInputsToFIFO(ioThread, it->second.first, inputPortFifoMap, linuxInputTmpName, blockSize);
+        copyIOInputsToFIFO(ioThread, it->second.first, inputPortFifoMap, linuxInputTmpName, it->second.second);
         ioThread << extInputBufferFilledName << " = false;" << std::endl;
         ioThread << toComputeFIFOFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -744,7 +744,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Copy ext input into the compute buffer if possible
         ioThread << "//Copy Between Input Buffers" << std::endl;
         ioThread << "if(" << extInputBufferFilledName << " && !" << toComputeFIFOFilledName << "){" << std::endl;
-        copyIOInputsToFIFO(ioThread, it->second.first, inputPortFifoMap, linuxInputTmpName, blockSize);
+        copyIOInputsToFIFO(ioThread, it->second.first, inputPortFifoMap, linuxInputTmpName, it->second.second);
         ioThread << extInputBufferFilledName << " = false;" << std::endl;
         ioThread << toComputeFIFOFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -969,7 +969,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
         //This allows a read from the external stream to occur if availible
         ioThread << "if(" << fromComputeFIFOFilledName << " && !" << extOutputBufferFilledName << "){" << std::endl;
-        copyFIFOToIOOutputs(ioThread, it->second.first, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+        copyFIFOToIOOutputs(ioThread, it->second.first, outputPortFifoMap, outputMaster, linuxOutputTmpName, it->second.second);
         ioThread << fromComputeFIFOFilledName << " = false;" << std::endl;
         ioThread << extOutputBufferFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -1081,7 +1081,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
         //This allows a read from the external stream to occur if availible
         ioThread << "if(" << fromComputeFIFOFilledName << " && !" << extOutputBufferFilledName << "){" << std::endl;
-        copyFIFOToIOOutputs(ioThread, it->second.first, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+        copyFIFOToIOOutputs(ioThread, it->second.first, outputPortFifoMap, outputMaster, linuxOutputTmpName, it->second.second);
         ioThread << fromComputeFIFOFilledName << " = false;" << std::endl;
         ioThread << extOutputBufferFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -1268,9 +1268,10 @@ StreamIOThread::getOutputPortFIFOMapping(std::shared_ptr<MasterOutput> outputMas
     return portToFIFO;
 }
 
-void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, int blockSize) {
+void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, std::vector<int> masterInputBlockSizes) {
     for(int i = 0; i<masterInputVars.size(); i++){
-        DataType dt = masterInputVars[i].getDataType();
+        //The port in the FIFO structure is expanded according to the block size of the indevidual FIFO
+        DataType dt = masterInputVars[i].getDataType().expandForBlock(masterInputBlockSizes[i]);
 
         //The index is the port number
         //Find if this element is used and where
@@ -1283,20 +1284,26 @@ void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Var
                 std::string tmpName = fifoPortVec[j].first->getName() + "_writeTmp";
                 int fifoPortNum = fifoPortVec[j].second;
 
-                if(dt.getWidth() == 1 && blockSize == 1) {
+                //Note that dt is the dataype before expansion for block size.
+                if(dt.isScalar()) {
                     ioThread << tmpName << ".port" << fifoPortNum << "_real = " << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << ";" << std::endl;
                     if (dt.isComplex()) {
                         ioThread << tmpName << ".port" << fifoPortNum << "_imag = " << linuxInputPipeName << "."
                                  << masterInputVars[i].getCVarName(true) << ";" << std::endl;
                     }
-                }else if((*fifoPortVec[j].first->getInputArcs().begin())->getDataType().getWidth() != 1 && blockSize != 1){
-                    //TODO: Implement full support for 2D arrays.  Implemented in FIFOs but not in most primitive elements
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Multi dimension arrays are not currently supported for master input ports"));
                 }else{
-                    //Simple array
-                    //TODO Confirm that this works with block sizes adjusted for port rates.  It looks like it should if the
+                    //Array inputs/outputs are OK so long as they follow the C/C++ convention
+                    //The input/output from this program is still a vector so any multidimensional array
+                    //is flattened according to the C/C++ convention for contiguous memory access in a multidimensional array
+                    //Note that the block is the left most index in the multidimensional array so blocks are grouped congiguously.
+                    //Also note that the blocks are handled in the declaration of the stucture elements
+
+                    //--- Confirm that this works with block sizes adjusted for port rates.  It looks like it should if the
                     //structure is updated properly
+                    //---Addendum, it should work if the structure was updated correctly since sizeof with an array of know dimensions
+                    //will return the number of bytes in the array and not the number of bytes in a single array element
+
                     ioThread << "memcpy(" << tmpName << ".port" << fifoPortNum << "_real, " << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << ", sizeof(" << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << "));" << std::endl;
@@ -1314,9 +1321,10 @@ void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Var
 void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Variable> masterOutputVars,
                                          std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap,
                                          std::shared_ptr<MasterOutput> outputMaster, std::string linuxOutputPipeName,
-                                         int blockSize) {
+                                         std::vector<int> masterOutputBlockSizes) {
     for(int i = 0; i<masterOutputVars.size(); i++){
-        DataType dt = masterOutputVars[i].getDataType();
+        //The port in the FIFO structure is expanded according to the block size of the indevidual FIFO
+        DataType dt = masterOutputVars[i].getDataType().expandForBlock(masterOutputBlockSizes[i]);
 
         //The index is the port number
         //Find if this element is used and where
@@ -1328,18 +1336,19 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
             std::string tmpName = fifoPort.first->getName() + "_readTmp";
             int fifoPortNum = fifoPort.second;
 
-            if(dt.getWidth() == 1 && blockSize == 1) {
+            if(dt.isScalar()) {
                 ioThread << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(false) << " = "
                          << tmpName << ".port" << fifoPortNum << "_real;" << std::endl;
                 if (dt.isComplex()) {
                     ioThread << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(true) << " = "
                              << tmpName << ".port" << fifoPortNum << "_imag;" << std::endl;
                 }
-            }else if((*fifoPort.first->getInputArcs().begin())->getDataType().getWidth() != 1 && blockSize != 1){
-                //TODO: Implement full support for 2D arrays.  Implemented in FIFOs but not in most primitive elements
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Multi dimension arrays are not currently supported for master output ports", outputMaster));
             }else{
-                //Simple array
+                //Array inputs/outputs are OK so long as they follow the C/C++ convention
+                //The input/output from this program is still a vector so any multidimensional array
+                //is flattened according to the C/C++ convention for contiguous memory access in a multidimensional array
+                //Note that the block is the left most index in the multidimensional array so blocks are grouped congiguously.
+                //Also note that the blocks are handled in the declaration of the stucture elements
                 ioThread << "memcpy(" << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(false)
                          << ", " << tmpName << ".port" << fifoPortNum << "_real" << ", sizeof(" << linuxOutputPipeName << "."
                          << masterOutputVars[i].getCVarName(false) << "));" << std::endl;

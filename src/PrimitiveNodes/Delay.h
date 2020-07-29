@@ -29,7 +29,7 @@ class Delay : public PrimitiveNode{
     friend NodeFactory;
 private:
     int delayValue; ///<The amount of delay in this node
-    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Length must match the delay value.  The initial condition that will be presented first is at index 0
+    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Number of elements must match the delay value times the size of each element.  The initial condition that will be presented first is at index 0
     Variable cStateVar; ///<The C variable storing the state of the delay
     Variable cStateInputVar; ///<the C temporary variable holding the input to state before the update
     //TODO: Re-evaluate if numeric value should be stored as double/complex double (like Matlab does).  An advantage to providing a class that can contain both is that there is less risk of an int being store improperly and full 64 bit integers can be represented.
@@ -89,6 +89,12 @@ public:
     static std::shared_ptr<Delay> createFromGraphML(int id, std::string name,
                                                     std::map<std::string, std::string> dataKeyValueMap,
                                                     std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    /**
+     * @brief Used to determine how to broadcast scalar initial conditions.  Knowlege of the dimensions of the input/output
+     * are required for this
+     */
+    void propagateProperties() override;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;

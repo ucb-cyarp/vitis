@@ -249,44 +249,39 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
 
         for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
 
-            DataType dt = fifos[i]->getCStateVar(portNum).getDataType();
-            int width = dt.getWidth();
-            if (blockSize == 1 && width == 1) {
-                exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
-                if (dt.isComplex()) {
-                    exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag = " + defaultVal[i][portNum].toStringComponent(true, dt) + ";");
-                }
-            } else if ((blockSize == 1 && width > 1) || (blockSize > 1 && width == 1)) {
-                //Cannot initialize with = {} because inside a structure
-                int entries = std::max(blockSize, width);
-                for (int j = 0; j < entries; j++) {
-                    exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real[" + GeneralHelper::to_string(j) + "] = " +
-                                    defaultVal[i][portNum].toStringComponent(false, dt) + ";");
-                }
-                if (dt.isComplex()) {
-                    for (int j = 0; j < entries; j++) {
-                        exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(j) + "] = " +
-                                        defaultVal[i][portNum].toStringComponent(true, dt) + ";");
-                    }
-                }
-            } else {
-                for (int j = 0; j < blockSize; j++) {
-                    for (int k = 0; k < width; k++) {
-                        exprs.push_back(
-                                tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) +
-                                "] = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
-                    }
-                }
+            //Note that the datatype when we use getCStateVar does not include
+            //the block size. However, the structure that is generated for the FIFO
+            //is expanded for the block size.
+            //Expand it here to match the structure definition
+            DataType dt = fifos[i]->getCStateVar(portNum).getDataType().expandForBlock(blockSize);
 
-                if (dt.isComplex()) {
-                    for (int j = 0; j < blockSize; j++) {
-                        for (int k = 0; k < width; k++) {
-                            exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(j) + "][" +
-                                            GeneralHelper::to_string(k) + "] = " +
-                                            defaultVal[i][portNum].toStringComponent(true, dt) + ";");
-                        }
-                    }
-                }
+            //Open for loops if datatype (after expansion for blocks) is a vector/matrix
+            std::vector<std::string> forLoopIndexVars;
+            std::vector<std::string> forLoopClose;
+            //If the output is a vector, construct a for loop which puts the results in a temporary array
+            if(!dt.isScalar()){
+                //Create nested loops for a given array
+                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                        EmitterHelpers::generateVectorMatrixForLoops(dt.getDimensions());
+                std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                forLoopIndexVars = std::get<1>(forLoopStrs);
+                forLoopClose = std::get<2>(forLoopStrs);
+                exprs.insert(exprs.end(), forLoopOpen.begin(), forLoopOpen.end());
+            }
+
+            //Deref if nessasary
+            exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real" +
+                (dt.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                " = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
+            if (dt.isComplex()) {
+                exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag" +
+                    (dt.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                    " = " + defaultVal[i][portNum].toStringComponent(true, dt) + ";");
+            }
+
+            //Close for loop
+            if(!dt.isScalar()){
+                exprs.insert(exprs.end(), forLoopClose.begin(), forLoopClose.end());
             }
         }
     }
@@ -1096,7 +1091,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         std::pair<int, int> clkDomainRate = *clkDomainRateIt;
         if(clkDomainRate != std::pair<int, int>(1, 1)) {
             DataType varDt = DataType(false, false, false, (int) std::ceil(
-                    std::log2(blockSize * clkDomainRate.first / clkDomainRate.second) + 1), 0, 1);
+                    std::log2(blockSize * clkDomainRate.first / clkDomainRate.second) + 1), 0, {1});
             std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
             cFile << varDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " " << indVarStr
                   << " = 0;" << std::endl;
@@ -1104,7 +1099,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             if (clkDomainRate.second != 1) {
                 DataType varCounterDt = DataType(false, false, false,
                                                  (int) std::ceil(std::log2(blockSize * clkDomainRate.second) + 1), 0,
-                                                 1);
+                                                 {1});
                 std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
                 cFile << varCounterDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " "
                       << indVarCounterStr << " = 0;" << std::endl;
@@ -1113,7 +1108,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //emit inner loop
-    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, {1});
     if(blockSize > 1) {
         //TODO: Set the other index variables to 0 here
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
@@ -1170,7 +1165,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
             }else{
                 for(unsigned long k = 0; k < initValsLen; k++){
-                    cFile << stateVars[j].getCVarName(false) << "[" << k << "] = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
+                    cFile << stateVars[j].getCVarName(false) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
                 }
             }
 
@@ -1179,7 +1174,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                     cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
                 }else{
                     for(unsigned long k = 0; k < initValsLen; k++){
-                        cFile << stateVars[j].getCVarName(true) << "[" << k << "] = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
+                        cFile << stateVars[j].getCVarName(true) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
                     }
                 }
             }
@@ -1521,8 +1516,8 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         Variable var = inputVars[i];
 
         if(blockSize>1){
-            DataType varType = var.getDataType();
-            varType.setWidth(varType.getWidth()*blockSize);
+            //If block size >1, expand the data type
+            DataType varType = var.getDataType().expandForBlock(blockSize);
             var.setDataType(varType);
         }
 
@@ -1532,11 +1527,11 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         if(i > 0){
             prototype += ", ";
         }
-        prototype += "const " + var.getCVarDecl(false, false, false, true);
+        prototype += "const " + var.getCVarDecl(false, true, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, false, false, true);
+            prototype += ", const " + var.getCVarDecl(true, true, false, true);
         }
     }
 
@@ -1558,8 +1553,8 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         Variable var = outputVars[i];
 
         if(blockSize>1){
-            DataType varType = var.getDataType();
-            varType.setWidth(varType.getWidth()*blockSize);
+            //If blockSize>1 expand the variable
+            DataType varType = var.getDataType().expandForBlock(blockSize);
             var.setDataType(varType);
         }
 
@@ -1570,12 +1565,22 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
             prototype += ", ";
         }
         //The output variables are always pointers
-        prototype += var.getCPtrDecl(false);
+        if(var.getDataType().isScalar()) {
+            //Force a pointer for scalar values
+            prototype += var.getCPtrDecl(false);
+        }else{
+            prototype += var.getCVarDecl(false, true, false, true);
+
+        }
 
         //Check if complex
         if(var.getDataType().isComplex()){
             prototype += ", ";
-            prototype += var.getCPtrDecl(true);
+            if(var.getDataType().isScalar()) {
+                prototype += var.getCPtrDecl(true);
+            }else {
+                prototype += var.getCVarDecl(true, true, false, true);
+            }
         }
     }
 
@@ -1618,8 +1623,13 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
     for(unsigned long i = 0; i<outputFIFOs.size(); i++) {
         for (unsigned long portNum = 0; portNum < outputFIFOs[i]->getInputPorts().size(); portNum++) {
             Variable var = outputFIFOs[i]->getCStateInputVar(portNum);
+
+            //Note that the FIFO state variable does not include the expansion for
+            //block size, do it here.
+            DataType varDatatypeExpanded = var.getDataType().expandForBlock(blockSize);
+
             std::string tmpName = "";
-            if (var.getDataType().getWidth() * blockSize == 1) {
+            if (varDatatypeExpanded.numberOfElements() == 1) {
                 tmpName += "&";
             }
             tmpName += outputFIFOs[i]->getName() + "_writeTmp";

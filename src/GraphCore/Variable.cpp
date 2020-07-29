@@ -8,6 +8,7 @@
 #include <iostream>
 #include <algorithm>
 #include "General/GeneralHelper.h"
+#include "General/EmitterHelpers.h"
 
 Variable::Variable() : name("") {
 
@@ -50,17 +51,13 @@ std::string Variable::getCVarName(bool imag) {
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
-std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit, bool includeArray, bool includeRef) {
+std::string Variable::getCVarDecl(bool imag, bool includeDimensions, bool includeInit, bool includeArray, bool includeRef) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
     std::string decl = (atomicVar ? "_Atomic " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
 
-    if(dataType.getWidth() > 1 && includeArray){
-        decl += "[";
-        if(includeWidth){
-            decl += GeneralHelper::to_string(dataType.getWidth());
-        }
-        decl += "]";
+    if(!dataType.isScalar() && includeArray){
+        decl += dataType.dimensionsToString(includeDimensions);
     }
 
     if(includeInit){
@@ -69,35 +66,27 @@ std::string Variable::getCVarDecl(bool imag, bool includeWidth, bool includeInit
         }else if(initValue.size() == 1) {
             decl += " = ";
 
-            //TODO: Refactor with Constant Node Emit (Same Logic)
-            decl += "(";
+            if(dataType.isScalar()) {
+                //TODO: Refactor with Constant Node Emit (Same Logic)
+                decl += "(";
 
-            //Emit datatype (the CPU type used for storage)
-            decl += "(" + dataType.toString(DataType::StringStyle::C) + ") ";
-            //Emit value
-            decl += initValue[0].toStringComponent(imag, dataType);
-            decl += ")";
+                //Emit datatype (the CPU type used for storage)
+                decl += "(" + dataType.toString(DataType::StringStyle::C) + ") ";
+                //Emit value
+                decl += initValue[0].toStringComponent(imag, dataType);
+                decl += ")";
+            }else{
+                //If a vector/matrix, broadcast the value
+                std::vector<int> dimensions = dataType.getDimensions();
+
+                decl += EmitterHelpers::arrayLiteral(dimensions, initValue[0].toStringComponent(imag, dataType));
+            }
         }else{
             //Emit an array
             decl += " = ";
 
-            std::string storageTypeStr = dataType.toString(DataType::StringStyle::C);
-
-            decl += "{";
-
-            //Emit datatype (the CPU type used for storage)
-            decl += "(" + storageTypeStr + ") ";
-            //Emit Value
-            decl += initValue[0].toStringComponent(imag, dataType); //Convert to the real type, not the CPU storage type
-
-            for(unsigned long i = 1; i<initValue.size(); i++){
-                //Emit datatype (the CPU type used for storage)
-                decl += ", (" + storageTypeStr + ") ";
-                //Emit Value
-                decl += initValue[i].toStringComponent(imag, dataType); //Convert to the real type, not the CPU storage type
-            }
-
-            decl += "}";
+            std::vector<int> dimensions = dataType.getDimensions();
+            decl += EmitterHelpers::arrayLiteral(dimensions, initValue, imag, dataType, dataType);
         }
     }
 

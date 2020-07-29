@@ -384,12 +384,12 @@ void BlackBox::validate() {
 
     //TODO: Implement Vector Support
     for(unsigned long i = 0; i<inputPorts.size(); i++) {
-        if(getInputPort(i)->getDataType().getWidth() > 1) {
+        if(!getInputPort(i)->getDataType().isScalar()) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
     }
     for(unsigned long i = 0; i<outputPorts.size(); i++) {
-        if(getOutputPort(i)->getDataType().getWidth() > 1) {
+        if(!getOutputPort(i)->getDataType().isScalar()) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
     }

@@ -6,6 +6,7 @@
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 Sum::Sum() {
 
@@ -123,6 +124,21 @@ void Sum::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Sum - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
+    //Check that the input dimensions are the same as the output dimensions or are scalar
+    std::vector<int> outputDim = outputPorts[0]->getDataType().getDimensions();
+    for(unsigned long i = 0; i<inputPorts.size(); i++){
+        DataType inputDT = inputPorts[i]->getDataType();
+
+        //If the input is a scalar, do not check the dimensions
+        //Otherwise, check that the dimensions match
+        if(!inputDT.isScalar()){
+            std::vector<int> inputDim = inputPorts[i]->getDataType().getDimensions();
+            if(inputDim != outputDim){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Sum - The dimensions of input port " + GeneralHelper::to_string(i) + " did not match the output", getSharedPointer()));
+            }
+        }
+    }
+
     //Check that if any input is complex, the result is complex
     unsigned long numInputPorts = inputPorts.size();
     bool foundComplex = false;
@@ -149,11 +165,6 @@ void Sum::validate() {
 }
 
 CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-    //TODO: Implement Vector Support
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //Get the expressions for each input
     std::vector<std::string> inputExprs;
 
@@ -174,11 +185,10 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     bool foundInt = false;
     DataType largestInt;
 
-
     for(unsigned long i = 0; i<numInputPorts; i++){
         DataType portDataType = getInputPort(i)->getDataType();
         if(portDataType.isFloatingPt()){
-            if(foundFloat == false){
+            if(!foundFloat){
                 foundFloat = true;
                 largestFloat = portDataType;
             }else{
@@ -189,7 +199,7 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         }else if(portDataType.getFractionalBits() != 0){
             foundFixedPt = true;
         }else{
-            if(foundInt == false){
+            if(!foundInt){
                 largestInt = portDataType;
                 foundInt = true;
             }else{
@@ -213,26 +223,76 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         }
 
         //floating point numbers
-        std::string expr = DataType::cConvertType(inputExprs[0], getInputPort(0)->getDataType(), accumType);
 
-        if(!inputSign[0]){
-            expr = "(-(" + expr + "))";
-        }else{
-            expr = "(" + expr + ")";
+        //TODO: Possibly introduce an explicit vector intrinsic version or a version utilizing a linear alg library
+
+        DataType outputDT = getOutputPort(0)->getDataType();
+
+        Variable vecOutVar;
+        std::vector<std::string> forLoopIndexVars;
+        std::vector<std::string> forLoopClose;
+        //If the output is a vector, construct a for loop which puts the results in a temporary array
+        if(!outputDT.isScalar()){
+            //Declare tmp array and write to file
+            std::string vecOutName = name+"_n"+GeneralHelper::to_string(id)+ "_outVec"; //Changed to
+            vecOutVar = Variable(vecOutName, outputDT);
+            cStatementQueue.push_back(vecOutVar.getCVarDecl(imag, true, false, true, false) + ";");
+
+            //Create nested loops for a given array
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+            EmitterHelpers::generateVectorMatrixForLoops(outputDT.getDimensions());
+
+            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+            forLoopIndexVars = std::get<1>(forLoopStrs);
+            forLoopClose = std::get<2>(forLoopStrs);
+
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
         }
 
-        for(unsigned long i = 1; i<numInputPorts; i++) {
-            if (inputSign[i]) {
-                expr += "+";
-            } else {
-                expr += "-";
+        std::string expr = "";
+
+        for (unsigned long i = 0; i < numInputPorts; i++) {
+            if(i == 0){
+                //Handle if first element is negated
+                if (!inputSign[0]) {
+                    expr = "(-";
+                }
+            }else {
+                if (inputSign[i]) {
+                    expr += "+";
+                } else {
+                    expr += "-";
+                }
             }
-            expr += "(" + DataType::cConvertType(inputExprs[i], getInputPort(i)->getDataType(), accumType) + ")";
+
+            //if a vector/matrix type, need to dereference the input expr
+            std::string inputExprDeref = inputExprs[i] + (getInputPort(i)->getDataType().isScalar() ? "" :
+                                         EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+
+            expr += "(" + DataType::cConvertType(inputExprDeref, getInputPort(i)->getDataType(), accumType) + ")";
+
+            //Finish handling if the first element is negated
+            if(i == 0 && !inputSign[0]){
+                expr += ")";
+            }
         }
 
-        expr = DataType::cConvertType(expr, accumType, getOutputPort(0)->getDataType());//Convert to output if nessisary
+        //Cast the expression to the correct output type (if nessisary)
+        expr = DataType::cConvertType(expr, accumType,getOutputPort(0)->getDataType());
 
-        return CExpr(expr, false);
+        //if a vector, turn the expression into an assignment and write it to the file.  Also close the for loop
+        if(!outputDT.isScalar()){
+            cStatementQueue.push_back(vecOutVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + expr + ";");
+
+            //Close for loop
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+
+            //If a vector, return the temporary variable and flag it as a variable.
+            return CExpr(vecOutVar.getCVarName(imag), true);
+        }else{
+            //If a scalar, just return the expression
+            return CExpr(expr, false);
+        }
     }
     else{
         //TODO: Fixed Point Support

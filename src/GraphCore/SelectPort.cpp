@@ -23,7 +23,7 @@ void SelectPort::validate() {
     //Check the datatype of the input
     DataType inputType = (*(arcs.begin())).lock()->getDataType();
 
-    if(inputType.isComplex() || inputType.isFloatingPt() || inputType.getWidth() != 1){
+    if(inputType.isComplex() || inputType.isFloatingPt() || !inputType.isScalar()){
         throw std::runtime_error("Validation Failed - Select Port Not Integer Type");
     }
 }

@@ -289,7 +289,7 @@ public:
      * However, if the src port of the FIFO is a MasterInput node, the delay is placed on the output
      *
      * @param fifo
-     * @param numElementsToMove
+     * @param numElementsToMove These are elements in the FIFO and not in the intial conditions.  They can be scalar, vectors, or matricies
      * @param new_nodes
      * @param deleted_nodes
      * @param new_arcs

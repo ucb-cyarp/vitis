@@ -175,6 +175,8 @@ std::shared_ptr<ExpandedNode> Saturate::expand(std::vector<std::shared_ptr<Node>
     //Validate first to check that Saturate is properly wired
     validate();
 
+    //TODO: Implement vector support
+
     std::shared_ptr<SubSystem> thisParent = parent;
 
     //Create Expanded Node and Add to Parent
@@ -202,7 +204,7 @@ std::shared_ptr<ExpandedNode> Saturate::expand(std::vector<std::shared_ptr<Node>
         intermediateType.setComplex(false);
     }
 
-    DataType boolType = DataType(false, false, false, 1, 0, 1);
+    DataType boolType = DataType(false, false, false, 1, 0, {1});
 
     //==== Begin Creating new Nodes and Re-wireing ====
 

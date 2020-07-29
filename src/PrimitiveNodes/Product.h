@@ -142,7 +142,7 @@ public:
      *
      * @note The computation of complex multiplies of > 2 inputs gets much more complex due to the mixing of real and imagionry components into the calculation.  The number of extra bits added to account for this intermixing in the intermediate is 2*(number of inputs -1). Complex multiply is handled by the recursive emitting a multieply 2 expression.
      *
-     * For 2 input sums, a different approach is taken for integers:
+     * For 2 input products, a different approach is taken for integers:
      *   - If the output type is the same as the first input, then the second input is converted to the type of the first input (but not masked) and is multiplied.  The result is masked (& sign exteded if signed) to the output type if not a perfect CPU type.  No further casting is required.
      *   - If the output type is the most conservative type that fits the product (sum of total bits and sum of fractional bits), then both inputs are cast to that type (but are not shifted) and are multipled.  The binary point is calculated by taking the sum of their fractional bits.  No masking or casting is required for the output
      *   - For complex*complex multiplication, the output may either be sized to the type that fits the product or the size that fits the product + 1 bit for the internal sum.  The output is inspected to determine which is expected.  If the smaller one is present, then the output is down cast & masked / sign extended if appropriate

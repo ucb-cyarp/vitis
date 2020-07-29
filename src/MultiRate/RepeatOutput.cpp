@@ -163,7 +163,7 @@ CExpr
 RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                         bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
+    if(!getInputPort(0)->getDataType().isScalar()){
         throw std::runtime_error("C Emit Error - RepeatOutput Support for Vector Types has Not Yet Been Implemented");
     }
 

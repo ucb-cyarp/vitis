@@ -67,7 +67,9 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
     }
 
     //Check if FIFO full
-    if(fifo->getInitConditions().size() < (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
+    //Note: The dimensions of the input must be taken into account
+    int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
+    if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSize()*(fifo->getFifoLength() - 1)) {
         //There is still room
 
         std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPortCreateIfNot(0)->getArcs();
@@ -112,8 +114,12 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                     std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
 
-                    if (delayInitConds.size() + fifoInitConds.size() <= (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
+                    if (delayInitConds.size() + fifoInitConds.size() <= fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1)) {
                         //Can absorb complete delay
+                        if(delayInitConds.size() % elementsPerInput != 0){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Error absorbing delay into FIFO, the number of initial conditions to absorb is not a multiple of the number of elements per input", fifo));
+                        }
+
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.end());  //Because this is at the input to the FIFO, the initial conditions are appended.
                         fifo->setInitConditionsCreateIfNot(0, fifoInitConds);
@@ -150,13 +156,17 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                         //Partial absorption (due to size)
                         //We already checked that there is room
 
-                        int numToAbsorb = fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize() - fifoInitConds.size();
+                        int numToAbsorb = fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+
+                        if(numToAbsorb % elementsPerInput != 0){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Error absorbing delay into FIFO, the number of initial conditions to absorb is not a multiple of the number of elements per input", fifo));
+                        }
 
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
                         fifo->setInitConditionsCreateIfNot(0, fifoInitConds);
                         delayInitConds.erase(delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
                         srcDelay->setInitCondition(delayInitConds);
-                        srcDelay->setDelayValue(srcDelay->getDelayValue()-numToAbsorb);
+                        srcDelay->setDelayValue(srcDelay->getDelayValue()-numToAbsorb/elementsPerInput);
 
                         //No re-wiring required
 
@@ -190,8 +200,9 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
         throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, delay absorption is only supported with FIFOs that have a single input and output port" , fifo));
     }
 
+    int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
     //Check if FIFO full
-    if (fifo->getInitConditions().size() < (fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize())) {
+    if (fifo->getInitConditions().size() < fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1)) {
         //There is still room in the FIFO
 
         //Check if the FIFO has order constraint outputs
@@ -250,8 +261,11 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
                 //Find how many can be absorbed into the FIFO
                 std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
-                int roomInFifo = fifo->getFifoLength()*fifo->getBlockSize() - fifo->getBlockSize() - fifoInitConds.size();
+                int roomInFifo = fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
+                //Note that the number to absorb must be a multiple of elementsPerInput
+                //Remove any remainder
+                numToAbsorb = numToAbsorb - numToAbsorb%elementsPerInput;
 
                 //Set FIFO new initial conditions
                 int remainingPostfix = longestPostfix.size() - numToAbsorb;
@@ -306,7 +320,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                         //Remove from the tail of the initial conditions (fifo is behind it)
                         delayInitConds.erase(delayInitConds.end()-numToAbsorb, delayInitConds.end());
                         dstDelay->setInitCondition(delayInitConds);
-                        dstDelay->setDelayValue(dstDelay->getDelayValue() - numToAbsorb);
+                        dstDelay->setDelayValue(dstDelay->getDelayValue() - numToAbsorb/elementsPerInput);
 
                         if (printActions) {
                             std::cout << "Delay Partially Absorbed info FIFO: " << dstDelay->getFullyQualifiedName() << " [ID:" << dstDelay->getId() << "]"
@@ -341,9 +355,15 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::
         throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, initial condition reshaping is only supported with FIFOs that have a single input and output port" , fifo));
     }
 
+    //TODO: will need to be specialized for each port
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
+    int numberElementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
+    int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSize()*numberElementsPerInput);
 
-    int numElementsToMove = fifoInitialConditions.size() % fifo->getBlockSize();
+    if(numPrimitiveElementsToMove % numberElementsPerInput != 0){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO size.  The number of initial condition primitive elements to move is not a multiple of the number of primitive elements per input", fifo));
+    }
+    int numElementsToMove = numPrimitiveElementsToMove/numberElementsPerInput;
 
     if(numElementsToMove > 0){
         MultiThreadTransformHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
@@ -387,7 +407,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSize(std::shared
 }
 
 void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                             int numElementsToMove,
+                                                             int numElementsToMove, //These are the number of elements in the FIFO (not in initial conditions array) and can be scalars, vectors, or matricies
                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -412,6 +432,8 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
         }
 
         std::shared_ptr<Arc> origInputArc = *inputArcs.begin();
+        int numPrimitveElementsPerInput = origInputArc->getDataType().numberOfElements();  //This allows us to scale the number of initial conditions transfered to the delay
+        int primitiveElementsToMove = numPrimitveElementsPerInput*numElementsToMove;
 
         //Check if the src is a MasterInput
         if(GeneralHelper::isType<Node, MasterInput>(origInputArc->getSrcPort()->getParent()) == nullptr) {
@@ -433,13 +455,13 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
             delay->setDelayValue(numElementsToMove);
             std::vector<NumericValue> delayInitConds;
             delayInitConds.insert(delayInitConds.end(),
-                                  fifoInitialConditions.begin() + (fifoInitialConditions.size() - numElementsToMove),
+                                  fifoInitialConditions.begin() + (fifoInitialConditions.size() - primitiveElementsToMove), //
                                   fifoInitialConditions.end());
             delay->setInitCondition(delayInitConds);
 
             //Remove init conditions from fifoInitialConditions
             fifoInitialConditions.erase(
-                    fifoInitialConditions.begin() + (fifoInitialConditions.size() - numElementsToMove),
+                    fifoInitialConditions.begin() + (fifoInitialConditions.size() - primitiveElementsToMove),
                     fifoInitialConditions.end());
             fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
 
@@ -485,13 +507,13 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
             delay->setDelayValue(numElementsToMove);
             std::vector<NumericValue> delayInitConds;
             delayInitConds.insert(delayInitConds.end(), fifoInitialConditions.begin(),
-                                  fifoInitialConditions.begin() + numElementsToMove);
+                                  fifoInitialConditions.begin() + primitiveElementsToMove);
             delay->setInitCondition(delayInitConds);
 
             //Remove init conditions from fifoInitialConditions
             fifoInitialConditions.erase(
                     fifoInitialConditions.begin(),
-                    fifoInitialConditions.begin() + numElementsToMove);
+                    fifoInitialConditions.begin() + primitiveElementsToMove);
             fifo->setInitConditionsCreateIfNot(0, fifoInitialConditions);
 
             //Rewire Outputs

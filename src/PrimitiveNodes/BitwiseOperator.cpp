@@ -171,7 +171,7 @@ void BitwiseOperator::validate() {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Shift Amount Should be a Real Integer", getSharedPointer()));
         }
     }else{
-        if (inputPorts.size() != 2) {
+        if (inputPorts.size() < 2) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Should Have Exactly 2 Input Ports", getSharedPointer()));
         }
     }
@@ -184,7 +184,7 @@ void BitwiseOperator::validate() {
 
 CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getOutputPort(0)->getDataType().getWidth()>1){
+    if(!getOutputPort(0)->getDataType().isScalar()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BitwiseOperator Support for Vector Types has Not Yet Been Implemented" , getSharedPointer()));
     }
 
@@ -205,9 +205,13 @@ CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         //This is a special case for a single operand
         expr = bitwiseOpToCString(BitwiseOp::NOT) + "(" + inputExprs[0] + ")";
     }else{
-        //For 2 operands
-
-        expr = "("+inputExprs[0]+")" + bitwiseOpToCString(op) + "("+inputExprs[1]+")";
+        //For >=2 operands
+        for(unsigned long i = 0; i<numInputPorts; i++) {
+            if(i > 0){
+                expr += bitwiseOpToCString(op);
+            }
+            expr += "(" + inputExprs[i] + ")";
+        }
     }
 
     return CExpr(expr, false);

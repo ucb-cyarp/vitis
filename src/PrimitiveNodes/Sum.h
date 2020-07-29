@@ -20,6 +20,9 @@
 
 /**
  * @brief Represents a Sum Block.  Parameters dictate the signs of the inputs.
+ *
+ * Vectors and matrixies are supported.  Inputs must either match the dimension of the output or be a scalar.
+ * If the input is a scalar, it applied to each element in the vector/matrix.
  */
 class Sum : public PrimitiveNode{
     friend NodeFactory;

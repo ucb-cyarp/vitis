@@ -23,3 +23,15 @@ std::string ErrorHelpers::genErrorStr(std::string errorText, std::shared_ptr<Nod
 std::string ErrorHelpers::genErrorStr(std::string errorText, std::shared_ptr<Node> node) {
     return ErrorHelpers::genErrorStr(errorText, node->getErrorReportContextStr());
 }
+
+std::string ErrorHelpers::genWarningStr(std::string errorText, std::string errorContext) {
+    return ErrorHelpers::genErrorStr(errorText, VITIS_STD_WARNING_PREAMBLE, errorContext);
+}
+
+std::string ErrorHelpers::genWarningStr(std::string errorText) {
+    return ErrorHelpers::genWarningStr(errorText, "");
+}
+
+std::string ErrorHelpers::genWarningStr(std::string errorText, std::shared_ptr<Node> node) {
+    return ErrorHelpers::genWarningStr(errorText, node->getErrorReportContextStr());
+}

@@ -11,6 +11,7 @@
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextVariableUpdate.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 #include <iostream>
 
 Mux::Mux() : booleanSelect(false), useSwitch(true) {
@@ -128,6 +129,7 @@ void Mux::validate() {
     }
 
     //Check that all input ports and the output port have the same type
+    //This also check dimensions
     DataType outType = getOutputPort(0)->getDataType();
     unsigned long numInputPorts = inputPorts.size();
 
@@ -430,7 +432,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
 
         std::shared_ptr<SubSystem> updateNodeParent;
         if(setContext){
-            //Should rside in the same context as the context root mux
+            //Should reside in the same context as the context root mux
             if(contextFamilyContainers.find(partitionNum) != contextFamilyContainers.end()){
                 //Context family container exists
                 updateNodeParent = contextFamilyContainers[partitionNum]->getSubContextContainer(subContextNumber);
@@ -480,27 +482,18 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
 }
 
 CExpr Mux::emitCExprContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag){
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     return CExpr(muxContextOutputVar.getCVarName(imag), true); //This is a variable
 }
 
 CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
-    //Get the expression for the select line
+    //--- Get the expression for the select line ---
     std::shared_ptr<OutputPort> selectSrcOutputPort = getSelectorPort()->getSrcOutputPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
 
     std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
 
-    //Get the expressions for each input
+    //--- Get the expressions for each input ---
     std::vector<std::string> inputExprs;
 
     unsigned long numInputPorts = inputPorts.size();
@@ -512,7 +505,7 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
         inputExprs.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag));
     }
 
-    //Declare output tmp var
+    //--- Declare output tmp var ---
     std::string outputVarName = name+"_n"+GeneralHelper::to_string(id)+"_out";
     DataType outType = getOutputPort(0)->getDataType();
     Variable outVar = Variable(outputVarName, outType);
@@ -527,28 +520,75 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
         cStatementQueue.push_back(outVar.getCVarDecl(false, true, false, true) + ";");
     }
 
+    // --- Create For Loop Vars ---
+    std::vector<std::string> forLoopOpen;
+    std::vector<std::string> forLoopIndexVars;
+    std::vector<std::string> forLoopClose;
+    if(!outType.isScalar()) {
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(outType.getDimensions());
+
+        forLoopOpen = std::get<0>(forLoopStrs);
+        forLoopIndexVars = std::get<1>(forLoopStrs);
+        forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+    }
+
+    //--- Deref input exprs if needed (if a vector or matrix)---
+    std::vector<std::string> inputExprsDeref;
+    if(outType.isScalar()) {
+        //No deref needed
+        inputExprsDeref = inputExprs;
+    }else{
+        for(unsigned long i = 0; i<inputExprs.size(); i++){
+            inputExprsDeref.push_back(inputExprs[i] + EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+        }
+    }
+
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool()){
         //if/else statement
         std::string ifExpr = "if(" + selectExpr + "){";
         cStatementQueue.push_back(ifExpr);
 
+        //Add For loop if vector/matrix
+        if(!outType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        }
+
         std::string trueAssign;
         std::string falseAssign;
         if(booleanSelect){
             //In this case, port 0 is the true port and port 1 is the false port
-            trueAssign = outVar.getCVarName(imag) + " = " + inputExprs[0] + ";";
-            falseAssign = outVar.getCVarName(imag) + " = " + inputExprs[1] + ";";
+            trueAssign = outVar.getCVarName(imag) + " = " + inputExprsDeref[0] + ";";
+            falseAssign = outVar.getCVarName(imag) + " = " + inputExprsDeref[1] + ";";
         }else{
             //This takes a select statement type perspective with the input ports being considered numbers
             //false is 0 and true is 1.
-            trueAssign = outVar.getCVarName(imag) + " = " + inputExprs[1] + ";";
-            falseAssign = outVar.getCVarName(imag) + " = " + inputExprs[0] + ";";
+            trueAssign = outVar.getCVarName(imag) + " = " + inputExprsDeref[1] + ";";
+            falseAssign = outVar.getCVarName(imag) + " = " + inputExprsDeref[0] + ";";
         }
 
         cStatementQueue.push_back(trueAssign);
+        //Close for loop
+        if(!outType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+        }
+
         cStatementQueue.push_back("}else{");
+        //Open For Loop
+        if(!outType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        }
+
         cStatementQueue.push_back(falseAssign);
+
+        //Close for loop
+        if(!outType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+        }
         cStatementQueue.push_back("}");
     }else{
         //switch statement
@@ -558,14 +598,34 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
         for(unsigned long i = 0; i<(numInputPorts-1); i++){
             std::string caseExpr = "case " + GeneralHelper::to_string(i) + ":";
             cStatementQueue.push_back(caseExpr);
-            std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[i] + ";";
+            //Open For Loop
+            if(!outType.isScalar()){
+                cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+            }
+
+            std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprsDeref[i] + ";";
             cStatementQueue.push_back(caseAssign);
+
+            //Close for loop
+            if(!outType.isScalar()){
+                cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+            }
             cStatementQueue.push_back("break;");
         }
 
         cStatementQueue.push_back("default:");
-        std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprs[numInputPorts-1] + ";";
+        //Open For Loop
+        if(!outType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        }
+
+        std::string caseAssign = outVar.getCVarName(imag) + " = " + inputExprsDeref[numInputPorts-1] + ";";
         cStatementQueue.push_back(caseAssign);
+
+        //Close for loop
+        if(!outType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+        }
         cStatementQueue.push_back("break;");
         cStatementQueue.push_back("}");
     }
@@ -581,10 +641,11 @@ std::vector<Variable> Mux::getCContextVars() {
     //The mux does not have an initial condition (is not a state element).  Will set an (unused) initial value to the default numeric value.
     std::vector<NumericValue> initVals;
 
-    for(unsigned long i = 0; i<dataType.getWidth(); i++){
+    for(unsigned long i = 0; i<dataType.numberOfElements(); i++){
         initVals.push_back(NumericValue());
     }
 
+    //Note that if the output is a matrix/vector, the context output var will also be a matrix/vector
     Variable var = Variable(varName, dataType, initVals);
 
     muxContextOutputVar = var;
@@ -616,10 +677,6 @@ Variable Mux::getCContextVar(int contextVarIndex) {
 }
 
 void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //Note: For single threaded operation, this is simply getSelectorPort()->getSrcOutputPort()
     //However, in a multi-threaded context, the select driver may come from a FIFO (which will be different depending on the partition)
     //There should only be 1 driver arc for a mux in a given partition
@@ -687,10 +744,6 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
 }
 
 void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //Note: For single threaded operation, this is simply getSelectorPort()->getSrcOutputPort()
     //However, in a multi-threaded context, the select driver may come from a FIFO (which will be different depending on the partition)
     //There should only be 1 driver arc for a mux in a given partition
@@ -725,10 +778,6 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
 }
 
 void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) {
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //Note: For single threaded operation, this is simply getSelectorPort()->getSrcOutputPort()
     //However, in a multi-threaded context, the select driver may come from a FIFO (which will be different depending on the partition)
     //There should only be 1 driver arc for a mux in a given partition

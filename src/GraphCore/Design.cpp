@@ -460,26 +460,28 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
     if(numInputVars>0){
         Variable var = inputVars[0];
 
-        if(forceArray){
+        //Note, if it is already an array, preserve the dimensions
+        if(forceArray && var.getDataType().isScalar()){
             DataType varType = var.getDataType();
-            varType.setWidth(2);
+            varType.setDimensions({2});
             var.setDataType(varType);
         }
 
-        prototype += "const " + var.getCVarDecl(false, false, false, true);
+        prototype += "const " + var.getCVarDecl(false, true, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, false, false, true);
+            prototype += ", const " + var.getCVarDecl(true, true, false, true);
         }
     }
 
     for(unsigned long i = 1; i<numInputVars; i++){
         Variable var = inputVars[i];
 
-        if(forceArray){
+        //Note, if it is already an array, preserve the dimensions
+        if(forceArray && var.getDataType().isScalar()){
             DataType varType = var.getDataType();
-            varType.setWidth(2);
+            varType.setDimensions({2});
             var.setDataType(varType);
         }
 
@@ -968,7 +970,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << fctnProto << "{" << std::endl;
 
     //emit inner loop
-    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, {1});
     if(blockSize > 1) {
         //TODO: Creatr other variables for clock domains
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
@@ -1027,7 +1029,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                 cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
             }else{
                 for(unsigned long k = 0; k < initValsLen; k++){
-                    cFile << stateVars[j].getCVarName(false) << "[" << k << "] = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
+                    cFile << stateVars[j].getCVarName(false) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
                 }
             }
 
@@ -1036,7 +1038,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                     cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
                 }else{
                     for(unsigned long k = 0; k < initValsLen; k++){
-                        cFile << stateVars[j].getCVarName(true) << "[" << k << "] = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
+                        cFile << stateVars[j].getCVarName(true) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
                     }
                 }
             }
@@ -1102,57 +1104,42 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
     std::string fctnCall = designName + "(";
 
     //TODO: Update for clock domains
-    if(blockSize >1) {
-        //For a block size greater than 1, constant arrays need to be created
-        for (unsigned long i = 0; i < numInputVars; i++) {
-            //Expand the size of the variable to account for the block size;
-            Variable blockInputVar = inputVars[i];
-            DataType blockDT = blockInputVar.getDataType();
-            int blockedWidth = blockDT.getWidth()*blockSize;
-            blockDT.setWidth(blockedWidth);
-            blockInputVar.setDataType(blockDT);
-            benchKernel << "\t" << blockInputVar.getCVarDecl(false, true, false, true) << " = {";
+    //For a block size greater than 1, constant arrays need to be created
+    for (unsigned long i = 0; i < numInputVars; i++) {
+        //Expand the size of the variable to account for the block size;
+        Variable blockInputVar = inputVars[i];
+        DataType blockDT = blockInputVar.getDataType().expandForBlock(blockSize);
 
-            for (unsigned long j = 0; j < blockedWidth; j++){
-                if(j>0){
-                    benchKernel << ", ";
-                }
-                benchKernel << defaultArgs[i].toStringComponent(false, blockDT);
-            }
-            benchKernel << "};" << std::endl;
+        blockInputVar.setDataType(blockDT);
 
-            if(i>0){
-                fctnCall += ", ";
-            }
+        std::vector<int> blockedDim = blockDT.getDimensions();
+
+        //Insert comma between variables
+        if (i > 0) {
+            fctnCall += ", ";
+        }
+
+        if(!blockDT.isScalar()) {
+            //Create a constant array and pass it as the argument
+            benchKernel << "\t" << blockInputVar.getCVarDecl(false, true, false, true)
+                        << EmitterHelpers::arrayLiteral(blockedDim, defaultArgs[i].toStringComponent(false, blockDT)) << ";";
             fctnCall += blockInputVar.getCVarName(false);
+        }else{
+            //Just pass the scalar argument
+            fctnCall += defaultArgs[i].toStringComponent(false, blockDT);
+        }
 
-            if (inputVars[i].getDataType().isComplex()) {
-                benchKernel << "\t" << blockInputVar.getCVarDecl(true, true, false, true) << " = {";
+        if (inputVars[i].getDataType().isComplex()) {
+            fctnCall += ", "; //This is guarenteed to be needed as the real component will come first
 
-                for (unsigned long j = 0; j < blockedWidth; j++){
-                    if(j>0){
-                        benchKernel << ", ";
-                    }
-                    benchKernel << defaultArgs[i].toStringComponent(true, blockDT);
-                }
-                benchKernel << "};" << std::endl;
-
-                fctnCall += ", "; //This is guarenteed to be needed as the real component will come first
+            if(!blockDT.isScalar()) {
+                //Create a constant array and pass it as the argument
+                benchKernel << "\t" << blockInputVar.getCVarDecl(true, true, false, true)
+                            << EmitterHelpers::arrayLiteral(blockedDim, defaultArgs[i].toStringComponent(true, blockDT)) << ";";
                 fctnCall += blockInputVar.getCVarName(true);
-            }
-        }
-    }else{
-        //For a block size of 1, the arguments are passed as scalars
-        if (numInputVars > 0) {
-            fctnCall += defaultArgs[0].toStringComponent(false, inputVars[0].getDataType());
-            if (inputVars[0].getDataType().isComplex()) {
-                fctnCall += ", " + defaultArgs[0].toStringComponent(true, inputVars[0].getDataType());
-            }
-        }
-        for (unsigned long i = 1; i < numInputVars; i++) {
-            fctnCall += ", " + defaultArgs[i].toStringComponent(false, inputVars[i].getDataType());
-            if (inputVars[i].getDataType().isComplex()) {
-                fctnCall += ", " + defaultArgs[i].toStringComponent(true, inputVars[i].getDataType());
+            }else{
+                //Just pass the scalar argument
+                fctnCall += defaultArgs[i].toStringComponent(true, blockDT);
             }
         }
     }

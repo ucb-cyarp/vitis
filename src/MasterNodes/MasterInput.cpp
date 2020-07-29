@@ -34,12 +34,12 @@ CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
 
     std::string expr;
     if(blockSize > 1){
-        int width = outputPort->getDataType().getWidth();
-        if(width > 1){
-            expr = "(" + var.getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + indVarName + ")";
-        }else{
-            expr = "(" +  var.getCVarName(imag) + "[" + indVarName + "])";
-        }
+        //Because of C multidimensional array semantics, and because the added dimension for blocks >1 is prepended to
+        //the dimensions, indexing the first dimension will return the correct value.  If the data type is a scalar, it
+        //returns a scalar value for the given block.  If the data type is a vector or matrix, this will still return a
+        //a pointer but a pointer to the correct block.
+        //This same style is used in the ThreadCrossingFIFO
+        expr = "(" + var.getCVarName(imag) + "[" + indVarName + "])";
     }else{
         expr = var.getCVarName(imag);
     }

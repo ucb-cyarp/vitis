@@ -221,6 +221,8 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     //Validate first to check that node is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
     validate();
 
+    //TODO: Implement vector support
+
     //TODO enable sin output
     bool calcCos = true;
     bool calcSin = complexOut;
@@ -244,7 +246,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
 
     //---- Create nodes and rewire ----
     //DataType incDT = getInputPort(0)->getDataType();
-    DataType incDT(false, true, false, accumulatorBits+1, 0, 1); //Accumulator bits
+    DataType incDT(false, true, false, accumulatorBits+1, 0, {1}); //Accumulator bits
     //TODO: For this implementation, we round up to the next CPU type.  Comment out if true fixed point is needed
     incDT = incDT.getCPUStorageType();
 
@@ -319,7 +321,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     std::shared_ptr<Arc> reinterpretCastToQuantizer = Arc::connectNodes(reinterpretCast, 0, quantizer, 0, unsignedIncDT);
     new_arcs.push_back(reinterpretCastToQuantizer);
 
-    DataType quantizeConstType(false, false, false, ceil(log2(accumulatorBits+1)), 0, 1);
+    DataType quantizeConstType(false, false, false, ceil(log2(accumulatorBits+1)), 0, {1});
     std::shared_ptr<Arc> quantizeConstToQuantizer = Arc::connectNodes(quantizeConst, 0, quantizer, 1, quantizeConstType);
     new_arcs.push_back(quantizeConstToQuantizer);
 
@@ -349,12 +351,12 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     std::shared_ptr<Arc> quantizerToQuadCalc = Arc::connectNodes(quantizeDTConvert, 0, quadCalc, 0, quantizerType);
     new_arcs.push_back(quantizerToQuadCalc);
 
-    DataType quantizeQuadConstType(false, false, false, ceil(log2(lutAddrBits-2)), 0, 1);
+    DataType quantizeQuadConstType(false, false, false, ceil(log2(lutAddrBits-2)), 0, {1});
 
     std::shared_ptr<Arc> quadCalcConstToQuadCalc = Arc::connectNodes(quadCalcConst, 0, quadCalc, 1, quantizeQuadConstType);
     new_arcs.push_back(quadCalcConstToQuadCalc);
 
-    DataType quadDT = DataType(false, false, false, 2, 0, 1);
+    DataType quadDT = DataType(false, false, false, 2, 0, {1});
 
     //+Base Ind Calc+
     std::shared_ptr<BitwiseOperator> baseIndCalc = NodeFactory::createNode<BitwiseOperator>(expandedNode);
@@ -371,7 +373,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     std::shared_ptr<Arc> baseIndMaskToBaseIndCalc = Arc::connectNodes(baseIndMask, 0, baseIndCalc, 1, quantizerType);
     new_arcs.push_back(baseIndMaskToBaseIndCalc);
 
-    DataType baseIndDT = DataType(false, false, false, lutAddrBits-1, 0, 1); //This should be -2 but an additional bit is needed due to the extra entry in the LUT (boundary)
+    DataType baseIndDT = DataType(false, false, false, lutAddrBits-1, 0, {1}); //This should be -2 but an additional bit is needed due to the extra entry in the LUT (boundary)
 
     //+++ Cos & Sin Index Calculation +++
     std::shared_ptr<Constant> indOffsetConst = NodeFactory::createNode<Constant>(expandedNode);

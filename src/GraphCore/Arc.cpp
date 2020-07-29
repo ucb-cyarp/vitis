@@ -300,7 +300,7 @@ xercesc::DOMElement *Arc::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMEle
     GraphMLHelper::addDataNode(doc, arcElement, "arc_datatype", dataType.toString());
     std::string complexStr = (dataType.isComplex() ? "true" : "false");
     GraphMLHelper::addDataNode(doc, arcElement, "arc_complex", complexStr);
-    GraphMLHelper::addDataNode(doc, arcElement, "arc_width", GeneralHelper::to_string(dataType.getWidth()));
+    GraphMLHelper::addDataNode(doc, arcElement, "arc_dimension", GeneralHelper::vectorToString(dataType.getDimensions()));
     GraphMLHelper::addDataNode(doc, arcElement, "arc_disp_label", labelStr());
     GraphMLHelper::addDataNode(doc, arcElement, "arc_id", GeneralHelper::to_string(getId()));
 
@@ -324,7 +324,7 @@ std::string Arc::labelStr() {
                         "\nSrc Port: " + GeneralHelper::to_string(srcPort->getPortNum()) +
                         "\nDst Port: " + GeneralHelper::to_string(dstPort->getPortNum()) + " (" + dstPortType + ")"
                         "\nDatatype: " + dataType.toString() + " (" + (dataType.isComplex() ? "Complex" : "Real") + ")" +
-                        "\nWidth: " + GeneralHelper::to_string(dataType.getWidth());
+                        "\nDimensions: " + GeneralHelper::vectorToString(dataType.getDimensions());
 
     return label;
 }

@@ -994,7 +994,34 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     if(blockFunction == "Sum"){
         newNode = Sum::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Product"){
-        newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+            //For simulink, we need to check for element wise or matrix multiplication
+
+            if(dataKeyValueMap.find("Multiplication") == dataKeyValueMap.end()){
+                std::cerr << "Warning: Multiplication node from Simulink without Multiplication Parameter, assuming \"Element-wise(.*)\"" << std::endl;
+                newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+            }else {
+                std::string multType = dataKeyValueMap.at("Multiplication");
+
+                if (multType == "Element-wise(.*)") {
+                    //For element-wise, we use the Product block.
+                    newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+                } else if (multType == "Matrix(*)") {
+                    //TODO: Implement Matrix Multiplication
+                    throw std::runtime_error(
+                            ErrorHelpers::genErrorStr("Matrix Multiplication is not yet implemented: " + blockFunction,
+                                                      parent->getFullyQualifiedName() + "/" + name));
+                } else {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown multiplication type: " + blockFunction,
+                                                                       parent->getFullyQualifiedName() + "/" + name));
+                }
+            }
+
+        }else {
+            //This is the Product block.  Matrix Multiply is declared seperatly
+            newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }
+    //TODO: Add vitis only block matrix multiply
     }else if(blockFunction == "Delay") {
         newNode = Delay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Constant"){
@@ -1296,13 +1323,68 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
         std::string complexStr = dataKeyValueMap.at("arc_complex");
         bool complex = !(complexStr == "0" || complexStr == "false");
 
-        int width = std::stoi(dataKeyValueMap.at("arc_width"));
+
+        std::vector<int> dimensions;
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            //Reformat the dimensions array from Simulink to exclude the number of dimensions
+            std::string simulinkDimStr = dataKeyValueMap.at("arc_dimension");
+            std::vector<int> simulinkDim = GeneralHelper::parseIntVecStr(simulinkDimStr);
+
+            if(simulinkDim.size() <= 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions not specified: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+            if(simulinkDim.size() < 2){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions for arc illegal, expect [#dim, dim1, dim2, ...]: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+            if(simulinkDim[0] != simulinkDim.size()-1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions for arc disagreed with the length of the dimension vector: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+            //Get the dimensions of the wire.  Detect if all dimensions are 1
+            bool allOnes = true;
+            for(int dim = 1; dim<simulinkDim.size(); dim++){
+                dimensions.push_back(simulinkDim[dim]);
+                if(simulinkDim[dim] != 1){
+                    allOnes = false;
+                    break;
+                }
+            }
+
+            //Check if the #dimensions>1 but lengths indicate a scalar
+            if(allOnes && dimensions.size()>1){
+                //Emit a warning if this happens
+                std::cerr << ErrorHelpers::genWarningStr("Converting wire of dimension " + simulinkDimStr + " to scalar: Edge ID: " + GeneralHelper::to_string(id)) << std::endl;
+                dimensions = std::vector<int>({1});
+            }
+
+            //Check that the number of elements equals the dimensions
+            int width = std::stoi(dataKeyValueMap.at("arc_width"));
+
+            int elements = 0;
+            for(unsigned long dim = 0; dim < dimensions.size(); dim++){
+                if(dim == 0){
+                    elements = dimensions[dim];
+                }else{
+                    elements *= dimensions[dim];
+                }
+            }
+
+            if(elements != width){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions for arc don't match width: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+        }else{
+            //Just grab the dimension array
+            std::string dimensionsStr = dataKeyValueMap.at("arc_dimension");
+            dimensions = GeneralHelper::parseIntVecStr(dimensionsStr);
+        }
 
         std::string dataTypeStr = dataKeyValueMap.at("arc_datatype");
 
-
         //==== Create DataType object ====
-        DataType dataType(dataTypeStr, complex, width);
+        DataType dataType(dataTypeStr, complex, dimensions);
 
         //==== Lookup Nodes ====
         std::shared_ptr<Node> srcNode = nodeMap.at(srcFullPath);

@@ -10,6 +10,7 @@
 #include <memory>
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
+#include "GeneralHelper.h"
 
 #define VITIS_TYPE_NAME "vitisTypes"
 
@@ -100,7 +101,7 @@ public:
      * This is used by the driver generator.
      *
      * @param portVariables the port variables for the design (either input or output) (in accending port order)
-     * @param portBlockSizes the block size (in samples) each port.  The width is multiplied by this number
+     * @param portBlockSizes the block size (in samples) each port.  If the port is a scalar, it converted to a vector of this length.  If the port is a vector or matrix, a new dimension is added to the front of the dimensions array (so that blocks are stored contiguously in memory according to the C/C++ array semantics)
      * @param the type name of the struct being created
      *
      * @return
@@ -170,6 +171,103 @@ public:
      * @return
      */
     static std::vector<int> getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase);
+
+    template<typename T>
+    static std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, T val){
+        std::string str = "";
+
+        if(dimIndex >= dimensions.size()){
+            //Base case, just emit the value, with no {}
+            str = GeneralHelper::to_string(val);
+        }else{
+            str += "{";
+
+            for(int i = 0; i<dimensions[dimIndex]; i++){
+                if(i > 0){
+                    str += ", ";
+                }
+
+                str += arrayLiteralWorker(dimensions, dimIndex+1, val);
+            }
+
+            str += "}";
+        }
+
+        return str;
+    }
+
+    template<typename T>
+    static std::string arrayLiteral(std::vector<int> &dimensions, T val){
+        return arrayLiteralWorker(dimensions, 0, val);
+    }
+
+    template<typename T>
+    //Val index is a reference so that it can be incremented in the base case
+    static std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<T> &val, int &valIndex){
+        std::string str = "";
+
+        if(dimIndex >= dimensions.size()){
+            //Base case, just emit the value, with no {}
+            str = GeneralHelper::to_string(val[valIndex]);
+            valIndex++;
+        }else{
+            str += "{";
+
+            for(int i = 0; i<dimensions[dimIndex]; i++){
+                if(i > 0){
+                    str += ", ";
+                }
+
+                str += arrayLiteralWorker(dimensions, dimIndex+1, val, valIndex);
+            }
+
+            str += "}";
+        }
+
+        return str;
+    }
+
+    template<typename T>
+    static std::string arrayLiteral(std::vector<int> &dimensions, std::vector<T> val){
+        int idx = 0;
+        return arrayLiteralWorker(dimensions, 0, val, idx);
+    }
+
+    //Val index is a reference so that it can be incremented in the base case
+    static std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<NumericValue> &val, int &valIndex, bool imag, DataType valType, DataType storageType);
+
+    static std::string arrayLiteral(std::vector<int> &dimensions, std::vector<NumericValue> val, bool imag, DataType valType, DataType storageType);
+
+    /**
+     * @brief Generates nested for loops to be used when emitting element wise vector/matrix operations
+     * @param dimensions
+     * @return a tuple containing, the nested for loop declarations in the order of declaration (outer to inner), the index variables used for each successive for loop - starting with the outer most first, and finally the closings for the nested for loops
+     */
+    static std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions);
+
+    /**
+     * @brief Generates a C/C++ style array indexing operation
+     * @param index
+     * @return a string with the index variables sandwidtched between square brackets
+     */
+    template<typename T>
+    static std::string generateIndexOperation(const std::vector<T>& index){
+        std::string str = "";
+
+        for(T i : index){
+            str += "[" + GeneralHelper::to_string(i) + "]";
+        }
+
+        return str;
+    }
+
+    /**
+     * @brief Converts a memory index (like the index of a linear vector) to the index of a C/C++ array occupying the same memory space
+     * @param idx
+     * @param dimensions the dimensions of the array
+     * @return
+     */
+    static std::vector<int> memIdx2ArrayIdx(int idx, std::vector<int> dimensions);
 };
 
 /*! @} */

@@ -119,7 +119,7 @@ void LUTDesignValidator::validate(Design &design) {
     //we can be sure we are not missing arcs
 
     //Some common types in this design
-    DataType real_double_width1 = DataType(true, true, false, 64, 0, 1);
+    DataType real_double_width1 = DataType(true, true, false, 64, 0, {1});
 
     unsigned long arcCheckCount = 0;
 

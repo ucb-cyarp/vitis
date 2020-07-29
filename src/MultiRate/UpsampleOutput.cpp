@@ -194,7 +194,7 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
 CExpr UpsampleOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                 int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
+    if(!getInputPort(0)->getDataType().isScalar()){
         throw std::runtime_error("C Emit Error - UpsampleOutput Support for Vector Types has Not Yet Been Implemented");
     }
 

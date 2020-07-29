@@ -120,6 +120,10 @@ public:
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
+    bool hasState() override;
+
+    bool hasCombinationalPath() override;
+
 };
 
 /*! @} */

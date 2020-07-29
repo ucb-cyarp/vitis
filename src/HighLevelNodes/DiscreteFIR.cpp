@@ -209,7 +209,12 @@ void DiscreteFIR::validate() {
             }
         }
     }else if(coefSource == CoefSource::INPUT_PORT){
-        if(initVals.size() != (getInputPort(1)->getDataType().getWidth()-1)){ //Input port 1 is the coef input port
+        if(!getInputPort(1)->getDataType().isScalar() && !getInputPort(1)->getDataType().isVector()){
+            //Scalar is possible if the filter has a single tap
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DiscreteFIR - Coef port should be a vector or scalar", getSharedPointer()));
+        }
+        int coefWidth = getInputPort(1)->getDataType().getDimensions()[0];
+        if(initVals.size() != (coefWidth-1)){ //Input port 1 is the coef input port
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DiscreteFIR - Number of Initial Values Should be 1 Less Than the Number of Coefs", getSharedPointer()));
         }
     }else{
@@ -223,4 +228,12 @@ DiscreteFIR::DiscreteFIR(std::shared_ptr<SubSystem> parent, DiscreteFIR* orig) :
 
 std::shared_ptr<Node> DiscreteFIR::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<DiscreteFIR>(parent, this);
+}
+
+bool DiscreteFIR::hasState(){
+    return true;
+}
+
+bool DiscreteFIR::hasCombinationalPath(){
+    return true;
 }

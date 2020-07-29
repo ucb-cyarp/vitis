@@ -8,6 +8,8 @@
 #include <cmath>
 #include <locale>
 
+#include "GraphCore/NumericValue.h"
+
 std::string
 GeneralHelper::vectorToString(std::vector<bool> vec, std::string trueStr, std::string falseStr, std::string separator,
                               bool includeBrackets) {
@@ -190,4 +192,20 @@ int GeneralHelper::gcd(int a, int b){
 
     //Should never get here
     return dividend;
+}
+
+std::vector<int> GeneralHelper::parseIntVecStr(std::string str) {
+    std::vector<NumericValue> parsedStr = NumericValue::parseXMLString(str);
+
+    std::vector<int> intVec;
+
+    for(unsigned long i = 0; i<parsedStr.size(); i++){
+        if(parsedStr[i].isFractional() || parsedStr[i].isComplex()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to convert non-integer or complex vector to an integer vector: " + str));
+        }
+
+        intVec.push_back(parsedStr[i].getRealInt());
+    }
+
+    return intVec;
 }

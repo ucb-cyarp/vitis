@@ -6,6 +6,7 @@
 
 #include "GraphCore/NodeFactory.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 #include <iostream>
 
 DataTypeConversion::DataTypeConversion() : PrimitiveNode(), inheritType(DataTypeConversion::InheritType::SPECIFIED) {
@@ -99,7 +100,7 @@ DataTypeConversion::createFromGraphML(int id, std::string name, std::map<std::st
         //NOTE: complex is set to true and width is set to 1 for now.  These will be resolved with a call to propagate from Arcs.
         DataType dataType;
         try {
-            dataType = DataType(datatypeStr, true, 1);
+            dataType = DataType(datatypeStr, true, {1});
             newNode->setTgtDataType(dataType);
         }catch(const std::invalid_argument& e){
             std::cerr << "Warning: Could not parse specified DataType: " << datatypeStr << ". Reverting DataTypeConvert " << newNode->getFullyQualifiedName() << " to Using Inherited Type ..." << std::endl;
@@ -176,7 +177,7 @@ void DataTypeConversion::propagateProperties() {
 
     //Propagate the complex and width to the tgtDataType as this was not known when the DataTypeConversion object was created
     tgtDataType.setComplex(outDataType.isComplex());
-    tgtDataType.setWidth(outDataType.getWidth());
+    tgtDataType.setDimensions(outDataType.getDimensions());
 }
 
 void DataTypeConversion::validate() {
@@ -195,27 +196,31 @@ void DataTypeConversion::validate() {
 
         std::shared_ptr<Arc> outArc = *(output->getArcs().begin());
 
-        if(outArc->getDataType() != tgtDataType) {
+        //Dimensions are not specified so do not check them as part of the type check
+        DataType outType = outArc->getDataType();
+        outType.setDimensions({1});
+        DataType tgtType = tgtDataType;
+        tgtType.setDimensions({1});
+        if(outType != tgtType) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Error - DataTypeConversion - Type Specified and Disagrees with Type of Output Arc", getSharedPointer()));
         }
     }
 
     //Should have 1 input ports and 1 output port
     if(inputPorts.size() != 1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeConversion - Should Have Exactly 0 Input Port", getSharedPointer()));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeConversion - Should Have Exactly 1 Input Port", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeConversion - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
+
+    if(getInputPort(0)->getDataType().getDimensions() != getOutputPort(0)->getDataType().getDimensions()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DataTypeConversion - Input and output should have the same dimensions", getSharedPointer()));
+    }
 }
 
 CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-    //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //TODO: Implement Fixed Point Support
     if((!getInputPort(0)->getDataType().isCPUType()) || (!getOutputPort(0)->getDataType().isCPUType())) {
         throw std::runtime_error(ErrorHelpers::genErrorStr(
@@ -233,22 +238,48 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, S
 
     if(inheritType == DataTypeConversion::InheritType::SPECIFIED){
         tgtType = tgtDataType;
+        //Inherit the dimensions from the output port
+        tgtType.setDimensions(getOutputPort(0)->getDataType().getDimensions());
     }else if(inheritType == DataTypeConversion::InheritType::INHERIT_FROM_OUTPUT){
         tgtType = getOutputPort(0)->getDataType();
     }
 
     DataType srcType = getInputPort(0)->getDataType();
 
+    Variable outVar;
+    std::vector<std::string> forLoopIndexVars;
+    std::vector<std::string> forLoopClose;
+    if(!srcType.isScalar()){
+        //Need to declare a temporary for the vector;
+        std::string outputVarName = name + "_n" + GeneralHelper::to_string(id) + "_outVec";
+        outVar = Variable(outputVarName, tgtType);
+        cStatementQueue.push_back(outVar.getCVarDecl(imag, true, false, true, false) + ";");
 
-    if(tgtType == srcType){
-        //Just return the input expression, no conversion required.
-        return CExpr(inputExpr, false);
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(srcType.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        forLoopIndexVars = std::get<1>(forLoopStrs);
+        forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+    }
+
+    std::string inputExprDeref = inputExpr + (srcType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+    //Only cast if the types are different
+    std::string castExpr = (tgtType == srcType) ? inputExprDeref
+                                                : "((" + tgtType.toString(DataType::StringStyle::C, false, false) + ") (" + inputExprDeref + "))";
+
+    if(srcType.isScalar()){
+        return CExpr(castExpr, false);
     }else{
-        //Perform the cast
-        //TODO: Implement Fixed Point Support
+        //emit assignment for vector
+        cStatementQueue.push_back(outVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + castExpr + ";");
+        //Close for loop
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
-        std::string outputExpr = "((" + tgtType.toString(DataType::StringStyle::C, false) + ") (" + inputExpr + "))" ;
-        return CExpr(outputExpr, false);
+        return CExpr(outVar.getCVarName(imag), true);
     }
 }
 

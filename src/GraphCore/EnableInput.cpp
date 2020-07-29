@@ -79,7 +79,7 @@ std::shared_ptr<Node> EnableInput::shallowClone(std::shared_ptr<SubSystem> paren
 
 CExpr EnableInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(outputPortNum)->getDataType().getWidth()>1 || getInputPort(outputPortNum)->getDataType().getWidth()>1){
+    if(!getInputPort(outputPortNum)->getDataType().isScalar() || !getInputPort(outputPortNum)->getDataType().isScalar()){
         throw std::runtime_error("C Emit Error - EnableInput Support for Vector Types has Not Yet Been Implemented");
     }
 

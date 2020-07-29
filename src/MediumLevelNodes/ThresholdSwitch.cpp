@@ -151,7 +151,7 @@ std::shared_ptr<ExpandedNode> ThresholdSwitch::expand(std::vector<std::shared_pt
 
 
         //Wire the output of the CompareToConstant to the select line of the Mux
-        DataType compareOutputType = DataType(false, false, false, 1, 0, 1); //Bool type of width 1
+        DataType compareOutputType = DataType(false, false, false, 1, 0, {1}); //Bool type of width 1
         //NOTE: This wire is a boolean type.  However, this should work because bool can be mapped to an int
         //      (false = 0, true = 1) which are used to drive the mux select.
 

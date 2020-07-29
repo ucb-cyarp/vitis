@@ -467,11 +467,9 @@ bool Node::hasGlobalDecl(){
 }
 
 bool Node::hasInternalFanout(int inputPort, bool imag){
-    //Default is to check if that port has a width >1.  If so, internal fanout is assumed.
+    //Default is to check if that port is not a scalar.  If so, internal fanout is assumed.
 
-    int inputWidth = getInputPort(inputPort)->getDataType().getWidth();
-
-    return inputWidth>1;
+    return !getInputPort(inputPort)->getDataType().isScalar();
 }
 
 std::vector<Variable> Node::getCStateVars() {
