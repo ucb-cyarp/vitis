@@ -144,7 +144,7 @@ the name of your Simulink design and subsystems are speerated by ``/`` character
 For example, if your design was named "mySystem" and the subsystem you wanted to export was named "design" and was nested
 within a subsystem named "container", you could run the following command to export the design to "myDesignExport.graphml"
 ```
-simulink_to_graphml('mySystem', 'mySystem/container/design', 'myDesignExport.graphml', 3);
+simulink_to_graphml('mySystem', 'mySystem/container/design', 'myDesignExport.graphml', false, 3);
 ```
 
 ### Importing Simulink Exported Design
