@@ -127,13 +127,14 @@ To export a subsystem from simulink:
 6. Return to the Matlab command promp and run a varient of the following command:
 
 ```matlab
-simulink_to_graphml('designName', 'pathToSubsystem', 'outputFilename.graphml', verbosity);
+simulink_to_graphml('designName', 'pathToSubsystem', 'outputFilename.graphml', expand, verbosity);
 ```
 
 - ``designName`` should be replaced with the name of your Simulink design (ie. the filename without the ``.slx`` extension)
 - ``pathToSubsystem`` should be replaced with the absolute path to the subsystem in your design.  The root of the path is
 the name of your Simulink design and subsystems are speerated by ``/`` characters.
 - ``outputFilename`` should be replaced with your desired output filename
+- ``expand`` can be true or false.  It controls whether node expansion occurs in Matlab/Simulink (default to false)
 - ``verbosity`` can be one of the following:
     - 0: Warnings Only
     - 1: Limited Status Updates
