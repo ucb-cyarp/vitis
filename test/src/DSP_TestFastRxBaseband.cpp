@@ -118,6 +118,9 @@ design->expandToPrimitive();
 design->assignNodeIDs();
 design->assignArcIDs();
 
+//Validate after expansion
+design->validateNodes();
+
 //Print Scheduler
 SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
 TopologicalSortParameters topoParams(TopologicalSortParameters::Heuristic::BFS, 0);

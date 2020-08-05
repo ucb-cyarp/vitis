@@ -183,6 +183,7 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     DataType largestFloat;
     bool foundFixedPt = false;
     bool foundInt = false;
+    bool foundSignedInt = false;
     DataType largestInt;
 
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -207,6 +208,9 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
                     largestInt = portDataType;
                 }
             }
+            if(portDataType.isSignedType()){
+                foundSignedInt = true;
+            }
         }
     }
 
@@ -219,7 +223,21 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         }else{
             //Integer
             accumType = largestInt;
-            accumType.setTotalBits(accumType.getTotalBits()+numInputPorts-1); //Grow 1 bit per input.  Since this is a promotion, masking will not occur
+
+            if(foundSignedInt) {
+                accumType.setTotalBits(accumType.getTotalBits() + ((int) ceil(
+                        log2(numInputPorts)))); //Grow by the log2 of the number of inputs.  This is actually a little conservative
+            }else{
+                //If unsigned, only grow for positive inputs
+                int numAdds = 0;
+                for(bool op : inputSign){
+                    if(op){
+                        numAdds++;
+                    }
+                }
+                accumType.setTotalBits(accumType.getTotalBits() + ((int) ceil(
+                        log2(numAdds))));
+            }
         }
 
         //floating point numbers
@@ -277,7 +295,7 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             }
         }
 
-        //Cast the expression to the correct output type (if nessisary)
+        //Cast the expression to the correct output type (if necessary)
         expr = DataType::cConvertType(expr, accumType,getOutputPort(0)->getDataType());
 
         //if a vector, turn the expression into an assignment and write it to the file.  Also close the for loop

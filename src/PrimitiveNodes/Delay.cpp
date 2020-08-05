@@ -14,11 +14,11 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 
-Delay::Delay() : delayValue(0){
+Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false){
 
 }
 
-Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0) {
+Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0), earliestFirst(false), allocateExtraSpace(false) {
 
 }
 
@@ -38,26 +38,11 @@ void Delay::setInitCondition(const std::vector<NumericValue> &initCondition) {
     Delay::initCondition = initCondition;
 }
 
-std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
-                                                std::map<std::string, std::string> dataKeyValueMap,
-                                                std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
-    std::shared_ptr<Delay> newNode = NodeFactory::createNode<Delay>(parent);
-    newNode->setId(id);
-    newNode->setName(name);
-
-    if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        //==== Check Supported Config (Only if Simulink Import)====
-        std::string delayLengthSource = dataKeyValueMap.at("DelayLengthSource");
-
-        if (delayLengthSource != "Dialog") {
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Delay block must specify Delay Source as \"Dialog\"", newNode));
-        }
-
-        std::string initialConditionSource = dataKeyValueMap.at("InitialConditionSource");
-        if (initialConditionSource != "Dialog") {
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Delay block must specify Initial Condition Source source as \"Dialog\"", newNode));
-        }
-    }
+void Delay::populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::string simulinkDelayLenName, std::string simulinkInitCondName, int id, std::string name,
+                                          std::map<std::string, std::string> dataKeyValueMap,
+                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    node->setId(id);
+    node->setName(name);
 
     //==== Import important properties ====
     std::string delayStr;
@@ -69,8 +54,8 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
         initialConditionStr = dataKeyValueMap.at("InitialCondition");
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //Simulink Names -- Numeric.DelayLength, Numeric.InitialCondition
-        delayStr = dataKeyValueMap.at("Numeric.DelayLength");
-        initialConditionStr = dataKeyValueMap.at("Numeric.InitialCondition");
+        delayStr = dataKeyValueMap.at(simulinkDelayLenName);
+        initialConditionStr = dataKeyValueMap.at(simulinkInitCondName);
 
         //NOTE: when importing Simulink, the last dimension of the initial condition needs to be the length of the delay.
         // For us, it is the first dimension.  This is because of the row/column major disagreement between matlab and C/C++
@@ -86,14 +71,14 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
         //Note, this is only for Simulink Import, multidimensional init values are supported internally so that delay merging can be performed.
         //In order to support delay
         if(initialConditionStr.find(';') != std::string::npos && initialConditionStr.find(',') != std::string::npos){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, 2D initial conditions are not supported for Delay.  Only scalars or single vectors.  A single vector is allowed if the delay length is 1 and the input is a vector.  A single vector is also allowed if the input is scalar and the delay length is >1", newNode));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, 2D initial conditions are not supported for Delay.  Only scalars or single vectors.  A single vector is allowed if the delay length is 1 and the input is a vector.  A single vector is also allowed if the input is scalar and the delay length is >1", node));
         }
     } else {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Delay", newNode));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Delay", node));
     }
 
     int delayVal = std::stoi(delayStr);
-    newNode->setDelayValue(delayVal);
+    node->setDelayValue(delayVal);
 
     std::vector<NumericValue> initialConds = NumericValue::parseXMLString(initialConditionStr);
 
@@ -108,11 +93,38 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
     //and a warning will be emitted
 
     if(delayVal == 0 && initialConds.size() != 0){
-        std::cerr << ErrorHelpers::genWarningStr("Removing initial condition " + GeneralHelper::vectorToString(initialConds) + " from delay of 0 length", newNode) << std::endl;
+        std::cerr << ErrorHelpers::genWarningStr("Removing initial condition " + GeneralHelper::vectorToString(initialConds) + " from delay of 0 length", node) << std::endl;
         initialConds = std::vector<NumericValue>();
     }
 
-    newNode->setInitCondition(initialConds);
+    node->setInitCondition(initialConds);
+
+    //The following are parameters used for TappedDelay, which is an extension of Delay.  They are set to default values for standard delays and are not saved/imported for standard delays.
+    //These defaults are overwritten in TappedDelay import and are also exported by TappedDelay.
+    node->earliestFirst = false;
+    node->allocateExtraSpace = false;
+}
+
+std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
+                                                std::map<std::string, std::string> dataKeyValueMap,
+                                                std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+    std::shared_ptr<Delay> newNode = NodeFactory::createNode<Delay>(parent);
+
+    populatePropertiesFromGraphML(newNode, "Numeric.DelayLength", "Numeric.InitialCondition", id, name, dataKeyValueMap, parent, dialect);
+
+    if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
+        //==== Check Supported Config (Only if Simulink Import)====
+        std::string delayLengthSource = dataKeyValueMap.at("DelayLengthSource");
+
+        if (delayLengthSource != "Dialog") {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Delay block must specify Delay Source as \"Dialog\"", newNode));
+        }
+
+        std::string initialConditionSource = dataKeyValueMap.at("InitialConditionSource");
+        if (initialConditionSource != "Dialog") {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Delay block must specify Initial Condition Source source as \"Dialog\"", newNode));
+        }
+    }
 
     return newNode;
 }
@@ -130,16 +142,58 @@ void Delay::propagateProperties(){
             initCondition.push_back(uniformVal);
         }
     }
+
+    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
+        //Need to add initial conditions for the extra elements
+        //It does not really matter as this extra element is only used by TappedDelay to pass the current value
+        int elements = getInputPort(0)->getDataType().numberOfElements();
+
+        std::vector<NumericValue> extraPosInit;
+        for(int i = 0; i<elements; i++){
+            extraPosInit.push_back(initCondition[i]);
+        }
+
+        if(earliestFirst){
+            //Insert initial conditions at the front (this is where the current value would go)
+            initCondition.insert(initCondition.begin(), extraPosInit.begin(), extraPosInit.end());
+        }else{
+            //Insert initial conditions at the end (this is where the current value would go)
+            initCondition.insert(initCondition.end(), extraPosInit.begin(), extraPosInit.end());
+        }
+    }
 }
 
 std::set<GraphMLParameter> Delay::graphMLParameters() {
     std::set<GraphMLParameter> parameters;
 
     //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
-    parameters.insert(GraphMLParameter("DelayLength", "string", true));
+    parameters.insert(GraphMLParameter("DelayLength", "int", true));
     parameters.insert(GraphMLParameter("InitialCondition", "string", true));
 
     return parameters;
+}
+
+void Delay::emitGraphMLDelayParams(xercesc::DOMDocument *doc, xercesc::DOMElement *xmlNode) {
+    GraphMLHelper::addDataNode(doc, xmlNode, "DelayLength", GeneralHelper::to_string(delayValue));
+
+    std::vector<NumericValue> initConds;
+    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
+        //Remove the extra values when emitting
+
+        if(earliestFirst){
+            //Remove from the beginning
+            int elements = getInputPort(0)->getDataType().numberOfElements();
+            initConds.insert(initConds.begin(), initCondition.begin()+elements, initCondition.end());
+        }else{
+            //remove from the end
+            int initCondLen = initCondition.size();
+            initConds.insert(initConds.begin(), initCondition.begin(), initCondition.begin()+initCondLen);
+        }
+    }else{
+        initConds = initCondition;
+    }
+
+    GraphMLHelper::addDataNode(doc, xmlNode, "InitialCondition", NumericValue::toString(initConds));
 }
 
 xercesc::DOMElement *
@@ -151,9 +205,7 @@ Delay::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bo
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Delay");
 
-    GraphMLHelper::addDataNode(doc, thisNode, "DelayLength", GeneralHelper::to_string(delayValue));
-
-    GraphMLHelper::addDataNode(doc, thisNode, "InitialCondition", NumericValue::toString(initCondition));
+    emitGraphMLDelayParams(doc, thisNode);
 
     return thisNode;
 }
@@ -165,7 +217,27 @@ std::string Delay::typeNameStr(){
 std::string Delay::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: " + typeNameStr() + "\nDelayLength:" + GeneralHelper::to_string(delayValue) + "\nInitialCondition: " + NumericValue::toString(initCondition);
+    label += "\nFunction: " + typeNameStr() +
+             "\nDelayLength: " + GeneralHelper::to_string(delayValue);
+
+    std::vector<NumericValue> initConds;
+    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
+        //Remove the extra values when emitting
+
+        if(earliestFirst){
+            //Remove from the beginning
+            int elements = getInputPort(0)->getDataType().numberOfElements();
+            initConds.insert(initConds.begin(), initCondition.begin()+elements, initCondition.end());
+        }else{
+            //remove from the end
+            int initCondLen = initCondition.size();
+            initConds.insert(initConds.begin(), initCondition.begin(), initCondition.begin()+initCondLen);
+        }
+    }else{
+        initConds = initCondition;
+    }
+
+    label += "\nInitialCondition: " + NumericValue::toString(initConds);
 
     return label;
 }
@@ -191,7 +263,11 @@ void Delay::validate() {
     }
 
     if(inType.isScalar()) {
-        if (delayValue != 0 && delayValue*inType.numberOfElements() != initCondition.size()){
+        int arraySize = delayValue;
+        if(allocateExtraSpace){
+            arraySize++;
+        }
+        if (delayValue != 0 && arraySize*inType.numberOfElements() != initCondition.size()){
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
                     ") * Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
@@ -216,13 +292,18 @@ std::vector<Variable> Delay::getCStateVars() {
     if(delayValue == 0){
         return vars;
     }else{
+        int arrayLen = delayValue;
+        if(allocateExtraSpace){
+            arrayLen++;
+        }
+
         //There is a single state variable for the delay.  However for a delay > 1, it is a vector if the input datatype is scalar and a matrix if the input datatype is a vector or matrix
         //Note that if the delay is 1, no expansion is required
         DataType stateType;
-        if(delayValue == 1) {
+        if(arrayLen == 1) { //Note, allocateExtra space will neve have an array length of 1 because it has no effect if the delay length is 0 (checked above)
             stateType = getInputPort(0)->getDataType();
         }else{
-            stateType = getInputPort(0)->getDataType().expandForBlock(delayValue);
+            stateType = getInputPort(0)->getDataType().expandForBlock(arrayLen);
         }
 
         std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
@@ -237,6 +318,7 @@ std::vector<Variable> Delay::getCStateVars() {
 
 CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     if(delayValue == 0){
+        //NOTE: allocateExtraSpace has no effect with a delayValue == 0
         //If delay = 0, simply pass through
         std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
         int srcOutPortNum = srcPort->getPortNum();
@@ -277,12 +359,25 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         }
     }else {
         //Return the state var name as the expression
-        if (delayValue == 1) {
+        int arrayLen = delayValue;
+        if(allocateExtraSpace){
+            arrayLen++;
+        }
+        if (arrayLen == 1) {
             //Return the simple name (no index needed as it is not an array)
+            //Since allocateExtraSpace has no effect with delayVal == 0, it cannot be true and have an arrayLen of 1.  Therefore, no special action is taken
             return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
         }else{
             //Since datatype expansion adds another dimension to the front of the list (elements are stored contiguously in memory(, dereferencing the first index works even if the type is a vector or array
-            return CExpr(cStateVar.getCVarName(imag) + "[0]", true);
+            if(earliestFirst){
+                //If the samples come in at the beginning of the array, return the end of the array
+                //The extra space is at the front of the array, therefore, need to offset the returned index
+                return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(arrayLen-1) + "]", true);
+            }else {
+                //If later samples are at the beginning of the array, return the front of the array
+                //The extra space from allocateExtraSpace is at the end of the array and is not a factor in the return
+                return CExpr(cStateVar.getCVarName(imag) + "[0]", true);
+            }
         }
     }
 }
@@ -348,18 +443,39 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
         //Emit a for loop to perform the shift for each
 
         //----Shift State ----
-        std::string loopVarName = name+"_n"+GeneralHelper::to_string(id)+"_loopCounter";
+        std::string loopVarNameUnsanitized = name+"_n"+GeneralHelper::to_string(id)+"_loopCounter";
+        Variable loopVar(loopVarNameUnsanitized, DataType());
+        std::string loopVarNameSanitized = loopVar.getCVarName(false);
 
         //Shift state loop
-        cStatementQueue.push_back("for(unsigned long " + loopVarName + " = 0; " + loopVarName + " < " + GeneralHelper::to_string(delayValue-1) + "; " + loopVarName + "++){");
-        std::string assignToInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarName + "]";
-        std::string assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarName + "+1]";
-
+        std::string assignToInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "]";
         std::string assignToInShiftLoop_Im;
-        std::string assignFromInShiftLoop_Im;
         if(cStateVar.getDataType().isComplex()) {
-            assignToInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarName + "]";
-            assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarName + "+1]";
+            assignToInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "]";
+        }
+
+        int arrayLength = delayValue;
+        if(allocateExtraSpace){
+            arrayLength++;
+        }
+
+        std::string assignFromInShiftLoop_Re;
+        std::string assignFromInShiftLoop_Im;
+        if(earliestFirst){
+            //If allocateExtraSpace, the extra space is at the front of the array.  The shift indexes now need to be increased by 1
+            int lowInd = allocateExtraSpace ? 1 : 0;
+            cStatementQueue.push_back("for(unsigned long " + loopVarNameSanitized + " = " + GeneralHelper::to_string(arrayLength - 1) + "; " + loopVarNameSanitized + " > " + GeneralHelper::to_string(lowInd) + "; " + loopVarNameSanitized + "--){");
+            assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "-1]";
+            if(cStateVar.getDataType().isComplex()) {
+                assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "-1]";
+            }
+        }else {
+            //If allocateExtraSpace, the extra space is at the end of the array, shifting does not need to extend to that ind so no additional
+            cStatementQueue.push_back("for(unsigned long " + loopVarNameSanitized + " = 0; " + loopVarNameSanitized + " < " + GeneralHelper::to_string(delayValue - 1) + "; " + loopVarNameSanitized + "++){");
+            assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "+1]";
+            if(cStateVar.getDataType().isComplex()) {
+                assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "+1]";
+            }
         }
 
         //If the input is not a scalar, insert additional nested for loops
@@ -399,12 +515,26 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
         cStatementQueue.push_back("}");
 
         //----Input store----
-        std::string assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue-1) + "]";
-        std::string assignFromInInputLoop_Re = cStateInputVar.getCVarName(false);
+        std::string assignToInInputLoop_Re;
         std::string assignToInInputLoop_Im;
+        if(earliestFirst){
+            //Extra element from allocateExtraSpace is at the front of the array, the start of the buffer for the delay is now 1 index up
+            int ind = allocateExtraSpace ? 1 : 0;
+            assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(ind) + "]";
+            if(cStateVar.getDataType().isComplex()) {
+                assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(ind) + "]";
+            }
+        }else {
+            //Extra element from allocateExtraSpace is at the end of the array, no modification nessasary
+            assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+            if(cStateVar.getDataType().isComplex()) {
+                assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+            }
+        }
+
+        std::string assignFromInInputLoop_Re = cStateInputVar.getCVarName(false);
         std::string assignFromInInputLoop_Im;
         if(cStateVar.getDataType().isComplex()) {
-            assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
             assignFromInInputLoop_Im = cStateInputVar.getCVarName(true);
         }
 
@@ -497,7 +627,9 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
     }
 }
 
-Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue), initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar){
+Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue),
+    initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar),
+    earliestFirst(orig->earliestFirst), allocateExtraSpace(orig->allocateExtraSpace){
 
 }
 
@@ -516,4 +648,20 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
 
 bool Delay::hasCombinationalPath() {
     return false; //This is a pure state element
+}
+
+bool Delay::isEarliestFirst() const {
+    return earliestFirst;
+}
+
+void Delay::setEarliestFirst(bool earliestFirst) {
+    Delay::earliestFirst = earliestFirst;
+}
+
+bool Delay::isAllocateExtraSpace() const {
+    return allocateExtraSpace;
+}
+
+void Delay::setAllocateExtraSpace(bool allocateExtraSpace) {
+    Delay::allocateExtraSpace = allocateExtraSpace;
 }

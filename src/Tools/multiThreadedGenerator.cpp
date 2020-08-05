@@ -248,6 +248,9 @@ int main(int argc, char* argv[]) {
     design->assignNodeIDs();
     design->assignArcIDs();
 
+    //Validate after expansion
+    design->validateNodes();
+
     //Print Partitioner and Scheduler
     std::cout << "PARTITIONER: " << PartitionParams::partitionTypeToString(partitioner) << std::endl;
     std::cout << "FIFO_TYPE: " << ThreadCrossingFIFOParameters::threadCrossingFIFOTypeToString(fifoType) << std::endl;

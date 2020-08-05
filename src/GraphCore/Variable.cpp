@@ -46,8 +46,6 @@ std::string Variable::getCVarName(bool imag) {
     std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), '\n', '_');
     std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), '-', '_');
 
-
-
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
@@ -128,5 +126,16 @@ bool Variable::isAtomicVar() const {
 
 void Variable::setAtomicVar(bool atomicVar) {
     Variable::atomicVar = atomicVar;
+}
+
+bool Variable::operator==(const Variable &rhs) const {
+    return name == rhs.name &&
+           dataType == rhs.dataType &&
+           initValue == rhs.initValue &&
+           atomicVar == rhs.atomicVar;
+}
+
+bool Variable::operator!=(const Variable &rhs) const {
+    return !(rhs == *this);
 }
 

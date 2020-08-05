@@ -21,10 +21,7 @@
 /**
  * @brief Provides general helper functions
  */
-class GeneralHelper {
-
-public:
-
+namespace GeneralHelper { //Changed to namespace to avoid issue with specializing to_string.  Also is how this probably should have been structured anyway
     /**
      * @brief Replaces the std::to_string method with one which is capable of outputting higher prevision floating point
      * values (not just a fixed number of fractional bits)
@@ -39,11 +36,17 @@ public:
      * @return
      */
     template<typename T>
-    static std::string to_string(const T val){
+    std::string to_string(const T val){
         std::ostringstream stringStream;
         stringStream << val;
         return stringStream.str();
     }
+
+    //This is a specialization for bool type that will emit "true"/"false"
+    template<>
+    std::string to_string(const bool);
+
+//    std::string bool_to_string(bool val);
 
     /**
      * @brief Outputs a string representation of a vector of types for which std::to_string is provided
@@ -52,7 +55,7 @@ public:
      * @return string representation of vector
      */
     template<typename T>
-    static std::string vectorToString(std::vector<T> vec){
+    std::string vectorToString(std::vector<T> vec){
         std::string str = "[";
 
         if(!vec.empty()){
@@ -83,7 +86,7 @@ public:
      * @param includeBrackets whether or not square brackets should sorround the string
      * @return a string representation of the vector
      */
-    static std::string vectorToString(std::vector<bool> vec, std::string trueStr, std::string falseStr, std::string separator = ", ",  bool includeBrackets = false);
+    std::string vectorToString(std::vector<bool> vec, std::string trueStr, std::string falseStr, std::string separator = ", ",  bool includeBrackets = false);
 
     /**
      * @brief Checks if a given pointer type can be cast to another pointer type.
@@ -93,7 +96,7 @@ public:
      * @return a pointer to the new type if possible, nullptr if it is not possible
      */
     template<typename fromT, typename toT>
-    static std::shared_ptr<toT> isType(std::shared_ptr<fromT> ptr){
+    std::shared_ptr<toT> isType(std::shared_ptr<fromT> ptr){
         std::shared_ptr<toT> castPtr;
 
         try {
@@ -115,7 +118,7 @@ public:
      * @param forceSigned if true, forces the number of bits to support a signed number, even if num is unsigned
      * @return number of integer bits required to represent the number
      */
-    static unsigned long numIntegerBits(double num, bool forceSigned);
+    unsigned long numIntegerBits(double num, bool forceSigned);
 
     /**
      * @brief Find the width of the smallest standard CPU datatype that can accommodate a number of the given number of bits.
@@ -130,7 +133,7 @@ public:
      * @param bits The number of bits which need to be represented.
      * @return bit width of the smallest standard CPU datatype that can accommodate the number
      */
-    static unsigned long roundUpToCPUBits(unsigned long bits);
+    unsigned long roundUpToCPUBits(unsigned long bits);
 
     /**
      * @brief Find if the number of bits corresponds to a standard CPU type
@@ -138,30 +141,30 @@ public:
      * @param bits The number of bits which need to be represented.
      * @return true if the number of bits corresponds to a standard CPU type, false otherwise
      */
-    static bool isStandardNumberOfCPUBits(unsigned long bits);
+    bool isStandardNumberOfCPUBits(unsigned long bits);
 
     /**
      * @brief Converts an ASCII string to all upper case
      * @param str string to convert to upper case
      * @return all upper case case copy of the given string
      */
-    static std::string toUpper(std::string str);
+    std::string toUpper(std::string str);
 
     /**
      * @brief Get 2^exp as an integer
      * @param exp The exponent
      * @return 2^exp as an integer
      */
-    static unsigned long twoPow(unsigned long exp);
+    unsigned long twoPow(unsigned long exp);
 
-    static std::string replaceAll(std::string src, char orig, char repl);
+    std::string replaceAll(std::string src, char orig, char repl);
 
     /**
      * @brief Return true if string is only whitespace, otherwise return false
      * @param str string to check
      * @return true if string is only whitespace, otherwise return false
      */
-    static bool isWhiteSpace(std::string str);
+    bool isWhiteSpace(std::string str);
 
 
     /**
@@ -172,7 +175,7 @@ public:
      * @param toRemove the container of elements to remove
      */
     template<typename origT, typename removeT>
-    static void removeAll(origT &orig, removeT &toRemove){
+    void removeAll(origT &orig, removeT &toRemove){
         for(auto removeIt = toRemove.begin(); removeIt != toRemove.end(); removeIt++){
             orig.erase(std::remove(orig.begin(), orig.end(), *removeIt), orig.end());
         }
@@ -184,7 +187,7 @@ public:
      * @param reps the number of times to repeat
      * @return str repeated reps times.
      */
-    static std::string repString(std::string str, unsigned long reps);
+    std::string repString(std::string str, unsigned long reps);
 
     /**
      * @brief Get base^exp with integers (integer version of pow)
@@ -192,9 +195,9 @@ public:
      * @param exp the exponent
      * @return base^exp
      */
-    static unsigned long intPow(unsigned long base, unsigned long exp);
+    unsigned long intPow(unsigned long base, unsigned long exp);
 
-    static bool parseBool(std::string boolStr);
+    bool parseBool(std::string boolStr);
 
     /**
      * @brief Finds the longest prefix shared by vectors a and b (starting from index 0)
@@ -211,7 +214,7 @@ public:
      * @return
      */
     template <typename T>
-    static std::vector<T> longestPrefix(std::vector<T> a, std::vector<T> b){
+    std::vector<T> longestPrefix(std::vector<T> a, std::vector<T> b){
         std::vector<T> prefix;
 
         int longestPossiblePrefix = std::min(a.size(), b.size());
@@ -243,7 +246,7 @@ public:
      * @return
      */
     template <typename T>
-    static std::vector<T> longestPostfix(std::vector<T> a, std::vector<T> b){
+    std::vector<T> longestPostfix(std::vector<T> a, std::vector<T> b){
         std::vector<T> postfix;
 
         int longestPossiblePrefix = std::min(a.size(), b.size());
@@ -265,16 +268,16 @@ public:
      * @param numSpaces number of spaces to include
      * @return
      */
-    static std::string getSpaces(int numSpaces);
+    std::string getSpaces(int numSpaces);
 
-    static int gcd(int a, int b);
+    int gcd(int a, int b);
 
     /**
      * @brief Parses an (XML) string representation of an integer vector into an integer vector
      * @param str
      * @return
      */
-    static std::vector<int> parseIntVecStr(std::string str);
+    std::vector<int> parseIntVecStr(std::string str);
 };
 
 /*! @} */

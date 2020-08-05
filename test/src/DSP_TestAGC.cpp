@@ -114,6 +114,9 @@ TEST(DSP_TestAGC, SimulinkGenCBottomUp_CrashOnly) {
     design->assignNodeIDs();
     design->assignArcIDs();
 
+    //Validate after expansion
+    design->validateNodes();
+
     //Print Scheduler
     SchedParams::SchedType sched = SchedParams::SchedType::BOTTOM_UP;
     TopologicalSortParameters topoParams; //Unused
@@ -323,6 +326,9 @@ TEST(DSP_TestAGC, SimulinkGenCTopologicalContext_CrashOnly) {
     //Assign node and arc IDs (needed for expanded nodes)
     design->assignNodeIDs();
     design->assignArcIDs();
+
+    //Validate after expansion
+    design->validateNodes();
 
     //Print Scheduler
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;

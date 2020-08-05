@@ -16,8 +16,9 @@ function PopulateNodeParametersFromSimulink(node, simulink_block_handle)
 node.simulinkHandle = simulink_block_handle;
 node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
 
-%Handle Stateflow which Returns a Type of Subsystem
+%Handle Stateflow and Bit Shift which Returns a Type of Subsystem
 isStateflow = false;
+isBitShift = false;
 if strcmp(node.simulinkBlockType, 'SubSystem')
     %Using solution from https://www.mathworks.com/matlabcentral/answers/156628-how-to-recognize-stateflow-blocks-using-simulink-api-get_param
     %did not know about the SFBlockType parameter (I assume this means
@@ -25,6 +26,10 @@ if strcmp(node.simulinkBlockType, 'SubSystem')
     subsystemType = get_param(simulink_block_handle, 'SFBlockType');
     if strcmp(subsystemType, 'Chart')
         isStateflow = true;
+    end
+    
+    if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['hdlsllib/Logic and Bit' newline 'Operations/Bit Shift'])
+        isBitShift = true;
     end
 end
 
@@ -243,12 +248,15 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'simulink/Dis
         %Changing block type from 'S-Function'
         node.simulinkBlockType = 'TappedDelay';
         
-        %Other Parameters: DelayOrder = the order in which delays are
-        %concattenated.
+        %Other Parameters: 
+        %DelayOrder = the order in which delays are concattenated.
         %    Oldest = the result of the last delay in the chain
-        %    is the first index in the exported bus
+        %    is the first index in the exported vector
         %    Newest = the result of the first delay in the chain is the
-        %    first index in the exported bus
+        %    first index in the exported vector
+        %
+        %includeCurrent = if 'on', include the current input in the output
+        %    vector
     
 %---- Selector ----
 elseif strcmp(node.simulinkBlockType, 'Selector')
@@ -275,17 +283,22 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     
     index_options = get_param(simulink_block_handle, 'IndexOptionArray');
     
-    if ~strcmp(index_options{1}, 'Index vector (dialog)') && ~strcmp(index_options{1}, 'Starting index (port)') && ~strcmp(index_options{1}, 'Starting index (dialog)')
+    if ~strcmp(index_options{1}, 'Index vector (dialog)') && ~strcmp(index_options{1}, 'Index vector (port)') && ~strcmp(index_options{1}, '') && ~strcmp(index_options{1}, 'Starting index (dialog)') && ~strcmp(index_options{1}, 'Starting index (port)')
         error('Seletor is currently only supported when the Index Option is set to ''Index vector (dialog)'', ''Starting index (port)'', or ''Starting index (dialog)''');
     end
     
     %This is where we get the index vector when the index_options is 'Index vector (dialog)'
     index_params = GetParamEval(simulink_block_handle, 'IndexParamArray');
-    node.dialogPropertiesNumeric('IndexParamArray') = index_params{1};
-        
+    node.dialogPropertiesNumeric('IndexParamArray') = index_params;
+    
     %This is where we get the output vector width (starting index comes from the port) when the index_options is 'Starting index (port)'
     output_size_array = GetParamEval(simulink_block_handle, 'OutputSizeArray');
-    node.dialogPropertiesNumeric('OutputSizeArray') = output_size_array{1};
+    node.dialogPropertiesNumeric('OutputSizeArray') = output_size_array;
+    
+    %Get the 1st dimension
+    node.dialogPropertiesNumeric('IndexParam1st') = index_params{1};
+    node.dialogProperties('IndexOption1st') = index_options{1};
+    node.dialogPropertiesNumeric('OutputSize1st') = output_size_array{1};
     
     node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
     
@@ -298,7 +311,6 @@ elseif strcmp(node.simulinkBlockType, 'Logic')
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 
     node.simulinkBlockType = 'Logic';
-
 
 %---- Saturate ----
 elseif strcmp(node.simulinkBlockType, 'Saturate' )
@@ -479,6 +491,17 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['simulink/Lo
         
         %BitMaskRealWorld not quite sure what this is.  'Stored Integer' is
         %an option.
+       
+%---- Bit Shift ----
+elseif isBitShift
+        %Changing block type from Subsystem
+        node.simulinkBlockType = 'BitShift';
+        
+        %mode = 'Shift Left Logical'
+        %       'Shift Right Logical'
+        %       'Shift Right Arithmetic'
+        
+        node.dialogPropertiesNumeric('N') = GetParamEval(simulink_block_handle, 'N'); %Shift amount
         
 %---- Trigonometry Operator ----
 elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Trigonometry')
@@ -550,6 +573,15 @@ elseif strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'dspsigops/Re
     %InputProcessing contains the "Input processing" entry which is either
     %'Elements as channels (sample based)' or 'Columns as channels 
     %(frame based)'.  This has an impact if the input is a matrix type.
+
+%---- Concatenate -----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Concatenate')
+    node.dialogPropertiesNumeric('NumInputs') = GetParamEval(simulink_block_handle, 'NumInputs'); %The number of inputs to concatenate together
+    node.dialogPropertiesNumeric('ConcatenateDimension') = GetParamEval(simulink_block_handle, 'ConcatenateDimension'); %The dimension to concatinate allong (for multidimensional concatenate)
+    
+    %Mode: The concatenate mode
+    %    - 'Vector' - Vector Concatenate (ignores ConcatenateDimension)
+    %    - 'Multidimensional array' - Multidimensional Array (requires ConcatenateDimension)
     
 %TODO: More Blocks
 end

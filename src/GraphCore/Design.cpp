@@ -327,6 +327,11 @@ bool Design::expand() {
         }
     }
 
+    //Call propagateProperties on the new nodes in case they need to initilize properties from arc connections
+    for(const auto & newNode : newNodes){
+        newNode->propagateProperties();
+    }
+
     addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
 
     return expanded;
@@ -4086,4 +4091,10 @@ std::map<int, std::set<std::pair<int, int>>> Design::findPartitionClockDomainRat
     }
 
     return clockDomains;
+}
+
+void Design::validateNodes() {
+    for(const auto & node : nodes){
+        node->validate();
+    }
 }

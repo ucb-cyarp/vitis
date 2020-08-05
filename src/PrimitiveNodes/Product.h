@@ -58,6 +58,9 @@ private:
      */
     Product(std::shared_ptr<SubSystem> parent, Product* orig);
 
+public:
+    //Make generateMultExprs public so it can be used by InnerProduct
+
     /**
      * @brief Generates multiply and divide expressions for 2 numbers, a and b
      *
@@ -93,7 +96,6 @@ private:
      */
     static void generateMultExprs(const std::string &a_re, const std::string &a_im, const std::string &b_re, const std::string &b_im, bool mult, const std::string &result_norm_name, DataType result_norm_type, std::string &result_norm_expr, std::string &result_re, std::string &result_im);
 
-public:
     //====Getters/Setters====
     std::vector<bool> getInputOp() const;
     void setInputOp(const std::vector<bool> &inputOp);

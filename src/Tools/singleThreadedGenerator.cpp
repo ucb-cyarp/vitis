@@ -139,6 +139,9 @@ int main(int argc, char* argv[]) {
     design->assignNodeIDs();
     design->assignArcIDs();
 
+    //Validate after expansion
+    design->validateNodes();
+
     //Print Scheduler
     std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
 

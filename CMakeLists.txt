@@ -185,6 +185,12 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Trigonometry/Atan2.h
         src/PrimitiveNodes/WrappingCounter.cpp
         src/PrimitiveNodes/WrappingCounter.h
+        src/PrimitiveNodes/InnerProduct.cpp
+        src/PrimitiveNodes/InnerProduct.h
+        src/PrimitiveNodes/Concatenate.cpp
+        src/PrimitiveNodes/Concatenate.h
+        src/PrimitiveNodes/Select.cpp
+        src/PrimitiveNodes/Select.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
@@ -203,12 +209,18 @@ set(COMMON_SRCS
         src/MediumLevelNodes/DigitalModulator.h
         src/MediumLevelNodes/DigitalDemodulator.cpp
         src/MediumLevelNodes/DigitalDemodulator.h
+        src/MediumLevelNodes/SimulinkSelect.cpp
+        src/MediumLevelNodes/SimulinkSelect.h
+        src/MediumLevelNodes/SimulinkBitwiseOperator.cpp
+        src/MediumLevelNodes/SimulinkBitwiseOperator.h
+        src/MediumLevelNodes/SimulinkBitShift.cpp
+        src/MediumLevelNodes/SimulinkBitShift.h
         src/HighLevelNodes/HighLevelNode.cpp
         src/HighLevelNodes/HighLevelNode.h
         src/HighLevelNodes/DiscreteFIR.cpp
         src/HighLevelNodes/DiscreteFIR.h
-        src/HighLevelNodes/TappedDelay.cpp
-        src/HighLevelNodes/TappedDelay.h
+        src/PrimitiveNodes/TappedDelay.cpp
+        src/PrimitiveNodes/TappedDelay.h
         src/MultiThread/MultiThreadEmitterHelpers.cpp
         src/MultiThread/MultiThreadEmitterHelpers.h
         src/MultiThread/MultiThreadTransformHelpers.cpp
@@ -253,8 +265,6 @@ set(COMMON_SRCS
         src/BusNodes/VectorFanIn.h
         src/BusNodes/VectorFanOut.cpp
         src/BusNodes/VectorFanOut.h
-        src/BusNodes/Concatenate.cpp
-        src/BusNodes/Concatenate.h
         src/Estimators/EstimatorCommon.cpp
         src/Estimators/EstimatorCommon.h
         src/Estimators/ComputationEstimator.cpp

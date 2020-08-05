@@ -186,7 +186,7 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     for (unsigned long i = 0; i < numInputPorts; i++) {
         DataType portDataType = getInputPort(i)->getDataType();
         if (portDataType.isFloatingPt()) {
-            if (foundFloat == false) {
+            if (!foundFloat) {
                 foundFloat = true;
                 largestFloat = portDataType;
             } else {
@@ -262,12 +262,7 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
         }
 
         //Declare the variable here in case it is a vector
-        Variable outputVar;
-        if(outputType.isComplex()) {
-            outputVar = Variable(outputVarName, intermediateTypeCplx);
-        }else{
-            outputVar = Variable(outputVarName, intermediateType);
-        }
+        Variable outputVar = Variable(outputVarName, outputType);
 
         //Emit variable declaration
         std::string outputVarDecl_re = outputVar.getCVarDecl(false, true, false, true) + ";";
@@ -422,13 +417,13 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             //Note that the variables are now declared above
             //Dereference here with index of for loop if a vector/matrix
             std::string finalResultDeref_re = outputVar.getCVarName(false)  + (outputType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
-            std::string final_result_re = finalResultDeref_re + " = " + prev_expr_re + ";";
+            std::string final_result_re = finalResultDeref_re + " = " + DataType::cConvertType(prev_expr_re, intermediateType, getOutputPort(0)->getDataType()) + ";";
             cStatementQueue.push_back(final_result_re);
 
             if(outputType.isComplex()){
                 //Dereference here with index of for loop if a vector/matrix
                 std::string finalResultDeref_im = outputVar.getCVarName(true) + (outputType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
-                std::string final_result_im = finalResultDeref_im + " = " + prev_expr_im + ";";
+                std::string final_result_im = finalResultDeref_im + " = " + DataType::cConvertType(prev_expr_im, intermediateTypeCplx, getOutputPort(0)->getDataType()) + ";";
                 cStatementQueue.push_back(final_result_im);
             }
 

@@ -836,6 +836,8 @@ public:
      */
     std::map<int, std::set<std::pair<int, int>>> findPartitionClockDomainRates();
 
+    void validateNodes();
+
 };
 
 /*! @} */

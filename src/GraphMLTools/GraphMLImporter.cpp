@@ -40,6 +40,9 @@
 #include "PrimitiveNodes/Trigonometry/Atan.h"
 #include "PrimitiveNodes/Trigonometry/Atan2.h"
 #include "PrimitiveNodes/WrappingCounter.h"
+#include "PrimitiveNodes/InnerProduct.h"
+#include "PrimitiveNodes/TappedDelay.h"
+#include "PrimitiveNodes/Select.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -48,12 +51,14 @@
 #include "MediumLevelNodes/NCO.h"
 #include "MediumLevelNodes/DigitalModulator.h"
 #include "MediumLevelNodes/DigitalDemodulator.h"
+#include "MediumLevelNodes/SimulinkSelect.h"
+#include "MediumLevelNodes/SimulinkBitwiseOperator.h"
+#include "MediumLevelNodes/SimulinkBitShift.h"
 #include "HighLevelNodes/DiscreteFIR.h"
-#include "HighLevelNodes/TappedDelay.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
 #include "BusNodes/VectorFanOut.h"
-#include "BusNodes/Concatenate.h"
+#include "PrimitiveNodes/Concatenate.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
 #include "MultiRate/RateChange.h"
 #include "MultiRate/Downsample.h"
@@ -1082,8 +1087,12 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = UnsupportedSink::createFromGraphML(id, name, blockFunction, dataKeyValueMap, parent);
     }else if(blockFunction == "ReinterpretCast"){ //--This is a Vitis Only Node --
         newNode = ReinterpretCast::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "BitwiseOperator"){ //--This is a Vitis Only Node --
-        newNode = BitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "BitwiseOperator"){ //--This is a Vitis Only Node -- However, Simulink's BitwiseOperator shares the same name
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+            newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            newNode = BitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }
     }else if(blockFunction == "NCO" ){ //Vitis name is NCO, Simulink Name is NCO (changed by export scripts)
         newNode = NCO::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DigitalModulator" || blockFunction == "BPSK_ModulatorBaseband" || blockFunction == "QPSK_ModulatorBaseband" || blockFunction == "RectangularQAM_ModulatorBaseband"){ //Vitis name is DigitalModulator, other names are set in simulink export script (are technically different blocks)
@@ -1138,6 +1147,16 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = WrappingCounter::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DummyReplica" ) { //Vitis only node
         newNode = DummyReplica::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "InnerProduct" || blockFunction == "DotProduct"){ //Vitis name is InnerProduct, Simulink name is DotProduct
+        newNode = InnerProduct::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Select"){ //Vitis name is Select, Simulink name is Selector but that is translated to SimulinkSelect
+        newNode = Select::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "SimulinkSelect" || blockFunction == "Selector"){ //Vitis name is SimulinkSelect, Simulink name is Selector
+        newNode = SimulinkSelect::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "SimulinkBitwiseOperator"){ //--Vitis name is SimulinkBitwiseOperator.  Simulink Name is BitwiseOperator but that conflicts with the vitis primitive BitwiseOperator
+        newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "SimulinkBitShift" || blockFunction == "BitShift"){ //--Vitis name is SimulinkBitShift. Simulink Name is Bit Shift
+        newNode = SimulinkBitShift::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }

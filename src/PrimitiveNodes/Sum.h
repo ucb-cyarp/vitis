@@ -104,7 +104,8 @@ public:
      *
      * For now, the C emit take a semi-conserative approach:
      *   - For floating point, all arguments are cast to the highest resolution floating point type of the inputs.  The result is then cast to the type of the output
-     *   - For integer or fixed point, the most conservative common type is calculated.  The log2(number of ports) bits is added to account for the potential bit growth.  All inputs are cast to this type (sifted so that they align and cast up to a larger CPU type if applicable).  The result is then scaled to the output type and trunkated.  If the specified type is less than the CPU type, it is masked & sign extended if signed.
+     *   - For integer or fixed point, the most conservative common type is calculated.  The log2(number of ports) bits is added to account for the potential bit growth.  All inputs are cast to this type (shifted so that they align and cast up to a larger CPU type if applicable).  The result is then scaled to the output type and truncated.  If the specified type is less than the CPU type, it is masked & sign extended if signed.
+     *   - For unsigned integers, growth only occurs for positive inputs (log2 number of positive inputs)
      *
      * For 2 input sums, a different approach is taken for integers:
      *   - If the output type is the same as the first input, then the second input is converted to the type of the first input (but not masked) and is added.  The result is masked (& sign exteded if signed) to the output type if not a perfect CPU type.  No further casting is required.

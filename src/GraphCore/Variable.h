@@ -76,6 +76,10 @@ public:
     void setInitValue(const std::vector<NumericValue> &initValue);
     bool isAtomicVar() const;
     void setAtomicVar(bool volatileVar);
+
+    bool operator==(const Variable &rhs) const;
+
+    bool operator!=(const Variable &rhs) const;
 };
 
 /*! @} */

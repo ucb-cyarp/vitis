@@ -5,6 +5,7 @@
 #include "MultiThreadTransformHelpers.h"
 
 #include "PrimitiveNodes/Delay.h"
+#include "PrimitiveNodes/TappedDelay.h"
 #include <iostream>
 
 void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
@@ -85,7 +86,8 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
             std::shared_ptr<Node> srcNode = (*inputArcs.begin())->getSrcPort()->getParent();
             std::shared_ptr<Delay> srcDelay = GeneralHelper::isType<Node, Delay>(srcNode);
 
-            if (srcDelay) {
+            //Should not absorb tapped delays (which are extensions of Delay)
+            if (srcDelay != nullptr && GeneralHelper::isType<Node, TappedDelay>(srcNode) == nullptr) {
                 //Found a delay at the src
 
                 //Check that the delay is in the correct partition and context
@@ -216,7 +218,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                     std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
 
                     std::shared_ptr<Delay> dstDelay = GeneralHelper::isType<Node, Delay>(dstNode);
-                    if(dstDelay == nullptr){
+                    if(dstDelay == nullptr || GeneralHelper::isType<Node, TappedDelay>(dstDelay) != nullptr){
                         //One of the outputs is not a delay
                         return AbsorptionStatus::NO_ABSORPTION;
                     }

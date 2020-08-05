@@ -209,3 +209,20 @@ std::vector<int> GeneralHelper::parseIntVecStr(std::string str) {
 
     return intVec;
 }
+
+template<>
+std::string GeneralHelper::to_string<bool>(const bool val){
+    if(val){
+        return "true";
+    }else{
+        return "false";
+    }
+}
+
+//std::string GeneralHelper::bool_to_string(bool val){
+//    if(val){
+//        return "true";
+//    }else{
+//        return "false";
+//    }
+//}
