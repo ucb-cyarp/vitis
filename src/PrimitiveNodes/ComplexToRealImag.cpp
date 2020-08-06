@@ -5,6 +5,7 @@
 #include "ComplexToRealImag.h"
 #include "GraphCore/NodeFactory.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 ComplexToRealImag::ComplexToRealImag() {
 
@@ -79,6 +80,11 @@ void ComplexToRealImag::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ComplexToRealImag - Output Port 1 Must Be Real", getSharedPointer()));
     }
 
+    if(getInputPort(0)->getDataType().getDimensions() != getOutputPort(0)->getDataType().getDimensions() || getInputPort(0)->getDataType().getDimensions() != getOutputPort(1)->getDataType().getDimensions()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ComplexToRealImag - Inputs and Outputs Should have Same Dimensions", getSharedPointer()));
+
+    }
+
 }
 
 CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
@@ -90,7 +96,9 @@ CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, Sc
 
     std::string emitStr;
 
-    if(outputPortNum == 0) {
+    bool real = outputPortNum == 0;
+
+    if(real) {
         //Output Port 0 Is Real
         emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false);
 
@@ -99,7 +107,41 @@ CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, Sc
         emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true);
     }
 
-    return CExpr(emitStr, false);
+    //Already validated datatypes have the same dimensions
+    DataType dataType = getOutputPort(0)->getDataType();
+
+    if(!dataType.isScalar()){
+        //Need to create a temporary and copy values into it in a for loop
+
+        //Declare tmp array and write to file
+        std::string vecOutName = name+"_n"+GeneralHelper::to_string(id)+ "_outVec_" + (real ? "realCpnt" : "imagCpnt"); //Changed to
+        Variable vecOutVar = Variable(vecOutName, dataType);
+        cStatementQueue.push_back(vecOutVar.getCVarDecl(false, true, false, true, false) + ";");
+
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(dataType.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+        //Assign to tmp in loop
+        std::string assignExpr = vecOutVar.getCVarName(false) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + emitStr + EmitterHelpers::generateIndexOperation(forLoopIndexVars);
+        cStatementQueue.push_back(assignExpr + ";");
+
+        //Close for loop
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+
+        return CExpr(vecOutVar.getCVarName(false), true);
+    }else{
+        //Just return the scalar expression
+        return CExpr(emitStr, false);
+    }
+
+
 }
 
 ComplexToRealImag::ComplexToRealImag(std::shared_ptr<SubSystem> parent, ComplexToRealImag* orig) : PrimitiveNode(
