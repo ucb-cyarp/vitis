@@ -560,6 +560,7 @@ public:
 
     /**
      * @brief Get a list of direct input arcs connected to this node (not order constraint arcs)
+     * Includes special arcs (ex. select)
      * @return list of direct input arcs (not order constraint arcs)
      */
     std::set<std::shared_ptr<Arc>> getDirectInputArcs();

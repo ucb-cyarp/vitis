@@ -17,7 +17,7 @@ UpsampleOutput::UpsampleOutput(std::shared_ptr<SubSystem> parent) : Upsample(par
 
 }
 
-UpsampleOutput::UpsampleOutput(std::shared_ptr<SubSystem> parent, UpsampleOutput *orig) : Upsample(parent, orig), stateVar(orig->stateVar), initCondition(orig->initCondition) {
+UpsampleOutput::UpsampleOutput(std::shared_ptr<SubSystem> parent, UpsampleOutput *orig) : Upsample(parent, orig), stateVar(orig->stateVar) {
 
 }
 
@@ -29,14 +29,6 @@ void UpsampleOutput::setStateVar(const Variable &stateVar) {
     UpsampleOutput::stateVar = stateVar;
 }
 
-std::vector<NumericValue> UpsampleOutput::getInitCondition() const {
-    return initCondition;
-}
-
-void UpsampleOutput::setInitCondition(const std::vector<NumericValue> &initCondition) {
-    UpsampleOutput::initCondition = initCondition;
-}
-
 xercesc::DOMElement *
 UpsampleOutput::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) {
     xercesc::DOMElement* thisNode = emitGraphMLBasics(doc, graphNode);
@@ -46,8 +38,6 @@ UpsampleOutput::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *grap
 
     emitGraphMLProperties(doc, thisNode);
 
-    GraphMLHelper::addDataNode(doc, thisNode, "InitialCondition", NumericValue::toString(initCondition));
-
     return thisNode;
 }
 
@@ -55,7 +45,6 @@ std::set<GraphMLParameter> UpsampleOutput::graphMLParameters() {
     std::set<GraphMLParameter> params = Upsample::graphMLParameters();
 
     //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
-    params.insert(GraphMLParameter("InitialCondition", "string", true));
 
     return params;
 }
@@ -69,16 +58,6 @@ UpsampleOutput::createFromGraphML(int id, std::string name, std::map<std::string
 
     std::string initialConditionStr;
 
-    //This is a vitis only node
-    if (dialect == GraphMLDialect::VITIS) {
-        //Vitis Names -- DownsampleRatio
-        initialConditionStr = dataKeyValueMap.at("InitialCondition");
-    } else {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - RepeatOutput", newNode));
-    }
-
-    newNode->setInitCondition(NumericValue::parseXMLString(initialConditionStr));
-
     return newNode;
 }
 
@@ -88,8 +67,6 @@ std::string UpsampleOutput::typeNameStr() {
 
 std::string UpsampleOutput::labelStr() {
     std::string label = Upsample::labelStr();
-
-    label += "\nInitialCondition: " + NumericValue::toString(initCondition);
 
     return label;
 }
@@ -211,7 +188,7 @@ std::vector<Variable> UpsampleOutput::getCStateVars() {
     //TODO: Extend to support vectors (must declare 2D array for state)
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-    Variable var = Variable(varName, stateType, initCondition);
+    Variable var = Variable(varName, stateType, initCond);
     stateVar = var;
 
     vars.push_back(var);

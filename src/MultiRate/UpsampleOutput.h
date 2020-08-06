@@ -18,8 +18,6 @@ class UpsampleOutput : public Upsample {
 
 private:
     Variable stateVar; ///<The state variable for the latch/output
-    std::vector<NumericValue> initCondition; ///<The Initial condition of this output port
-
 protected:
     /**
      * @brief Default constructor
@@ -50,8 +48,6 @@ public:
     //==== Getters & Setters ====
     Variable getStateVar() const;
     void setStateVar(const Variable &stateVar);
-    std::vector<NumericValue> getInitCondition() const;
-    void setInitCondition(const std::vector<NumericValue> &initCondition);
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 

@@ -1094,11 +1094,14 @@ void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
 std::set<std::shared_ptr<Arc>> Node::getDirectInputArcs(){
     std::set<std::shared_ptr<Arc>> arcs;
 
+    //Get the input ports (including any special ports - ie. select)
+    std::vector<std::shared_ptr<InputPort>> inputPortSet = getInputPortsIncludingSpecial();
+
     //Iterate through the output ports/arcs
-    unsigned long numInputPorts = inputPorts.size();
+    unsigned long numInputPorts = inputPortSet.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
         //Get a copy of the arc set for this port
-        std::set<std::shared_ptr<Arc>> inputArcs = inputPorts[i]->getArcs();
+        std::set<std::shared_ptr<Arc>> inputArcs = inputPortSet[i]->getArcs();
         arcs.insert(inputArcs.begin(), inputArcs.end());
     }
 

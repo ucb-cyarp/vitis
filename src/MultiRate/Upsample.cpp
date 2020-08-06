@@ -16,7 +16,7 @@ Upsample::Upsample(std::shared_ptr<SubSystem> parent) : RateChange(parent), upsa
 
 }
 
-Upsample::Upsample(std::shared_ptr<SubSystem> parent, Upsample *orig) : RateChange(parent, orig), upsampleRatio(orig->upsampleRatio) {
+Upsample::Upsample(std::shared_ptr<SubSystem> parent, Upsample *orig) : RateChange(parent, orig), upsampleRatio(orig->upsampleRatio), initCond(orig->initCond) {
 
 }
 
@@ -25,6 +25,7 @@ void Upsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Upsample>
     partitionNum = orig->getPartitionNum();
     schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
+    initCond = orig->getInitCond();
 }
 
 int Upsample::getUpsampleRatio() const {
@@ -51,21 +52,26 @@ void Upsample::populateUpsampleParametersFromGraphML(int id, std::string name,
     }
 
     std::string upsampleRatioStr;
+    std::string initValStr;
 
     if (dialect == GraphMLDialect::VITIS) {
         //Vitis Names -- UpsampleRatio
         upsampleRatioStr = dataKeyValueMap.at("UpsampleRatio");
+        initValStr = dataKeyValueMap.at("InitCond");
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         upsampleRatioStr = dataKeyValueMap.at("Numeric.N");
+        initValStr = dataKeyValueMap.at("Numeric.ic");
     } else {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Upsample", getSharedPointer()));
     }
 
     upsampleRatio = std::stoi(upsampleRatioStr);
+    initCond = NumericValue::parseXMLString(initValStr);
 }
 
 void Upsample::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement *thisNode) {
     GraphMLHelper::addDataNode(doc, thisNode, "UpsampleRatio", GeneralHelper::to_string(upsampleRatio));
+    GraphMLHelper::addDataNode(doc, thisNode, "InitCond", NumericValue::toString(initCond));
 }
 
 std::shared_ptr<Upsample>
@@ -83,6 +89,7 @@ std::set<GraphMLParameter> Upsample::graphMLParameters() {
 
     //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
     parameters.insert(GraphMLParameter("UpsampleRatio", "string", true));
+    parameters.insert(GraphMLParameter("InitCond", "string", true));
 
     return parameters;
 }
@@ -108,7 +115,9 @@ std::string Upsample::typeNameStr(){
 std::string Upsample::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: " + typeNameStr() + "\nUpsampleRatio:" + GeneralHelper::to_string(upsampleRatio);
+    label += "\nFunction: " + typeNameStr() +
+             "\nUpsampleRatio: " + GeneralHelper::to_string(upsampleRatio) +
+             "\nInitCond: " + NumericValue::toString(initCond);
 
     return label;
 }
@@ -175,4 +184,12 @@ Upsample::convertToRateChangeInputOutput(bool convertToInput, std::vector<std::s
     }
 
     return specificRcNode;
+}
+
+std::vector<NumericValue> Upsample::getInitCond() const {
+    return initCond;
+}
+
+void Upsample::setInitCond(const std::vector<NumericValue> &initCond) {
+    Upsample::initCond = initCond;
 }

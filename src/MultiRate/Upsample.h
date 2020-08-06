@@ -24,6 +24,7 @@ class Upsample : public RateChange {
 
 protected:
     int upsampleRatio; ///<This is the upsample amount.  It is expressed in (# Samples Output)/(# Samples Input)
+    std::vector<NumericValue> initCond; ///<This is the initial conditions for the upsample
 
     /**
      * @brief Constructs an Upsample node
@@ -84,6 +85,8 @@ public:
     //====Getters/Setters====
     int getUpsampleRatio() const;
     void setUpsampleRatio(int upsampleRatio);
+    std::vector<NumericValue> getInitCond() const;
+    void setInitCond(const std::vector<NumericValue> &initCond);
 
     //====Factories====
     /**
