@@ -389,7 +389,7 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
 
     if(delayValue == 0){
         return; //No state to update
-    }else if(delayValue == 1){
+    }else if(delayValue == 1 && !allocateExtraSpace){
         //The state variable is not an array
 
         //Emit for loop if the input is a vector/matrix
