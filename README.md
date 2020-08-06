@@ -36,12 +36,12 @@ For detaied information on the steps taken to generate a design, see:
 #### Ubuntu:
   
 ```
-sudo apt-get install build-essential
-sudo apt-get install libboost-all-dev
-sudo apt-get install cmake
-sudo apt-get install libxerces-c-dev
-sudo apt-get install graphviz
-sudo apt-get install doxygen
+sudo apt install build-essential
+sudo apt install libboost-all-dev
+sudo apt install cmake
+sudo apt install libxerces-c-dev
+sudo apt install graphviz
+sudo apt install doxygen
 ```
 
 #### Mac:
@@ -78,6 +78,22 @@ make
 ```
 
 Executables will be built in the ``vitis/build`` directory
+
+#### Build with an Alternate Compiler
+To build with a specific compiler (ex. clang), use the ``CMAKE_C_COMPILER`` and ``CMAKE_CXX_COMPILER`` flags.  For example, to build with clang, run:
+
+```
+cmake -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++ ..
+```
+
+Then run make.
+
+#### Run ``make`` with Multiple Threads
+If multiple cores are availible, use the ``-j`` option to specify the number of threads to use when building.  For example, with an 8 core machine, use:
+
+```
+make -j8
+```
     
 ## Test:
 To test your compiled vitis tools, run the following command inside the ``build`` directory:
