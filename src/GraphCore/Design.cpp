@@ -1946,7 +1946,7 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     std::vector<std::shared_ptr<Arc>> arcCopiesOrdered;
     for(unsigned long i = 0; i<arcs.size(); i++){
         if(origToCopyArc.find(arcs[i]) == origToCopyArc.end()){
-            throw std::runtime_error("While cloning design, found an arc that has no clone");
+            throw std::runtime_error("While cloning design, found an arc that has no clone: [" + arcs[i]->getSrcPort()->getParent()->getFullyQualifiedName() + " -> " + arcs[i]->getDstPort()->getParent()->getFullyQualifiedName() + "]");
         }
 
         arcCopiesOrdered.push_back(origToCopyArc[arcs[i]]);
@@ -3179,7 +3179,7 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
                         std::string srcPath = (*outArc)->getSrcPort()->getParent()->getFullyQualifiedName();
                         std::shared_ptr<Node> dst = (*outArc)->getDstPort()->getParent();
                         std::string dstPath = dst->getFullyQualifiedName();
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1"));
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1 [" + srcPath + " -> " + dstPath + "]"));
                     }
 
                     currentGroups[dstPartition].push_back(*outArc);

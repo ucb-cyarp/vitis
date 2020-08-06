@@ -145,6 +145,7 @@ std::shared_ptr<ExpandedNode> ThresholdSwitch::expand(std::vector<std::shared_pt
         compareNode->setName("CompareToConstant");
         compareNode->setCompareConst(threshold); //Set the threshold of the comparison
         compareNode->setCompareOp(compareOp); //Set the operator used in the comparison
+        new_nodes.push_back(compareNode);
 
         //Wire input select line to input of CompareToConstant
         compareNode->addInArcUpdatePrevUpdateArc(0, inputArcSel);

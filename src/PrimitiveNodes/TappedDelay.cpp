@@ -202,6 +202,16 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     return CExpr(cStateVar.getCVarName(imag), true);
 }
 
+bool TappedDelay::hasInternalFanout(int inputPort, bool imag) {
+    //The input is used more than once by this node, once for computing the input for the next state,
+    //and once for computing the passthough value
+    //TODO: Change this so that it is not nessisary to use the value more than once.
+    if(allocateExtraSpace && inputPort == 0){
+        return true;
+    }
+    return Node::hasInternalFanout(inputPort, imag);
+}
+
 //TODO: Update delay state update to avoid making an extra copy of the input when an extra space is allocated and
 //      the current value is inserted in the extra space.  Allows the shift logic to be used for the entire update
 //      with no special casing of the input into the delay

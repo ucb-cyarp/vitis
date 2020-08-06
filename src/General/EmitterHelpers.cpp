@@ -374,7 +374,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
         } else if ((*it)->hasState()) {
             //Call emit for state element input
             //The state element output is treated similarly to a constant and a variable name is always returned
-            //The output has no dependencies within the cycle
+            //The output has no dependencies within the cycle (only if it does not also have a combo path)
             //The input can have dependencies
 
             //Emit comment
@@ -387,6 +387,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
                 cFile << nextStateExprs[j] << std::endl;
             }
 
+            //If the node also has a combo path, emit it like a standard node
+            if((*it)->hasCombinationalPath()){
+                emitNode(*it, cFile, schedType);
+            }
         } else {
             //Emit standard node
             emitNode(*it, cFile, schedType);

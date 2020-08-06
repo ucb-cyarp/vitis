@@ -113,6 +113,8 @@ public:
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
+    bool hasInternalFanout(int inputPort, bool imag) override;
+
 };
 
 /*! @} */

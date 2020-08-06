@@ -281,6 +281,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     unsigned long maskVal = GeneralHelper::twoPow(accumulatorBits)-1;
 
     std::shared_ptr<Constant> accumMaskConst = NodeFactory::createNode<Constant>(expandedNode);
+    accumMaskConst->setName("NCO_Accum_Mask_Const");
     accumMaskConst->setValue({NumericValue(maskVal, 0, std::complex<double>(0,0), false, false)});
     new_nodes.push_back(accumMaskConst);
 
@@ -311,6 +312,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
 
     //+++ Quantize +++
     std::shared_ptr<BitwiseOperator> quantizer = NodeFactory::createNode<BitwiseOperator>(expandedNode);
+    quantizer->setName("NCO_Quantizer");
     quantizer->setOp(BitwiseOperator::BitwiseOp::SHIFT_RIGHT);
     new_nodes.push_back(quantizer);
 
@@ -341,6 +343,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     //+++ Quad and Base Index Calculation +++
     //+Quad Calc+
     std::shared_ptr<BitwiseOperator> quadCalc = NodeFactory::createNode<BitwiseOperator>(expandedNode);
+    quadCalc->setName("NCO_Quad_Calc");
     quadCalc->setOp(BitwiseOperator::BitwiseOp::SHIFT_RIGHT);
     new_nodes.push_back(quadCalc);
 
@@ -360,6 +363,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
 
     //+Base Ind Calc+
     std::shared_ptr<BitwiseOperator> baseIndCalc = NodeFactory::createNode<BitwiseOperator>(expandedNode);
+    baseIndCalc->setName("NCO_Base_Ind_Calc");
     baseIndCalc->setOp(BitwiseOperator::BitwiseOp::AND);
     new_nodes.push_back(baseIndCalc);
 
@@ -367,7 +371,7 @@ std::shared_ptr<ExpandedNode> NCO::expand(std::vector<std::shared_ptr<Node>> &ne
     baseIndMask->setValue({NumericValue(GeneralHelper::twoPow(lutAddrBits-2)-1, 0, std::complex<double>(0, 0), false, false)});
     new_nodes.push_back(baseIndMask);
 
-    std::shared_ptr<Arc> quantizerToBaseIndCalc = Arc::connectNodes(quantizer, 0, baseIndCalc, 0, quantizerType);
+    std::shared_ptr<Arc> quantizerToBaseIndCalc = Arc::connectNodes(quantizeDTConvert, 0, baseIndCalc, 0, quantizerType);
     new_arcs.push_back(quantizerToBaseIndCalc);
 
     std::shared_ptr<Arc> baseIndMaskToBaseIndCalc = Arc::connectNodes(baseIndMask, 0, baseIndCalc, 1, quantizerType);
