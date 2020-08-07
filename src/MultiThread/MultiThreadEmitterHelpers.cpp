@@ -1507,19 +1507,22 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     std::vector<Variable> inputVars;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
-            inputVars.push_back(inputFIFOs[i]->getCStateVar(j));
+            Variable var = inputFIFOs[i]->getCStateVar(j);
+
+            //Expand the variable based on the block size of the FIFO
+            if(inputFIFOs[i]->getBlockSize()>1){
+                DataType dt = var.getDataType();
+                dt = dt.expandForBlock(inputFIFOs[i]->getBlockSize());
+                var.setDataType(dt);
+            }
+
+            inputVars.push_back(var);
         }
     }
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<inputVars.size(); i++){
         Variable var = inputVars[i];
-
-        if(blockSize>1){
-            //If block size >1, expand the data type
-            DataType varType = var.getDataType().expandForBlock(blockSize);
-            var.setDataType(varType);
-        }
 
         //Pass as not volatile
         var.setAtomicVar(false);
@@ -1539,7 +1542,16 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     std::vector<Variable> outputVars;
     for(int i = 0; i<outputFIFOs.size(); i++){
         for(int j = 0; j<outputFIFOs[i]->getInputPorts().size(); j++){
-            outputVars.push_back(outputFIFOs[i]->getCStateInputVar(j));
+            Variable var = outputFIFOs[i]->getCStateInputVar(j);
+
+            //Expand the variable based on the block size of the FIFO
+            if(outputFIFOs[i]->getBlockSize()>1){
+                DataType dt = var.getDataType();
+                dt = dt.expandForBlock(outputFIFOs[i]->getBlockSize());
+                var.setDataType(dt);
+            }
+
+            outputVars.push_back(var);
         }
     }
 
@@ -1551,12 +1563,6 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
 
     for(unsigned long i = 0; i<outputVars.size(); i++){
         Variable var = outputVars[i];
-
-        if(blockSize>1){
-            //If blockSize>1 expand the variable
-            DataType varType = var.getDataType().expandForBlock(blockSize);
-            var.setDataType(varType);
-        }
 
         //Pass as not volatile
         var.setAtomicVar(false);
