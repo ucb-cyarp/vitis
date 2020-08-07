@@ -764,7 +764,7 @@ EmitterHelpers::generateVectorMatrixForLoops(const std::vector<int>& dimensions)
         //The index variable will be indDim# where # is the dimension number
         loopVars.push_back("indDim" + GeneralHelper::to_string(i));
 
-        loopDecls.push_back("for(unsigned long " + loopVars[i] + "; " + loopVars[i] + "<" + GeneralHelper::to_string(dimensions[i]) + "; " + loopVars[i] + "++){");
+        loopDecls.push_back("for(unsigned long " + loopVars[i] + " = 0; " + loopVars[i] + "<" + GeneralHelper::to_string(dimensions[i]) + "; " + loopVars[i] + "++){");
         loopClose.emplace_back("}");
     }
 
