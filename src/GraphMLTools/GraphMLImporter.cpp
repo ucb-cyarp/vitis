@@ -1374,7 +1374,7 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
             //Check if the #dimensions>1 but lengths indicate a scalar
             if(allOnes && dimensions.size()>1){
                 //Emit a warning if this happens
-                std::cerr << ErrorHelpers::genWarningStr("Converting wire of dimension " + simulinkDimStr + " to scalar: Edge ID: " + GeneralHelper::to_string(id)) << std::endl;
+                std::cerr << ErrorHelpers::genWarningStr("Converting wire of Simulink dimension " + simulinkDimStr + " (number of dimensions is first element in array) to scalar: Edge ID: " + GeneralHelper::to_string(id)) << std::endl;
                 dimensions = std::vector<int>({1});
             }
 
