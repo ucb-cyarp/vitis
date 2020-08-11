@@ -26,8 +26,7 @@
 /**
  * @brief A helper class containing methods for transforming a design for multi-thread emit
  */
-class MultiThreadTransformHelpers {
-public:
+namespace MultiThreadTransformHelpers {
     /**
      * @brief Class used to report if a delay was fully absorbed, partially absorbed, or not absorbed
      */
@@ -56,7 +55,7 @@ public:
      * @return The same map as provided in the arcGroups arguments excpet the groups have been replaced with the FIFO inserted for the grouo
      */
     template <typename T> //The FIFO type
-    static std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
     insertPartitionCrossingFIFOs(std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> arcGroups,
     std::vector<std::shared_ptr<Node>> &new_nodes,
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -202,7 +201,7 @@ public:
      * @param deleted_arcs a vector of arcs to be deleted from the design
      * @param printActions if true, prints when delay nodes are absorbed.  If false, does not print any status reports
      */
-    static void absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+    void absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
     std::vector<std::shared_ptr<Node>> &new_nodes,
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
     std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -224,7 +223,7 @@ public:
      * @param printActions if true, prints when delay nodes are absorbed.  If false, does not print any status reports
      * @return if a full, partial, or no absorption of a delay occured
      */
-    static AbsorptionStatus absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    AbsorptionStatus absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                int inputPartition,
                                                                std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -247,7 +246,7 @@ public:
      * @param printActions if true, prints when delay nodes are absorbed.  If false, does not print any status reports
      * @return if a full, partial, or no absorption of a delay occured
      */
-    static AbsorptionStatus absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    AbsorptionStatus absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                 int outputPartition,
                                                                 std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -268,14 +267,14 @@ public:
      * @param printActions
      * @return
      */
-    static void reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    void reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                          std::vector<std::shared_ptr<Node>> &new_nodes,
                                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                          bool printActions = true);
 
-    static void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                    int targetSize,
                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -295,7 +294,7 @@ public:
      * @param new_arcs
      * @param deleted_arcs
      */
-    static void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                              int numElementsToMove,
                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -312,7 +311,7 @@ public:
      * @param printActions
      * @return
      */
-    static std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
     mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
     std::vector<std::shared_ptr<Node>> &new_nodes,
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -329,7 +328,7 @@ public:
      * @param nodes
      * @param partition
      */
-    static void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition);
+    void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition);
 };
 
 /*! @} */

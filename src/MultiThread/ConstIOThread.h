@@ -14,8 +14,7 @@
  * @{
  */
 
-class ConstIOThread {
-public:
+namespace ConstIOThread {
 /**
      * @brief Emits an I/O handler for multi-threaded emit focused on benchmarking.  This version feeds constant values to the design
      *
@@ -28,7 +27,7 @@ public:
      * @param fifoHeaderFile
      * @param threadDebugPrint
      */
-    static void emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
+    void emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint);
 
 };
 

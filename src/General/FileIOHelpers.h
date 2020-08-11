@@ -17,9 +17,7 @@
 /**
  * @brief A class for helping with File IO Tasks
  */
-class FileIOHelpers {
-public:
-
+namespace FileIOHelpers {
     /**
      * @brief Creates a directory with the specified path if it did not already exist
      *
@@ -29,7 +27,7 @@ public:
      * @param reportCreating if true, a status message is printed if a new directory is created
      * @return true if a new directory was created, false otherwise
      */
-    static bool createDirectoryIfDoesNotExist(std::string path, bool reportCreating);
+    bool createDirectoryIfDoesNotExist(std::string path, bool reportCreating);
 };
 
 /*! @} */

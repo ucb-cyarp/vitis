@@ -16,8 +16,7 @@
  * @brief A class containing code for generating stream I/O drivers
  * This includes a linux pipe version and a network sockets version
  */
-class StreamIOThread {
-public:
+namespace StreamIOThread {
     enum class StreamType{
         PIPE, ///<A linux named pipe (FIFO)
         SOCKET, ///<A network socket
@@ -29,18 +28,18 @@ public:
      * @param inputFIFOs
      * @return
      */
-    static std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> getInputPortFIFOMapping(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs);
+    std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> getInputPortFIFOMapping(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs);
 
     /**
      * @brief Gets a mapping of output port numbers to FIFOs (and FIFO ports).  There should only be 1 FIFO per output
      * @param outputFIFOs
      * @return
      */
-    static std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> getOutputPortFIFOMapping(std::shared_ptr<MasterOutput> masterOutput);
+    std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> getOutputPortFIFOMapping(std::shared_ptr<MasterOutput> masterOutput);
 
-    static void copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, std::vector<int> blockSizes);
+    void copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, std::vector<int> blockSizes);
 
-    static void copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Variable> masterOutputVars, std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap, std::shared_ptr<MasterOutput> outputMaster, std::string linuxOutputPipeName, std::vector<int> blockSizes);
+    void copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Variable> masterOutputVars, std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap, std::shared_ptr<MasterOutput> outputMaster, std::string linuxOutputPipeName, std::vector<int> blockSizes);
 
     /**
      * @brief Emits an I/O handler for multi-threaded emit focused on benchmarking.  This version opens 2 linux named pipes (FIFOs).  Data is provided by an external program and
@@ -56,11 +55,11 @@ public:
      * @param threadDebugPrint
      * @param printTelem
      */
-    static void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, int32_t ioFifoSize, bool threadDebugPrint, bool printTelem);
+    void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, int32_t ioFifoSize, bool threadDebugPrint, bool printTelem);
 
-    static void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
+    void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
 
-    static void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
+    void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
                                 std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
                                 std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterInputBundles,
                                 std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterOutputBundles, std::set<int> &bundles);
@@ -70,9 +69,9 @@ public:
      * @param path the path to emit the file to
      * @return the header filename
      */
-    static std::string emitSharedMemoryFIFOHelperFiles(std::string path);
+    std::string emitSharedMemoryFIFOHelperFiles(std::string path);
 
-    static std::string emitFileStreamHelpers(std::string path, std::string fileNamePrefix);
+    std::string emitFileStreamHelpers(std::string path, std::string fileNamePrefix);
 };
 
 

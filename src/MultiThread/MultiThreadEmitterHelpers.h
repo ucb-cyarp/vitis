@@ -35,8 +35,7 @@ class ClockDomain;
 /**
  * @brief Contains helper methods for Multi-Threaded Emitters
  */
-class MultiThreadEmitterHelpers {
-public:
+namespace MultiThreadEmitterHelpers {
     /**
      * @brief Finds the input and output FIFOs for a partition given a partition crossing to FIFO map
      * @param fifoMap
@@ -44,7 +43,7 @@ public:
      * @param inputFIFOs
      * @param outputFIFOs
      */
-    static void findPartitionInputAndOutputFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &outputFIFOs);
+    void findPartitionInputAndOutputFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &outputFIFOs);
 
     /**
      * @brief Emits cStatements copying from the thread argument structure to local variables
@@ -53,7 +52,7 @@ public:
      * @param structName
      * @return
      */
-    static std::string emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName);
+    std::string emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName);
 
     /**
      * @brief Emits C code to check the state of FIFOs
@@ -66,20 +65,20 @@ public:
      * @param includeThreadCancelCheck if true, includes a call to pthread_testcancel durring the FIFO check (to determine if the thread should exit)
      * @return
      */
-    static std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+    std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
 
-    static std::vector<std::string> createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    std::vector<std::string> createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
-    static std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
-    static std::vector<std::string> createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    std::vector<std::string> createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     //Outer vector is for each fifo, the inner vector is for each port within the specified FIFO
-    static std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
+    std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
 
-    static std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true);
+    std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true);
 
-    static std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true);
+    std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true);
 
     /**
      * @brief Get the structure definition for a particular partition's thread
@@ -100,7 +99,7 @@ public:
      *
      * @return a pair of stringsn (C structure definition, structure type name)
      */
-    static std::pair<std::string, std::string> getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum);
+    std::pair<std::string, std::string> getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum);
 
     /**
      * @brief Emits a header file with the structure definitions used by the thread crossing FIFOs
@@ -109,7 +108,7 @@ public:
      * @param fifos
      * @returns the filename of the header file
      */
-    static std::string emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+    std::string emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     /**
      * @brief Get the core number for the specified partition number
@@ -117,14 +116,14 @@ public:
      * @param partitionMap
      * @return
      */
-    static int getCore(int parititon, const std::vector<int> &partitionMap, bool print = false);
+    int getCore(int parititon, const std::vector<int> &partitionMap, bool print = false);
 
     /**
      * @brief Emits the benchmark kernel function for multi-threaded emit.  This includes allocating FIFOs and creating/starting threads.
      * @param fifoMap
      * @param ioBenchmarkSuffix io_constant for constant benchmark
      */
-    static void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix, std::vector<int> partitionMap);
+    void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix, std::vector<int> partitionMap);
 
     //The following 2 functions can be reused for different I/O drivers
 
@@ -140,7 +139,7 @@ public:
      * @param ioBenchmarkSuffix
      * @param inputVars
      */
-    static void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
+    void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
 
     /**
      * @brief Emits a makefile for benchmarking multithreaded emits
@@ -152,7 +151,7 @@ public:
      * @param ioBenchmarkSuffix
      * @param includeLrt if true, includes -lrt to the linker options
      */
-    static void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc);
+    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)
@@ -178,7 +177,7 @@ public:
      * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
      * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
      */
-    static void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem, std::string telemDumpFilePrefix, bool telemAvg);
+    void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem, std::string telemDumpFilePrefix, bool telemAvg);
 
     /**
      * @brief Get the argument portion of the C function prototype for the partition compute function
@@ -199,7 +198,7 @@ public:
      *
      * @return argument portion of the C function prototype for this partition's compute function
      */
-    static std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+    std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
 
     /**
      * @brief Gets the statement calling the partition compute function
@@ -208,7 +207,7 @@ public:
      * @param outputFIFOs
      * @return
      */
-    static std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+    std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
 
     /**
      * @brief Emits a given set operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
@@ -220,21 +219,21 @@ public:
      * @param blockSize the size of the block (in samples) that are processed in each call to the function
      * @param indVarName the variable that specifies the index in the block that is being computed
      */
-    static void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "");
+    void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "");
 
     //Checks that the only nodes that are in the I/O partition are ThreadCrossingFIFOs or subsystems
-    static bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
+    bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
 
-    static void writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix, std::string designName, std::map<int, int> partitionToCPU, int ioPartitionNumber, std::string graphmlSchedFile);
+    void writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix, std::string designName, std::map<int, int> partitionToCPU, int ioPartitionNumber, std::string graphmlSchedFile);
 
     /**
      * @brief Writes a file that contains configuration info for the target platform including cache line size
      * @param path
      * @param filename
      */
-    static void writePlatformParameters(std::string path, std::string filename, int memAlignment);
+    void writePlatformParameters(std::string path, std::string filename, int memAlignment);
 
-    static void writeNUMAAllocHelperFiles(std::string path, std::string filename);
+    void writeNUMAAllocHelperFiles(std::string path, std::string filename);
 
     /**
      * @brief Get the index variable name for a particular clock domain rate relative to the base rate
@@ -242,14 +241,14 @@ public:
      * @param counter if true, this is the counter variable used for tracking when to increment the associated index.  If false, it is the index
      * @return
      */
-    static std::string getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter);
+    std::string getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter);
 
     /**
      * @brief Get the index variable name for a particular clock domain
      * @param clkDomainRate
      * @return
      */
-    static std::string getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter);
+    std::string getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter);
 
 };
 

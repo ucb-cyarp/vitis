@@ -18,9 +18,7 @@ class MasterNode;
 /**
  * @brief A class containing helper functions for multirate processing.
  */
-class MultiRateHelpers {
-public:
-
+namespace MultiRateHelpers {
     /**
      * @brief Finds nodes in a clock domain by searching within subsystems (including Enabled Subsystems)
      *
@@ -29,7 +27,7 @@ public:
      * @param nodesToSearch
      * @return
      */
-    static std::set<std::shared_ptr<Node>> getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch);
+    std::set<std::shared_ptr<Node>> getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch);
 
     /**
      * @brief Finds nodes of a specified type in a clock domain by searching within subsystems (including Enabled Subsystems)
@@ -41,7 +39,7 @@ public:
      * @return
      */
     template <typename T>
-    static std::set<std::shared_ptr<T>> getNodesInClockDomainHelperFilter(const std::set<std::shared_ptr<Node>> nodesToSearch){
+    std::set<std::shared_ptr<T>> getNodesInClockDomainHelperFilter(const std::set<std::shared_ptr<Node>> nodesToSearch){
         std::set<std::shared_ptr<T>> foundNodes;
 
         for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
@@ -74,7 +72,7 @@ public:
      * @param node
      * @return the ClockDomain the node is under or nullptr if it is in the base domain
      */
-    static std::shared_ptr<ClockDomain> findClockDomain(std::shared_ptr<Node> node);
+    std::shared_ptr<ClockDomain> findClockDomain(std::shared_ptr<Node> node);
 
     /**
      * @brief Check if ClockDomain a is outside of ClockDomain b
@@ -87,7 +85,7 @@ public:
      * @param b
      * @return true if ClockDomain a is outside of ClockDomain b
      */
-    static bool isOutsideClkDomain(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b);
+    bool isOutsideClkDomain(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b);
 
     /**
      * @brief Check if ClockDomain a is equal to ClockDomain b or is a ClockDomain directly nested within clock domain b (one level below)
@@ -95,7 +93,7 @@ public:
      * @param b
      * @return true if ClockDomain a is equal to ClockDomain b or is a ClockDomain directly nested within clock domain b (one level below)
      */
-    static bool isClkDomainOrOneLvlNested(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b);
+    bool isClkDomainOrOneLvlNested(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b);
 
     /**
      * @brief Checks if the clock domains are within one level of each other
@@ -109,7 +107,7 @@ public:
      * @param b
      * @return
      */
-    static bool areWithinOneClockDomainOfEachOther(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b);
+    bool areWithinOneClockDomainOfEachOther(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b);
 
     /**
      * @brief Perform the validation for a rate change input block (and optionally set the rates of connected MasterNodes)
@@ -129,7 +127,7 @@ public:
      * @param rc The rate change node to validate
      * @returns a pair of sets.  The first are the input master ports connected to rate change nodes, the second are the output master ports connected to the rate change nodes
      */
-    static std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputPort>>> validateRateChangeInput_SetMasterRates(std::shared_ptr<RateChange> rc, bool setMasterRates);
+    std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputPort>>> validateRateChangeInput_SetMasterRates(std::shared_ptr<RateChange> rc, bool setMasterRates);
 
     /**
      * @brief Perform the validation for a rate change input block (and optionally set the rates of connected MasterNodes)
@@ -149,7 +147,7 @@ public:
      * @param rc The rate change node to validate
      * @returns a pair of sets.  The first are the input master ports connected to rate change nodes, the second are the output master ports connected to the rate change nodes
      */
-    static std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputPort>>> validateRateChangeOutput_SetMasterRates(std::shared_ptr<RateChange> rc, bool setMasterRates);
+    std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputPort>>> validateRateChangeOutput_SetMasterRates(std::shared_ptr<RateChange> rc, bool setMasterRates);
 
     /**
      * @brief Clones the clock domain association of MasterNode ports
@@ -160,9 +158,9 @@ public:
      * @param clonedMaster a pointer to a clone of the master
      * @param origToCopyNode a map of
      */
-    static void cloneMasterNodePortClockDomains(std::shared_ptr<MasterNode> origMaster, std::shared_ptr<MasterNode> clonedMaster, const std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode);
+    void cloneMasterNodePortClockDomains(std::shared_ptr<MasterNode> origMaster, std::shared_ptr<MasterNode> clonedMaster, const std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode);
 
-    static void validateSpecialiedClockDomain(std::shared_ptr<ClockDomain> clkDomain);
+    void validateSpecialiedClockDomain(std::shared_ptr<ClockDomain> clkDomain);
 
     /**
      * @brief Validates that the ClockDomains rates are acceptable
@@ -171,9 +169,9 @@ public:
      *
      * @param clockDomainsInDesign a list of clock domains in the design
      */
-    static void validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
+    void validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 
-    static void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
+    void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
 
     /**
      * @brief Checks the IO block sizes are integers (after accounting for clock domains)
@@ -183,7 +181,7 @@ public:
      * @param masterNodes
      * @param blockSize
      */
-    static void checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize);
+    void checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize);
 
     /**
      * @brief Sets the block sizes of FIFOs and validates that they are integer length
@@ -195,9 +193,9 @@ public:
      * @param blockSize
      * @param setFIFOBlockSize
      */
-    static void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
+    void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
 
-    static void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
+    void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 };
 
 /*! @} */

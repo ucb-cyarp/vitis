@@ -6,14 +6,13 @@
 #define VITIS_DSPHELPERS_H
 
 
-class DSPHelpers {
-public:
+namespace DSPHelpers {
     /**
      * @brief Binary to Gray Code Conversion
      * @param i binary number
      * @return Gray code number
      */
-    static unsigned long bin2Gray(unsigned long i);
+    unsigned long bin2Gray(unsigned long i);
 
 };
 

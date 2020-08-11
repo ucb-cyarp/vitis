@@ -32,15 +32,14 @@ class MasterInput;
 /**
  * @brief Contains helper methods for Emitters
  */
-class EmitterHelpers {
-public:
-    static std::vector<std::shared_ptr<Node>> findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+namespace EmitterHelpers {
+    std::vector<std::shared_ptr<Node>> findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch);
 
-    static std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+    std::vector<std::shared_ptr<Node>> findNodesWithGlobalDecl(std::vector<std::shared_ptr<Node>> &nodesToSearch);
 
-    static std::vector<std::shared_ptr<ContextRoot>> findContextRoots(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+    std::vector<std::shared_ptr<ContextRoot>> findContextRoots(std::vector<std::shared_ptr<Node>> &nodesToSearch);
 
-    static std::vector<std::shared_ptr<BlackBox>> findBlackBoxes(std::vector<std::shared_ptr<Node>> &nodesToSearch);
+    std::vector<std::shared_ptr<BlackBox>> findBlackBoxes(std::vector<std::shared_ptr<Node>> &nodesToSearch);
 
     /**
      * @brief Emits operators for the given nodes (in the order given).  Does not emit function prototypes.  This emitter is context aware
@@ -52,7 +51,7 @@ public:
      * @param indVarName the variable that specifies the index in the block that is being computed
      * @param checkForPartitionChange if true, checks if the partition changes while emitting and throws an error if it does
      */
-    static void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
+    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
 
     /**
      * @brief A helper function for emitting a single node
@@ -63,7 +62,7 @@ public:
      * @param cFile
      * @param schedType
      */
-    static void emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &cFile, SchedParams::SchedType schedType);
+    void emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &cFile, SchedParams::SchedType schedType);
 
     /**
      * @brief Get the input variables for this design
@@ -74,7 +73,7 @@ public:
      *
      * @return a vector of input variables ordered by the input port number paired with their rate relative to the baseRate.  The ith element of the array is the ith input port.
      */
-    static std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
 
     /**
      * @brief Get the output variables for this design
@@ -85,7 +84,7 @@ public:
      *
      * @return a vector of output variables ordered by the output port number paired with their rate relative to the baseRate.  The ith element of the array is the ith output port.
      */
-    static std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
 
     /**
      * @brief Get the structure definition for the Input/Output ports
@@ -106,14 +105,14 @@ public:
      *
      * @return
      */
-    static std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::vector<int> portBlockSizes, std::string structTypeName);
+    std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::vector<int> portBlockSizes, std::string structTypeName);
 
     /**
      * @brief Outputs the type header
      * @param path
      * @return the name of the type header
      */
-    static std::string stringEmitTypeHeader(std::string path);
+    std::string stringEmitTypeHeader(std::string path);
 
     /**
      * @brief Emits a parameters file
@@ -122,7 +121,7 @@ public:
      * @param blockSize
      * @returns the filename of the header file
      */
-    static std::string emitParametersHeader(std::string path, std::string fileNamePrefix, int blockSize);
+    std::string emitParametersHeader(std::string path, std::string fileNamePrefix, int blockSize);
 
     /**
      * @brief Emits a parameters file
@@ -130,7 +129,7 @@ public:
      * @param filenamePrefix
      * @returns the filename of the header file
      */
-    static std::string emitTelemetryHelper(std::string path, std::string fileNamePrefix);
+    std::string emitTelemetryHelper(std::string path, std::string fileNamePrefix);
 
 
     /**
@@ -146,7 +145,7 @@ public:
      * @param from the node to transfer arcs from
      * @param to the node to transfer arcs to
      */
-    static void transferArcs(std::shared_ptr<Node> from, std::shared_ptr<Node> to);
+    void transferArcs(std::shared_ptr<Node> from, std::shared_ptr<Node> to);
 
     /**
      * @brief Finds any arcs connecting the given node to the MasterInput Node
@@ -154,7 +153,7 @@ public:
      * @param directOnly if true, only the direct input arcs are searched
      * @return
      */
-    static std::set<std::shared_ptr<Arc>> getConnectionsToMasterInputNode(std::shared_ptr<Node> node, bool directOnly);
+    std::set<std::shared_ptr<Arc>> getConnectionsToMasterInputNode(std::shared_ptr<Node> node, bool directOnly);
 
     /**
      * @brief Finds any arcs connecting the given node to MasterOutput Nodes
@@ -162,7 +161,7 @@ public:
      * @param directOnly if true, only the direct input arcs are searched
      * @return
      */
-    static std::set<std::shared_ptr<Arc>> getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bool directOnly);
+    std::set<std::shared_ptr<Arc>> getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bool directOnly);
 
     /**
      * @brief Get block sizes from rates
@@ -170,10 +169,10 @@ public:
      * @param blockSizeBase
      * @return
      */
-    static std::vector<int> getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase);
+    std::vector<int> getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase);
 
     template<typename T>
-    static std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, T val){
+    std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, T val){
         std::string str = "";
 
         if(dimIndex >= dimensions.size()){
@@ -197,13 +196,13 @@ public:
     }
 
     template<typename T>
-    static std::string arrayLiteral(std::vector<int> &dimensions, T val){
+    std::string arrayLiteral(std::vector<int> &dimensions, T val){
         return arrayLiteralWorker(dimensions, 0, val);
     }
 
     template<typename T>
     //Val index is a reference so that it can be incremented in the base case
-    static std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<T> &val, int &valIndex){
+    std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<T> &val, int &valIndex){
         std::string str = "";
 
         if(dimIndex >= dimensions.size()){
@@ -228,22 +227,22 @@ public:
     }
 
     template<typename T>
-    static std::string arrayLiteral(std::vector<int> &dimensions, std::vector<T> val){
+    std::string arrayLiteral(std::vector<int> &dimensions, std::vector<T> val){
         int idx = 0;
         return arrayLiteralWorker(dimensions, 0, val, idx);
     }
 
     //Val index is a reference so that it can be incremented in the base case
-    static std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<NumericValue> &val, int &valIndex, bool imag, DataType valType, DataType storageType);
+    std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<NumericValue> &val, int &valIndex, bool imag, DataType valType, DataType storageType);
 
-    static std::string arrayLiteral(std::vector<int> &dimensions, std::vector<NumericValue> val, bool imag, DataType valType, DataType storageType);
+    std::string arrayLiteral(std::vector<int> &dimensions, std::vector<NumericValue> val, bool imag, DataType valType, DataType storageType);
 
     /**
      * @brief Generates nested for loops to be used when emitting element wise vector/matrix operations
      * @param dimensions
      * @return a tuple containing, the nested for loop declarations in the order of declaration (outer to inner), the index variables used for each successive for loop - starting with the outer most first, and finally the closings for the nested for loops
      */
-    static std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions);
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions);
 
     /**
      * @brief Generates a C/C++ style array indexing operation
@@ -251,7 +250,7 @@ public:
      * @return a string with the index variables sandwidtched between square brackets
      */
     template<typename T>
-    static std::string generateIndexOperation(const std::vector<T>& index){
+    std::string generateIndexOperation(const std::vector<T>& index){
         std::string str = "";
 
         for(T i : index){
@@ -267,7 +266,7 @@ public:
      * @param dimensions the dimensions of the array
      * @return
      */
-    static std::vector<int> memIdx2ArrayIdx(int idx, std::vector<int> dimensions);
+    std::vector<int> memIdx2ArrayIdx(int idx, std::vector<int> dimensions);
 };
 
 /*! @} */

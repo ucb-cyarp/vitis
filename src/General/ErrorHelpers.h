@@ -21,32 +21,30 @@
 /**
  * @brief Helpers for handling and reporting errors
  */
-class ErrorHelpers {
-public:
-
+namespace ErrorHelpers {
     //Full version
-    static std::string genErrorStr(std::string errorText, std::string errorPreamble, std::string errorContext);
+    std::string genErrorStr(std::string errorText, std::string errorPreamble, std::string errorContext);
 
     //Version with default preamble
-    static std::string genErrorStr(std::string errorText, std::string errorContext);
+    std::string genErrorStr(std::string errorText, std::string errorContext);
 
     //Version with default preamble and no context
-    static std::string genErrorStr(std::string errorText);
+    std::string genErrorStr(std::string errorText);
 
     //Version from node
-    static std::string genErrorStr(std::string errorText, std::shared_ptr<Node> node, std::string errorPreamble);
+    std::string genErrorStr(std::string errorText, std::shared_ptr<Node> node, std::string errorPreamble);
 
     //Version from node
-    static std::string genErrorStr(std::string errorText, std::shared_ptr<Node> node);
+    std::string genErrorStr(std::string errorText, std::shared_ptr<Node> node);
 
     //Version with default preamble
-    static std::string genWarningStr(std::string errorText, std::string errorContext);
+    std::string genWarningStr(std::string errorText, std::string errorContext);
 
     //Version with default preamble and no context
-    static std::string genWarningStr(std::string errorText);
+    std::string genWarningStr(std::string errorText);
 
     //Version from node
-    static std::string genWarningStr(std::string errorText, std::shared_ptr<Node> node);
+    std::string genWarningStr(std::string errorText, std::shared_ptr<Node> node);
 
 };
 
