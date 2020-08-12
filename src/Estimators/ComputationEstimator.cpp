@@ -53,6 +53,10 @@ ComputationEstimator::reportComputeInstances(std::vector<std::shared_ptr<Node>> 
             int cplxInputs = 0;
             bool foundFloat = false;
             int bits = 0;
+            int scalarInputs = 0;
+            int vectorInputs = 0;
+            int matrixInputs = 0;
+            int maxElements = 0;
             std::vector<std::shared_ptr<InputPort>> inputPorts = nodes[i]->getInputPorts();
             for(int j = 0; j < inputPorts.size(); j++){
                 DataType portDT = inputPorts[j]->getDataType();
@@ -63,10 +67,18 @@ ComputationEstimator::reportComputeInstances(std::vector<std::shared_ptr<Node>> 
                 }
                 foundFloat |= portDT.isFloatingPt();
                 bits = std::max(bits, portDT.getTotalBits());
+                if(portDT.isScalar()){
+                    scalarInputs++;
+                }else if(portDT.isVector()){
+                    vectorInputs++;
+                }else{
+                    matrixInputs++;
+                }
+                maxElements = std::max(maxElements, portDT.numberOfElements());
             }
 
             EstimatorCommon::OperandType operandType = foundFloat ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT;
-            EstimatorCommon::NodeOperation nodeOp(typeInd, operandType, bits, realInputs, cplxInputs);
+            EstimatorCommon::NodeOperation nodeOp(typeInd, operandType, bits, realInputs, cplxInputs, maxElements, scalarInputs, vectorInputs, matrixInputs);
 
             if(counts.find(nodeOp) == counts.end()){
                 counts[nodeOp] = 1;
@@ -87,10 +99,14 @@ void ComputationEstimator::printComputeInstanceTable(
     std::set<EstimatorCommon::NodeOperation> operators;
     std::set<int> partitions;
 
-    std::string portTypeLabel  = "Operand Type";
+    std::string portTypeLabel   = "Operand Type";
     std::string portWidthsLabel = "Operand Bits";
-    std::string realPortsLabel = "Real In Ports";
-    std::string realCplxLabel  = "Cplx In Ports";
+    std::string realPortsLabel  = "Real In Ports";
+    std::string realCplxLabel   = "Cplx In Ports";
+    std::string scalarPortsLabel = "Scalar In Ports";
+    std::string vectorPortsLabel = "Vector In Ports";
+    std::string matrixPortsLabel = "Matrix In Ports";
+    std::string maxElementsLabel = "Max # Input Elements";
 
     //Used for formatting
     size_t maxDataStrLen = 0;
@@ -98,6 +114,10 @@ void ComputationEstimator::printComputeInstanceTable(
     size_t maxOperandWidthStrLen = portWidthsLabel.size();
     size_t maxRealPortsStrLen = realPortsLabel.size();
     size_t maxCplxPortsStrLen = realCplxLabel.size();
+    size_t maxScalarPortsStrLen = scalarPortsLabel.size();
+    size_t maxVectorPortsStrLen = vectorPortsLabel.size();
+    size_t maxMatrixPortsStrLen = matrixPortsLabel.size();
+    size_t maxMaxElementsStrLen = maxElementsLabel.size();
 
     for(auto partIt = partitionOps.begin(); partIt != partitionOps.end(); partIt++){
         partitions.insert(partIt->first);
@@ -110,6 +130,10 @@ void ComputationEstimator::printComputeInstanceTable(
             maxOperandWidthStrLen = std::max(maxOperandWidthStrLen, GeneralHelper::to_string(opIt->first.operandBits).size());
             maxRealPortsStrLen = std::max(maxRealPortsStrLen, GeneralHelper::to_string(opIt->first.numRealInputs).size());
             maxCplxPortsStrLen = std::max(maxCplxPortsStrLen, GeneralHelper::to_string(opIt->first.numCplxInputs).size());
+            maxScalarPortsStrLen = std::max(maxScalarPortsStrLen, GeneralHelper::to_string(opIt->first.scalarInputs).size());
+            maxVectorPortsStrLen = std::max(maxVectorPortsStrLen, GeneralHelper::to_string(opIt->first.vectorInputs).size());
+            maxMatrixPortsStrLen = std::max(maxMatrixPortsStrLen, GeneralHelper::to_string(opIt->first.matrixInputs).size());
+            maxMaxElementsStrLen = std::max(maxMaxElementsStrLen, GeneralHelper::to_string(opIt->first.maxNumElements).size());
         }
     }
 
@@ -130,6 +154,14 @@ void ComputationEstimator::printComputeInstanceTable(
     std::string operandBitsLabelFormatStr = " | %" + GeneralHelper::to_string(maxOperandWidthStrLen) + "s";
     std::string maxRealPortsLabelFormatStr = " | %" + GeneralHelper::to_string(maxRealPortsStrLen) + "s";
     std::string maxCplxPortsLabelFormatStr = " | %" + GeneralHelper::to_string(maxCplxPortsStrLen) + "s";
+    std::string maxScalarPortsFormatStr = " | %" + GeneralHelper::to_string(maxScalarPortsStrLen) + "d";
+    std::string maxVectorPortsFormatStr = " | %" + GeneralHelper::to_string(maxVectorPortsStrLen) + "d";
+    std::string maxMatrixPortsFormatStr = " | %" + GeneralHelper::to_string(maxMatrixPortsStrLen) + "d";
+    std::string maxMaxElementsFormatStr = " | %" + GeneralHelper::to_string(maxMaxElementsStrLen) + "d";
+    std::string maxScalarPortsLabelFormatStr = " | %" + GeneralHelper::to_string(maxScalarPortsStrLen) + "s";
+    std::string maxVectorPortsLabelFormatStr = " | %" + GeneralHelper::to_string(maxVectorPortsStrLen) + "s";
+    std::string maxMatrixPortsLabelFormatStr = " | %" + GeneralHelper::to_string(maxMatrixPortsStrLen) + "s";
+    std::string maxMaxElementsLabelFormatStr = " | %" + GeneralHelper::to_string(maxMaxElementsStrLen) + "s";
     std::string countFormatStr = " | %"+GeneralHelper::to_string(maxDataStrLen)+"d";
 
     printf(nameFormatStr.c_str(), nodeTypeNameLabel.c_str());
@@ -137,6 +169,10 @@ void ComputationEstimator::printComputeInstanceTable(
     printf(operandBitsLabelFormatStr.c_str(), portWidthsLabel.c_str());
     printf(maxRealPortsLabelFormatStr.c_str(), realPortsLabel.c_str());
     printf(maxCplxPortsLabelFormatStr.c_str(), realCplxLabel.c_str());
+    printf(maxScalarPortsLabelFormatStr.c_str(), scalarPortsLabel.c_str());
+    printf(maxVectorPortsLabelFormatStr.c_str(), vectorPortsLabel.c_str());
+    printf(maxMatrixPortsLabelFormatStr.c_str(), matrixPortsLabel.c_str());
+    printf(maxMaxElementsLabelFormatStr.c_str(), maxElementsLabel.c_str());
 
     for(auto part = partitions.begin(); part != partitions.end(); part++){
         printf(countFormatStr.c_str(), *part);
@@ -160,8 +196,11 @@ void ComputationEstimator::printComputeInstanceTable(
         printf(operandBitsFormatStr.c_str(), op->operandBits);
 
         printf(maxRealPortsFormatStr.c_str(), op->numRealInputs);
-
         printf(maxCplxPortsFormatStr.c_str(), op->numCplxInputs);
+        printf(maxScalarPortsFormatStr.c_str(), op->scalarInputs);
+        printf(maxVectorPortsFormatStr.c_str(), op->vectorInputs);
+        printf(maxMatrixPortsFormatStr.c_str(), op->matrixInputs);
+        printf(maxMaxElementsFormatStr.c_str(), op->maxNumElements);
 
         for(auto part = partitions.begin(); part != partitions.end(); part++) {
             //Print the count for each partition

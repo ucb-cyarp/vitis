@@ -15,11 +15,10 @@
  * @{
 */
 
-class CommunicationEstimator {
-public:
-    static std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> reportCommunicationWorkload(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap);
+namespace CommunicationEstimator {
+    std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> reportCommunicationWorkload(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap);
 
-    static void printComputeInstanceTable(std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> commWorkload);
+    void printComputeInstanceTable(std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> commWorkload);
 };
 
 /*! @} */

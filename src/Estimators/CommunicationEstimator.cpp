@@ -10,7 +10,8 @@
 
 std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload>
 CommunicationEstimator::reportCommunicationWorkload(
-        std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap) {
+    //TODO: Fix with multiple block lengths for FIFOs.  May actually be OK as is, may just need to remove check
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap) {
     std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> workload;
 
     int blockSize = 0;

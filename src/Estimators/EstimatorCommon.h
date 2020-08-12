@@ -14,9 +14,8 @@
  * @{
 */
 
-class EstimatorCommon {
-public:
-    //Operators
+namespace EstimatorCommon {
+    //++++ Operators ++++
 
     /**
      * @brief Indicates whether or not the operands were floating point or integer.
@@ -26,7 +25,18 @@ public:
         FLOAT ///< Floating point type
     };
 
-    static std::string operandTypeToString(OperandType operandType);
+    std::string operandTypeToString(OperandType operandType);
+
+    /**
+     * @brief The complexity of operands
+     */
+    enum class OperandComplexity{
+        REAL, ///<All operands are real
+        COMPLEX, ///<All operands are complex
+        MIXED ///<There is a mix of real and complex
+    };
+
+    std::string operandComplexityToString(OperandComplexity operandComplexity);
 
     /**
      * @brief Identifies an operation represented by a node in the graph.
@@ -41,9 +51,14 @@ public:
         int operandBits; ///<The maximum number of bits per operand
         int numRealInputs; ///<The number of real operands to the node
         int numCplxInputs; ///<The number of complex operands to the node
+        int maxNumElements; ///<If a vector or matrix operation, the maximum number of elements in an input
+        int scalarInputs; ///<Number of scalar inputs
+        int vectorInputs; ///<Number of vector inputs
+        int matrixInputs; ///<Number of matrix inputs (>1 dimension)
 
         //Need an explicit constructor for this
-        NodeOperation(std::type_index nodeType, OperandType operandType, int operandBits, int numRealInputs, int numCplxInputs);
+        NodeOperation(std::type_index nodeType, OperandType operandType, int operandBits, int numRealInputs,
+                      int numCplxInputs, int maxNumElements, int scalarInputs, int vectorInputs, int matrixInputs);
 
         bool operator==(const NodeOperation &rhs) const;
         bool operator!=(const NodeOperation &rhs) const;
@@ -65,9 +80,13 @@ public:
     };
 
     /**
-     * @brief Types of primitive operations
+     * @brief Types of operations
+     *
+     * Includes primitive ops (ex. mult, load, ...) and higher level ops (ex. exp, ln, sin, ...).
+     * The function, opTypeToStr reports if the operator is primitive or higher level
      */
-    enum class PrimitiveOpType{
+    enum class OpType{
+        //Primitive Ops
         ADD_SUB, ///<Add or Subtract Operation
         MULT, ///<Multiply operation
         DIV, ///<Divide operation
@@ -76,26 +95,42 @@ public:
         CAST, ///<Cast operator
         LOAD, ///<Memory load operator
         STORE, ///<Memory store operator
-        BRANCH ///<Branch operator
+        BRANCH, ///<Branch operator
+        //Complex Ops (ex. Trig, Exp, Ln)
+        EXP, ///<Exponent operator
+        LN, ///<Log operator
+        SIN, ///<Sin operator
+        COS, ///<Cos operator
+        TAN, ///<Tan operator
+        ATAN, ///<ATan operator
+        ATAN2 ///<ATan2 operator
     };
 
+    std::string opTypeToStr(OpType opType);
+
+    bool isPrimitiveOpType(OpType opType);
+
     /**
-     * @brief Represents a primitive operation
+     * @brief Represents a compute operation
+     *
+     * Can be a real, primitive, operation, or a more higher level operation (such as complex mult, or
      */
-    struct PrimitiveOperation{
-        PrimitiveOpType opType; ///<The type of primitive operation
-        OperandType operandType; ///<The type of operands (
-        int operandBits;
+    struct ComputeOperation{
+        OpType opType; ///<The type of primitive operation
+        OperandType operandType; ///<The type of operands
+        OperandComplexity operandComplexity; ///<The complexity of the operands
+        int operandBits; ///<The number of
+        int vecLength; ///<For vector ops, the size of the vector.  If scalar, vector length is 1
     };
 
     /**
      * @brief Represents a workload in terms of primitive operations
      */
-    struct PrimitiveWorkload{
-        std::map<PrimitiveOperation, int> operationCount;
+    struct ComputeWorkload{
+        std::map<ComputeOperation, int> operationCount;
     };
 
-    //Communication
+    //++++ Communication ++++
 
     /**
      * @brief Represents a communication workload between threads
@@ -110,13 +145,13 @@ public:
         //TODO: Modify if unequal block sizes are ever used.
     };
 
-    //Hardware resources
+    //++++ Hardware resources ++++
 
     /**
      * @brief Represents a compute capability for a particular type of primitive operation
      */
     struct ComputeCapability{
-        PrimitiveOperation operation; ///<The operation this capability is able to execute
+        OpType operation; ///<The operation this capability is able to execute
         int pipelineDepth; ///<The depth of the pipeline, if known, when executing this type of operation
         double timeToCompleteNS; ///<The estimated time to complete an operation of this type
     };
