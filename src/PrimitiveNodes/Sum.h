@@ -60,6 +60,12 @@ private:
      */
     Sum(std::shared_ptr<SubSystem> parent, Sum* orig);
 
+    /**
+     * @brief Find the accumulator type to use
+     * @return the accumulator type and if a fixed point value was detected
+     */
+    std::pair<DataType, bool> findAccumType();
+
 public:
     //====Getters/Setters====
     std::vector<bool> getInputSign() const;
@@ -117,6 +123,7 @@ public:
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag = false) override;
 
+    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
 };
 
 /*! @} */

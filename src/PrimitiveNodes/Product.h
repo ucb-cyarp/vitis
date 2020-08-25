@@ -12,6 +12,7 @@
 
 #include "PrimitiveNode.h"
 #include "GraphMLTools/GraphMLDialect.h"
+#include "Estimators/EstimatorCommon.h"
 
 /**
  * \addtogroup PrimitiveNodes Primitives
@@ -95,6 +96,33 @@ public:
      * @param result_im imag component of result
      */
     static void generateMultExprs(const std::string &a_re, const std::string &a_im, const std::string &b_re, const std::string &b_im, bool mult, const std::string &result_norm_name, DataType result_norm_type, std::string &result_norm_expr, std::string &result_re, std::string &result_im);
+
+    /**
+     * @brief Estimate the workload of a multiply/divide operation
+     *
+     * @warning Assumes both operands are already cast to the intermediate type
+     * @warning intermediate type needs valid dimensions because vector length is derived from it
+     *
+     * @warning realDivComplexWaiting is only tracked when expandComplex is true.
+     *
+     * If a complex/complex is encoutered and realDivComplexWaiting is true, the extra subtract is added and the flag is set to false
+     *
+     * @param mult
+     * @param opAComplex
+     * @param opBComplex
+     * @param intermediateType the intermediate type (the complexity is not checked)
+     * @param realDivComplexWaiting if true, a real/complex operation had occured in the past and the extra subtract in the imagionary component has not yet been absorbed by a
+     * @return the workload for this multiply, if the result is complex, and if a real/complex op has been encountered and no complex*complex or complex/complex operators have occured since
+     */
+    static std::tuple<EstimatorCommon::ComputeWorkload, bool, bool> estimateMultExpr(bool mult, bool opAComplex, bool opBComplex, DataType intermediateType, bool expandComplex, bool includeIntermediateLoadStore, bool realDivComplexWaiting);
+
+    /**
+     * @brief Get the intermediate type as well as if a fixed point value was detected
+     * @return
+     */
+    std::pair<DataType, bool> findIntermediateType();
+
+    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
 
     //====Getters/Setters====
     std::vector<bool> getInputOp() const;

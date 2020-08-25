@@ -51,6 +51,9 @@ protected:
 public:
     //Primitive nodes cannot be expanded
     bool canExpand() override;
+
+    //TODO: Remove when all estimators implemented
+    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
 };
 
 /*! @} */

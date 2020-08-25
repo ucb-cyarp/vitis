@@ -177,69 +177,13 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         inputExprs.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag));
     }
 
-    //Check if any of the inputs are floating point & if so, find the largest
-    //Also check for any fixed point types.  Find the max integer type
-    bool foundFloat = false;
-    DataType largestFloat;
-    bool foundFixedPt = false;
-    bool foundInt = false;
-    bool foundSignedInt = false;
-    DataType largestInt;
-
-    for(unsigned long i = 0; i<numInputPorts; i++){
-        DataType portDataType = getInputPort(i)->getDataType();
-        if(portDataType.isFloatingPt()){
-            if(!foundFloat){
-                foundFloat = true;
-                largestFloat = portDataType;
-            }else{
-                if(largestFloat.getTotalBits() < portDataType.getTotalBits()){
-                    largestFloat = portDataType;
-                }
-            }
-        }else if(portDataType.getFractionalBits() != 0){
-            foundFixedPt = true;
-        }else{
-            if(!foundInt){
-                largestInt = portDataType;
-                foundInt = true;
-            }else{
-                if(largestInt.getTotalBits() < portDataType.getTotalBits()){
-                    largestInt = portDataType;
-                }
-            }
-            if(portDataType.isSignedType()){
-                foundSignedInt = true;
-            }
-        }
-    }
+    std::pair<DataType, bool> dtPair = findAccumType();
+    DataType accumType = dtPair.first;
+    bool foundFixedPt = dtPair.second;
 
     //TODO: Implement Fixed Point
 
     if(!foundFixedPt){
-        DataType accumType;
-        if(foundFloat){
-            accumType = largestFloat; //Floating point types do not grow
-        }else{
-            //Integer
-            accumType = largestInt;
-
-            if(foundSignedInt) {
-                accumType.setTotalBits(accumType.getTotalBits() + ((int) ceil(
-                        log2(numInputPorts)))); //Grow by the log2 of the number of inputs.  This is actually a little conservative
-            }else{
-                //If unsigned, only grow for positive inputs
-                int numAdds = 0;
-                for(bool op : inputSign){
-                    if(op){
-                        numAdds++;
-                    }
-                }
-                accumType.setTotalBits(accumType.getTotalBits() + ((int) ceil(
-                        log2(numAdds))));
-            }
-        }
-
         //floating point numbers
 
         //TODO: Possibly introduce an explicit vector intrinsic version or a version utilizing a linear alg library
@@ -269,29 +213,39 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
 
         std::string expr = "";
 
+        bool foundFirstOprand = false;
         for (unsigned long i = 0; i < numInputPorts; i++) {
-            if(i == 0){
+            if((!imag && i == 0) || (imag && !foundFirstOprand && getInputPort(i)->getDataType().isComplex())){
                 //Handle if first element is negated
-                if (!inputSign[0]) {
+                //Note that the first imag element may not be in index 0
+                if (!inputSign[i]) {
                     expr = "(-";
                 }
             }else {
-                if (inputSign[i]) {
-                    expr += "+";
-                } else {
-                    expr += "-";
+                if(!imag || (imag && getInputPort(i)->getDataType().isComplex())) {
+                    if (inputSign[i]) {
+                        expr += "+";
+                    } else {
+                        expr += "-";
+                    }
                 }
             }
 
-            //if a vector/matrix type, need to dereference the input expr
-            std::string inputExprDeref = inputExprs[i] + (getInputPort(i)->getDataType().isScalar() ? "" :
-                                         EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            //for imaginary, only dereference, cast, and sum/diff if the operand is complex
+            if(!imag || (imag && getInputPort(i)->getDataType().isComplex())) {
+                //if a vector/matrix type, need to dereference the input expr
+                std::string inputExprDeref = inputExprs[i] + (getInputPort(i)->getDataType().isScalar() ? "" :
+                                                              EmitterHelpers::generateIndexOperation(forLoopIndexVars));
 
-            expr += "(" + DataType::cConvertType(inputExprDeref, getInputPort(i)->getDataType(), accumType) + ")";
+                expr += "(" + DataType::cConvertType(inputExprDeref, getInputPort(i)->getDataType(), accumType) + ")";
+            }
 
             //Finish handling if the first element is negated
-            if(i == 0 && !inputSign[0]){
-                expr += ")";
+            if((!imag && i == 0) || (imag && !foundFirstOprand && getInputPort(i)->getDataType().isComplex())) {
+                if (!inputSign[i]) {
+                    expr += ")";
+                }
+                foundFirstOprand = true;
             }
         }
 
@@ -326,4 +280,193 @@ Sum::Sum(std::shared_ptr<SubSystem> parent, Sum* orig) : PrimitiveNode(parent, o
 
 std::shared_ptr<Node> Sum::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<Sum>(parent, this);
+}
+
+EstimatorCommon::ComputeWorkload
+Sum::getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators,
+                                ComputationEstimator::EstimatorOption includeIntermediateLoadStore,
+                                ComputationEstimator::EstimatorOption includeInputOutputLoadStores) {
+    //Note that an empty workload is returned by the following if I/O Load/Stores were not supposed to be counted
+    //+++ Add I/O Load/Store if appripriate +++
+    EstimatorCommon::ComputeWorkload workload = getIOLoadStoreWorkloadEst(getSharedPointer(),
+                                                                          includeInputOutputLoadStores);
+
+    //Does not have intermediate loads/stores, even with vectors.  The for loops contains an expression with all operands.
+
+    //For sum, we require all the inputs to have the same dimensions (with the exception of scalars)
+    //However, scalars still need to be added to each vector element, so we will treat them as vector operations
+    int vecLen = EstimatorCommon::getLargestInputNumElements(getSharedPointer());
+
+    std::pair<DataType, bool> dtPair = findAccumType();
+    DataType accumType = dtPair.first;
+    DataType outType = getOutputPort(0)->getDataType();
+
+    std::vector<std::shared_ptr<InputPort>> inputPortVec = getInputPorts();
+    bool foundFirstComplexOperand = inputPortVec[0]->getDataType().isComplex();
+
+    //+++ Add casts to first operand if applicable +++
+    EstimatorCommon::addCastsIfBaseTypesDifferent(workload, inputPortVec[0]->getDataType(), accumType, expandComplexOperators, vecLen);
+
+    //+++ Add add/sub operations +++
+    for (unsigned long i = 1; i <inputPortVec.size(); i++){
+        //The operation only comes on subsequent inputs (except if the first input is negated and all other operands are negated - handled below)
+        //The type of add/sub is based on whether the particular operand is real/imag
+        DataType portType = inputPortVec[i]->getDataType();
+
+        if(portType.isComplex()){
+            //Need to check if this is the first complex port
+            if(foundFirstComplexOperand){
+                //This is not the first complex port, register a full complex add
+                //Note that accumType may be complex but the port can be real or complex
+                if(expandComplexOperators) {
+                    workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                            accumType.isFloatingPt(),
+                                                                            false,
+                                                                            accumType.getTotalBits(), vecLen));
+                    if(portType.isComplex()) {
+                        //Add the complex add
+                        workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                                accumType.isFloatingPt(),
+                                                                                false,
+                                                                                accumType.getTotalBits(), vecLen));
+                    }
+                }else{
+                    workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                            accumType.isFloatingPt(),
+                                                                            portType.isComplex(),
+                                                                            accumType.getTotalBits(), vecLen));
+                }
+            }else{
+                //This is the first complex port, register a real add as the complex component does not require an add operation
+                //No difference if expanding complex operations or not
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                        accumType.isFloatingPt(),
+                                                                        false,
+                                                                        accumType.getTotalBits(), vecLen));
+
+                foundFirstComplexOperand = true;
+            }
+        }else{
+            //This port is real
+            //No difference if expanding complex operations or not
+            workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                    accumType.isFloatingPt(),
+                                                                    false,
+                                                                    accumType.getTotalBits(), vecLen));
+        }
+
+        //Add cast to accum type if needed
+        EstimatorCommon::addCastsIfBaseTypesDifferent(workload, portType, accumType, expandComplexOperators, vecLen);
+    }
+
+    //+++ Check if an additional operation is required (only if all operands are negated)  Check if the initial operand is complex +++
+    bool allNegate = true;
+    //Note that the node is validated to have >1 input
+    for (unsigned long i = 0; i <inputSign.size(); i++){
+        if(inputSign[i]){
+            allNegate = false;
+            break;
+        }
+    }
+
+    if(allNegate){
+        //Need to add an additional add/sub operation to negate the first input
+        //In this case, we do not need to track if this is the first complex input
+        DataType portType = inputPortVec[0]->getDataType();
+
+        if(expandComplexOperators) {
+            workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                    accumType.isFloatingPt(),
+                                                                    false,
+                                                                    accumType.getTotalBits(), vecLen));
+            if(portType.isComplex()) {
+                //Add the complex add
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                        accumType.isFloatingPt(),
+                                                                        false,
+                                                                        accumType.getTotalBits(), vecLen));
+            }
+        }else{
+            workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                    accumType.isFloatingPt(),
+                                                                    portType.isComplex(),
+                                                                    accumType.getTotalBits(), vecLen));
+        }
+    }
+
+    //+++ Add output cast operation if needed +++
+    EstimatorCommon::addCastsIfBaseTypesDifferent(workload, accumType, outType, expandComplexOperators, vecLen);
+
+    return workload;
+}
+
+std::pair<DataType, bool> Sum::findAccumType() {
+    //Check if any of the inputs are floating point & if so, find the largest
+    //Also check for any fixed point types.  Find the max integer type
+    bool foundFloat = false;
+    DataType largestFloat;
+    bool foundFixedPt = false;
+    bool foundInt = false;
+    bool foundSignedInt = false;
+    DataType largestInt;
+
+    unsigned long numInputPorts = inputPorts.size();
+
+    for(unsigned long i = 0; i<numInputPorts; i++){
+        DataType portDataType = getInputPort(i)->getDataType();
+        if(portDataType.isFloatingPt()){
+            if(!foundFloat){
+                foundFloat = true;
+                largestFloat = portDataType;
+            }else{
+                if(largestFloat.getTotalBits() < portDataType.getTotalBits()){
+                    largestFloat = portDataType;
+                }
+            }
+        }else if(portDataType.getFractionalBits() != 0){
+            foundFixedPt = true;
+        }else{
+            if(!foundInt){
+                largestInt = portDataType;
+                foundInt = true;
+            }else{
+                if(largestInt.getTotalBits() < portDataType.getTotalBits()){
+                    largestInt = portDataType;
+                }
+            }
+            if(portDataType.isSignedType()){
+                foundSignedInt = true;
+            }
+        }
+    }
+
+    DataType accumType;
+    if(!foundFixedPt) {
+        if (foundFloat) {
+            accumType = largestFloat; //Floating point types do not grow
+        } else {
+            //Integer
+            accumType = largestInt;
+
+            if (foundSignedInt) {
+                accumType.setTotalBits(accumType.getTotalBits() + ((int) ceil(
+                        log2(numInputPorts)))); //Grow by the log2 of the number of inputs.  This is actually a little conservative
+            } else {
+                //If unsigned, only grow for positive inputs
+                int numAdds = 0;
+                for (bool op : inputSign) {
+                    if (op) {
+                        numAdds++;
+                    }
+                }
+                accumType.setTotalBits(accumType.getTotalBits() + ((int) ceil(
+                        log2(numAdds))));
+            }
+        }
+    }else{
+        //TODO: Fixed Point Support
+        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Fixed Point Not Yet Implemented for Sum", getSharedPointer()));
+    }
+
+    return std::pair<DataType, bool>(accumType, foundFixedPt);
 }

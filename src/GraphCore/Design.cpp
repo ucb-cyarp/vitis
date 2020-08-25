@@ -3592,10 +3592,15 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     std::map<int, std::map<EstimatorCommon::NodeOperation, int>> counts;
     std::map<std::type_index, std::string> names;
+    std::map<int, EstimatorCommon::ComputeWorkload> computeWorkloads;
+    std::map<int, EstimatorCommon::ComputeWorkload> computeWorkloadsExpanded;
 
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>> partCount = ComputationEstimator::reportComputeInstances(it->second, {visMaster});
         counts[it->first] = partCount.first;
+
+        computeWorkloads[it->first] = ComputationEstimator::reportComputeWorkload(it->second, {visMaster}, false, false, ComputationEstimator::EstimatorOption::DISABLED, ComputationEstimator::EstimatorOption::DISABLED);
+        computeWorkloadsExpanded[it->first] = ComputationEstimator::reportComputeWorkload(it->second, {visMaster}, true, true, ComputationEstimator::EstimatorOption::DISABLED, ComputationEstimator::EstimatorOption::DISABLED);
 
         for(auto nameIt = partCount.second.begin(); nameIt != partCount.second.end(); nameIt++){
             if(names.find(nameIt->first) == names.end()){
@@ -3607,13 +3612,29 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Get the ClockDomainRates in each partition (to report)
 //    std::map<int, std::set<std::pair<int, int>>> partitionClockDomainRates = findPartitionClockDomainRates();
 
-    std::cout << "Partition Node Count Report:" << std::endl;
+    std::cout << "*** Partition Node Count Report: ***" << std::endl;
     ComputationEstimator::printComputeInstanceTable(counts, names);
     std::cout << std::endl;
 
     std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> commWorkloads = CommunicationEstimator::reportCommunicationWorkload(fifoMap);
-    std::cout << "Partition Communication Report:" << std::endl;
+    std::cout << "*** Partition Communication Report: ***" << std::endl;
     CommunicationEstimator::printComputeInstanceTable(commWorkloads);
+    std::cout << std::endl;
+
+    std::cout << "*** Partition Computation Workload (Unexpanded, With Vectors, Excluding I/O and Intermediate Loads/Stores) Report: ***" << std::endl;
+    ComputationEstimator::printWorkloadTable(computeWorkloads, false);
+    std::cout << std::endl;
+
+    std::cout << "Partition Computation Workload (Unexpanded, Without Vectors, Excluding I/O and Intermediate Loads/Stores) Report:" << std::endl;
+    ComputationEstimator::printWorkloadTable(computeWorkloads, true);
+    std::cout << std::endl;
+
+    std::cout << "Partition Computation Workload (Expanded, With Vectors, Excluding I/O and Intermediate Loads/Stores) Report:" << std::endl;
+    ComputationEstimator::printWorkloadTable(computeWorkloadsExpanded, false);
+    std::cout << std::endl;
+
+    std::cout << "Partition Computation Workload (Expanded, Without Vectors, Excluding I/O and Intermediate Loads/Stores) Report:" << std::endl;
+    ComputationEstimator::printWorkloadTable(computeWorkloadsExpanded, true);
     std::cout << std::endl;
 
     //Emit Types

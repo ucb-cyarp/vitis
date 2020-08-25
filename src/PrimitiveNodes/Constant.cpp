@@ -191,4 +191,13 @@ std::string Constant::getGlobalDecl() {
     return "";
 }
 
+EstimatorCommon::ComputeWorkload
+Constant::getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators,
+                                     ComputationEstimator::EstimatorOption includeIntermediateLoadStore,
+                                     ComputationEstimator::EstimatorOption includeInputOutputLoadStores) {
+    //There really isn't any operation from the constant.  The stores for the constant occure (if they even occur) before execution starts
+    //Downstream nodes may load from the constant but that will be accounted for in the downstream node's I/O estimate
+    return EstimatorCommon::ComputeWorkload();
+}
+
 

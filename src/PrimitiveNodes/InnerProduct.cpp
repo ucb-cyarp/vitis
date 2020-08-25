@@ -224,7 +224,6 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
             int srcOutputPortNum = srcOutputPort->getPortNum();
             std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-
             inputExprs_re.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false));
             if (getInputPort(i)->getDataType().isComplex()) {
                 inputExprs_im.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true));
@@ -263,11 +262,17 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         //There should only be 2 ports (validated above) but easy to write the loop
         //note that the expression index is the same as the port number
         for(int i = 0; i<inputExprs_re.size(); i++){
-            inputExprsDeref_re.push_back(inputExprs_re[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)));
+            std::string inputExpr_re_deref = inputExprs_re[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            std::string inputExpr_re_deref_cast = DataType::cConvertType(inputExpr_re_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
+
+            inputExprsDeref_re.push_back(inputExpr_re_deref_cast);
         }
         for(int i = 0; i<inputExprs_im.size(); i++){
             if(getInputPort(i)->getDataType().isComplex()){
-                inputExprsDeref_im.push_back(inputExprs_im[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)));
+                std::string inputExpr_im_deref = inputExprs_im[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::string inputExpr_im_deref_cast = DataType::cConvertType(inputExpr_im_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
+
+                inputExprsDeref_im.push_back(inputExpr_im_deref_cast);
             }else {
                 inputExprsDeref_im.push_back("");
             }

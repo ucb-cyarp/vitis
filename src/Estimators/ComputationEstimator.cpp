@@ -9,6 +9,7 @@
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
 #include "GraphCore/SubSystem.h"
+#include "GraphCore/DataType.h"
 #include <algorithm>
 #include <iostream>
 #include <cstdio>
@@ -91,6 +92,61 @@ ComputationEstimator::reportComputeInstances(std::vector<std::shared_ptr<Node>> 
     return std::pair<std::map<EstimatorCommon::NodeOperation, int>, std::map<std::type_index, std::string>>(counts, names);
 }
 
+EstimatorCommon::ComputeWorkload ComputationEstimator::reportComputeWorkload(std::vector<std::shared_ptr<Node>> nodes,
+                                                       std::vector<std::shared_ptr<Node>> excludeNodes,
+                                                       bool expandComplexOperators, bool expandHighLevelOperators,
+                                                       ComputationEstimator::EstimatorOption includeIntermediateLoadStore,
+                                                       ComputationEstimator::EstimatorOption includeInputOutputLoadStores){
+    EstimatorCommon::ComputeWorkload workload;
+
+    //TODO: Remove sanity check for duplicates
+    std::set<std::shared_ptr<Node>> nodeSet;
+    for(int i = 0; i<nodes.size(); i++){
+        nodeSet.insert(nodes[i]);
+    }
+    if(nodeSet.size() != nodes.size()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Duplicate nodes in call to performance estimator"));
+    }
+
+    for(int i = 0; i<nodes.size(); i++){
+        bool isExcluded = false;
+        for(int j = 0; j<excludeNodes.size(); j++){
+            if(nodes[i] == excludeNodes[j]){
+                isExcluded = true;
+                break;
+            }
+        }
+
+        //Check if this node should be included
+        bool isOKSubsystem = GeneralHelper::isType<Node,ContextFamilyContainer>(nodes[i]) != nullptr || GeneralHelper::isType<Node,ContextContainer>(nodes[i]) != nullptr;
+        bool isSubSystem = GeneralHelper::isType<Node, SubSystem>(nodes[i]) != nullptr;
+
+        if(!isExcluded && ((!isSubSystem || isOKSubsystem))){
+            EstimatorCommon::ComputeWorkload nodeWorkload = nodes[i]->getComputeWorkloadEstimate(expandComplexOperators, expandHighLevelOperators, includeIntermediateLoadStore, includeInputOutputLoadStores);
+            workload.addOperations(nodeWorkload);
+        }
+    }
+
+    return workload;
+}
+
+EstimatorCommon::ComputeWorkload ComputationEstimator::breakVectorOps(EstimatorCommon::ComputeWorkload workload){
+    EstimatorCommon::ComputeWorkload newWorkload;
+
+    for(const auto & opCount : workload.operationCount){
+        int opVecLen = opCount.first.vecLength;
+        int brokenOpCount = opVecLen * opCount.second;
+        EstimatorCommon::ComputeOperation scalarOp = opCount.first;
+        scalarOp.vecLength = 1;
+
+        std::map<EstimatorCommon::ComputeOperation, int> toAdd;
+        toAdd[scalarOp] = brokenOpCount;
+        newWorkload.addOperations(toAdd);
+    }
+
+    return newWorkload;
+}
+
 void ComputationEstimator::printComputeInstanceTable(
         std::map<int, std::map<EstimatorCommon::NodeOperation, int>> partitionOps,
         std::map<std::type_index, std::string> names) {
@@ -138,7 +194,7 @@ void ComputationEstimator::printComputeInstanceTable(
     }
 
     std::string nodeTypeNameLabel = "Node Type";
-    size_t maxTypeNamesStrLen = sizeof(nodeTypeNameLabel);
+    size_t maxTypeNamesStrLen = nodeTypeNameLabel.size();
     for(auto it = names.begin(); it!=names.end(); it++){
         maxTypeNamesStrLen = std::max(maxTypeNamesStrLen, it->second.size());
     }
@@ -213,5 +269,149 @@ void ComputationEstimator::printComputeInstanceTable(
         }
 
         std::cout << std::endl;
+    }
+}
+
+void ComputationEstimator::printWorkloadTable(const std::map<int, EstimatorCommon::ComputeWorkload> &partitionOpsOrig, bool breakVectorOps_param){
+    std::map<int, EstimatorCommon::ComputeWorkload> partitionOps;
+    if(breakVectorOps_param){
+        //Break vector ops into scalar ops
+        for(const auto & partitionOpOrig : partitionOpsOrig){
+            int partition = partitionOpOrig.first;
+            EstimatorCommon::ComputeWorkload brokenWorkload = breakVectorOps(partitionOpOrig.second);
+            partitionOps[partition] = brokenWorkload;
+        }
+    }else{
+        //Use the origional workload without vector ops broken down
+        partitionOps = partitionOpsOrig;
+    }
+
+    //Operators in design
+    std::set<EstimatorCommon::ComputeOperation> operators;
+    std::set<int> partitions;
+
+    std::string portTypeLabel       = "Operand Type";
+    std::string portWidthsLabel     = "Operand Bits";
+    std::string portComplexityLabel = "Operand Complexity";
+    std::string vectorLenLabel      = "Vector Len";
+
+    //Used for formatting
+    size_t maxDataStrLen = 0;
+    size_t maxOperandTypeStrLen = portTypeLabel.size();
+    size_t maxOperandWidthStrLen = portWidthsLabel.size();
+    size_t maxOperandComplexityStrLen = portComplexityLabel.size();
+    size_t maxVectorLenStrLen = vectorLenLabel.size();
+
+    std::string opTypeNameLabel = "Op Type";
+    size_t maxTypeNamesStrLen = opTypeNameLabel.size();
+    for(const auto & partitionOp : partitionOps){
+        partitions.insert(partitionOp.first);
+        std::string partStr = GeneralHelper::to_string(partitionOp.first);
+        maxDataStrLen = std::max(maxDataStrLen, partStr.size());
+        for(const auto & opCount : partitionOp.second.operationCount){
+            operators.insert(opCount.first);
+            maxDataStrLen = std::max(maxDataStrLen, GeneralHelper::to_string(opCount.second).size());
+            maxTypeNamesStrLen = std::max(maxTypeNamesStrLen, EstimatorCommon::opTypeToStr(opCount.first.opType).size());
+            maxOperandTypeStrLen = std::max(maxOperandTypeStrLen, EstimatorCommon::operandTypeToString(opCount.first.operandType).size());
+            maxOperandWidthStrLen = std::max(maxOperandWidthStrLen, GeneralHelper::to_string(opCount.first.operandBits).size());
+            maxOperandComplexityStrLen = std::max(maxOperandComplexityStrLen, EstimatorCommon::operandComplexityToString(opCount.first.operandComplexity).size());
+            maxVectorLenStrLen = std::max(maxVectorLenStrLen, GeneralHelper::to_string(opCount.first.vecLength).size());
+        }
+    }
+
+    //Print the table
+
+    //Print the header
+    std::string nameFormatStr = "%" + GeneralHelper::to_string(maxTypeNamesStrLen) + "s";
+    std::string operandTypeFormatStr = " | %" + GeneralHelper::to_string(maxOperandTypeStrLen) + "s";
+    std::string operandBitsFormatStr = " | %" + GeneralHelper::to_string(maxOperandWidthStrLen) + "d";
+    std::string operandBitsLabelFormatStr = " | %" + GeneralHelper::to_string(maxOperandWidthStrLen) + "s";
+    std::string operandComplexityFormatStr = " | %" + GeneralHelper::to_string(maxOperandComplexityStrLen) + "s";
+    std::string operandVectorLenFormatStr = " | %" + GeneralHelper::to_string(maxVectorLenStrLen) + "d";
+    std::string operandVectorLenLabelFormatStr = " | %" + GeneralHelper::to_string(maxVectorLenStrLen) + "s";
+    std::string countFormatStr = " | %"+GeneralHelper::to_string(maxDataStrLen)+"d";
+
+    printf(nameFormatStr.c_str(), opTypeNameLabel.c_str());
+    printf(operandTypeFormatStr.c_str(), portTypeLabel.c_str());
+    printf(operandBitsLabelFormatStr.c_str(), portWidthsLabel.c_str());
+    printf(operandComplexityFormatStr.c_str(), portComplexityLabel.c_str());
+    if(!breakVectorOps_param) {
+        printf(operandVectorLenLabelFormatStr.c_str(), vectorLenLabel.c_str());
+    }
+
+    for(auto part = partitions.begin(); part != partitions.end(); part++){
+        printf(countFormatStr.c_str(), *part);
+    }
+    std::cout << std::endl;
+
+    //Print the rows (the operator)
+    for(const auto &op : operators){
+        //Print the details of the
+        std::string opName = EstimatorCommon::opTypeToStr(op.opType);
+        printf(nameFormatStr.c_str(), opName.c_str());
+
+        printf(operandTypeFormatStr.c_str(), EstimatorCommon::operandTypeToString(op.operandType).c_str());
+        printf(operandBitsFormatStr.c_str(), op.operandBits);
+        printf(operandComplexityFormatStr.c_str(), EstimatorCommon::operandComplexityToString(op.operandComplexity).c_str());
+        if(!breakVectorOps_param) {
+            printf(operandVectorLenFormatStr.c_str(), op.vecLength);
+        }
+
+        for(const auto &part : partitions) {
+            //Print the count for each partition
+
+            if(partitionOps[part].operationCount.find(op) != partitionOps[part].operationCount.end()){
+                printf(countFormatStr.c_str(), partitionOps[part].operationCount[op]);
+            }else{
+                std::cout << " | " << GeneralHelper::getSpaces(maxDataStrLen);
+            }
+        }
+
+        std::cout << std::endl;
+    }
+}
+
+EstimatorCommon::ComputeWorkload ComputationEstimator::getIOLoadStoreWorkloadEst(
+        std::vector<std::shared_ptr<InputPort>> &inputPorts, std::vector<std::shared_ptr<OutputPort>> &outputPorts){
+    EstimatorCommon::ComputeWorkload workload;
+
+    for(const auto &inputPort : inputPorts){
+        DataType dataType = inputPort->getDataType();
+
+        EstimatorCommon::ComputeOperation op(EstimatorCommon::OpType::LOAD,
+                                             (dataType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT :
+                                                                        EstimatorCommon::OperandType::INT),
+                                             (dataType.isComplex() ? EstimatorCommon::OperandComplexity::COMPLEX :
+                                                                     EstimatorCommon::OperandComplexity::REAL),
+                                             dataType.getTotalBits(), dataType.numberOfElements());
+        workload.addOperation(op);
+    }
+
+    for(const auto &outputPort : outputPorts){
+        DataType dataType = outputPort->getDataType();
+
+        EstimatorCommon::ComputeOperation op(EstimatorCommon::OpType::STORE,
+                                             (dataType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT :
+                                              EstimatorCommon::OperandType::INT),
+                                             (dataType.isComplex() ? EstimatorCommon::OperandComplexity::COMPLEX :
+                                              EstimatorCommon::OperandComplexity::REAL),
+                                             dataType.getTotalBits(), dataType.numberOfElements());
+        workload.addOperation(op);
+    }
+
+    return workload;
+}
+
+EstimatorCommon::ComputeWorkload ComputationEstimator::getIOLoadStoreWorkloadEst(std::shared_ptr<Node> node, EstimatorOption includeLoadStoreOps){
+    std::vector<std::shared_ptr<InputPort>> inputPorts = node->getInputPorts();
+    std::vector<std::shared_ptr<OutputPort>> outputPorts = node->getOutputPorts();
+
+    if(includeLoadStoreOps == EstimatorOption::ENABLED ||
+      (includeLoadStoreOps == EstimatorOption::NONSCALAR_ONLY && EstimatorCommon::containsNonScalarInputOrOutput(node))){
+        return getIOLoadStoreWorkloadEst(inputPorts, outputPorts);
+    }else if(includeLoadStoreOps == EstimatorOption::DISABLED){
+        return EstimatorCommon::ComputeWorkload();
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown EstimatorOption"));
     }
 }

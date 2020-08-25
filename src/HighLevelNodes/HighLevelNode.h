@@ -51,6 +51,8 @@ protected:
 public:
     //High level nodes can be expanded
     bool canExpand() override;
+
+    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
 };
 
 /*! @} */

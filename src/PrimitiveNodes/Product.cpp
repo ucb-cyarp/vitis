@@ -8,6 +8,7 @@
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include <iostream>
 
 Product::Product() : emittedBefore(false) {
 
@@ -176,60 +177,15 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     //====Calculate Types====
     //Check if any of the inputs are floating point & if so, find the largest
     //Also check for any fixed point types.  Find the integer final width
-    bool foundFloat = false;
-    DataType largestFloat;
-    bool foundFixedPt = false;
-    unsigned long intWorkingWidth = 0;
-    bool foundComplex = false;
 
     unsigned long numInputPorts = inputPorts.size();
-    for (unsigned long i = 0; i < numInputPorts; i++) {
-        DataType portDataType = getInputPort(i)->getDataType();
-        if (portDataType.isFloatingPt()) {
-            if (!foundFloat) {
-                foundFloat = true;
-                largestFloat = portDataType;
-            } else {
-                if (largestFloat.getTotalBits() < portDataType.getTotalBits()) {
-                    largestFloat = portDataType;
-                }
-            }
-        } else if (portDataType.getFractionalBits() != 0) {
-            foundFixedPt = true;
-        } else {
-            //Integer
-            if (inputOp[i]) {
-                intWorkingWidth += portDataType.getTotalBits(); //For multiply, bit growth is the sum of
-
-                if (portDataType.isComplex()) {
-                    if (foundComplex) {
-                        intWorkingWidth++; //This is a complex*complex, increase the width by 1 for the plus
-                    } else {
-                        foundComplex = true; //This is a real*complex, the result will be complex but the width is not increased by 1 in this case.
-                    }
-                }
-            }//We don't grow the width of division (since this is integer and you can't divide by a fraction).  However, we do not decrease the width in this case.  TODO: come up with more complex scheme to deal with divides
-        }
-    }
 
     DataType outputType = getOutputPort(0)->getDataType();
 
     //Determine the intermediate type
-    DataType intermediateType;
-    if (foundFloat) {
-        intermediateType = largestFloat; //Floating point types do not grow
-    } else {
-        //Integer
-        intermediateType = getInputPort(
-                0)->getDataType(); //Get the base datatype of the 1st input to modify (we did not find a float or fixed pt so this is an int)
-        intermediateType.setTotalBits(
-                intWorkingWidth); //Since this is a promotion, masking will not occur in the datatype convert
-        intermediateType.setComplex(false); //The intermediate is real
-    };
-
-    //Set the dimension of the intermediate type to be the same as the output.
-    //This is because the largest float datatype may be a scalar while other inputs are vectors/matricies
-    intermediateType.setDimensions(outputType.getDimensions());
+    std::pair<DataType, bool> intermediateTypeFoundFixedPt = findIntermediateType();
+    DataType intermediateType = intermediateTypeFoundFixedPt.first;
+    bool foundFixedPt = intermediateTypeFoundFixedPt.second;
 
     DataType intermediateTypeCplx = intermediateType;
     intermediateTypeCplx.setComplex(true);
@@ -542,6 +498,512 @@ void Product::generateMultExprs(const std::string &a_re, const std::string &a_im
             result_im = "(((" + a_im + ")*(" + b_re + ")-(" + a_re +  ")*(" + b_im + "))/(" + result_norm_expr_var.getCVarName(false) + "))";
         }
     }
+}
+
+std::tuple<EstimatorCommon::ComputeWorkload, bool, bool>
+Product::estimateMultExpr(bool mult, bool opAComplex, bool opBComplex, DataType intermediateType, bool expandComplex, bool includeIntermediateLoadStore, bool realDivComplexWaiting) {
+    /*
+     * | Complexity  | Input             | Result                                           |
+     * |-------------|-------------------|--------------------------------------------------|
+     * | Real * Real | a*b               | ab                                               |
+     * | Real / Real | a/b               | a/b                                              |
+     * | Real * Cplx | (a)(b + ci)       | ab + (ac)i                                       |
+     * | Cplx * Real | (a + bi)(c)       | ac + (bc)i                                       |
+     * | Real / Cplx | a/(b + ci)        | ab/(b^2 + c^2) - (ac/(b^2 + c^2))i               |
+     * | Cplx / Real | (a + bi)/c        | a/c + {b/c}i                                     |
+     * | Cplx * Cplx | (a + bi)(c + di)  | ac - bd + (ad + bc)i                             |
+     * | Cplx / Cplx | (a + bi)/(c + di) | (ac + bd)/(c^2 + d^2) + ((bc - ad)/(c^2 + d^2))i |
+     */
+
+    EstimatorCommon::ComputeWorkload workload;
+    bool isResultComplex = true;
+    bool realDivComplexWaitingAfter = realDivComplexWaiting;
+
+    if(mult){
+        //Mult
+        if(!opAComplex && !opBComplex){
+            //Real * Real | a*b | ab
+            if(realDivComplexWaiting){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("realDivComplexWaiting should only be true if the first operand is complex (since real/complex should be complex and all subsequent operations should be complex)"));
+            }
+
+            isResultComplex = false;
+
+            //Result is the same if expandComplex
+            workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                    (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                    EstimatorCommon::OperandComplexity::REAL,
+                                                                    intermediateType.getTotalBits(),
+                                                                    intermediateType.numberOfElements()));
+        }else if((!opAComplex && opBComplex) || (opAComplex && !opBComplex)){
+            //Real*Complex || Complex*Real
+            //Real * Cplx | (a)(b + ci) | ab + (ac)i
+            //Cplx * Real | (a + bi)(c) | ac + (bc)i
+            if(realDivComplexWaiting){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("realDivComplexWaiting should only be true if the first operand is complex (since real/complex should be complex and all subsequent operations should be complex)"));
+            }
+
+            isResultComplex = true;
+
+            if(expandComplex){
+                //Note the sum between the real and imagionary components is not computed unless it is subtract where the negation occurs
+                EstimatorCommon::ComputeOperation op = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                                         (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                         EstimatorCommon::OperandComplexity::REAL,
+                                                                                         intermediateType.getTotalBits(),
+                                                                                         intermediateType.numberOfElements());
+                //There are 2 real operations
+                workload.addOperation(op);
+                workload.addOperation(op);
+            }else{
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                        (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::MIXED,
+                                                                        intermediateType.getTotalBits(),
+                                                                        intermediateType.numberOfElements()));
+            }
+        }else{
+            //Cplx * Cplx | (a + bi)(c + di) | ac - bd + (ad + bc)i
+            isResultComplex = true;
+            if(expandComplex){
+                realDivComplexWaitingAfter = false; //This will absorb the extra subtract from a real/complex
+
+                EstimatorCommon::ComputeOperation multOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                                            (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                            EstimatorCommon::OperandComplexity::REAL,
+                                                                                            intermediateType.getTotalBits(),
+                                                                                            intermediateType.numberOfElements());
+
+                EstimatorCommon::ComputeOperation sumOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                                             (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                             EstimatorCommon::OperandComplexity::REAL,
+                                                                                             intermediateType.getTotalBits(),
+                                                                                             intermediateType.numberOfElements());
+
+                //4 Mults and 2 Sums
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(sumOp);
+                workload.addOperation(sumOp);
+            }else{
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                        (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::COMPLEX,
+                                                                        intermediateType.getTotalBits(),
+                                                                        intermediateType.numberOfElements()));
+            }
+        }
+    }else{
+        //Div
+        if(!opAComplex && !opBComplex){
+            //Real / Real | a/b | a/b
+            if(realDivComplexWaiting){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("realDivComplexWaiting should only be true if the first operand is complex (since real/complex should be complex and all subsequent operations should be complex)"));
+            }
+
+            isResultComplex = false;
+
+            //Does not change realDivComplexWaitingAfter
+
+            //Result is the same if expandComplex
+            workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                    (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                    EstimatorCommon::OperandComplexity::REAL,
+                                                                    intermediateType.getTotalBits(),
+                                                                    intermediateType.numberOfElements()));
+        }else if(!opAComplex && opBComplex){
+            //Real / Cplx | a/(b + ci) | ab/(b^2 + c^2) - (ac/(b^2 + c^2))i
+            if(realDivComplexWaiting){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("realDivComplexWaiting should only be true if the first operand is complex (since real/complex should be complex and all subsequent operations should be complex)"));
+            }
+
+            isResultComplex = true;
+
+            if(expandComplex){
+                realDivComplexWaitingAfter = true;
+                //Set the realDivComplexWaitingAfter line to true.  If this is still true after all of the products/divs, need an extra subtract operation
+
+                EstimatorCommon::ComputeOperation multOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                                             (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                             EstimatorCommon::OperandComplexity::REAL,
+                                                                                             intermediateType.getTotalBits(),
+                                                                                             intermediateType.numberOfElements());
+                EstimatorCommon::ComputeOperation divOp =  EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                                             (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                             EstimatorCommon::OperandComplexity::REAL,
+                                                                                             intermediateType.getTotalBits(),
+                                                                                             intermediateType.numberOfElements());
+                EstimatorCommon::ComputeOperation sumOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                                            (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                            EstimatorCommon::OperandComplexity::REAL,
+                                                                                            intermediateType.getTotalBits(),
+                                                                                            intermediateType.numberOfElements());
+
+                //Normalization Term: 2 Products, 1 Sum, 1 Intermediate Store
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(sumOp);
+                //Components: (1 Product, 1 Divide, 1 Intermediate Load)*2
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(divOp);
+                workload.addOperation(divOp);
+
+                //TODO: Omitting load/stores since these will almost assuredly be in registers since they are used so close together
+//                if(includeIntermediateLoadStore){
+//                    EstimatorCommon::ComputeOperation storeOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::STORE,
+//                                                                                                 (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+//                                                                                                 EstimatorCommon::OperandComplexity::REAL,
+//                                                                                                 intermediateType.getTotalBits(),
+//                                                                                                 intermediateType.numberOfElements());
+//                    EstimatorCommon::ComputeOperation loadOp =  EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::LOAD,
+//                                                                                                  (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+//                                                                                                  EstimatorCommon::OperandComplexity::REAL,
+//                                                                                                  intermediateType.getTotalBits(),
+//                                                                                                  intermediateType.numberOfElements());
+//                    workload.addOperation(storeOp);
+//                    workload.addOperation(loadOp);
+//                    workload.addOperation(loadOp);
+//                }
+            }else{
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                        (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::MIXED,
+                                                                        intermediateType.getTotalBits(),
+                                                                        intermediateType.numberOfElements()));
+            }
+        }else if(opAComplex && !opBComplex){
+            //Cplx / Real | (a + bi)/c | a/c + {b/c}i
+            isResultComplex = true;
+
+            //Does not impact realDivComplexWaitingAfter
+
+            if(expandComplex) {
+                //2 Div
+                EstimatorCommon::ComputeOperation divOp =  EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                                             (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                             EstimatorCommon::OperandComplexity::REAL,
+                                                                                             intermediateType.getTotalBits(),
+                                                                                             intermediateType.numberOfElements());
+                workload.addOperation(divOp);
+                workload.addOperation(divOp);
+            }else{
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                        (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::MIXED,
+                                                                        intermediateType.getTotalBits(),
+                                                                        intermediateType.numberOfElements()));
+            }
+        }else{
+            //Cplx / Cplx | (a + bi)/(c + di) | (ac + bd)/(c^2 + d^2) + ((bc - ad)/(c^2 + d^2))i
+            isResultComplex = true;
+
+            if(expandComplex) {
+                EstimatorCommon::ComputeOperation multOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                                             (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                             EstimatorCommon::OperandComplexity::REAL,
+                                                                                             intermediateType.getTotalBits(),
+                                                                                             intermediateType.numberOfElements());
+                EstimatorCommon::ComputeOperation divOp =  EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                                             (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                             EstimatorCommon::OperandComplexity::REAL,
+                                                                                             intermediateType.getTotalBits(),
+                                                                                             intermediateType.numberOfElements());
+                EstimatorCommon::ComputeOperation sumOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                                            (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                                            EstimatorCommon::OperandComplexity::REAL,
+                                                                                            intermediateType.getTotalBits(),
+                                                                                            intermediateType.numberOfElements());
+
+                //Normalization Term: 2 Products, 1 Sum, 1 Intermediate Store
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(sumOp);
+
+                //Components: (2 Products, 1 Add/Sub, 1 Divide, 1 Intermediate Load)*2
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(multOp);
+                workload.addOperation(sumOp);
+                workload.addOperation(sumOp);
+                workload.addOperation(divOp);
+                workload.addOperation(divOp);
+
+                if(realDivComplexWaitingAfter){
+                    //Need to emit the extra subtract
+                    workload.addOperation(sumOp);
+
+                    realDivComplexWaitingAfter = false;
+                }
+
+                //TODO: Omitting load/stores since these will almost assuredly be in registers since they are used so close together
+//                if(includeIntermediateLoadStore){
+//                    EstimatorCommon::ComputeOperation storeOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::STORE,
+//                                                                                                  (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+//                                                                                                  EstimatorCommon::OperandComplexity::REAL,
+//                                                                                                  intermediateType.getTotalBits(),
+//                                                                                                  intermediateType.numberOfElements());
+//                    EstimatorCommon::ComputeOperation loadOp =  EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::LOAD,
+//                                                                                                  (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+//                                                                                                  EstimatorCommon::OperandComplexity::REAL,
+//                                                                                                  intermediateType.getTotalBits(),
+//                                                                                                  intermediateType.numberOfElements());
+//                    workload.addOperation(storeOp);
+//                    workload.addOperation(loadOp);
+//                    workload.addOperation(loadOp);
+//                }
+            }else{
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                        (intermediateType.isFloatingPt() ? EstimatorCommon::OperandType::FLOAT : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::COMPLEX,
+                                                                        intermediateType.getTotalBits(),
+                                                                        intermediateType.numberOfElements()));
+            }
+        }
+    }
+
+    return std::tuple<EstimatorCommon::ComputeWorkload, bool, bool>(workload, isResultComplex, realDivComplexWaitingAfter);
+}
+
+EstimatorCommon::ComputeWorkload
+Product::getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators,
+                                    ComputationEstimator::EstimatorOption includeIntermediateLoadStore,
+                                    ComputationEstimator::EstimatorOption includeInputOutputLoadStores) {
+    int numScalarInputs = 0;
+    for(int i = 0; i<inputPorts.size(); i++){
+        if(getInputPort(i)->getDataType().isScalar()){
+            numScalarInputs++;
+        }
+    }
+
+    //TODO: Update Product Emit and Estimation so that it is more efficient and easier to estimate
+    //      Change to re-arrange inputs, compute numerator, compute denominator, and have a single divide (if even necessaryy)
+    //      Re-arrange scalars so they are computed seperatly.  Compute scalar real values and scalar complex values seperately.  Compute the numerator and devisor scalars seperatly.
+    //      Apply the real scalar result to the real vector input computation (sepeately in numerator and denominator).  Apply the complex scalar result to the complex vector input computation (speratly in numerator and denominator)
+    //      Combine the real and complex components (in the numerator and denominator seperatly)
+    //      Do the final division of the numerator and denominator
+    if(numScalarInputs>1){
+        std::cerr << ErrorHelpers::genWarningStr("Workload estimation for product with >1 scalar inputs may be inaccurate (reporting more operations than actually are needed)", getSharedPointer()) << std::endl;
+    }
+
+    //+++ Add I/O Load/Store if appripriate +++
+    EstimatorCommon::ComputeWorkload workload = getIOLoadStoreWorkloadEst(getSharedPointer(),
+                                                                          includeInputOutputLoadStores);
+
+    //For product, we require all the inputs to have the same dimensions (with the exception of scalars)
+    //However, scalars still need to be added to each vector element, so we will treat them as vector operations
+    int vecLen = EstimatorCommon::getLargestInputNumElements(getSharedPointer());
+
+    std::pair<DataType, bool> intermediateTypeFoundFixedPt = findIntermediateType();
+    DataType intermediateType = intermediateTypeFoundFixedPt.first;
+
+    bool realDivComplexWaiting = false;
+    //Determine if the first operand is complex
+    bool opCurrentlyComplex = getInputPort(0)->getDataType().isComplex();
+
+    bool includeIntermediateLoadStoreBool = (includeIntermediateLoadStore==ComputationEstimator::EstimatorOption::ENABLED ||
+                                            (includeIntermediateLoadStore==ComputationEstimator::EstimatorOption::NONSCALAR_ONLY && vecLen>1)) ?
+                                            true : false;
+
+    //+++ Add casts to first operand if applicable +++
+    EstimatorCommon::addCastsIfBaseTypesDifferent(workload, getInputPort(0)->getDataType(), intermediateType, expandComplexOperators, vecLen);
+
+    //+++ Include Extra Reciprocal Op if (all ops are real and divides) or (op is complex) +++
+    if(!inputOp[0]){
+        //The first operand is a reciprocal
+        DataType portDatatype = getInputPort(0)->getDataType();
+        if(portDatatype.isComplex()){
+            //First port is complex, include extra reciprocal (an int divide)
+
+            //TODO: Should reciprocal be treated differently (seperate op type)
+
+            //For these, use the number of elements in the port datatype because
+            if(expandComplexOperators){
+                EstimatorCommon::ComputeOperation productOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::MULT,
+                                                                                                (intermediateType.isFloatingPt()
+                                                                                                 ? EstimatorCommon::OperandType::FLOAT
+                                                                                                 : EstimatorCommon::OperandType::INT),
+                                                                                                EstimatorCommon::OperandComplexity::REAL,
+                                                                                                intermediateType.getTotalBits(),
+                                                                                                portDatatype.numberOfElements());
+                EstimatorCommon::ComputeOperation sumOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                                            (intermediateType.isFloatingPt()
+                                                                                             ? EstimatorCommon::OperandType::FLOAT
+                                                                                             : EstimatorCommon::OperandType::INT),
+                                                                                            EstimatorCommon::OperandComplexity::REAL,
+                                                                                            intermediateType.getTotalBits(),
+                                                                                            portDatatype.numberOfElements());
+                EstimatorCommon::ComputeOperation divOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                                            (intermediateType.isFloatingPt()
+                                                                                             ? EstimatorCommon::OperandType::FLOAT
+                                                                                             : EstimatorCommon::OperandType::INT),
+                                                                                            EstimatorCommon::OperandComplexity::REAL,
+                                                                                            intermediateType.getTotalBits(),
+                                                                                            portDatatype.numberOfElements());
+                //Normalize: 2 Products, 1 Sum, 1 Intermediate Store
+                workload.addOperation(productOp);
+                workload.addOperation(productOp);
+                workload.addOperation(sumOp);
+                //Real Component: 1 Divide, 1 Intermediate Load
+                workload.addOperation(divOp);
+                //Imag Component: 1 Divide, 1 Subtract (Handled Later Via realDivComplexWaiting), 1 Intermediate Load
+                workload.addOperation(divOp);
+                realDivComplexWaiting = true;
+
+                //TODO: Omitting load/stores since these will almost assuredly be in registers since they are used so close together
+//                if(includeIntermediateLoadStoreBool){
+//                    EstimatorCommon::ComputeOperation storeOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::STORE,
+//                                                                                                  (intermediateType.isFloatingPt()
+//                                                                                                   ? EstimatorCommon::OperandType::FLOAT
+//                                                                                                   : EstimatorCommon::OperandType::INT),
+//                                                                                                  EstimatorCommon::OperandComplexity::REAL, //The normalization os real
+//                                                                                                  intermediateType.getTotalBits(),
+//                                                                                                  portDatatype.numberOfElements());
+//
+//                    EstimatorCommon::ComputeOperation loadOp = EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::LOAD,
+//                                                                                                 (intermediateType.isFloatingPt()
+//                                                                                                  ? EstimatorCommon::OperandType::FLOAT
+//                                                                                                  : EstimatorCommon::OperandType::INT),
+//                                                                                                 EstimatorCommon::OperandComplexity::REAL, //The normalization os real
+//                                                                                                 intermediateType.getTotalBits(),
+//                                                                                                 portDatatype.numberOfElements());
+//                    workload.addOperation(storeOp);
+//                    workload.addOperation(loadOp);
+//                    workload.addOperation(loadOp);
+//                }
+            }else {
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                        (intermediateType.isFloatingPt()
+                                                                         ? EstimatorCommon::OperandType::FLOAT
+                                                                         : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::MIXED, //Mixed because Real/Complex
+                                                                        intermediateType.getTotalBits(),
+                                                                        portDatatype.numberOfElements()));
+            }
+        }else{
+            //First port was real  Check if subsequent ports are
+
+            bool foundCplxPort = false;
+            bool foundMult = false;
+            for(int i = 1; i<inputPorts.size(); i++){
+                DataType portDatatype = getInputPort(i)->getDataType();
+                foundCplxPort |= portDatatype.isComplex();
+                foundMult |= inputOp[i];
+            }
+
+            if(foundCplxPort || !foundMult){
+                //Either there are complex ports after this or all the subsequent operations
+                //are divides, need to add the reciprocal, which is a real reciprocal since the first port is real
+                //TODO: should reciprocals be tracked seperatly?
+                workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::DIV,
+                                                                        (intermediateType.isFloatingPt()
+                                                                         ? EstimatorCommon::OperandType::FLOAT
+                                                                         : EstimatorCommon::OperandType::INT),
+                                                                        EstimatorCommon::OperandComplexity::REAL, //Mixed because Real/Complex
+                                                                        intermediateType.getTotalBits(),
+                                                                        portDatatype.numberOfElements()));
+            }
+        }
+    }
+
+    //+++ Run through the subsequent operands +++
+    for(int i = 1; i<inputPorts.size(); i++){
+        DataType portDatatype = getInputPort(0)->getDataType();
+        std::tuple<EstimatorCommon::ComputeWorkload, bool, bool> estTuple = estimateMultExpr(inputOp[i], opCurrentlyComplex, portDatatype.isComplex(), intermediateType, expandComplexOperators, includeIntermediateLoadStoreBool, realDivComplexWaiting);
+
+        EstimatorCommon::ComputeWorkload portWorkload = std::get<0>(estTuple);
+        opCurrentlyComplex = std::get<1>(estTuple);
+        realDivComplexWaiting = std::get<2>(estTuple);
+
+        workload.addOperations(portWorkload);
+
+        //Add cast to intermediate
+        EstimatorCommon::addCastsIfBaseTypesDifferent(workload, getInputPort(i)->getDataType(), intermediateType, expandComplexOperators, vecLen);
+    }
+
+    //+++ Include Extra Subtract if realDivComplexWaiting is true at end of traversing ports (only if expandComplexOperators) +++
+    if(realDivComplexWaiting && expandComplexOperators){
+        //If the first term is a complex reciprocal, and assuming the value is broadcast, the extra sum will be the width of the input port
+        //Otherwise, the real/complex occured later
+        DataType firstDatatype = getInputPort(0)->getDataType();
+
+        workload.addOperation(EstimatorCommon::ComputeOperation(EstimatorCommon::OpType::ADD_SUB,
+                                                                (intermediateType.isFloatingPt()
+                                                                 ? EstimatorCommon::OperandType::FLOAT
+                                                                 : EstimatorCommon::OperandType::INT),
+                                                                EstimatorCommon::OperandComplexity::REAL, //Mixed because Real/Complex
+                                                                intermediateType.getTotalBits(),
+                                                                vecLen));
+    }
+
+    //+++ Include Output cast (if needed) +++
+    EstimatorCommon::addCastsIfBaseTypesDifferent(workload, intermediateType, getOutputPort(0)->getDataType(), expandComplexOperators, vecLen);
+
+    //Both real and imag are computed at the same time and stored in intermediates.  However, these are also the inputs/output.  Will consider these inputs/outputs (to avoid double counting) and the normalizations as true intermediates
+
+    return workload;
+}
+
+std::pair<DataType, bool> Product::findIntermediateType() {
+    bool foundFloat = false;
+    DataType largestFloat;
+    bool foundFixedPt = false;
+    unsigned long intWorkingWidth = 0;
+    bool foundComplex = false;
+
+    unsigned long numInputPorts = inputPorts.size();
+    for (unsigned long i = 0; i < numInputPorts; i++) {
+        DataType portDataType = getInputPort(i)->getDataType();
+        if (portDataType.isFloatingPt()) {
+            if (!foundFloat) {
+                foundFloat = true;
+                largestFloat = portDataType;
+            } else {
+                if (largestFloat.getTotalBits() < portDataType.getTotalBits()) {
+                    largestFloat = portDataType;
+                }
+            }
+        } else if (portDataType.getFractionalBits() != 0) {
+            foundFixedPt = true;
+        } else {
+            //Integer
+            if (inputOp[i]) {
+                intWorkingWidth += portDataType.getTotalBits(); //For multiply, bit growth is the sum of
+
+                if (portDataType.isComplex()) {
+                    if (foundComplex) {
+                        intWorkingWidth++; //This is a complex*complex, increase the width by 1 for the plus
+                    } else {
+                        foundComplex = true; //This is a real*complex, the result will be complex but the width is not increased by 1 in this case.
+                    }
+                }
+            }//We don't grow the width of division (since this is integer and you can't divide by a fraction).  However, we do not decrease the width in this case.  TODO: come up with more complex scheme to deal with divides
+        }
+    }
+
+
+    //Determine the intermediate type
+    DataType intermediateType;
+    if (foundFloat) {
+        intermediateType = largestFloat; //Floating point types do not grow
+    } else {
+        //Integer
+        intermediateType = getInputPort(
+                0)->getDataType(); //Get the base datatype of the 1st input to modify (we did not find a float or fixed pt so this is an int)
+        intermediateType.setTotalBits(
+                intWorkingWidth); //Since this is a promotion, masking will not occur in the datatype convert
+        intermediateType.setComplex(false); //The intermediate is real
+    };
+
+    //Set the dimension of the intermediate type to be the same as the output.
+    //This is because the largest float datatype may be a scalar while other inputs are vectors/matricies
+    DataType outputType = getOutputPort(0)->getDataType();
+    intermediateType.setDimensions(outputType.getDimensions());
+
+    return std::pair<DataType, bool>(intermediateType, foundFixedPt);
 }
 
 

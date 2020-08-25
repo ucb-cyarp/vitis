@@ -5,6 +5,7 @@
 #include "CommunicationEstimator.h"
 
 #include "General/GeneralHelper.h"
+#include "GraphCore/DataType.h"
 
 #include <iostream>
 

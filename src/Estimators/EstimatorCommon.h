@@ -9,6 +9,9 @@
 #include <set>
 #include <typeindex>
 
+class Node;
+class DataType;
+
 /**
  * \addtogroup Estimators Estimators
  * @{
@@ -103,7 +106,13 @@ namespace EstimatorCommon {
         COS, ///<Cos operator
         TAN, ///<Tan operator
         ATAN, ///<ATan operator
-        ATAN2 ///<ATan2 operator
+        ATAN2, ///<ATan2 operator
+        //Special
+        REDUCE_ADD,
+        //Unimplemented TODO: Remove when all operators implemented
+        EST_UNIMPLEMENTED, ///<Estimation Unimplemented
+        //Unknown
+        EST_UNKNOWN ///<Estimation is unknown
     };
 
     std::string opTypeToStr(OpType opType);
@@ -119,8 +128,23 @@ namespace EstimatorCommon {
         OpType opType; ///<The type of primitive operation
         OperandType operandType; ///<The type of operands
         OperandComplexity operandComplexity; ///<The complexity of the operands
-        int operandBits; ///<The number of
+        int operandBits; ///<The number of bits in the largest operand
         int vecLength; ///<For vector ops, the size of the vector.  If scalar, vector length is 1
+
+        ComputeOperation();
+        ComputeOperation(OpType opType, OperandType operandType, OperandComplexity operandComplexity,
+                         int operandBits, int vecLength);
+
+        //A version of the constructor which assumes operands are either int/floating point and real/complex
+        ComputeOperation(OpType opType, bool isOperandFloatingPoint, bool isOperandComplex,
+                         int operandBits, int vecLength);
+
+        bool operator==(const ComputeOperation &rhs) const;
+        bool operator!=(const ComputeOperation &rhs) const;
+        bool operator<(const ComputeOperation &rhs) const;
+        bool operator>(const ComputeOperation &rhs) const;
+        bool operator<=(const ComputeOperation &rhs) const;
+        bool operator>=(const ComputeOperation &rhs) const;
     };
 
     /**
@@ -128,7 +152,54 @@ namespace EstimatorCommon {
      */
     struct ComputeWorkload{
         std::map<ComputeOperation, int> operationCount;
+
+        /**
+         * @brief Adds an operation to the workload.  If it exists the count is incremented.  If not, it is added to the operation set
+         * @param operation the operation to add to the workload
+         */
+        void addOperation(ComputeOperation operation);
+
+        /**
+         * @brief Add additional operations to this workload
+         * @param moreOperations operations to add
+         */
+        void addOperations(std::map<ComputeOperation, int> &moreOperations);
+
+        /**
+         * @brief Add additional operations to this workload
+         * @param moreOperations workload from which to add operations
+         */
+        void addOperations(ComputeWorkload &moreOperations);
     };
+
+    /**
+     * @brief Returns true if the given node has any input or output which is non-scalar
+     * @param node
+     * @return
+     */
+    bool containsNonScalarInputOrOutput(std::shared_ptr<Node> node);
+
+    /**
+     * @brief Returns the number of elements in the input in the
+     * @param node
+     * @return
+     */
+    int getLargestInputNumElements(std::shared_ptr<Node> node);
+
+    /**
+     * @brief Adds cast operations to the workload if the base types differ (does not compare the complexity of the data types)
+     *
+     * If the from datatype is complex, a complex cast is inserted.  If expandComplex, 2 casts are added.
+     *
+     * The type parameters are taken from the type being cast to
+     *
+     * @param workload
+     * @param from
+     * @param to
+     * @param expandComplex
+     * @param vecLen
+     */
+    void addCastsIfBaseTypesDifferent(ComputeWorkload &workload, DataType from, DataType to, bool expandComplex, int vecLen);
 
     //++++ Communication ++++
 

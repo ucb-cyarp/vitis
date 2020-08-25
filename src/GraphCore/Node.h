@@ -33,6 +33,8 @@ class MasterUnconnected;
 #include "CExpr.h"
 #include "Context.h"
 #include "SchedParams.h"
+#include "Estimators/EstimatorCommon.h"
+#include "Estimators/ComputationEstimator.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -979,6 +981,20 @@ public:
      * @return
      */
     int getOutputPartition();
+
+    /**
+     * @brief Get the compute estimate for the current node.
+     *
+     * This is typically defined for primitive nodes and some core nodes such as EnabledSubSystems
+     *
+     * @param expandComplexOperators If true, complex operators are expanded to real operators.  If false, complex operators are reported as complex operators
+     * @param expandHighLevelOperators If true, high level operators (such as Exp, Ln, Sin, ...) are expanded to primitive operations if the implementation is known.  Otherwise, they are still reported as the high level operators
+     * @param includeIntermediateLoadStore Controls whether any intermediate loads/stores are included.  If disabled, this effectively assumes that intermediates are stored in registers or are optimized out.
+     * @param includeInputOutputLoadStores Controls whether loading inputs and storing outputs are included.  If disabled, this effectivly assumes inputs and outputs are either stored in registers or are optimized out
+     * @return the estimate of the workload under the given estimation options
+     */
+    virtual EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores);
+    //TODO: Make pure virtual when estimation is implemented for all nodes
 
     //==== Getters/Setters ====
     /**

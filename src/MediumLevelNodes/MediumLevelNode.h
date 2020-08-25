@@ -49,6 +49,8 @@ protected:
      */
     MediumLevelNode(std::shared_ptr<SubSystem> parent, MediumLevelNode* orig);
 
+    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
+
 public:
     //Medium level nodes can be expanded
     bool canExpand() override;

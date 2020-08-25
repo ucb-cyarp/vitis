@@ -6,6 +6,7 @@
 #define VITIS_COMMUNICATIONESTIMATOR_H
 
 #include <map>
+#include <memory>
 #include <utility>
 #include "EstimatorCommon.h"
 #include "MultiThread/ThreadCrossingFIFO.h"

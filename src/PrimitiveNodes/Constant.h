@@ -110,6 +110,8 @@ public:
 
     std::string getGlobalDecl() override;
 
+    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
+
 };
 
 /*! @} */
