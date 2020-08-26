@@ -2463,7 +2463,7 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 
             //Thread crossing FIFOs will have their outputs disconnected by this method as they declare that they have state and no combinational path
 
-            //Note, arcs to state update nodes should not be removed.
+            //Note, arcs to state update nodes should not be removed (except for ThreadCrossingFIFOs).
 
             std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
             for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
@@ -2472,6 +2472,25 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
                 if(dstAsStateUpdate == nullptr){
                     (*it)->disconnect();
                     arcsToDelete.insert(*it);
+                }else if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(designClone.nodes[i])){
+                    //The destination is a state update but the src is a ThreadCrossingFIFO.
+                    //The ThreadCrossingFIFO data should be from another partition and the dependency is effectively handled by
+                    //reading rhe ThreadCrossingFIFO at the start of function execution (or on demand during execution if that
+                    //model is implemented).  The possible exception to this is when the ThreadCrossingFIFO's input is
+                    //a stateful element in which case an order constraint arc is possible and should be honnored.  Note that
+                    //ThreadCrossingFIFOs exist in the src partition of the transfer.  It should not be possible for the FIFO's own
+                    //state update node to be in a different partition.  This condition will be checked.
+                    //Therefore, the arc will be removed only if the ThreadCrossingFIFO and StateUpdate are in different partitions.
+
+                    if(designClone.nodes[i]->getPartitionNum() != dstAsStateUpdate->getPartitionNum()){
+                        if(dstAsStateUpdate->getPrimaryNode() == designClone.nodes[i]){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Arc from ThreadCrossingFIFO to its own state update in another partition", designClone.nodes[i]));
+                        }else{
+                            (*it)->disconnect();
+                            arcsToDelete.insert(*it);
+                        }
+                    }
+                    //Else, this arc to the state update
                 }
                 //Else, this is a State node connected to its StateUpdate node and should not be removed
             }
