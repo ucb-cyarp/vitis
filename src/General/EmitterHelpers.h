@@ -8,8 +8,10 @@
 #include <vector>
 #include <set>
 #include <memory>
+#include <map>
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
+#include "GraphCore/Context.h"
 #include "GeneralHelper.h"
 
 #define VITIS_TYPE_NAME "vitisTypes"
@@ -267,6 +269,26 @@ namespace EmitterHelpers {
      * @return
      */
     std::vector<int> memIdx2ArrayIdx(int idx, std::vector<int> dimensions);
+
+    /**
+     * @brief Emits the logic for opening or closing a context.  This is done during partition emit and uses the current
+     * context as well as the previously emitted context to determine if contexts should be closed and/or opened before
+     * the node nodeContext
+     *
+     * @param schedType
+     * @param contextFirst
+     * @param alreadyEmittedSubContexts
+     * @param subContextEmittedCount
+     * @param partition the partition being emitted
+     * @param nodeContext the context of the node to be emitted next
+     * @param lastEmittedContext the context of the last emitted node
+     * @param contextStatements the context open/close statements to emit
+     */
+    void emitCloseOpenContext(const SchedParams::SchedType &schedType, std::vector<bool> &contextFirst,
+                              std::set<Context> &alreadyEmittedSubContexts,
+                              std::map<std::shared_ptr<ContextRoot>, int> &subContextEmittedCount, int partition,
+                              const std::vector<Context> &nodeContext, std::vector<Context> &lastEmittedContext,
+                              std::vector<std::string> &contextStatements);
 };
 
 /*! @} */

@@ -105,159 +105,8 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
         std::vector<std::string> contextStatements;
 
-        if (nodeContext != lastEmittedContext) {
-
-            //Check if previous context(s) should be closed (run up the stack until the contexts are the same - we can do this because contexts are in a strict hierarchy [ie. tree])
-            for (unsigned long i = 0; i < lastEmittedContext.size(); i++) {
-                unsigned long ind = lastEmittedContext.size() - 1 - i;
-
-                if (ind >= nodeContext.size()) {
-                    //The new context is less deep than this.  Therefore, we should close this context
-                    if (subContextEmittedCount.find(lastEmittedContext[ind].getContextRoot()) ==
-                        subContextEmittedCount.end()) {
-                        subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] = 0;
-                    }
-
-                    if (contextFirst.size() - 1 < ind || contextFirst[ind]) {
-                        //This context was created with a call to first
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType,
-                                                                                         lastEmittedContext[ind].getSubContext(),
-                                                                                         (*it)->getPartitionNum());
-                    } else if (subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >=
-                               lastEmittedContext[ind].getContextRoot()->getNumSubContexts() - 1) {
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType,
-                                                                                        lastEmittedContext[ind].getSubContext(),
-                                                                                        (*it)->getPartitionNum());
-                    } else {
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType,
-                                                                                       lastEmittedContext[ind].getSubContext(),
-                                                                                       (*it)->getPartitionNum());
-                    }
-
-                    //Remove this level of the contextFirst stack because the family was exited
-                    contextFirst.pop_back();
-
-                    //Add that context to the exited context set
-                    alreadyEmittedSubContexts.insert(lastEmittedContext[ind]);
-
-                    //Increment emitted count by 1
-                    subContextEmittedCount[lastEmittedContext[ind].getContextRoot()]++;
-
-                } else if (lastEmittedContext[ind] != nodeContext[ind]) {
-                    //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context closes up to that point
-                    //could be either a first, mid, or last
-                    if (contextFirst[ind]) { //contextFirst is guarenteed to exist because this level existed in the last emitted context
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType,
-                                                                                         lastEmittedContext[ind].getSubContext(),
-                                                                                         (*it)->getPartitionNum());
-                    } else if (subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >=
-                               lastEmittedContext[ind].getContextRoot()->getNumSubContexts() - 1) {
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType,
-                                                                                        lastEmittedContext[ind].getSubContext(),
-                                                                                        (*it)->getPartitionNum());
-                    } else {
-                        lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType,
-                                                                                       lastEmittedContext[ind].getSubContext(),
-                                                                                       (*it)->getPartitionNum());
-                    }
-
-                    if (lastEmittedContext[ind].getContextRoot() == nodeContext[ind].getContextRoot()) {
-                        //In this case, the next context is in the same family, set the contextFirst to false and do not remove it
-                        contextFirst[ind] = false;
-                    } else {
-                        //In this case, the context family is being left, remove the contextFirst entry for the family
-                        contextFirst.pop_back();
-                    }
-
-                    //Add that context to the exited context set
-                    alreadyEmittedSubContexts.insert(lastEmittedContext[ind]);
-
-                    //Increment emitted count by 1
-                    subContextEmittedCount[lastEmittedContext[ind].getContextRoot()]++;
-                } else {
-                    break; //We found the point root of both the old and new contexts, we can stop here
-                }
-            }
-
-            //If new context(s) have been entered, emit the conditionals (run down the stack to find the root of both, then emit the context entries)
-            for (unsigned long i = 0; i < nodeContext.size(); i++) {
-                if (i >= lastEmittedContext.size()) {
-                    //This context level is new, it must be the first time it has been entered
-
-                    //Declare vars
-                    std::vector<Variable> contextVars = nodeContext[i].getContextRoot()->getCContextVars();
-                    for (unsigned long j = 0; j < contextVars.size(); j++) {
-                        contextStatements.push_back(contextVars[j].getCVarDecl(false, true, false, true) + ";\n");
-
-                        if (contextVars[j].getDataType().isComplex()) {
-                            contextStatements.push_back(contextVars[j].getCVarDecl(true, true, false, true) + ";\n");
-                        }
-                    }
-
-                    //Emit context
-                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType,
-                                                                           nodeContext[i].getSubContext(),
-                                                                           (*it)->getPartitionNum());
-
-                    //push back onto contextFirst
-                    contextFirst.push_back(true);
-                } else if (lastEmittedContext[i] !=
-                           nodeContext[i]) {  //Because contexts must be purely hierarchical, new context is only entered if the context at this level is different from the previously emitted context.
-                    //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context opens after that
-                    //This context level already existed, could either be an first, mid, or last
-
-                    //Check if the previous context had the same root.  If so, this is the first
-                    if (lastEmittedContext[i].getContextRoot() != nodeContext[i].getContextRoot()) {
-                        //Emit context vars
-                        std::vector<Variable> contextVars = nodeContext[i].getContextRoot()->getCContextVars();
-                        for (unsigned long j = 0; j < contextVars.size(); j++) {
-                            contextStatements.push_back(contextVars[j].getCVarDecl(false, true, false, true) + ";\n");
-
-                            if (contextVars[j].getDataType().isComplex()) {
-                                contextStatements.push_back(
-                                        contextVars[j].getCVarDecl(true, true, false, true) + ";\n");
-                            }
-                        }
-
-                        //Emit context
-                        nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType,
-                                                                               nodeContext[i].getSubContext(),
-                                                                               (*it)->getPartitionNum());
-
-                        //This is a new family, push back
-                        contextFirst.push_back(true);
-                    } else {
-                        if (subContextEmittedCount[nodeContext[i].getContextRoot()] >=
-                            nodeContext[i].getContextRoot()->getNumSubContexts() -
-                            1) { //Check if this is the last in the context family
-                            nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType,
-                                                                                  nodeContext[i].getSubContext(),
-                                                                                  (*it)->getPartitionNum());
-                        } else {
-                            nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType,
-                                                                                 nodeContext[i].getSubContext(),
-                                                                                 (*it)->getPartitionNum());
-                        }
-
-                        //Contexts are in the same family
-                        contextFirst[i] = false;
-                    }
-
-                }
-                //Else, we have not yet found where the context stacks diverge (if they in fact do) --> continue
-            }
-
-            //Check to see if this is the first, last, or other conditional being emitted (if there is only 1 context, default to first call)
-            //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
-            //Check the count
-            //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
-
-            //If the first time, call the context preparation function (ie. for declaring outputs outside of context)
-
-            //Set contextFirst to true (add it to the stack) if this was the first context, false otherwise
-
-            //Emit proper conditional
-        }
+        emitCloseOpenContext(schedType, contextFirst, alreadyEmittedSubContexts, subContextEmittedCount, partition,
+                             nodeContext, lastEmittedContext, contextStatements);
 
         for (unsigned long i = 0; i < contextStatements.size(); i++) {
             cFile << contextStatements[i];
@@ -398,7 +247,177 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
         }
 
         lastEmittedContext = nodeContext;
+    }
 
+    //We need to handle the case when the last node emitted was in a context.  In this case, the last context needs to
+    //be closed out
+    std::vector<std::string> contextStatements;
+    std::vector<Context> noContext;
+    emitCloseOpenContext(schedType, contextFirst, alreadyEmittedSubContexts, subContextEmittedCount, partition,
+                         noContext, lastEmittedContext, contextStatements);
+    for (unsigned long i = 0; i < contextStatements.size(); i++) {
+        cFile << contextStatements[i];
+    }
+}
+
+void EmitterHelpers::emitCloseOpenContext(const SchedParams::SchedType &schedType, std::vector<bool> &contextFirst,
+                                          std::set<Context> &alreadyEmittedSubContexts,
+                                          std::map<std::shared_ptr<ContextRoot>, int> &subContextEmittedCount,
+                                          int partition, const std::vector<Context> &nodeContext,
+                                          std::vector<Context> &lastEmittedContext,
+                                          std::vector<std::string> &contextStatements) {
+    if (nodeContext != lastEmittedContext) {
+
+        //Check if previous context(s) should be closed (run up the stack until the contexts are the same - we can do this because contexts are in a strict hierarchy [ie. tree])
+        for (unsigned long i = 0; i < lastEmittedContext.size(); i++) {
+            unsigned long ind = lastEmittedContext.size() - 1 - i;
+
+            if (ind >= nodeContext.size()) {
+                //The new context is less deep than this.  Therefore, we should close this context
+                if (subContextEmittedCount.find(lastEmittedContext[ind].getContextRoot()) ==
+                    subContextEmittedCount.end()) {
+                    subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] = 0;
+                }
+
+                if (contextFirst.size() - 1 < ind || contextFirst[ind]) {
+                    //This context was created with a call to first
+                    lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType,
+                                                                                     lastEmittedContext[ind].getSubContext(),
+                                                                                     partition);
+                } else if (subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >=
+                           lastEmittedContext[ind].getContextRoot()->getNumSubContexts() - 1) {
+                    lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType,
+                                                                                    lastEmittedContext[ind].getSubContext(),
+                                                                                    partition);
+                } else {
+                    lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType,
+                                                                                   lastEmittedContext[ind].getSubContext(),
+                                                                                   partition);
+                }
+
+                //Remove this level of the contextFirst stack because the family was exited
+                contextFirst.pop_back();
+
+                //Add that context to the exited context set
+                alreadyEmittedSubContexts.insert(lastEmittedContext[ind]);
+
+                //Increment emitted count by 1
+                subContextEmittedCount[lastEmittedContext[ind].getContextRoot()]++;
+
+            } else if (lastEmittedContext[ind] != nodeContext[ind]) {
+                //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context closes up to that point
+                //could be either a first, mid, or last
+                if (contextFirst[ind]) { //contextFirst is guarenteed to exist because this level existed in the last emitted context
+                    lastEmittedContext[ind].getContextRoot()->emitCContextCloseFirst(contextStatements, schedType,
+                                                                                     lastEmittedContext[ind].getSubContext(),
+                                                                                     partition);
+                } else if (subContextEmittedCount[lastEmittedContext[ind].getContextRoot()] >=
+                           lastEmittedContext[ind].getContextRoot()->getNumSubContexts() - 1) {
+                    lastEmittedContext[ind].getContextRoot()->emitCContextCloseLast(contextStatements, schedType,
+                                                                                    lastEmittedContext[ind].getSubContext(),
+                                                                                    partition);
+                } else {
+                    lastEmittedContext[ind].getContextRoot()->emitCContextCloseMid(contextStatements, schedType,
+                                                                                   lastEmittedContext[ind].getSubContext(),
+                                                                                   partition);
+                }
+
+                if (lastEmittedContext[ind].getContextRoot() == nodeContext[ind].getContextRoot()) {
+                    //In this case, the next context is in the same family, set the contextFirst to false and do not remove it
+                    contextFirst[ind] = false;
+                } else {
+                    //In this case, the context family is being left, remove the contextFirst entry for the family
+                    contextFirst.pop_back();
+                }
+
+                //Add that context to the exited context set
+                alreadyEmittedSubContexts.insert(lastEmittedContext[ind]);
+
+                //Increment emitted count by 1
+                subContextEmittedCount[lastEmittedContext[ind].getContextRoot()]++;
+            } else {
+                break; //We found the point root of both the old and new contexts, we can stop here
+            }
+        }
+
+        //If new context(s) have been entered, emit the conditionals (run down the stack to find the root of both, then emit the context entries)
+        for (unsigned long i = 0; i < nodeContext.size(); i++) {
+            if (i >= lastEmittedContext.size()) {
+                //This context level is new, it must be the first time it has been entered
+
+                //Declare vars
+                std::vector<Variable> contextVars = nodeContext[i].getContextRoot()->getCContextVars();
+                for (unsigned long j = 0; j < contextVars.size(); j++) {
+                    contextStatements.push_back(contextVars[j].getCVarDecl(false, true, false, true) + ";\n");
+
+                    if (contextVars[j].getDataType().isComplex()) {
+                        contextStatements.push_back(contextVars[j].getCVarDecl(true, true, false, true) + ";\n");
+                    }
+                }
+
+                //Emit context
+                nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType,
+                                                                       nodeContext[i].getSubContext(),
+                                                                       partition);
+
+                //push back onto contextFirst
+                contextFirst.push_back(true);
+            } else if (lastEmittedContext[i] !=
+                       nodeContext[i]) {  //Because contexts must be purely hierarchical, new context is only entered if the context at this level is different from the previously emitted context.
+                //TODO: change if split contexts are introduced -> would need to check for first context change, then emit all context opens after that
+                //This context level already existed, could either be an first, mid, or last
+
+                //Check if the previous context had the same root.  If so, this is the first
+                if (lastEmittedContext[i].getContextRoot() != nodeContext[i].getContextRoot()) {
+                    //Emit context vars
+                    std::vector<Variable> contextVars = nodeContext[i].getContextRoot()->getCContextVars();
+                    for (unsigned long j = 0; j < contextVars.size(); j++) {
+                        contextStatements.push_back(contextVars[j].getCVarDecl(false, true, false, true) + ";\n");
+
+                        if (contextVars[j].getDataType().isComplex()) {
+                            contextStatements.push_back(
+                                    contextVars[j].getCVarDecl(true, true, false, true) + ";\n");
+                        }
+                    }
+
+                    //Emit context
+                    nodeContext[i].getContextRoot()->emitCContextOpenFirst(contextStatements, schedType,
+                                                                           nodeContext[i].getSubContext(),
+                                                                           partition);
+
+                    //This is a new family, push back
+                    contextFirst.push_back(true);
+                } else {
+                    if (subContextEmittedCount[nodeContext[i].getContextRoot()] >=
+                        nodeContext[i].getContextRoot()->getNumSubContexts() -
+                        1) { //Check if this is the last in the context family
+                        nodeContext[i].getContextRoot()->emitCContextOpenLast(contextStatements, schedType,
+                                                                              nodeContext[i].getSubContext(),
+                                                                              partition);
+                    } else {
+                        nodeContext[i].getContextRoot()->emitCContextOpenMid(contextStatements, schedType,
+                                                                             nodeContext[i].getSubContext(),
+                                                                             partition);
+                    }
+
+                    //Contexts are in the same family
+                    contextFirst[i] = false;
+                }
+
+            }
+            //Else, we have not yet found where the context stacks diverge (if they in fact do) --> continue
+        }
+
+        //Check to see if this is the first, last, or other conditional being emitted (if there is only 1 context, default to first call)
+        //Check to see if the previous context at this level (if one existed) was in the same family: if so, this is either the middle or end, if not, this is a first
+        //Check the count
+        //Check to see if the count of emitted subContests for this context root is max# contexts -1.  If so, it is last.  Else, it is a middle
+
+        //If the first time, call the context preparation function (ie. for declaring outputs outside of context)
+
+        //Set contextFirst to true (add it to the stack) if this was the first context, false otherwise
+
+        //Emit proper conditional
     }
 }
 
