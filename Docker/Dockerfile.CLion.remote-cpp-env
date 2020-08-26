@@ -30,6 +30,13 @@ RUN apt-get update \
       rsync \
       tar \
       python \
+#VSCode
+      bash \
+      apt-utils \
+      dialog \
+      iproute2 \
+      procps \
+      lsb-release\
 #Vitis/Laminar Dependencies
       libboost-all-dev \
       libxerces-c-dev \
@@ -45,7 +52,7 @@ RUN ( \
   ) > /etc/ssh/sshd_config_test_clion \
   && mkdir /run/sshd
 
-RUN useradd -m clion \
+RUN adduser --gecos "" --disabled-login clion \
   && yes EFjUTaFvR9BVXmuJyVQapKWf | passwd clion
 
 CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]
