@@ -838,6 +838,23 @@ public:
 
     void validateNodes();
 
+    /**
+     * @brief Places EnableNodes that are not in any partition into a partition.
+     * It will follow the general semantics of EnabledSubsystem expansion with EnableInputs being placed in the domain
+     * of their input and EnabledOutputs being placed in the domain of their outputs.  If EnabledOutputs have arcs to
+     * nodes in different partitions, replicas of EanbledOutput will be created.
+     *
+     * The exception is when connected directly to I/O.  In this case, EnableInputs will use the partition of their outputs
+     * and enableOutputs will use the partition of their inputs.
+     *
+     * The EnabledSubsystem node itself is checked to see if it is in a partition.  If not, it is placed in the same partition
+     * as its first enable input.  If no enable inputs exist, it is placed in the partition of the first enable output.
+     * Even though the EnabledSubsystem node itself is not used post encapsulation, it is not deleted because that node
+     * contains the logic for generating the various context checks.  Placing it in a partition avoids a ContextContainer
+     * being created for partition -1 (unassigned)
+     */
+    void placeEnableNodesInPartitions();
+
 };
 
 /*! @} */

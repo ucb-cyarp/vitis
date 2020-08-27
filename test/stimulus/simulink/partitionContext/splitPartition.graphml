@@ -495,7 +495,6 @@ ID: n5
 Type: Master</data>
 			<data key="named_input_ports">0</data>
 			<data key="named_output_ports">0</data>
-			<data key="MaskVariables.out">Error</data>
 		</node>
 		<node id="n6">
 			<data key="instance_name">Part1</data>
@@ -614,12 +613,12 @@ Function: RelationalOperator</data>
 							<data key="SampleTime">-1</data>
 							<data key="ZeroCross">on</data>
 						</node>
-						<node id="n6::n8::n26">
+						<node id="n6::n8::n25">
 							<data key="instance_name">Constant</data>
 							<data key="block_node_type">Standard</data>
 							<data key="block_function">Constant</data>
 							<data key="block_label">Constant
-ID: n6::n8::n26
+ID: n6::n8::n25
 Function: Constant
 SampleTime: Inf
 Value: 3</data>
@@ -664,12 +663,12 @@ SampleTime: -1</data>
 					<data key="SaturateOnIntegerOverflow">off</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
-				<node id="n6::n27">
+				<node id="n6::n26">
 					<data key="instance_name">VITIS_PARTITION</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VITIS_PARTITION
-ID: n6::n27
+ID: n6::n26
 Function: Constant
 SampleTime: Inf
 Value: 1</data>
@@ -1090,28 +1089,6 @@ Function: Inport</data>
 					<data key="Unit">inherit</data>
 					<data key="VarSizeSig">Inherit</data>
 				</node>
-				<node id="n10::n25">
-					<data key="instance_name">VITIS_PARTITION</data>
-					<data key="block_node_type">Standard</data>
-					<data key="block_function">Constant</data>
-					<data key="block_label">VITIS_PARTITION
-ID: n10::n25
-Function: Constant
-SampleTime: Inf
-Value: 2</data>
-					<data key="named_input_ports">0</data>
-					<data key="named_output_ports">0</data>
-					<data key="FramePeriod">inf</data>
-					<data key="LockScale">off</data>
-					<data key="OutDataTypeStr">Inherit: Inherit from &apos;Constant value&apos;</data>
-					<data key="OutMax">[]</data>
-					<data key="OutMin">[]</data>
-					<data key="SampleTime">inf</data>
-					<data key="Value">2</data>
-					<data key="VectorParams1D">on</data>
-					<data key="Numeric.SampleTime">Inf</data>
-					<data key="Numeric.Value">2</data>
-				</node>
 			</graph>
 		</node>
 		<node id="n17">
@@ -1190,12 +1167,12 @@ SampleTime: -1</data>
 					<data key="Numeric.Gain">2</data>
 					<data key="Numeric.SampleTime">-1</data>
 				</node>
-				<node id="n17::n28">
+				<node id="n17::n27">
 					<data key="instance_name">VITIS_PARTITION</data>
 					<data key="block_node_type">Standard</data>
 					<data key="block_function">Constant</data>
 					<data key="block_label">VITIS_PARTITION
-ID: n17::n28
+ID: n17::n27
 Function: Constant
 SampleTime: Inf
 Value: 4</data>
@@ -1534,23 +1511,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e21" source="n10::n25" target="n5">
-			<data key="arc_src_port">1</data>
-			<data key="arc_dst_port">1</data>
-			<data key="arc_dst_port_type">Standard</data>
-			<data key="arc_disp_label">Src Port Num: 1
-Dst Port Num: 1
-Dst Port Type: Standard
-Datatype: double
-Complex: 0
-Dimension: [1, 1]
-Width: 1</data>
-			<data key="arc_datatype">double</data>
-			<data key="arc_complex">0</data>
-			<data key="arc_dimension">[1, 1]</data>
-			<data key="arc_width">1</data>
-		</edge>
-		<edge id="e22" source="n6::n8::n26" target="n6::n8::n9">
+		<edge id="e21" source="n6::n8::n25" target="n6::n8::n9">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -1566,7 +1527,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e23" source="n6::n27" target="n5">
+		<edge id="e22" source="n6::n26" target="n5">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -1582,7 +1543,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e24" source="n17::n28" target="n5">
+		<edge id="e23" source="n17::n27" target="n5">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">1</data>
 			<data key="arc_dst_port_type">Standard</data>
@@ -1598,7 +1559,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e25" source="n6::n8::n9" target="n10::n11">
+		<edge id="e24" source="n6::n8::n9" target="n10::n11">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
 			<data key="arc_dst_port_type">Enable</data>
@@ -1614,7 +1575,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e26" source="n6::n8::n9" target="n10::n16">
+		<edge id="e25" source="n6::n8::n9" target="n10::n16">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
 			<data key="arc_dst_port_type">Enable</data>
@@ -1630,7 +1591,7 @@ Width: 1</data>
 			<data key="arc_dimension">[1, 1]</data>
 			<data key="arc_width">1</data>
 		</edge>
-		<edge id="e27" source="n6::n8::n9" target="n10::n22">
+		<edge id="e26" source="n6::n8::n9" target="n10::n22">
 			<data key="arc_src_port">1</data>
 			<data key="arc_dst_port">2</data>
 			<data key="arc_dst_port_type">Enable</data>
