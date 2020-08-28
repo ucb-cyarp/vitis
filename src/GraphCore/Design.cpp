@@ -4129,151 +4129,50 @@ void Design::placeEnableNodesInPartitions() {
         if(GeneralHelper::isType<Node, EnableInput>(node)){
             //Should be validated to only have 1 input
             if(node->getPartitionNum() == -1) {
-                int srcPartition = (*node->getDirectInputArcs().begin())->getSrcPort()->getParent()->getPartitionNum();
-                if (srcPartition == -1) {
-                    throw std::runtime_error(
-                            ErrorHelpers::genErrorStr("Cannot determine partition for EnabledInput", node));
-                }else if(srcPartition == IO_PARTITION_NUM){
-                    //This is a special case where the input node needs to take the partiton of its outputs
-                    std::shared_ptr<EnableInput> nodeAsEnabledInput = std::dynamic_pointer_cast<EnableInput>(node);
-                    std::shared_ptr<Arc> inputArc = *node->getDirectInputArcs().begin();
-                    std::set<std::shared_ptr<Arc>> driverArcs = nodeAsEnabledInput->getEnablePort()->getArcs();
-                    std::set<std::shared_ptr<Arc>> directOutArcs = node->getDirectOutputArcs();
-                    std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = node->getOrderConstraintInputArcs();
-                    std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = node->getOrderConstraintOutputArcs();
-
-                    std::map<int, std::shared_ptr<EnableInput>> replicas;
-                    //Reassign outputs
-                    for(const std::shared_ptr<Arc> &outArc : directOutArcs){
-                        std::shared_ptr<EnableInput> replicaNode;
-                        int dstPartitionNum = outArc->getDstPort()->getParent()->getPartitionNum();
-
-                        //Check if this is the first
-                        if(node->getPartitionNum() == -1){
-                            node->setPartitionNum(dstPartitionNum);
-                            replicas[dstPartitionNum] = nodeAsEnabledInput;
-                            replicaNode = nodeAsEnabledInput;
-                        }else{
-                            //Check if there is already a replica
-                            if(replicas.find(dstPartitionNum) == replicas.end()){
-                                std::shared_ptr<SubSystem> parent = nodeAsEnabledInput->getParent();
-                                if(GeneralHelper::isType<SubSystem, EnabledSubSystem>(parent) == nullptr){
-                                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found an Enable node that was not directly under an EnabledSubsystem", node));
-                                }
-                                std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
-                                //TODO: Remove sanity check
-                                std::vector<std::shared_ptr<EnableInput>> parentEnabledInputs = parentAsEnabledSubsystem->getEnableInputs();
-                                if(std::find(parentEnabledInputs.begin(), parentEnabledInputs.end(), nodeAsEnabledInput) == parentEnabledInputs.end()){
-                                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found an Enable node that was not directly under its own EnabledSubsystem", node));
-                                }
-
-                                //Need to replicate node
-                                replicaNode = NodeFactory::shallowCloneNode<EnableInput>(node->getParent(), nodeAsEnabledInput.get());
-                                parentAsEnabledSubsystem->addEnableInput(replicaNode);
-                                replicaNode->setPartitionNum(dstPartitionNum);
-                                nodesToAdd.push_back(replicaNode);
-                                replicas[dstPartitionNum] = replicaNode;
-
-                                //Replicate input arc
-                                std::shared_ptr<Arc> newInputArc = Arc::connectNodes(inputArc->getSrcPort(),
-                                                                                     replicaNode->getInputPortCreateIfNot(inputArc->getDstPort()->getPortNum()),
-                                                                                     inputArc->getDataType(), inputArc->getSampleTime());
-                                arcsToAdd.push_back(newInputArc);
-
-                                //Replicate order constraint inputs
-                                for(const std::shared_ptr<Arc> &orderConstraintInputArc : orderConstraintInputArcs){
-                                    std::shared_ptr<Arc> newOrderConstraintInputArc = Arc::connectNodes(inputArc->getSrcPort(),
-                                                                                         replicaNode->getInputPortCreateIfNot(inputArc->getDstPort()->getPortNum()),
-                                                                                         inputArc->getDataType(), inputArc->getSampleTime());
-                                    arcsToAdd.push_back(newOrderConstraintInputArc);
-                                }
-
-                            }else{
-                                //Get the appropriate replica
-                                replicaNode = replicas[dstPartitionNum];
-                            }
-                        }
-
-                        //Reassign arc
-                        if(replicaNode != node){//Only reassign if nessasary
-                            outArc->setSrcPortUpdateNewUpdatePrev(replicaNode->getOutputPortCreateIfNot(outArc->getSrcPort()->getPortNum()));
-                        }
-                    }
-
-                    //Reassign order constraint outputs error if an output to the same partiton does not exist
-                    for(const std::shared_ptr<Arc> &orderConstraintOutputArc : orderConstraintOutputArcs){
-                        std::shared_ptr<EnableInput> replicaNode;
-                        int dstPartitionNum = orderConstraintOutputArc->getDstPort()->getParent()->getPartitionNum();
-
-                        //Check if this is the first
-                        if(node->getPartitionNum() == -1){
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledInput" , node));
-                        }else{
-                            //Check if there is already a replica
-                            if(replicas.find(dstPartitionNum) == replicas.end()){
-                                throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledInput" , node));
-                            }else{
-                                //Get the appropriate replica
-                                replicaNode = replicas[dstPartitionNum];
-                            }
-                        }
-
-                        //Reassign arc
-                        if(replicaNode != node){//Only reassign if nessasary
-                            orderConstraintOutputArc->setSrcPortUpdateNewUpdatePrev(replicaNode->getOrderConstraintOutputPortCreateIfNot());
-                        }
-                    }
-
-                }else{
-                    node->setPartitionNum(srcPartition);
-                }
-            }
-        }else if(GeneralHelper::isType<Node, EnableOutput>(node)){
-            if(node->getPartitionNum() == -1) {
-                //Run through the destination arcs and create replicas of the enable output as nessasary.
-                //If the output is I/O, the partiton should go to that of the input
-
-                std::shared_ptr<EnableOutput> nodeAsEnabledOutput = std::dynamic_pointer_cast<EnableOutput>(node);
+                //Reassign Output arcs to Replicas of this Enable Input as appropriate
+                std::shared_ptr<EnableInput> nodeAsEnabledInput = std::dynamic_pointer_cast<EnableInput>(node);
                 std::shared_ptr<Arc> inputArc = *node->getDirectInputArcs().begin();
-                std::set<std::shared_ptr<Arc>> driverArcs = nodeAsEnabledOutput->getEnablePort()->getArcs();
+                std::set<std::shared_ptr<Arc>> driverArcs = nodeAsEnabledInput->getEnablePort()->getArcs();
                 std::set<std::shared_ptr<Arc>> directOutArcs = node->getDirectOutputArcs();
                 std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = node->getOrderConstraintInputArcs();
                 std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = node->getOrderConstraintOutputArcs();
 
-                std::map<int, std::shared_ptr<EnableOutput>> replicas;
-
+                std::map<int, std::shared_ptr<EnableInput>> replicas;
                 //Reassign outputs
                 for(const std::shared_ptr<Arc> &outArc : directOutArcs){
-                    std::shared_ptr<EnableOutput> replicaNode;
+                    std::shared_ptr<EnableInput> replicaNode;
                     int dstPartitionNum = outArc->getDstPort()->getParent()->getPartitionNum();
 
-                    if(dstPartitionNum == IO_PARTITION_NUM){
-                        //Need to take the partition number of the input
-                        dstPartitionNum = inputArc->getSrcPort()->getParent()->getPartitionNum();
+                    if(dstPartitionNum == -1){
+                        if(GeneralHelper::isType<Node, EnableOutput>(outArc->getDstPort()->getParent()) != nullptr){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an EnableInput directly connected to an EnableOutput", node));
+                        }else{
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an EnableInput that is connected to a node not in a partition", node));
+                        }
                     }
 
                     //Check if this is the first
                     if(node->getPartitionNum() == -1){
                         node->setPartitionNum(dstPartitionNum);
-                        replicas[dstPartitionNum] = nodeAsEnabledOutput;
-                        replicaNode = nodeAsEnabledOutput;
+                        replicas[dstPartitionNum] = nodeAsEnabledInput;
+                        replicaNode = nodeAsEnabledInput;
                     }else{
                         //Check if there is already a replica
                         if(replicas.find(dstPartitionNum) == replicas.end()){
-                            std::shared_ptr<SubSystem> parent = nodeAsEnabledOutput->getParent();
+                            std::shared_ptr<SubSystem> parent = nodeAsEnabledInput->getParent();
                             if(GeneralHelper::isType<SubSystem, EnabledSubSystem>(parent) == nullptr){
                                 throw std::runtime_error(ErrorHelpers::genErrorStr("Found an Enable node that was not directly under an EnabledSubsystem", node));
                             }
                             std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
                             //TODO: Remove sanity check
-                            std::vector<std::shared_ptr<EnableOutput>> parentEnabledOutputs = parentAsEnabledSubsystem->getEnableOutputs();
-                            if(std::find(parentEnabledOutputs.begin(), parentEnabledOutputs.end(), nodeAsEnabledOutput) == parentEnabledOutputs.end()){
+                            std::vector<std::shared_ptr<EnableInput>> parentEnabledInputs = parentAsEnabledSubsystem->getEnableInputs();
+                            if(std::find(parentEnabledInputs.begin(), parentEnabledInputs.end(), nodeAsEnabledInput) == parentEnabledInputs.end()){
                                 throw std::runtime_error(ErrorHelpers::genErrorStr("Found an Enable node that was not directly under its own EnabledSubsystem", node));
                             }
 
                             //Need to replicate node
-                            replicaNode = NodeFactory::shallowCloneNode<EnableOutput>(node->getParent(), nodeAsEnabledOutput.get());
-                            parentAsEnabledSubsystem->addEnableOutput(replicaNode);
+                            replicaNode = NodeFactory::shallowCloneNode<EnableInput>(node->getParent(), nodeAsEnabledInput.get());
+                            parentAsEnabledSubsystem->addEnableInput(replicaNode);
                             replicaNode->setPartitionNum(dstPartitionNum);
                             nodesToAdd.push_back(replicaNode);
                             replicas[dstPartitionNum] = replicaNode;
@@ -4306,23 +4205,16 @@ void Design::placeEnableNodesInPartitions() {
 
                 //Reassign order constraint outputs error if an output to the same partiton does not exist
                 for(const std::shared_ptr<Arc> &orderConstraintOutputArc : orderConstraintOutputArcs){
-                    std::shared_ptr<EnableOutput> replicaNode;
+                    std::shared_ptr<EnableInput> replicaNode;
                     int dstPartitionNum = orderConstraintOutputArc->getDstPort()->getParent()->getPartitionNum();
-
-                    if(dstPartitionNum == IO_PARTITION_NUM){
-                        //Need to take the partition number of the input
-                        //dstPartitionNum = inputArc->getSrcPort()->getParent()->getPartitionNum();
-
-                        throw std::runtime_error("Found order constraint from EnableOutput to I/O");
-                    }
 
                     //Check if this is the first
                     if(node->getPartitionNum() == -1){
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledOutput" , node));
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledInput" , node));
                     }else{
                         //Check if there is already a replica
                         if(replicas.find(dstPartitionNum) == replicas.end()){
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledOutput" , node));
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledInput" , node));
                         }else{
                             //Get the appropriate replica
                             replicaNode = replicas[dstPartitionNum];
@@ -4334,6 +4226,23 @@ void Design::placeEnableNodesInPartitions() {
                         orderConstraintOutputArc->setSrcPortUpdateNewUpdatePrev(replicaNode->getOrderConstraintOutputPortCreateIfNot());
                     }
                 }
+            }
+        }else if(GeneralHelper::isType<Node, EnableOutput>(node)) {
+            if (node->getPartitionNum() == -1) {
+                //Place in the partition of the input
+                std::shared_ptr<Arc> inputArc = *node->getDirectInputArcs().begin();
+                int srcPartition = inputArc->getSrcPort()->getParent()->getPartitionNum();
+
+                if(srcPartition == -1){
+                    if(GeneralHelper::isType<Node, EnableInput>(inputArc->getSrcPort()->getParent()) != nullptr){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an EnableInput directly connected to an EnableOutput", node));
+                    }else {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                "Encountered an EnableOutput that is connected to a node not in a partition", node));
+                    }
+                }
+
+                node->setPartitionNum(srcPartition);
             }
         }
     }

@@ -840,12 +840,19 @@ public:
 
     /**
      * @brief Places EnableNodes that are not in any partition into a partition.
-     * It will follow the general semantics of EnabledSubsystem expansion with EnableInputs being placed in the domain
-     * of their input and EnabledOutputs being placed in the domain of their outputs.  If EnabledOutputs have arcs to
-     * nodes in different partitions, replicas of EanbledOutput will be created.
+     * It will attempt to place EnableInput and EnableOutput nodes to be in the same partitions as the nodes they are
+     * connected to within the enabled subsystem.  If EnableInputs go to multiple partitions, replicas will be created
+     * for each destination partition
      *
-     * The exception is when connected directly to I/O.  In this case, EnableInputs will use the partition of their outputs
-     * and enableOutputs will use the partition of their inputs.
+     * This will potentially help avoid issues where partition cycles could
+     * occur if the EnableInput and EnableOutput nodes took the partitions of the nodes outside of the enabled subsystem.
+     * A case where this can occur is where partition A is used to compute the enable signal in context B and another
+     * value from context A is passed to the EnabledSubsystem C.  In this case, there would be a cyclic dependency between
+     * Partition A->B->A since the input port of the EnabledSubsystem would be placed in partition A.
+     *
+     * It is possible to be more intelligent solution with placement by checking for cycles when assigning EnableNodes to
+     * partitions.
+     * TODO: Implement a more intelligent scheme.
      *
      * The EnabledSubsystem node itself is checked to see if it is in a partition.  If not, it is placed in the same partition
      * as its first enable input.  If no enable inputs exist, it is placed in the partition of the first enable output.
