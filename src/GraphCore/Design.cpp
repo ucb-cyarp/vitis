@@ -4131,15 +4131,15 @@ void Design::placeEnableNodesInPartitions() {
             if(node->getPartitionNum() == -1) {
                 //Reassign Output arcs to Replicas of this Enable Input as appropriate
                 std::shared_ptr<EnableInput> nodeAsEnabledInput = std::dynamic_pointer_cast<EnableInput>(node);
-                std::shared_ptr<Arc> inputArc = *node->getDirectInputArcs().begin();
+                std::shared_ptr<Arc> inputArc = *node->getInputPortCreateIfNot(0)->getArcs().begin();
                 std::set<std::shared_ptr<Arc>> driverArcs = nodeAsEnabledInput->getEnablePort()->getArcs();
-                std::set<std::shared_ptr<Arc>> directOutArcs = node->getDirectOutputArcs();
+                std::set<std::shared_ptr<Arc>> outArcs = node->getOutputPortCreateIfNot(0)->getArcs();
                 std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = node->getOrderConstraintInputArcs();
                 std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = node->getOrderConstraintOutputArcs();
 
                 std::map<int, std::shared_ptr<EnableInput>> replicas;
                 //Reassign outputs
-                for(const std::shared_ptr<Arc> &outArc : directOutArcs){
+                for(const std::shared_ptr<Arc> &outArc : outArcs){
                     std::shared_ptr<EnableInput> replicaNode;
                     int dstPartitionNum = outArc->getDstPort()->getParent()->getPartitionNum();
 
@@ -4230,7 +4230,7 @@ void Design::placeEnableNodesInPartitions() {
         }else if(GeneralHelper::isType<Node, EnableOutput>(node)) {
             if (node->getPartitionNum() == -1) {
                 //Place in the partition of the input
-                std::shared_ptr<Arc> inputArc = *node->getDirectInputArcs().begin();
+                std::shared_ptr<Arc> inputArc = *node->getInputPortCreateIfNot(0)->getArcs().begin();
                 int srcPartition = inputArc->getSrcPort()->getParent()->getPartitionNum();
 
                 if(srcPartition == -1){
