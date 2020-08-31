@@ -13,8 +13,11 @@
 #   docker stop clion_remote_env
 #
 # ssh credentials (test user):
-#   user@password
-#   clion@EFjUTaFvR9BVXmuJyVQapKWf
+#   user
+#   clion
+#
+#   Authentication: ssh key: id_rsa_clionContainer.pub
+#   Copy your own pubkey here
 
 FROM ubuntu:18.04
 
@@ -47,12 +50,20 @@ RUN apt-get update \
 RUN ( \
     echo 'LogLevel DEBUG2'; \
     echo 'PermitRootLogin yes'; \
-    echo 'PasswordAuthentication yes'; \
+    echo 'PasswordAuthentication no'; \
+    echo 'PubkeyAuthentication yes'; \
     echo 'Subsystem sftp /usr/lib/openssh/sftp-server'; \
   ) > /etc/ssh/sshd_config_test_clion \
   && mkdir /run/sshd
 
-RUN adduser --gecos "" --disabled-login clion \
-  && yes EFjUTaFvR9BVXmuJyVQapKWf | passwd clion
+RUN adduser --gecos "" --disabled-password clion
+COPY id_rsa_clionContainer.pub /tmp
+RUN chmod +r /tmp/id_rsa_clionContainer.pub; \
+    su - clion -c "mkdir ~/.ssh"; \
+    su - clion -c "chmod 700 ~/.ssh"; \
+    su - clion -c "touch ~/.ssh/authorized_keys"; \
+    su - clion -c "chmod 600 ~/.ssh/authorized_keys"; \
+    su - clion -c "cat /tmp/id_rsa_clionContainer.pub >> ~/.ssh/authorized_keys"; \
+    rm /tmp/id_rsa_clionContainer.pub;
 
 CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]
