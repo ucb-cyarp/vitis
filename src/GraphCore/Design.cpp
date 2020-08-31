@@ -3518,10 +3518,31 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size() << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements() << std::endl;
         }
     }
     std::cout << std::endl;
+
+
+    //Report Communication before StateUpdate nodes inserted to avoid false positive errors when detecting arcs to state update nodes
+    //in the input partition of a ThreadCrossingFIFO
+    std::string graphMLCommunicationInitCondFileName = "";
+    std::string graphMLCommunicationInitCondSummaryFileName = "";
+
+    if(emitGraphMLSched) {
+        //Export GraphML (for debugging)
+        graphMLCommunicationInitCondFileName = fileName + "_communicationInitCondGraph.graphml";
+        graphMLCommunicationInitCondSummaryFileName = fileName + "_communicationInitCondGraphSummary.graphml";
+        std::cout << "Emitting GraphML Communication Initial Conditions File: " << path << "/" << graphMLCommunicationInitCondFileName << std::endl;
+        Design communicationGraph = CommunicationEstimator::createCommunicationGraph(*this, false, false);
+        GraphMLExporter::exportGraphML(path + "/" + graphMLCommunicationInitCondFileName, communicationGraph);
+        std::cout << "Emitting GraphML Communication Initial Conditions Summary File: " << path << "/" << graphMLCommunicationInitCondSummaryFileName << std::endl << std::endl;
+        Design communicationGraphSummary = CommunicationEstimator::createCommunicationGraph(*this, true, false);
+        GraphMLExporter::exportGraphML(path + "/" + graphMLCommunicationInitCondSummaryFileName, communicationGraphSummary);
+    }
+
+    //Check for deadlock among partitions
+    CommunicationEstimator::checkForDeadlock(*this, designName, path);
 
 //    {
 //        std::vector<std::shared_ptr<Node>> new_nodes;

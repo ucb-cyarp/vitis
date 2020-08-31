@@ -5,6 +5,10 @@
 #include "CommunicationEstimator.h"
 
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
+
+#include "PartitionNode.h"
+#include "PartitionCrossing.h"
 
 #include <iostream>
 
@@ -123,4 +127,143 @@ void CommunicationEstimator::printComputeInstanceTable(
 
         std::cout << std::endl;
     }
+}
+
+std::shared_ptr<PartitionNode> CommunicationEstimator::createPartitionNode(int partition){
+    std::shared_ptr<PartitionNode> node = NodeFactory::createNode<PartitionNode>();
+    node->setPartitionNum(partition);
+    node->setName("Partition" + GeneralHelper::to_string(partition));
+    return node;
+}
+
+Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, bool summary, bool removeCrossingsWithInitCond){
+    Design communicationGraph;
+
+    //Find ThreadCrossingFIFOs
+    std::vector<std::shared_ptr<ThreadCrossingFIFO>> partitionCrossingFIFOs;
+
+    std::vector<std::shared_ptr<Node>> nodes = operatorGraph.getNodes();
+    for(const std::shared_ptr<Node> &node : nodes){
+        std::shared_ptr<ThreadCrossingFIFO> asThreadCrossingFIFO = GeneralHelper::isType<Node, ThreadCrossingFIFO>(node);
+        if(asThreadCrossingFIFO){
+            partitionCrossingFIFOs.push_back(asThreadCrossingFIFO);
+        }
+    }
+
+    //Create Communication Graph
+    std::map<int, std::shared_ptr<PartitionNode>> partitionNodeMap;
+    std::map<std::pair<int, int>, int> minInitialState; //The pair is the tuple (partitionFrom, partitionTo)
+    std::vector<std::pair<std::pair<int, int>, int>> initialStates; //The pair is the tuple (partitionFrom, partitionTo)
+
+    for(const std::shared_ptr<ThreadCrossingFIFO> &fifo : partitionCrossingFIFOs){
+        int srcPartition = fifo->getPartitionNum(); //The FIFO is in the src domain
+        int dstPartition = fifo->getOutputPartition();
+
+        //Assumes contiguous port numbers
+        if(fifo->getInputPorts().size() != fifo->getOutputPorts().size()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("ThreadCrossingFIFO had an unequal number of Input and Output ports", fifo));
+        }
+
+        if(fifo->getInputPorts().empty()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("ThreadCrossingFIFO has no input ports", fifo));
+        }
+
+        int minInitialStateBlocks = 0;
+
+        for(int i = 0; i<fifo->getInputPorts().size(); i++){
+            int initialConditionElements = fifo->getInitConditions().empty() ? 0 : (fifo->getInitConditions()[i].size()/fifo->getOutputPort(i)->getDataType().numberOfElements());
+            int initialStateBlocks = initialConditionElements/fifo->getBlockSize();
+            if(i==0){
+                minInitialStateBlocks = initialStateBlocks;
+            }else{
+                minInitialStateBlocks = std::min(minInitialStateBlocks, initialStateBlocks);
+            }
+
+            //TODO: Remove check
+            if(srcPartition != fifo->getInputPort(i)->getSrcOutputPort()->getParent()->getPartitionNum()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("ThreadCrossingFIFO input partition disagrees with detected partition", fifo));
+            }
+        }
+
+        if(summary){
+            if(minInitialState.find(std::pair<int, int>(srcPartition, dstPartition)) == minInitialState.end()){
+                minInitialState[std::pair<int, int>(srcPartition, dstPartition)] = minInitialStateBlocks;
+            }else{
+                minInitialState[std::pair<int, int>(srcPartition, dstPartition)] = std::min(minInitialState[std::pair<int, int>(srcPartition, dstPartition)], minInitialStateBlocks);
+            }
+        }else{
+            initialStates.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), minInitialStateBlocks));
+        }
+    }
+
+    std::vector<std::shared_ptr<Node>> nodesToAdd, emptyNodes;
+    std::vector<std::shared_ptr<Arc>> arcsToAdd, emptyArcs;
+
+    //TODO: Refactor
+    if(summary){
+        for(const auto & crossing : minInitialState){
+            communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, crossing, removeCrossingsWithInitCond);
+        }
+    }else{
+        for(const auto & crossing : initialStates){
+            communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, crossing, removeCrossingsWithInitCond);
+        }
+    }
+
+    communicationGraph.addRemoveNodesAndArcs(nodesToAdd, emptyNodes, arcsToAdd, emptyArcs);
+
+    communicationGraph.assignNodeIDs();
+    communicationGraph.assignArcIDs();
+
+    return communicationGraph;
+}
+
+void CommunicationEstimator::communicationGraphCreationHelper(std::map<int, std::shared_ptr<PartitionNode>> &partitionNodeMap,
+                                                              std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                              std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                              const std::pair<const std::pair<int, int>, int> &crossing,
+                                                              bool removeCrossingsWithInitCond) {
+    int srcPartition = crossing.first.first;
+    int dstPartition = crossing.first.second;
+    int initialState = crossing.second;
+
+    if(!removeCrossingsWithInitCond || initialState == 0) {
+        std::shared_ptr<PartitionNode> srcPartNode;
+        if (partitionNodeMap.find(srcPartition) == partitionNodeMap.end()) {
+            srcPartNode = createPartitionNode(srcPartition);
+            partitionNodeMap[srcPartition] = srcPartNode;
+            nodesToAdd.push_back(srcPartNode);
+        } else {
+            srcPartNode = partitionNodeMap[srcPartition];
+        }
+
+        std::shared_ptr<PartitionNode> dstPartNode;
+        if (partitionNodeMap.find(dstPartition) == partitionNodeMap.end()) {
+            dstPartNode = createPartitionNode(dstPartition);
+            partitionNodeMap[dstPartition] = dstPartNode;
+            nodesToAdd.push_back(dstPartNode);
+        } else {
+            dstPartNode = partitionNodeMap[dstPartition];
+        }
+
+        std::shared_ptr<PartitionCrossing> crossingArc = PartitionCrossing::connectNodes(
+                srcPartNode->getOrderConstraintOutputPortCreateIfNot(),
+                dstPartNode->getOrderConstraintInputPortCreateIfNot(), DataType());
+        crossingArc->setInitStateCountBlocks(initialState);
+        arcsToAdd.push_back(crossingArc);
+    }
+}
+
+void CommunicationEstimator::checkForDeadlock(Design &operatorGraph, std::string designName, std::string path){
+    Design communicationGraph = createCommunicationGraph(operatorGraph, true, true);
+
+    std::exception err;
+    try {
+        communicationGraph.scheduleTopologicalStort(TopologicalSortParameters(), false, false,
+                                                    designName+"partitionLoop", path, false,
+                                                    false);
+    }catch(const std::exception &e){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Detected Deadlock Condition Between Partitions\n" + std::string(e.what())));
+    }
+
 }

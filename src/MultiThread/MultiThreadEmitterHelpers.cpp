@@ -1250,6 +1250,12 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
+    //Create temp entries for outputs
+    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
+    for(int i = 0; i<tmpWriteDecls.size(); i++){
+        cFile << tmpWriteDecls[i] << std::endl;
+    }
+
     //Create Loop
     cFile << "while(1){" << std::endl;
 
@@ -1377,12 +1383,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
         cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
         cFile << "rxSamples += " << blockSize << ";" << std::endl;
-    }
-
-    //Create temp entries for outputs
-    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
-    for(int i = 0; i<tmpWriteDecls.size(); i++){
-        cFile << tmpWriteDecls[i] << std::endl;
     }
 
     if(threadDebugPrint) {
