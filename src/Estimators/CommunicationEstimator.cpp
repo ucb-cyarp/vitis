@@ -9,6 +9,7 @@
 
 #include "PartitionNode.h"
 #include "PartitionCrossing.h"
+#include "MultiThread/MultiThreadEmitterHelpers.h"
 
 #include <iostream>
 
@@ -257,6 +258,19 @@ void CommunicationEstimator::communicationGraphCreationHelper(std::map<int, std:
 void CommunicationEstimator::checkForDeadlock(Design &operatorGraph, std::string designName, std::string path){
     Design communicationGraph = createCommunicationGraph(operatorGraph, true, true);
 
+    //Need to disconnect arcs to/from I/O partition since
+    std::vector<std::shared_ptr<Node>> nodes = communicationGraph.getNodes();
+    for(const std::shared_ptr<Node> &node : nodes){
+        if(node->getPartitionNum() == IO_PARTITION_NUM){
+            std::set<std::shared_ptr<Arc>> arcsToRemove = node->disconnectNode();
+            std::vector<std::shared_ptr<Arc>> arcsToRemoveVec;
+            arcsToRemoveVec.insert(arcsToRemoveVec.end(), arcsToRemove.begin(), arcsToRemove.end());
+            std::vector<std::shared_ptr<Arc>> emptyArcs;
+            std::vector<std::shared_ptr<Node>> emptyNodes;
+            communicationGraph.addRemoveNodesAndArcs(emptyNodes, emptyNodes, emptyArcs, arcsToRemoveVec);
+        }
+    }
+
     std::exception err;
     try {
         communicationGraph.scheduleTopologicalStort(TopologicalSortParameters(), false, false,
@@ -266,4 +280,34 @@ void CommunicationEstimator::checkForDeadlock(Design &operatorGraph, std::string
         throw std::runtime_error(ErrorHelpers::genErrorStr("Detected Deadlock Condition Between Partitions\n" + std::string(e.what())));
     }
 
+    try {
+        communicationGraph.verifyTopologicalOrder(false, SchedParams::SchedType::TOPOLOGICAL_CONTEXT);
+    }catch(const std::exception &e){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Detected Deadlock Condition Between Partitions\n" + std::string(e.what())));
+    }
+
+    //TODO: Run through the list of partition nodes to check if they were scheduled
+    //Validation does not error if there is an arc between 2 unscheduled nodes
+    std::set<int> unscheduledPartitions;
+    for(const std::shared_ptr<Node> &node : nodes) {
+        if (node->getPartitionNum() != IO_PARTITION_NUM && node->getSchedOrder() == -1) {
+            unscheduledPartitions.insert(node->getPartitionNum());
+        }
+    }
+
+    if(!unscheduledPartitions.empty()){
+        std::string unscheduledPartitionStr;
+        bool first = true;
+        for(int partition: unscheduledPartitions){
+            if(first){
+                first = false;
+            }else{
+                unscheduledPartitionStr += ", ";
+            }
+
+            unscheduledPartitionStr += GeneralHelper::to_string(partition);
+        }
+
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Detected Deadlock Condition Involving the Following Partitions: " + unscheduledPartitionStr));
+    }
 }

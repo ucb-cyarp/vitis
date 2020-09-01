@@ -47,3 +47,11 @@ PartitionNode::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graph
 bool PartitionNode::canExpand() {
     return false;
 }
+
+bool PartitionNode::hasCombinationalPath() {
+    return true;
+}
+
+bool PartitionNode::hasState() {
+    return false;
+}

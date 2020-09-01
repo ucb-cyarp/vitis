@@ -69,6 +69,10 @@ public:
 
     bool canExpand() override;
 
+    bool hasCombinationalPath() override;
+
+    bool hasState() override;
+
 };
 
 /*! @} */
