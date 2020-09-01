@@ -262,18 +262,16 @@ void Delay::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - DataType of Input Port Does not Match Output Port", getSharedPointer()));
     }
 
-    if(inType.isScalar()) {
-        int arraySize = delayValue;
-        if(allocateExtraSpace){
-            arraySize++;
-        }
-        if (delayValue != 0 && arraySize*inType.numberOfElements() != initCondition.size()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr(
-                    "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
-                    ") * Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
-                    ") does not Match the Length of Init Condition Vector (" +
-                    GeneralHelper::to_string(initCondition.size()) + ")", getSharedPointer()));
-        }
+    int arraySize = delayValue;
+    if(allocateExtraSpace){
+        arraySize++;
+    }
+    if (delayValue != 0 && arraySize*inType.numberOfElements() != initCondition.size()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
+                ") * Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
+                ") does not Match the Length of Init Condition Vector (" +
+                GeneralHelper::to_string(initCondition.size()) + ")", getSharedPointer()));
     }
 }
 

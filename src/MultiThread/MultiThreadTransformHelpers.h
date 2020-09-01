@@ -89,6 +89,7 @@ namespace MultiThreadTransformHelpers {
                 std::shared_ptr<SubSystem> fifoParent;
 
                 std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcPort->getParent());
+                std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcPort->getParent());
                 std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcPort->getParent());
                 std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcPort->getParent());
                 bool rateChangeOutput = false;
@@ -100,34 +101,42 @@ namespace MultiThreadTransformHelpers {
                 std::shared_ptr<SubSystem> srcParent = srcPort->getParent()->getParent();
 
                 //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
-                if(srcAsEnableOutput != nullptr || srcAsContextRoot != nullptr || rateChangeOutput){
-                    if(!fifoContext.empty() && srcAsContextRoot == nullptr){//May be empty if contexts have not yet been discovered
+                //TODO: Come up with a more general way of performing this
+                if(srcAsEnableOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+                    if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
                         fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
 
                         // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
                         // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
-                        // durring encapsulation
+                        // during encapsulation
                     }
 
                     //Check for encapsulation
-                    if(GeneralHelper::isType<Node, ContextContainer>(srcParent) != nullptr){
+                    if (GeneralHelper::isType<Node, ContextContainer>(srcParent) != nullptr) {
                         //Encapsulation has already occured.  Need to go 2 levels up
-                        if(srcAsContextRoot == nullptr) {
+                        if (srcAsContextRoot == nullptr) {
                             //If the src is not a context root, the node is one of the ContextContainers and going up 2 levels is nessiary
                             fifoParent = srcParent->getParent()->getParent();
-                        }else{
-                            //If the src is a context root, the node is just inside the ContextFamilyContainer and we only need to go up one level
-                            fifoParent = srcParent->getParent();
+                        } else {
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered src encapsulated in ContextContainer during FIFO insertion but expected src not to be ContextRoot"));
                         }
-                    }else{
+                    } else if(GeneralHelper::isType<Node, ContextFamilyContainer>(srcParent) != nullptr){
+                        if(srcAsContextRoot != nullptr){
+                            //If the src is a context root, the node is just inside the ContextFamilyContainer and we only need to go up one level
+                            //This is the case with mux
+                            fifoParent = srcParent->getParent();
+                        }else{
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered src encapsulated in ContextFamilyContainer during FIFO insertion but expected src to be ContextRoot"));
+                        }
+                    } else {
                         //Encapsulation has not occured yet, only need 1 level up
                         //Only need to go up if the src is not a ContextRoot
                         //ie. need to go up a level if the node is a EnableOutput or rateChangeOutput since taking the parent of these nodes would
                         //place the FIFO inside the EnabledSubsystem or ClockDomain context
-                        if(srcAsContextRoot == nullptr) {
+                        if (srcAsContextRoot == nullptr) {
                             //Not a context root, it must be either an EnableOutput or a RateChange ouput
                             fifoParent = srcParent->getParent();
-                        }else{
+                        } else {
                             fifoParent = srcParent;
                         }
                     }

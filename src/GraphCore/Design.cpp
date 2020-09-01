@@ -2219,21 +2219,13 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster, SchedParams::SchedTy
         }
 
         if(shouldCheck){
-            //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
-            //The srcNode can only be -1 if the destination is also -1
             if (srcNode->getSchedOrder() == -1) {
                 //Src node is unscheduled
-                if (dstNode->getSchedOrder() != -1) {
-                    //dst node is scheduled
-                    throw std::runtime_error(
-                            "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
-                            ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
-                            GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
-                            "] is Unscheduled but Dst Node (" + dstNode->getFullyQualifiedName() +
-                            ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
-                            GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "] is Scheduled");
-                }
-                //otherwise, there is no error here as both nodes are unscheduled
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                        ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                        GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
+                        "] is Unscheduled"));
             } else {
                 //Src node is scheduled
                 if (dstNode->getSchedOrder() != -1) {
@@ -2247,8 +2239,15 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster, SchedParams::SchedTy
                                 ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
                                 GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "]");
                     }
+                }else{
+                    throw std::runtime_error(
+                            "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                            ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                            GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
+                            "] is scheduled but Dst Node (" + dstNode->getFullyQualifiedName() +
+                            ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
+                            GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "] is not.");
                 }
-                //Dst node unscheduled is OK
             }
         }
     }

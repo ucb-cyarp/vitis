@@ -126,7 +126,6 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                                              delayInitConds.end());  //Because this is at the input to the FIFO, the initial conditions are appended.
                         fifo->setInitConditionsCreateIfNot(0, fifoInitConds);
 
-                        //TODO:
                         //Remove the delay node and re-wire arcs to the FIFO (including order constraint arcs)
                         //Disconnect the existing arc between the delay and the FIFO
                         std::shared_ptr<Arc> delayFIFOArc = *delayFIFOArcs.begin(); //We already checked that there is only one
@@ -150,7 +149,8 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
 
                         if (printActions) {
                             std::cout << "Delay Absorbed info FIFO: " << srcDelay->getFullyQualifiedName() << " [ID:" << srcDelay->getId() << "]"
-                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]" << std::endl;
+                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                                      << " - " << fifoInitConds.size()/elementsPerInput << " Elements" << std::endl;
                         }
 
                         return AbsorptionStatus::FULL_ABSORPTION;
@@ -174,7 +174,8 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
 
                         if (printActions) {
                             std::cout << "Delay Partially Absorbed info FIFO: " << srcDelay->getFullyQualifiedName() << " [ID:" << srcDelay->getId() << "]"
-                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]" << std::endl;
+                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                                      << " - " << numToAbsorb/elementsPerInput << " Elements" << std::endl;
                         }
 
                         return AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO;
@@ -311,7 +312,8 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
                         if (printActions) {
                             std::cout << "Delay Absorbed info FIFO: " << dstDelay->getFullyQualifiedName() << " [ID:" << dstDelay->getId() << "]"
-                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]" << std::endl;
+                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                                      << " - " << numToAbsorb/elementsPerInput << " Elements" << std::endl;
                         }
                     }else{
                         //Partial absorption
@@ -326,7 +328,8 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
                         if (printActions) {
                             std::cout << "Delay Partially Absorbed info FIFO: " << dstDelay->getFullyQualifiedName() << " [ID:" << dstDelay->getId() << "]"
-                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]" << std::endl;
+                                      << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
+                                      << " - " << numToAbsorb/elementsPerInput << " Elements" << std::endl;
                         }
                     }
                 }
