@@ -520,7 +520,10 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched, false);
+        prune(true);
+        pruneUnconnectedArcs(true);
+
+        scheduleTopologicalStort(topoSortParams, false, false, designName, outputDir, printNodeSched, false);
         verifyTopologicalOrder(true, schedType);
 
         if(emitGraphMLSched) {
@@ -533,6 +536,7 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
+        pruneUnconnectedArcs(true);
 
         std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
         //TODO Optimize this so a second pass is not needed
@@ -3262,49 +3266,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //would potentially be inserted where they are not needed).
     //Note what nodes and ports are disconnected
 
-    std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
-
-    //Unconnected master
-    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromUnconnectedMaster = unconnectedMaster->getInputArcs();
-    for(auto it = arcsToDisconnectFromUnconnectedMaster.begin(); it != arcsToDisconnectFromUnconnectedMaster.end(); it++){
-        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
-    }
-    std::set<std::shared_ptr<Arc>> unconnectedArcsSet = unconnectedMaster->disconnectNode();
-    std::vector<std::shared_ptr<Arc>> unconnectedArcs;
-    unconnectedArcs.insert(unconnectedArcs.end(), unconnectedArcsSet.begin(), unconnectedArcsSet.end());
-    std::vector<std::shared_ptr<Arc>> emptyArcSet;
-    std::vector<std::shared_ptr<Node>> emptyNodeSet;
-    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, unconnectedArcs);
-
-    //Terminator master
-    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromTerminatorMaster = terminatorMaster->getInputArcs();
-    for(auto it = arcsToDisconnectFromTerminatorMaster.begin(); it != arcsToDisconnectFromTerminatorMaster.end(); it++){
-        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
-    }
-    std::set<std::shared_ptr<Arc>> terminatedArcsSet = terminatorMaster->disconnectNode();
-    std::vector<std::shared_ptr<Arc>> terminatedArcs;
-    terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
-    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
-
-    //Vis Master (TODO: Re-enable later?)
-    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromVisMaster = visMaster->getInputArcs();
-    for(auto it = arcsToDisconnectFromVisMaster.begin(); it != arcsToDisconnectFromVisMaster.end(); it++){
-        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
-    }
-    std::set<std::shared_ptr<Arc>> visArcsSet = visMaster->disconnectNode();
-    std::vector<std::shared_ptr<Arc>> visArcs;
-    visArcs.insert(visArcs.end(), visArcsSet.begin(), visArcsSet.end());
-    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, visArcs);
-
-    //Emit a notification of ports that are disconnected (pruned)
-    //TODO: clean this up so that the disconnect warning durring emit refers back to the origional node path
-    for(auto it = outputPortsWithArcDisconnected.begin(); it != outputPortsWithArcDisconnected.end(); it++) {
-        if((*it)->getArcs().empty()) {
-            std::cout << "Pruned: All Arcs from Output Port " << (*it)->getPortNum() << " of " <<
-                      (*it)->getParent()->getFullyQualifiedName(true) << " [ID: " << (*it)->getParent()->getId() << "]"
-                      << std::endl;
-        }
-    }
+    pruneUnconnectedArcs(true);
 
     //Print Nodes
 //    for(int i = 0; i<nodes.size(); i++){
@@ -3798,6 +3760,54 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::vector<std::string> otherCFilesSharedMem = otherCFiles;
     otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
     MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
+}
+
+void Design::pruneUnconnectedArcs(bool removeVisArcs) {
+    std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
+
+    //Unconnected master
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromUnconnectedMaster = unconnectedMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromUnconnectedMaster.begin(); it != arcsToDisconnectFromUnconnectedMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
+    std::set<std::shared_ptr<Arc>> unconnectedArcsSet = unconnectedMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> unconnectedArcs;
+    unconnectedArcs.insert(unconnectedArcs.end(), unconnectedArcsSet.begin(), unconnectedArcsSet.end());
+    std::vector<std::shared_ptr<Arc>> emptyArcSet;
+    std::vector<std::shared_ptr<Node>> emptyNodeSet;
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, unconnectedArcs);
+
+    //Terminator master
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromTerminatorMaster = terminatorMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromTerminatorMaster.begin(); it != arcsToDisconnectFromTerminatorMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
+    std::set<std::shared_ptr<Arc>> terminatedArcsSet = terminatorMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> terminatedArcs;
+    terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
+
+    //Vis Master (TODO: Re-enable later?)
+    if(removeVisArcs) {
+        std::set<std::shared_ptr<Arc>> arcsToDisconnectFromVisMaster = visMaster->getInputArcs();
+        for (auto it = arcsToDisconnectFromVisMaster.begin(); it != arcsToDisconnectFromVisMaster.end(); it++) {
+            outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+        }
+        std::set<std::shared_ptr<Arc>> visArcsSet = visMaster->disconnectNode();
+        std::vector<std::shared_ptr<Arc>> visArcs;
+        visArcs.insert(visArcs.end(), visArcsSet.begin(), visArcsSet.end());
+        addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, visArcs);
+    }
+
+    //Emit a notification of ports that are disconnected (pruned)
+//TODO: clean this up so that the disconnect warning durring emit refers back to the origional node path
+    for(auto it = outputPortsWithArcDisconnected.begin(); it != outputPortsWithArcDisconnected.end(); it++) {
+        if((*it)->getArcs().empty()) {
+            std::cout << "Pruned: All Arcs from Output Port " << (*it)->getPortNum() << " of " <<
+                      (*it)->getParent()->getFullyQualifiedName(true) << " [ID: " << (*it)->getParent()->getId() << "]"
+                      << std::endl;
+        }
+    }
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.

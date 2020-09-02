@@ -862,6 +862,11 @@ public:
      */
     void placeEnableNodesInPartitions();
 
+    /**
+     * @brief Disconnect arcs to the unconnected, terminated, or vis masters
+     * @param removeVisArcs if true, removes arcs connected to the vis masters.  If false, leaves these arcs alone
+     */
+    void pruneUnconnectedArcs(bool removeVisArcs);
 };
 
 /*! @} */
