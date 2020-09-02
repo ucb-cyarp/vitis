@@ -21,35 +21,51 @@ void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pa
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoPtrs = it->second;
 
         for(int i = 0; i<fifoPtrs.size(); i++) {
-            bool done = false;
+            //Check if the FIFO is in a contect.  If so, do not absorb delays.
+            //TODO: Remove this when on demand FIFOs are implemented
+            //Checks already exist in the input and output absorb methods to check that the delay is in the same context
+            if(fifoPtrs[i]->getContext().empty()) {
+                bool done = false;
 
-            //Iterate because there may be a series of delays to ingest
-            while (!done) {
-                AbsorptionStatus statusIn = absorbAdjacentInputDelayIfPossible(fifoPtrs[i], srcPartition, new_nodes, deleted_nodes,
-                                                                               new_arcs, deleted_arcs, printActions);
+                //Iterate because there may be a series of delays to ingest
+                while (!done) {
+                    AbsorptionStatus statusIn = absorbAdjacentInputDelayIfPossible(fifoPtrs[i], srcPartition, new_nodes,
+                                                                                   deleted_nodes,
+                                                                                   new_arcs, deleted_arcs,
+                                                                                   printActions);
 
-                AbsorptionStatus statusOut = AbsorptionStatus::NO_ABSORPTION;
-                if (statusIn != AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO) {
-                    statusOut = absorbAdjacentOutputDelayIfPossible(fifoPtrs[i], dstPartition, new_nodes, deleted_nodes, new_arcs,
-                                                                    deleted_arcs, printActions);
+                    AbsorptionStatus statusOut = AbsorptionStatus::NO_ABSORPTION;
+                    if (statusIn != AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO) {
+                        statusOut = absorbAdjacentOutputDelayIfPossible(fifoPtrs[i], dstPartition, new_nodes,
+                                                                        deleted_nodes, new_arcs,
+                                                                        deleted_arcs, printActions);
+                    }
+
+                    if (statusIn == AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO ||
+                        statusOut == AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO) {
+                        //FIFO filled up, not worth continuing
+                        done = true;
+                    } else if (statusIn == AbsorptionStatus::NO_ABSORPTION &&
+                               (statusOut == AbsorptionStatus::NO_ABSORPTION ||
+                                statusOut == AbsorptionStatus::PARTIAL_ABSORPTION_MERGE_INIT_COND)) {
+                        //Could not absorb due to conflicts on input or output, done
+                        done = true;
+                    }
                 }
 
-                if (statusIn == AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO ||
-                    statusOut == AbsorptionStatus::PARTIAL_ABSORPTION_FULL_FIFO) {
-                    //FIFO filled up, not worth continuing
-                    done = true;
-                } else if (statusIn == AbsorptionStatus::NO_ABSORPTION &&
-                           (statusOut == AbsorptionStatus::NO_ABSORPTION ||
-                            statusOut == AbsorptionStatus::PARTIAL_ABSORPTION_MERGE_INIT_COND)) {
-                    //Could not absorb due to conflicts on input or output, done
-                    done = true;
+                //TODO: Refactor into absorption?  Tricky because there may be a chain of delays.  Possibly when re-timer is implemented
+                //The number of initial conditions in the FIFO must be a multiple of the block size
+                //remove the remainder from the FIFO and insert into a delay at the input
+                MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes,
+                                                                                      deleted_nodes, new_arcs,
+                                                                                      deleted_arcs, printActions);
+            }else{
+                if (printActions) {
+                    std::cout << "Skipped Delay Absorption for FIFO since it is in a context: "
+                              << fifoPtrs[i]->getFullyQualifiedName() << " [ID:" << fifoPtrs[i]->getId()
+                              << "]" << std::endl;
                 }
             }
-
-            //TODO: Refactor into absorption?  Tricky because there may be a chain of delays.  Possibly when re-timer is implemented
-            //The number of initial conditions in the FIFO must be a multiple of the block size
-            //remove the remainder from the FIFO and insert into a delay at the input
-            MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
         }
     }
 }
