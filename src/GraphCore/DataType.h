@@ -21,7 +21,7 @@ private:
     bool floatingPt;///< True if type is floating point, false if integer or fixed point
     bool signedType; ///< True if type is signed, false if unsigned
     bool complex; ///< True if the type is complex, false if it is real
-    int totalBits; ///< The total number of bits in this type
+    int totalBits; ///< The total number of bits in this type (per component)
     int fractionalBits; ///< The number of fractional bits if this is an integer or fixed point type
     std::vector<int> dimensions; ///< The dimensions of the datatype.  Each element of the vector is the size of that dimension.  Scalars have 1 dimension of size 1
 
@@ -48,7 +48,7 @@ public:
      * @param floatingPt True if floating point, false if integer or fixed point
      * @param signedType True if signed, false if unsigned
      * @param complex True if complex, false if real
-     * @param totalBits Total number of bits in type
+     * @param totalBits Total number of bits in type (per component)
      * @param fractionalBits Number of fractional bits if an integer or fixed point type
      * @param The dimensions of the datatype.  Each element of the vector is the size of that dimension.  Scalars have 1 dimension of size 1
      */

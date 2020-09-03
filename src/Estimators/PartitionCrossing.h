@@ -18,6 +18,8 @@
 class PartitionCrossing : public Arc {
 private:
     int initStateCountBlocks;
+    int bytesPerSample;
+    int bytesPerBlock;
 
     //==== Constructors ====
     /**
@@ -43,6 +45,14 @@ private:
 public:
     int getInitStateCountBlocks() const;
     void setInitStateCountBlocks(int initStateCountBlocks);
+
+    int getBytesPerSample() const;
+
+    void setBytesPerSample(int bytesPerSample);
+
+    int getBytesPerBlock() const;
+
+    void setBytesPerBlock(int bytesPerBlock);
 
     /**
      * @brief Factory function to create a new blank PartitionCrossing.

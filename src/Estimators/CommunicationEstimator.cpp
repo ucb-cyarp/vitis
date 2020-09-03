@@ -13,6 +13,27 @@
 
 #include <iostream>
 
+int CommunicationEstimator::getCommunicationBitsForType(DataType dt){
+    //Communication occurs with valid CPU types
+    //TODO: change if bit fields are used or bools are packed
+    DataType cpuType = dt.getCPUStorageType();
+
+    int bits = cpuType.getTotalBits();
+    //TODO: change if bool type is updated
+    if(bits == 1){
+        bits = 8;
+    }
+
+    if(dt.isComplex()){
+        bits *=2; //If complex, double the amount of data transferred (to include the imag component)
+    }
+
+    //Account for vector/matrix types
+    bits *= dt.numberOfElements();
+
+    return bits;
+}
+
 std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload>
 CommunicationEstimator::reportCommunicationWorkload(
         std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap) {
@@ -43,19 +64,7 @@ CommunicationEstimator::reportCommunicationWorkload(
 
             for(int j = 0; j<ports.size(); j++){
                 DataType portDT = ports[j]->getDataType();
-                //Communication occurs with valid CPU types
-                //TODO: change if bit fields are used or bools are packed
-                DataType cpuType = portDT.getCPUStorageType();
-
-                int bits = cpuType.getTotalBits();
-                //TODO: change if bool type is updated
-                if(bits == 1){
-                    bits = 8;
-                }
-
-                if(portDT.isComplex()){
-                    bits *=2; //If complex, double the amount of data transfered (to include the imag component)
-                }
+                int bits = getCommunicationBitsForType(portDT);
 
                 int bytes = bits/8;
                 bytesPerSample += bytes;
@@ -155,6 +164,11 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
     std::map<int, std::shared_ptr<PartitionNode>> partitionNodeMap;
     std::map<std::pair<int, int>, int> minInitialState; //The pair is the tuple (partitionFrom, partitionTo)
     std::vector<std::pair<std::pair<int, int>, int>> initialStates; //The pair is the tuple (partitionFrom, partitionTo)
+    std::map<std::pair<int, int>, int> totalBytesPerSample;
+    std::vector<std::pair<std::pair<int, int>, int>> bytesPerSample; //The pair is the tuple (partitionFrom, partitionTo)
+    std::map<std::pair<int, int>, int> totalBytesPerBlock;
+    std::vector<std::pair<std::pair<int, int>, int>> bytesPerBlock; //The pair is the tuple (partitionFrom, partitionTo)
+
 
     for(const std::shared_ptr<ThreadCrossingFIFO> &fifo : partitionCrossingFIFOs){
         int srcPartition = fifo->getPartitionNum(); //The FIFO is in the src domain
@@ -170,8 +184,16 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
         }
 
         int minInitialStateBlocks = 0;
+        int fifoTotalBytesPerSample = 0;
+        int fifoTotalBytesPerBlock = 0;
 
         for(int i = 0; i<fifo->getInputPorts().size(); i++){
+            int portTotalBytesPerSample = getCommunicationBitsForType(fifo->getOutputPort(i)->getDataType())/8;
+            fifoTotalBytesPerSample += portTotalBytesPerSample;
+            fifoTotalBytesPerBlock += portTotalBytesPerSample*fifo->getBlockSize();
+
+            //Note, the initial conditions are stored as an array of scalar numbers, need to know the number of elements at the port per sample (ie. the number of elements in an input/output vector to the port or 1 if scalar)
+            //To get the number of cycles of initial condition in the FIFO, take the length of the scalar array and divide by the length of the
             int initialConditionElements = fifo->getInitConditions().empty() ? 0 : (fifo->getInitConditions()[i].size()/fifo->getOutputPort(i)->getDataType().numberOfElements());
             int initialStateBlocks = initialConditionElements/fifo->getBlockSize();
             if(i==0){
@@ -189,11 +211,17 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
         if(summary){
             if(minInitialState.find(std::pair<int, int>(srcPartition, dstPartition)) == minInitialState.end()){
                 minInitialState[std::pair<int, int>(srcPartition, dstPartition)] = minInitialStateBlocks;
+                totalBytesPerSample[std::pair<int, int>(srcPartition, dstPartition)] = fifoTotalBytesPerSample;
+                totalBytesPerBlock[std::pair<int, int>(srcPartition, dstPartition)] = fifoTotalBytesPerBlock;
             }else{
                 minInitialState[std::pair<int, int>(srcPartition, dstPartition)] = std::min(minInitialState[std::pair<int, int>(srcPartition, dstPartition)], minInitialStateBlocks);
+                totalBytesPerSample[std::pair<int, int>(srcPartition, dstPartition)] += fifoTotalBytesPerSample;
+                totalBytesPerBlock[std::pair<int, int>(srcPartition, dstPartition)] += fifoTotalBytesPerBlock;
             }
         }else{
             initialStates.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), minInitialStateBlocks));
+            bytesPerSample.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), fifoTotalBytesPerSample));
+            bytesPerBlock.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), fifoTotalBytesPerBlock));
         }
     }
 
@@ -203,11 +231,25 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
     //TODO: Refactor
     if(summary){
         for(const auto & crossing : minInitialState){
-            communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, crossing, removeCrossingsWithInitCond);
+            std::pair<int, int> partitions = crossing.first;
+            int initialState = crossing.second;
+            int bytesPerSampleLoc = totalBytesPerSample[partitions];
+            int bytesPerBlockLoc = totalBytesPerBlock[partitions];
+
+            communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, partitions.first,
+                                             partitions.second, initialState, bytesPerSampleLoc, bytesPerBlockLoc,
+                                             removeCrossingsWithInitCond);
         }
     }else{
-        for(const auto & crossing : initialStates){
-            communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, crossing, removeCrossingsWithInitCond);
+        for(int i = 0; i < initialStates.size(); i++){
+            std::pair<int, int> partitions = initialStates[i].first;
+            int initialState = initialStates[i].second;
+            int bytesPerSampleLoc = bytesPerSample[i].second;
+            int bytesPerBlockLoc = bytesPerBlock[i].second;
+
+            communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, partitions.first,
+                                             partitions.second, initialState, bytesPerSampleLoc, bytesPerBlockLoc,
+                                             removeCrossingsWithInitCond);
         }
     }
 
@@ -222,12 +264,9 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
 void CommunicationEstimator::communicationGraphCreationHelper(std::map<int, std::shared_ptr<PartitionNode>> &partitionNodeMap,
                                                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
                                                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
-                                                              const std::pair<const std::pair<int, int>, int> &crossing,
+                                                              int srcPartition, int dstPartition,
+                                                              int initialState, int bytesPerSample, int bytesPerBlock,
                                                               bool removeCrossingsWithInitCond) {
-    int srcPartition = crossing.first.first;
-    int dstPartition = crossing.first.second;
-    int initialState = crossing.second;
-
     if(!removeCrossingsWithInitCond || initialState == 0) {
         std::shared_ptr<PartitionNode> srcPartNode;
         if (partitionNodeMap.find(srcPartition) == partitionNodeMap.end()) {
@@ -251,6 +290,8 @@ void CommunicationEstimator::communicationGraphCreationHelper(std::map<int, std:
                 srcPartNode->getOrderConstraintOutputPortCreateIfNot(),
                 dstPartNode->getOrderConstraintInputPortCreateIfNot(), DataType());
         crossingArc->setInitStateCountBlocks(initialState);
+        crossingArc->setBytesPerSample(bytesPerSample);
+        crossingArc->setBytesPerBlock(bytesPerBlock);
         arcsToAdd.push_back(crossingArc);
     }
 }

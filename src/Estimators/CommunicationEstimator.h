@@ -39,16 +39,22 @@ namespace CommunicationEstimator {
     void checkForDeadlock(Design &operatorGraph, std::string designName, std::string path);
 
     /**
+     * @brief Get the total number of bytes required to transfer a value of a given datatype.
+     * Doubles the size if the type is complex.  Returns 1 byte for a boolean.  Also converts to a CPU storage type.
+     * Also accounts for vector/matrix types.
+     * @param dt
+     * @return
+     */
+    int getCommunicationBitsForType(DataType dt);
+
+    /**
      * @brief Used when creating the communication graph from a list of partition crossings
-     * @param partitionNodeMap
-     * @param nodesToAdd
-     * @param arcsToAdd
-     * @param crossing
      */
     void communicationGraphCreationHelper(std::map<int, std::shared_ptr<PartitionNode>> &partitionNodeMap,
                                           std::vector<std::shared_ptr<Node>> &nodesToAdd,
                                           std::vector<std::shared_ptr<Arc>> &arcsToAdd,
-                                          const std::pair<const std::pair<int, int>, int> &crossing,
+                                          int srcPartition, int dstPartition,
+                                          int initialState, int bytesPerSample, int bytesPerBlock,
                                           bool removeCrossingsWithInitCond);
 };
 
