@@ -122,8 +122,14 @@ namespace MultiThreadEmitterHelpers {
      * @brief Emits the benchmark kernel function for multi-threaded emit.  This includes allocating FIFOs and creating/starting threads.
      * @param fifoMap
      * @param ioBenchmarkSuffix io_constant for constant benchmark
+     * @param papiHelperHeader if not empty, initializes PAPI in the kernel function
      */
-    void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap, std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions, std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix, std::vector<int> partitionMap);
+    void emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
+                                          std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
+                                          std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap,
+                                          std::set<int> partitions, std::string path, std::string fileNamePrefix,
+                                          std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix,
+                                          std::vector<int> partitionMap, std::string papiHelperHeader);
 
     //The following 2 functions can be reused for different I/O drivers
 
@@ -176,8 +182,15 @@ namespace MultiThreadEmitterHelpers {
      * @param printTelem if true, prints telemetry on the thread's execution
      * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
      * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
+     * @param papiHelperHeader if not empty, collects performance counter information from the PAPI library.  Note that this will have an adverse effect on performance.  printTelem || !telemDumpFilePrefix.empty() must be true for this to be collected
      */
-    void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem, std::string telemDumpFilePrefix, bool telemAvg);
+    void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
+                              std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                              std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path,
+                              std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
+                              std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
+                              std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem,
+                              std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader);
 
     /**
      * @brief Get the argument portion of the C function prototype for the partition compute function

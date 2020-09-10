@@ -23,7 +23,12 @@ int main(int argc, char* argv[]) {
         std::cout << "multiThreadedGenerator: Emit a design stored in a Vitis GraphML File to a Multi Threaded C Function" << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> --memAlignment <MEM_ALIGNMENT>" << std::endl;
+        std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> " << std::endl;
+        std::cout << "                           --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> " << std::endl;
+        std::cout << "                           --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> " << std::endl;
+        std::cout << "                           --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> " << std::endl;
+        std::cout << "                           <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> " << std::endl;
+        std::cout << "                           --memAlignment <MEM_ALIGNMENT> <--emitPAPITelem>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -78,6 +83,7 @@ int main(int argc, char* argv[]) {
     bool printNodeSched = false;
     bool threadDebugPrint = false;
     bool printTelem = false;
+    bool emitPapiTelem = false;
     std::string telemDumpPrefix = "";
 
     //Check for command line parameters
@@ -212,6 +218,8 @@ int main(int argc, char* argv[]) {
             threadDebugPrint = true;
         }else if(strcmp(argv[i],  "--printTelem") == 0){
             printTelem = true;
+        }else if(strcmp(argv[i],  "--emitPAPITelem") == 0){
+            emitPapiTelem = true;
         }else{
             std::cerr << "Unknown command line option: " << argv[i] << std::endl;
             exit(1);
@@ -274,7 +282,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

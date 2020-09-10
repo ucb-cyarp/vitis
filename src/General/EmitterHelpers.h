@@ -133,6 +133,13 @@ namespace EmitterHelpers {
      */
     std::string emitTelemetryHelper(std::string path, std::string fileNamePrefix);
 
+    /**
+     * @brief Emits helper files for using the PAPI library for reading performance counters
+     * @param path
+     * @param filenamePrefix
+     * @returns the filename of the header file
+     */
+    std::string emitPAPIHelper(std::string path, std::string fileNamePrefix);
 
     /**
      * @brief Transfers arcs from one node to another.

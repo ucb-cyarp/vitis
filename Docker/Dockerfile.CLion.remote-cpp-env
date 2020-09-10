@@ -21,6 +21,8 @@
 
 FROM ubuntu:18.04
 
+ARG DEBIAN_FRONTEND="noninteractive"
+ENV TZ="America/Los_Angeles"
 RUN apt-get update \
   && apt-get install -y ssh \
       build-essential \
@@ -41,6 +43,10 @@ RUN apt-get update \
       procps \
       lsb-release\
 #Vitis/Laminar Dependencies
+#Need papi>5.6 which is the case with ubuntu 20.04
+      papi-tools \
+      libpapi-dev \
+      libpfm4-dev \
       libboost-all-dev \
       libxerces-c-dev \
       graphviz \
