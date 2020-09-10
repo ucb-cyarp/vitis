@@ -727,7 +727,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc, bool includePAPI){
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -769,11 +769,15 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
+                     makefileContent += "LIB=-pthread";
                                     if(includeLrt){
-                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon -latomic\n";
-                                    }else {
-                     makefileContent += "LIB=-pthread -lProfilerCommon -latomic\n";
+                                        makefileContent += " -lrt";
                                     }
+                     makefileContent += " -lProfilerCommon -latomic";
+                                    if(includePAPI){
+                                        makefileContent += " -lpapi";
+                                    }
+                     makefileContent += "\n";
                  makefileContent += "\n"
                                     "DEFINES=\n"
                                     "\n"
