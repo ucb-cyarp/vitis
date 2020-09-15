@@ -105,7 +105,7 @@ CExpr Sin::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     DataType dstType = getOutputPort(0)->getDataType();
 
@@ -126,10 +126,10 @@ CExpr Sin::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     std::string fctnCall;
     if(inputType.getTotalBits() <= 32){
         rtnType = DataType(true, true, false, 32, 0, {1}); //The sinf function returns a float
-        fctnCall = "sinf(" + inputExpr + ")";
+        fctnCall = "sinf(" + inputExpr.getExpr() + ")";
     }else{
         rtnType = DataType(true, true, false, 64, 0, {1}); //The sin function returns a double
-        fctnCall = "sin(" + inputExpr + ")";
+        fctnCall = "sin(" + inputExpr.getExpr() + ")";
     }
 
     std::string finalExpr;
@@ -141,7 +141,7 @@ CExpr Sin::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         finalExpr = fctnCall;
     }
 
-    return CExpr(finalExpr, false);
+    return CExpr(finalExpr, CExpr::ExprType::SCALAR_EXPR);
 }
 
 Sin::Sin(std::shared_ptr<SubSystem> parent, Sin* orig) : PrimitiveNode(parent, orig){

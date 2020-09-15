@@ -200,7 +200,7 @@ CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     }
 
     //Get the expressions for each input
-    std::vector<std::string> inputExprs;
+    std::vector<CExpr> inputExprs;
 
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -214,14 +214,14 @@ CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     std::string expr = "";
     if(op == BitwiseOp::NOT) {
         //This is a special case for a single operand
-        expr = bitwiseOpToCString(BitwiseOp::NOT) + "(" + inputExprs[0] + ")";
+        expr = bitwiseOpToCString(BitwiseOp::NOT) + "(" + inputExprs[0].getExpr() + ")";
     }else{
         //For >=2 operands
         for(unsigned long i = 0; i<numInputPorts; i++) {
             if(i > 0){
                 expr += bitwiseOpToCString(op);
             }
-            expr += "(" + inputExprs[i] + ")";
+            expr += "(" + inputExprs[i].getExpr() + ")";
         }
     }
 
@@ -244,7 +244,7 @@ CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     //Cast the expression to the correct output type (if necessary)
     std::string outputExpr = DataType::cConvertType(expr, largestType, getOutputPort(0)->getDataType());
 
-    return CExpr(outputExpr, false);
+    return CExpr(outputExpr, CExpr::ExprType::SCALAR_EXPR);
 }
 
 BitwiseOperator::BitwiseOperator(std::shared_ptr<SubSystem> parent, BitwiseOperator* orig) : PrimitiveNode(parent, orig), op(orig->op){

@@ -236,14 +236,17 @@ void DownsampleClockDomain::emitCContextOpenFirst(std::vector<std::string> &cSta
 
     //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
     std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
-    std::string enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+    CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+    if(enableDriverExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The driver to the downsample clock domain is expected to be a scalar expression or variable", getSharedPointer()));
+    }
 
     std::string cExpr;
     //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
     if(subContextNumber == 0) {
-        cExpr = "if(" + enableDriverExpr + "){";
+        cExpr = "if(" + enableDriverExpr.getExpr() + "){";
     }else if(subContextNumber == 1){
-        cExpr = "if(!" + enableDriverExpr + "){";
+        cExpr = "if(!" + enableDriverExpr.getExpr() + "){";
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
     }
@@ -262,14 +265,18 @@ DownsampleClockDomain::emitCContextOpenMid(std::vector<std::string> &cStatementQ
 
     //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
     std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
-    std::string enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+    CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+
+    if(enableDriverExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("The driver to the downsample clock domain is expected to be a scalar expression or variable", getSharedPointer()));
+    }
 
     std::string cExpr;
     //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
     if(subContextNumber == 0) {
-        cExpr = "else if(" + enableDriverExpr + "){";
+        cExpr = "else if(" + enableDriverExpr.getExpr() + "){";
     }else if(subContextNumber == 1){
-        cExpr = "else if(!" + enableDriverExpr + "){";
+        cExpr = "else if(!" + enableDriverExpr.getExpr() + "){";
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
     }

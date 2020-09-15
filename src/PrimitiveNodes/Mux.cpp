@@ -482,7 +482,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
 }
 
 CExpr Mux::emitCExprContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag){
-    return CExpr(muxContextOutputVar.getCVarName(imag), true); //This is a variable
+    return CExpr(muxContextOutputVar.getCVarName(imag), muxContextOutputVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable
 }
 
 CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
@@ -491,10 +491,14 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
 
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+    CExpr selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+
+    if(selectExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Mux select expression is expected to be a scalar expression or variable", getSharedPointer()));
+    }
 
     //--- Get the expressions for each input ---
-    std::vector<std::string> inputExprs;
+    std::vector<CExpr> inputExprs;
 
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -539,18 +543,20 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
     //--- Deref input exprs if needed (if a vector or matrix)---
     std::vector<std::string> inputExprsDeref;
     if(outType.isScalar()) {
-        //No deref needed
-        inputExprsDeref = inputExprs;
+        //No deref needed, but need to get a string
+        for(unsigned long i = 0; i<inputExprs.size(); i++){
+            inputExprsDeref.push_back(inputExprs[i].getExpr());
+        }
     }else{
         for(unsigned long i = 0; i<inputExprs.size(); i++){
-            inputExprsDeref.push_back(inputExprs[i] + EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            inputExprsDeref.push_back(inputExprs[i].getExprIndexed(forLoopIndexVars, true));
         }
     }
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool()){
         //if/else statement
-        std::string ifExpr = "if(" + selectExpr + "){";
+        std::string ifExpr = "if(" + selectExpr.getExpr() + "){";
         cStatementQueue.push_back(ifExpr);
 
         //Add For loop if vector/matrix
@@ -592,7 +598,7 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
         cStatementQueue.push_back("}");
     }else{
         //switch statement
-        std::string switchExpr = "switch(" + selectExpr + "){";
+        std::string switchExpr = "switch(" + selectExpr.getExpr() + "){";
         cStatementQueue.push_back(switchExpr);
 
         for(unsigned long i = 0; i<(numInputPorts-1); i++){
@@ -630,7 +636,7 @@ CExpr Mux::emitCExprNoContext(std::vector<std::string> &cStatementQueue, SchedPa
         cStatementQueue.push_back("}");
     }
 
-    return CExpr(outVar.getCVarName(imag), true); //This is a variable
+    return CExpr(outVar.getCVarName(imag), outVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable
 }
 
 std::vector<Variable> Mux::getCContextVars() {
@@ -688,7 +694,11 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
     std::shared_ptr<OutputPort> selectSrcOutputPort = driverArcs[0]->getSrcPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+    CExpr selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+
+    if(selectExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Mux select expression is expected to be a scalar expression or variable", getSharedPointer()));
+    }
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
@@ -701,10 +711,10 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
                 //In this case, context 0 is the true context and context 1 is the false context
 
                 if(subContextNumber == 0){
-                    std::string ifExpr = "if(" + selectExpr + "){";
+                    std::string ifExpr = "if(" + selectExpr.getExpr() + "){";
                     cStatementQueue.push_back(ifExpr);
                 }else if(subContextNumber == 1){
-                    std::string ifExpr = "if(!" + selectExpr + "){";
+                    std::string ifExpr = "if(!" + selectExpr.getExpr() + "){";
                     cStatementQueue.push_back(ifExpr);
                 }else{
                     throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Context > 1 was encountered with bool select input", getSharedPointer()));
@@ -715,10 +725,10 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
                 //false is context 0 and true is context 1.
 
                 if(subContextNumber == 0){
-                    std::string ifExpr = "if(!" + selectExpr + "){";
+                    std::string ifExpr = "if(!" + selectExpr.getExpr() + "){";
                     cStatementQueue.push_back(ifExpr);
                 }else if(subContextNumber == 1){
-                    std::string ifExpr = "if(" + selectExpr + "){";
+                    std::string ifExpr = "if(" + selectExpr.getExpr() + "){";
                     cStatementQueue.push_back(ifExpr);
                 }else{
                     throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Context > 1 was encountered with bool select input", getSharedPointer()));
@@ -727,14 +737,14 @@ void Mux::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue, Sched
 
         }else{
             //Non boolean select using if/else style
-            std::string ifExpr = "if(" + selectExpr + " == " + GeneralHelper::to_string(subContextNumber) + "){";
+            std::string ifExpr = "if(" + selectExpr.getExpr() + " == " + GeneralHelper::to_string(subContextNumber) + "){";
             cStatementQueue.push_back(ifExpr);
         }
 
     }else{
         //Switch style (> 2 inputs)
 
-        std::string switchExpr = "switch(" + selectExpr + "){\n";
+        std::string switchExpr = "switch(" + selectExpr.getExpr() + "){\n";
         cStatementQueue.push_back(switchExpr);
 
         std::string caseExpr = "case " + GeneralHelper::to_string(subContextNumber) + ": \n{"; //Open a new {} scope to allow intermediate variable declaration
@@ -755,7 +765,11 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
     std::shared_ptr<OutputPort> selectSrcOutputPort = driverArcs[0]->getSrcPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+    CExpr selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+
+    if(selectExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Mux select expression is expected to be a scalar expression or variable", getSharedPointer()));
+    }
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {
@@ -766,7 +780,7 @@ void Mux::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedPa
             throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Mux Context Open Mid Should not Occur for Boolean Select Inputs", getSharedPointer()));
         }else{
             //Non boolean select using if/else style
-            std::string ifExpr = "else if(" + selectExpr + " == " + GeneralHelper::to_string(subContextNumber) + "){";
+            std::string ifExpr = "else if(" + selectExpr.getExpr() + " == " + GeneralHelper::to_string(subContextNumber) + "){";
             cStatementQueue.push_back(ifExpr);
         }
 
@@ -789,7 +803,13 @@ void Mux::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedP
     std::shared_ptr<OutputPort> selectSrcOutputPort = driverArcs[0]->getSrcPort();
     int selectSrcOutputPortNum = selectSrcOutputPort->getPortNum();
     std::shared_ptr<Node> selectSrcNode = selectSrcOutputPort->getParent();
-    std::string selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+    CExpr selectExpr = selectSrcNode->emitC(cStatementQueue, schedType, selectSrcOutputPortNum, false);
+
+    if(selectExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Mux select expression is expected to be a scalar expression or variable", getSharedPointer()));
+    }
+
+    //We don't actually use the selectExpr but need to make sure it is emitted
 
     DataType selectDataType = getSelectorPort()->getDataType();
     if(selectDataType.isBool() || !useSwitch) {

@@ -132,7 +132,7 @@ CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams
         //Emit value
         expr += value[0].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
         expr += ")";
-        return CExpr(expr, false);
+        return CExpr(expr, CExpr::ExprType::SCALAR_EXPR);
     }else{
         //Return the globally declared array
         std::string constVarName = name + "_n" + GeneralHelper::to_string(id) + "_ConstVal";
@@ -140,11 +140,11 @@ CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams
         DataType outputStorageType = outputType.getCPUStorageType();
         Variable constVar = Variable(constVarName, outputStorageType);
 
-        return CExpr(constVar.getCVarName(imag), true);
+        return CExpr(constVar.getCVarName(imag), CExpr::ExprType::ARRAY);
     }
 }
 
-std::string
+CExpr
 Constant::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
                 bool checkFanout, bool forceFanout) {
     //TODO: should forced fanout be allowed - ie. should it be made possible for the user to mandate that constants be stored in temps

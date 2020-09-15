@@ -71,10 +71,22 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+    DataType inputDT = getInputPort(outputPortNum)->getDataType();
+    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     //Just return the input expression
-    return CExpr(inputExpr, imag);
+    //TODO: Change check after vector support implemented
+    if(inputExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Line to Downsample Input is Expected to be Driven by a Scalar Expression or Variable", getSharedPointer()));
+    }
+
+    //Create a temporary variable to avoid issue if this node is directly attached to state
+    //at the input.  The state update is placed after this node but the variable from the delay is simply
+    //passed through.  This could cause the state to be update before the result is used.
+    //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+    //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+
+    return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
 }
 
 bool DownsampleInput::isSpecialized() {

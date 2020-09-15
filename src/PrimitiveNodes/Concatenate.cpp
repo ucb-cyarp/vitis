@@ -125,7 +125,7 @@ void Concatenate::validate() {
 CExpr
 Concatenate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                        bool imag) {
-    std::vector<std::string> inputExprs;
+    std::vector<CExpr> inputExprs;
 
     for (unsigned long i = 0; i < inputPorts.size(); i++) {
         std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
@@ -167,7 +167,8 @@ Concatenate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         std::string assignDest = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(dstIndexVec);
 
         //Relies on input being a scalar or vector
-        std::string assignVal = inputExprs[i] + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+        std::vector<std::string> emptyArr;
+        std::string assignVal = inputExprs[i].getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true);
 
         cStatementQueue.push_back(assignDest + " = " + assignVal + ";");
 
@@ -179,5 +180,5 @@ Concatenate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         outputOffset += inputDT.numberOfElements();
     }
 
-    return CExpr(outputVar.getCVarName(imag), true);
+    return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
 }

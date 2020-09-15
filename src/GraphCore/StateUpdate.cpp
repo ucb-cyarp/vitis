@@ -92,7 +92,7 @@ bool StateUpdate::canExpand() {
 
 CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Get the expressions for the input
-    std::string inputExpr;
+    CExpr inputExpr;
 
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(outputPortNum)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
@@ -103,6 +103,7 @@ CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
     DataType datatype = getInputPort(outputPortNum)->getDataType();
 
     if(!datatype.isScalar()) {
+        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
         //If a vector/matrix, create a temporary and copy the values into it.  Cannot rely on the emitter to create a variable for it
         //A temporary is made to address some corner cases, like when the input is a delay, where the value of the expression could
         //change later if the state was updated.
@@ -120,7 +121,7 @@ CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
         cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
         //Dereference
-        std::string inputExprDeref = inputExpr + EmitterHelpers::generateIndexOperation(forLoopIndexVars);
+        std::string inputExprDeref = inputExpr.getExprIndexed(forLoopIndexVars, true);
 
         //Copy to temporary variable
         std::string tmpAssignment = vecOutVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + inputExprDeref + ";";
@@ -130,10 +131,15 @@ CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
         cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
         //return temporary as a variable
-        return CExpr(vecOutVar.getCVarName(imag), true);
+        return CExpr(vecOutVar.getCVarName(imag), CExpr::ExprType::ARRAY);
     }else{
-        //If a scalar, just pass on the expression.  A variable will be created for it by the emitter
-        return CExpr(inputExpr, false);
+        //Create a temporary variable to avoid issue if this node is directly attached to state
+        //at the input.  The state update is placed after this node but the variable from the delay is simply
+        //passed through.  This could cause the state to be update before the result is used.
+        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+        //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+
+        return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
     }
 }
 

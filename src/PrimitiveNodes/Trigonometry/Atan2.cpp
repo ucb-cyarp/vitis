@@ -105,12 +105,12 @@ CExpr Atan2::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     std::shared_ptr<OutputPort> srcOutputPortY = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortYNum = srcOutputPortY->getPortNum();
     std::shared_ptr<Node> srcNodeY = srcOutputPortY->getParent();
-    std::string inputExprY = srcNodeY->emitC(cStatementQueue, schedType, srcOutputPortYNum, imag);
+    CExpr inputExprY = srcNodeY->emitC(cStatementQueue, schedType, srcOutputPortYNum, imag);
 
     std::shared_ptr<OutputPort> srcOutputPortX = getInputPort(1)->getSrcOutputPort();
     int srcOutputPortXNum = srcOutputPortX->getPortNum();
     std::shared_ptr<Node> srcNodeX = srcOutputPortX->getParent();
-    std::string inputExprX = srcNodeX->emitC(cStatementQueue, schedType, srcOutputPortXNum, imag);
+    CExpr inputExprX = srcNodeX->emitC(cStatementQueue, schedType, srcOutputPortXNum, imag);
 
     DataType dstType = getOutputPort(0)->getDataType();
 
@@ -132,10 +132,10 @@ CExpr Atan2::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     std::string fctnCall;
     if(inputType1.getTotalBits() <= 32 && inputType2.getTotalBits() <= 32){
         rtnType = DataType(true, true, false, 32, 0, {1}); //The atan2f function returns a float
-        fctnCall = "atan2f(" + inputExprY + ", " + inputExprX + ")";
+        fctnCall = "atan2f(" + inputExprY.getExpr() + ", " + inputExprX.getExpr() + ")";
     }else{
         rtnType = DataType(true, true, false, 64, 0, {1}); //The atan2 function returns a double
-        fctnCall = "atan2(" + inputExprY + ", " + inputExprX + ")";
+        fctnCall = "atan2(" + inputExprY.getExpr() + ", " + inputExprX.getExpr() + ")";
     }
 
     std::string finalExpr;
@@ -147,7 +147,7 @@ CExpr Atan2::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         finalExpr = fctnCall;
     }
 
-    return CExpr(finalExpr, false);
+    return CExpr(finalExpr, CExpr::ExprType::SCALAR_EXPR);
 }
 
 Atan2::Atan2(std::shared_ptr<SubSystem> parent, Atan2* orig) : PrimitiveNode(parent, orig){

@@ -231,7 +231,7 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, S
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     //Type Conversion logic
     DataType tgtType;
@@ -266,20 +266,20 @@ CExpr DataTypeConversion::emitCExpr(std::vector<std::string> &cStatementQueue, S
         cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
     }
 
-    std::string inputExprDeref = inputExpr + (srcType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+    std::string inputExprDeref = inputExpr.getExprIndexed(forLoopIndexVars, true);
     //Only cast if the types are different
     std::string castExpr = (tgtType == srcType) ? inputExprDeref
                                                 : "((" + tgtType.toString(DataType::StringStyle::C, false, false) + ") (" + inputExprDeref + "))";
 
     if(srcType.isScalar()){
-        return CExpr(castExpr, false);
+        return CExpr(castExpr, CExpr::ExprType::SCALAR_EXPR);
     }else{
         //emit assignment for vector
         cStatementQueue.push_back(outVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + castExpr + ";");
         //Close for loop
         cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
-        return CExpr(outVar.getCVarName(imag), true);
+        return CExpr(outVar.getCVarName(imag), CExpr::ExprType::ARRAY);
     }
 }
 

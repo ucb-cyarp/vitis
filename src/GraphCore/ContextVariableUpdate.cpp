@@ -108,15 +108,18 @@ std::shared_ptr<Node> ContextVariableUpdate::shallowClone(std::shared_ptr<SubSys
 }
 
 CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
+    //TODO: Currently, circular buffers are not supported for Context Variables because of the lack of a callback
+    //      to the ContextRoot on how to handle them (ie. is the buffer overwritten, write to front, write to back?)
+
     DataType inputDataType = getInputPort(0)->getDataType();
     std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
     int srcOutPortNum = srcPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //--- Emit the upstream ---
-    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
-    //Used to create a tmeporary variable to store the input to this node.  The idea was that this would allow the output
+    //Used to create a temporary variable to store the input to this node.  The idea was that this would allow the output
     //to be used inside the context without relying on the underlying context variable.  However, this is superflous as this node
     //sets the context variable before emitting anything for its output.  Because of this, the state variable can be returned as the output.
 
@@ -172,7 +175,9 @@ CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue
     Variable contextVariable = contextRoot->getCContextVar(contextVarIndex);
 
     std::string termToAssign;
-    std::string inputExprDeref = inputExpr + (datatype.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+    //If not a matrix, forLoopIndexVars and deref are effectivly ignored.  A check is made to make sure forLoopIndexVars is empty
+    std::vector<std::string> emptyArr;
+    std::string inputExprDeref = inputExpr.getExprIndexed(datatype.isScalar() ? emptyArr : forLoopIndexVars, true);
     if(emitTemporary) {
         //--- Assign the expr to a temporary variable ---
         //Dereference is nessisary
@@ -199,10 +204,12 @@ CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue
 
     if(emitTemporary) {
         //Return the temporary var
-        return CExpr(stateInputVar.getCVarName(imag), true);
+        //TODO: Currently, circular buffers are not supported for Context Variables
+        return CExpr(stateInputVar.getCVarName(imag), datatype.isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
     }else{
         //Return the state var
-        return CExpr(contextVariable.getCVarName(imag), true);
+        //TODO: Currently, circular buffers are not supported for Context Variables
+        return CExpr(contextVariable.getCVarName(imag), datatype.isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
     }
 }
 

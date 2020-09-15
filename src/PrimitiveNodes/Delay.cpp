@@ -324,9 +324,10 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         DataType datatype = srcPort->getDataType();
 
         //Emit the upstream
-        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+        CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
         if(!datatype.isScalar()) {
+            //TODO: Change check after vector support implemented
             //If a vector/matrix, create a temporary and store in that.  Cannot rely on emitter to create a variable for the intermediate result
             //Emit temporary before for loop
             std::string vecOutName = name+"_n"+GeneralHelper::to_string(id)+ "_outVec"; //Changed to
@@ -342,7 +343,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
             //Deref
-            std::string inputExprDeref = inputExpr + EmitterHelpers::generateIndexOperation(forLoopIndexVars);
+            std::string inputExprDeref = inputExpr.getExprIndexed(forLoopIndexVars, true);
 
             //Emit expr
             cStatementQueue.push_back(vecOutVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + inputExprDeref + ";");
@@ -351,9 +352,15 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
             //Return temp var
-            return CExpr(vecOutVar.getCVarName(imag), true);
+            return CExpr(vecOutVar.getCVarName(imag), CExpr::ExprType::ARRAY);
         }else{
-            return CExpr(inputExpr, false);
+            //Create a temporary variable to avoid issue if this node is directly attached to state
+            //at the input.  The state update is placed after this node but the variable from the delay is simply
+            //passed through.  This could cause the state to be update before the result is used.
+            //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+            //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+
+            return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
         }
     }else {
         //Return the state var name as the expression
@@ -364,17 +371,17 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         if (arrayLen == 1) {
             //Return the simple name (no index needed as it is not an array)
             //Since allocateExtraSpace has no effect with delayVal == 0, it cannot be true and have an arrayLen of 1.  Therefore, no special action is taken
-            return CExpr(cStateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
+            return CExpr(cStateVar.getCVarName(imag), getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
         }else{
             //Since datatype expansion adds another dimension to the front of the list (elements are stored contiguously in memory(, dereferencing the first index works even if the type is a vector or array
             if(earliestFirst){
                 //If the samples come in at the beginning of the array, return the end of the array
                 //The extra space is at the front of the array, therefore, need to offset the returned index
-                return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(arrayLen-1) + "]", true);
+                return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(arrayLen-1) + "]", getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
             }else {
                 //If later samples are at the beginning of the array, return the front of the array
                 //The extra space from allocateExtraSpace is at the end of the array and is not a factor in the return
-                return CExpr(cStateVar.getCVarName(imag) + "[0]", true);
+                return CExpr(cStateVar.getCVarName(imag) + "[0]", getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
             }
         }
     }
@@ -576,8 +583,8 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
-    std::string inputExprIm;
+    CExpr inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
+    CExpr inputExprIm;
 
     if(inputDataType.isComplex()){
         inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
@@ -610,12 +617,13 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
     }
 
     //Deref if input vector/matrix
+    std::vector<std::string> emptyArr;
     std::string stateInputDeclAssignRe = stateInputVar.getCVarName(false) + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
-            " = " + inputExprRe + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + ";";
+            " = " + inputExprRe.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true) + ";";
     cStatementQueue.push_back(stateInputDeclAssignRe);
     if(inputDataType.isComplex()){
         std::string stateInputDeclAssignIm = stateInputVar.getCVarName(true) +(inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
-                " = " + inputExprIm + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + ";";
+                " = " + inputExprIm.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true) + ";";
         cStatementQueue.push_back(stateInputDeclAssignIm);
     }
 

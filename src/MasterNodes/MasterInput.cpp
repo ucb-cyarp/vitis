@@ -44,7 +44,7 @@ CExpr MasterInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
         expr = var.getCVarName(imag);
     }
 
-    return CExpr(expr, true);
+    return CExpr(expr, getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
 }
 
 std::shared_ptr<Node> MasterInput::shallowClone(std::shared_ptr<SubSystem> parent) {

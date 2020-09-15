@@ -325,7 +325,7 @@ void Node::removeKnownReferences(){
     }
 }
 
-std::string
+CExpr
 Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
             bool checkFanout, bool forceFanout) {
     std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
@@ -335,9 +335,9 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
 
     //If it has been emitted before and this function was called, then fanout has occurd, go directly to returning the tmp var name
     if(emittedBefore && checkFanout){
-        std::string varName = imag ? outputPort->getCEmitImStr() : outputPort->getCEmitReStr();
+        CExpr varName = imag ? outputPort->getCEmitImStr() : outputPort->getCEmitReStr();
 
-        if(varName.empty()){
+        if(varName.getExpr().empty()){
             //This should not happen if fanout is properly reported
             throw std::runtime_error("Tried to emit a port which has previously been emitted but did not create an output variable: " + getFullyQualifiedName() + " Port " + GeneralHelper::to_string(outputPortNum) + (imag ? " Imag" : " Real") + " Arcs: " + GeneralHelper::to_string(outputPort->getArcsRaw().size()));
         }
@@ -382,6 +382,13 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
             CExpr cExpr = emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
 
             if(!cExpr.isOutputVariable()) {
+                //For the CExpr to not be an output variable, it needs to be a scalar expression.
+                //It will then be stored in a scalar variable
+                //TODO: Remove this santiy check or correct if other CExprTypes are later implemented
+                if(cExpr.getExprType() != CExpr::ExprType::SCALAR_EXPR){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when emitting C expression.  Unexpected CExpr type.", getSharedPointer()));
+                }
+
                 //An expression was returned, not a variable name ... create one
 
                 //Declare output var and then assign it.  Set var name in port and return it as a string
@@ -395,7 +402,8 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
                 cStatementQueue.push_back(cVarDeclAssign);
 
                 //Set the var name in the port
-                std::string outputVarName = outputVar.getCVarName(imag);
+                //TODO: If vectors later supported, change this
+                CExpr outputVarName = CExpr(outputVar.getCVarName(imag), CExpr::ExprType::SCALAR_VAR);
                 if (imag) {
                     outputPort->setCEmitImStr(outputVarName);
                 } else {
@@ -407,18 +415,17 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
             }else{
                 //A variable name was returned ... set the var name in the port and return the variable name in the expr
                 //Avoid making a duplicate output variable
-                std::string outputVarName = cExpr.getExpr();
                 if (imag) {
-                    outputPort->setCEmitImStr(outputVarName);
+                    outputPort->setCEmitImStr(cExpr);
                 } else {
-                    outputPort->setCEmitReStr(outputVarName);
+                    outputPort->setCEmitReStr(cExpr);
                 }
 
-                return outputVarName;
+                return cExpr;
             }
         }else{
             //If not fanout, return expression
-            return emitCExpr(cStatementQueue, schedType, outputPortNum, imag).getExpr();
+            return emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
         }
     }
 }

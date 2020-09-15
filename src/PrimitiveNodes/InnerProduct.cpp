@@ -216,8 +216,8 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
 
     if(!emittedBefore) {
         //=== Get Input Expressions (borrowed from Product class as we are using some of its helper functions) ===
-        std::vector<std::string> inputExprs_re;
-        std::vector<std::string> inputExprs_im;
+        std::vector<CExpr> inputExprs_re;
+        std::vector<CExpr> inputExprs_im;
 
         for (unsigned long i = 0; i < getInputPorts().size(); i++) {
             std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
@@ -229,7 +229,7 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
             if (getInputPort(i)->getDataType().isComplex()) {
                 inputExprs_im.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true));
             } else {
-                inputExprs_im.push_back("");
+                inputExprs_im.push_back(CExpr("", inputExprs_re[inputExprs_re.size()-1].getExprType()));
             }
         }
 
@@ -262,15 +262,16 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         std::vector<std::string> inputExprsDeref_im;
         //There should only be 2 ports (validated above) but easy to write the loop
         //note that the expression index is the same as the port number
+        std::vector<std::string> emptyArr;
         for(int i = 0; i<inputExprs_re.size(); i++){
-            std::string inputExpr_re_deref = inputExprs_re[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            std::string inputExpr_re_deref = inputExprs_re[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
             std::string inputExpr_re_deref_cast = DataType::cConvertType(inputExpr_re_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
 
             inputExprsDeref_re.push_back(inputExpr_re_deref_cast);
         }
         for(int i = 0; i<inputExprs_im.size(); i++){
             if(getInputPort(i)->getDataType().isComplex()){
-                std::string inputExpr_im_deref = inputExprs_im[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::string inputExpr_im_deref = inputExprs_im[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
                 std::string inputExpr_im_deref_cast = DataType::cConvertType(inputExpr_im_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
 
                 inputExprsDeref_im.push_back(inputExpr_im_deref_cast);
@@ -323,8 +324,8 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         emittedBefore = true;
     }
 
-    //=== Return ouput variable (accumulator or output var if casting needed) ===
-    return CExpr(outputVar.getCVarName(imag), true);
+    //=== Return output variable (accumulator or output var if casting needed) ===
+    return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
 }
 
 std::string InnerProduct::complexConjBehaviorToString(InnerProduct::ComplexConjBehavior complexConjBehavior) {

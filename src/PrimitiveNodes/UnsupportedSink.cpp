@@ -89,7 +89,7 @@ void UnsupportedSink::validate() {
 
 CExpr UnsupportedSink::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Do nothing
-    return CExpr("", false);
+    return CExpr("", CExpr::ExprType::SCALAR_EXPR);
 }
 
 UnsupportedSink::UnsupportedSink(std::shared_ptr<SubSystem> parent, UnsupportedSink* orig) : PrimitiveNode(parent, orig), nodeType(orig->nodeType), dataKeyValueMap(orig->dataKeyValueMap) {

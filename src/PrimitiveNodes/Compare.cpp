@@ -163,7 +163,7 @@ CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     }
 
     //Get the expressions for each input
-    std::vector<std::string> inputExprs;
+    std::vector<CExpr> inputExprs;
 
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -188,16 +188,16 @@ CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     if(!foundFixedPt){
         //Relying on C automatic type promotion for non fixed point types
 
-        std::string expr = "(" + inputExprs[0] + ") " + compareOpToCString(compareOp) + " (" + inputExprs[1] + ")";
+        std::string expr = "(" + inputExprs[0].getExpr() + ") " + compareOpToCString(compareOp) + " (" + inputExprs[1].getExpr() + ")";
 
-        return CExpr(expr, false);
+        return CExpr(expr, CExpr::ExprType::SCALAR_EXPR);
     }
     else{
         //TODO: Finish
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Fixed Point Not Yet Implemented for Compare", getSharedPointer()));
     }
 
-    return CExpr("", false);
+    return CExpr("", CExpr::ExprType::SCALAR_EXPR);
 }
 
 Compare::Compare(std::shared_ptr<SubSystem> parent, Compare* orig) : PrimitiveNode(parent, orig), compareOp(orig->compareOp) {

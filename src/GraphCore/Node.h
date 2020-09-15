@@ -743,9 +743,9 @@ public:
      * @param imag if false, emits the real component of the output. if true, emits the imag component of the output
      * @param checkFanout if true, checks if the output is used in a fanout.  If false, no check is performed
      * @param forceFanout if true, a temporary variable is always create, if false the value of checkFanout dictates whether or not a temporary variable is created
-     * @return a string containing the C code for calculating the result of the output port
+     * @return a cExpr object containing the C code for calculating the result of the output port
      */
-    virtual std::string
+    virtual CExpr
     emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag = false,
               bool checkFanout = true, bool forceFanout = false);
 

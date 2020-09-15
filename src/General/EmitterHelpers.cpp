@@ -131,8 +131,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
+                //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
+                //desired
                 std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true,
-                                                     true);
+                                                     true).getExpr();
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for (unsigned long j = 0; j < numStatements_re; j++) {
@@ -171,8 +173,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
                 if (outputDataType.isComplex()) {
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
+                    //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
+                    //desired
                     std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true,
-                                                         true);
+                                                         true).getExpr();
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for (unsigned long j = 0; j < numStatements_im; j++) {
@@ -434,6 +438,8 @@ void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &c
 
             std::vector<std::string> cStatementsRe;
             //Emit real component (force fanout)
+            //Do not do anything with the returned expression. We will use the fanout variable if it is an expression
+            //or the returned variable if it is a variables, array, or circular buffer for dependant operations
             nodeToEmit->emitC(cStatementsRe, schedType, i, false, true,
                          true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 

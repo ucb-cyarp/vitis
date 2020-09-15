@@ -658,7 +658,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
 
         cFile << "//-- Compute Real Component --" << std::endl;
         std::vector<std::string> cStatements_re;
-        std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false);
+        CExpr expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false);
         //emit the expressions
         unsigned long numStatements_re = cStatements_re.size();
         for(unsigned long j = 0; j<numStatements_re; j++){
@@ -667,13 +667,17 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
 
         //emit the assignment
         Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+        //TODO: Emit Vector Output Support for Single Threaded Emit
+        if(!outputDataType.isScalar()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/Matrix Output Not Currently Supported For Single Threaded Generator"));
+        }
+        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re.getExpr() << ";" << std::endl;
 
         //Emit Imag if Datatype is complex
         if(outputDataType.isComplex()){
             cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
             std::vector<std::string> cStatements_im;
-            std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true);
+            CExpr expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true);
             //emit the expressions
             unsigned long numStatements_im = cStatements_im.size();
             for(unsigned long j = 0; j<numStatements_im; j++){
@@ -681,7 +685,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
             }
 
             //emit the assignment
-            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im.getExpr() << ";" << std::endl;
         }
     }
 }
@@ -725,7 +729,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
-                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
+                CExpr expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for(unsigned long j = 0; j<numStatements_re; j++){
@@ -734,13 +738,17 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
                 //emit the assignment
                 Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+                //TODO: Emit Vector Output Support for Single Threaded Emit
+                if(!outputDataType.isScalar()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/Matrix Output Not Currently Supported For Single Threaded Generator"));
+                }
+                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re.getExpr() << ";" << std::endl;
 
                 //Emit Imag if Datatype is complex
                 if(outputDataType.isComplex()){
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
-                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
+                    CExpr expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for(unsigned long j = 0; j<numStatements_im; j++){
@@ -748,7 +756,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
                     }
 
                     //emit the assignment
-                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im.getExpr() << ";" << std::endl;
                 }
             }
         }else if((*it)->hasState()){

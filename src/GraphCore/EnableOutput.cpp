@@ -180,13 +180,14 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
 
 CExpr EnableOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(!getInputPort(0)->getDataType().isScalar()){
+    if(!stateVar.getDataType().isScalar()){
         throw std::runtime_error("C Emit Error - EnableOutput Support for Vector Types has Not Yet Been Implemented");
     }
 
     //Return the state var name as the expression
-    //Return the simple name (no index needed as it is not an array
-    return CExpr(stateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
+    //Return the simple name (no index needed as it is not an array)
+
+    return CExpr(stateVar.getCVarName(imag), stateVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
 }
 
 //Because the EnableOutput is preceeded by it's corresponding state update node, that node will create a temporary
@@ -200,8 +201,8 @@ void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, S
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
-    std::string inputExprIm;
+    CExpr inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
+    CExpr inputExprIm;
 
     if(inputDataType.isComplex()){
         inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
@@ -222,12 +223,13 @@ void EnableOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, S
     }
 
     //The state variable is not an array
+    std::vector<std::string> emptyArr;
     cStatementQueue.push_back(stateVar.getCVarName(false) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + " = " +
-    inputExprRe + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + ";");
+    inputExprRe.getExprIndexed(inputDataType.isScalar() ? emptyArr : forLoopIndexVars, true) + ";");
 
     if(stateVar.getDataType().isComplex()){
         cStatementQueue.push_back(stateVar.getCVarName(true) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + " = " +
-        inputExprIm + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + ";");
+        inputExprIm.getExprIndexed(inputDataType.isScalar() ? emptyArr : forLoopIndexVars, true) + ";");
     }
 
     //Close for loop

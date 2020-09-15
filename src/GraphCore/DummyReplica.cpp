@@ -79,10 +79,10 @@ std::shared_ptr<Node> DummyReplica::shallowClone(std::shared_ptr<SubSystem> pare
 CExpr
 DummyReplica::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                         bool imag) {
-    return CExpr("", false); //Don't return anything
+    return CExpr("", CExpr::ExprType::SCALAR_EXPR); //Don't return anything
 }
 
-std::string
+CExpr
 DummyReplica::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag, bool checkFanout, bool forceFanout) {
     //Like constant, do not check for fanout

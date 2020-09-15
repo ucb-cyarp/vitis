@@ -166,7 +166,7 @@ void Sum::validate() {
 
 CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //Get the expressions for each input
-    std::vector<std::string> inputExprs;
+    std::vector<CExpr> inputExprs;
 
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -284,8 +284,8 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             }
 
             //if a vector/matrix type, need to dereference the input expr
-            std::string inputExprDeref = inputExprs[i] + (getInputPort(i)->getDataType().isScalar() ? "" :
-                                         EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            std::vector<std::string> emptyArr;
+            std::string inputExprDeref = inputExprs[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
 
             expr += "(" + DataType::cConvertType(inputExprDeref, getInputPort(i)->getDataType(), accumType) + ")";
 
@@ -306,10 +306,10 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
             //If a vector, return the temporary variable and flag it as a variable.
-            return CExpr(vecOutVar.getCVarName(imag), true);
+            return CExpr(vecOutVar.getCVarName(imag), CExpr::ExprType::ARRAY);
         }else{
             //If a scalar, just return the expression
-            return CExpr(expr, false);
+            return CExpr(expr, CExpr::ExprType::SCALAR_EXPR);
         }
     }
     else{
@@ -317,7 +317,7 @@ CExpr Sum::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Fixed Point Not Yet Implemented for Sum", getSharedPointer()));
     }
 
-    return CExpr("", false);
+    return CExpr("", CExpr::ExprType::SCALAR_EXPR);
 }
 
 Sum::Sum(std::shared_ptr<SubSystem> parent, Sum* orig) : PrimitiveNode(parent, orig), inputSign(orig->inputSign){

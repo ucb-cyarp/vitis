@@ -165,7 +165,7 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         int srcOutPortNum = srcPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcPort->getParent();
 
-        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+        CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
         //It is possible for the input to be a vector, emit a for loop if nessasary
         DataType inputDT = getInputPort(0)->getDataType();
@@ -184,11 +184,12 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
         }
 
-        //Because there is a minimum delay of 0, the state variable has at least 2 elements (and can be dereferenced)
+        //Because there is a minimum delay of 1, the state variable has at least 2 elements (and can be dereferenced)
         std::string assignTo = cStateVar.getCVarName(imag) + (earliestFirst ? "[0]" : "[" + GeneralHelper::to_string(delayValue) + "]" ); //Note not delayValue-1 because the array was extended by 1
 
         std::string assignToDeref = assignTo + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
-        std::string assignFromDeref = inputExpr + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+        std::vector<std::string> emptyArr;
+        std::string assignFromDeref = inputExpr.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true);
 
         cStatementQueue.push_back(assignToDeref + " = " + assignFromDeref + ";");
 
@@ -199,7 +200,8 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     }
 
     //Return the variable without any dereferencing
-    return CExpr(cStateVar.getCVarName(imag), true);
+    //TODO: Implement Circular Buffer
+    return CExpr(cStateVar.getCVarName(imag), CExpr::ExprType::ARRAY);
 }
 
 bool TappedDelay::hasInternalFanout(int inputPort, bool imag) {

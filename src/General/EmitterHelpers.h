@@ -270,6 +270,25 @@ namespace EmitterHelpers {
     }
 
     /**
+     * @brief Generates a C/C++ style array indexing operation without the final dereferencing
+     * @param index
+     * @return a string with the index variables sandwidtched between square brackets except for the last one where the "+" operator is used
+     */
+    template<typename T>
+    std::string generateIndexOperationWODereference(const std::vector<T>& index){
+        std::string str = "";
+
+        for(int i = 0; i<(((int) index.size())-1); i++){
+            str += "[" + GeneralHelper::to_string(index[i]) + "]";
+        }
+        if(!index.empty()){
+            str += "+" + GeneralHelper::to_string(index[index.size()-1]);
+        }
+
+        return str;
+    }
+
+    /**
      * @brief Converts a memory index (like the index of a linear vector) to the index of a C/C++ array occupying the same memory space
      * @param idx
      * @param dimensions the dimensions of the array
