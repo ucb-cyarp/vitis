@@ -3725,7 +3725,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles, !graphMLSchedFileName.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles, !papiHelperHFile.empty());
 
     //++++Emit Linux Pipe I/O Driver++++
     StreamIOThread::emitFileStreamHelpers(path, fileName);
@@ -3748,7 +3748,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream, !graphMLSchedFileName.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream, !papiHelperHFile.empty());
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
@@ -3764,7 +3764,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream, !graphMLSchedFileName.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream, !papiHelperHFile.empty());
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
@@ -3783,7 +3783,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Emit the benchmark makefile
     std::vector<std::string> otherCFilesSharedMem = otherCFiles;
     otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem, !graphMLSchedFileName.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem, !papiHelperHFile.empty());
 }
 
 void Design::pruneUnconnectedArcs(bool removeVisArcs) {
