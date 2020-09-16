@@ -129,17 +129,16 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                     //The delay has only 1 output (which must be this FIFO).  This delay also does not have any output order constraint arcs
                     //Absorb it if possible
 
-                    std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();
+                    //NOTE: The number of initial conditions can be expanded beyond the delay amount if circular buffer is used
+                    //Use getExportableInitConds to get the intiail conditions without extra elements
+                    std::vector<NumericValue> delayInitConds = srcDelay->getExportableInitConds();
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
+                    int numberInitCondsInSrc = srcDelay->getDelayValue() * elementsPerInput;
 
-                    if (delayInitConds.size() + fifoInitConds.size() <= fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1)) {
+                    if (numberInitCondsInSrc + fifoInitConds.size() <= fifo->getBlockSize() * elementsPerInput * (fifo->getFifoLength() - 1)) {
                         //Can absorb complete delay
-                        if(delayInitConds.size() % elementsPerInput != 0){
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Error absorbing delay into FIFO, the number of initial conditions to absorb is not a multiple of the number of elements per input", fifo));
-                        }
-
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
-                                             delayInitConds.end());  //Because this is at the input to the FIFO, the initial conditions are appended.
+                                             delayInitConds.begin() + numberInitCondsInSrc);  //Because this is at the input to the FIFO, the initial conditions are appended.
                         fifo->setInitConditionsCreateIfNot(0, fifoInitConds);
 
                         //Remove the delay node and re-wire arcs to the FIFO (including order constraint arcs)
@@ -166,7 +165,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                         if (printActions) {
                             std::cout << "Delay Absorbed info FIFO: " << srcDelay->getFullyQualifiedName() << " [ID:" << srcDelay->getId() << "]"
                                       << " into " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
-                                      << " - " << fifoInitConds.size()/elementsPerInput << " Elements" << std::endl;
+                                      << " - " << numberInitCondsInSrc / elementsPerInput << " Elements" << std::endl;
                         }
 
                         return AbsorptionStatus::FULL_ABSORPTION;
@@ -185,6 +184,9 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                         delayInitConds.erase(delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
                         srcDelay->setInitCondition(delayInitConds);
                         srcDelay->setDelayValue(srcDelay->getDelayValue()-numToAbsorb/elementsPerInput);
+                        //Need to re-propagate since getExportableInitConds was used which gives the initial conditions that
+                        //are exported to GraphML without extra elements for circular buffers
+                        srcDelay->propagateProperties();
 
                         //No re-wiring required
 
@@ -257,7 +259,10 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                     auto it = fifoOutputArcs.begin();
                     std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                     std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode);
-                    longestPostfix = dstDelay->getInitCondition();
+                    longestPostfix = dstDelay->getExportableInitConds();
+
+                    //NOTE: The number of initial conditions can be expanded beyond the delay amount if circular buffer is used
+                    //Use get getExportableInitConds to avoid added initial conditions for circular buffer or extra array element
 
                     if(longestPostfix.empty()){
                         //The first delay is degenerate, we can't merge
@@ -268,7 +273,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                         std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                         std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode); //We already checked that this cast could be made in the loop above
 
-                        longestPostfix = GeneralHelper::longestPostfix(longestPostfix, dstDelay->getInitCondition());
+                        longestPostfix = GeneralHelper::longestPostfix(longestPostfix, dstDelay->getExportableInitConds());
 
                         if(longestPostfix.empty()){
                             //The longest postfix is empty, no need to keep searching, we can't merge
@@ -301,7 +306,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                     std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                     std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode); //We already checked that this cast could be made in the loop above
 
-                    std::vector<NumericValue> delayInitConditions = dstDelay->getInitCondition();
+                    std::vector<NumericValue> delayInitConditions = dstDelay->getExportableInitConds();
                     if(delayInitConditions.size() < numToAbsorb){
                         throw std::runtime_error(ErrorHelpers::genErrorStr("Found a delay with an unexpected number of initial conditions durring FIFO delay absorption", dstDelay));
                     }else if(delayInitConditions.size() == numToAbsorb){
@@ -336,11 +341,13 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
                         foundPartial = true;
 
                         //Update the delay initial condition and delay value
-                        std::vector<NumericValue> delayInitConds = dstDelay->getInitCondition();
+                        std::vector<NumericValue> delayInitConds = dstDelay->getExportableInitConds();
                         //Remove from the tail of the initial conditions (fifo is behind it)
                         delayInitConds.erase(delayInitConds.end()-numToAbsorb, delayInitConds.end());
                         dstDelay->setInitCondition(delayInitConds);
                         dstDelay->setDelayValue(dstDelay->getDelayValue() - numToAbsorb/elementsPerInput);
+                        //Repropagate for the delay since the exportable delays were fed to it (what is exported to GraphML)
+                        dstDelay->propagateProperties();
 
                         if (printActions) {
                             std::cout << "Delay Partially Absorbed info FIFO: " << dstDelay->getFullyQualifiedName() << " [ID:" << dstDelay->getId() << "]"
@@ -498,6 +505,9 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
                                                                  origInputArc->getSampleTime());
             new_arcs.push_back(newInputArc);
             origInputArc->setDstPortUpdateNewUpdatePrev(delay->getInputPortCreateIfNot(0));
+
+            //Propagate properties in delays to handle circular buffer
+            delay->propagateProperties();
         }else{
             //The input is a MasterInput, the delay should be placed on the output
 
@@ -559,6 +569,9 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
                                                                  origInputArc->getSampleTime());
             new_arcs.push_back(newInputArc);
             //Do not actually need to re-wire the input port
+
+            //Propagate properties in delays to handle circular buffer
+            delay->propagateProperties();
         }
     }
 }

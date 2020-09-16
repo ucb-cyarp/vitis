@@ -14,11 +14,14 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 
-Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false){
+Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
+                 roundCircularBufferToPowerOf2(true){
 
 }
 
-Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0), earliestFirst(false), allocateExtraSpace(false) {
+Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0), earliestFirst(false),
+                                                  allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
+                                                  roundCircularBufferToPowerOf2(true){
 
 }
 
@@ -130,37 +133,15 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
 }
 
 void Delay::propagateProperties(){
-    //Check if broadcasting scalar initial condition is required
-    if(initCondition.size() == 1){
-        //May need to be expanded/broadcast
-        int elements = getInputPort(0)->getDataType().numberOfElements() * delayValue;
-
-        NumericValue uniformVal = initCondition[0];
-
-        //Already have one entry, add the rest
-        for(unsigned long i = 1; i<elements; i++){
-            initCondition.push_back(uniformVal);
-        }
+    //The specified order for initial conditions is that the value at index[0] will be displayed first.
+    //This works directly if the oldest value (the one to be output next by the delay) is at index 0
+    //In other words, it works when earliestFirst is not true.
+    //If earliestFirst is true, the initial conditions should be flipped
+    if(earliestFirst) {
+        std::reverse(initCondition.begin(), initCondition.end());
     }
 
-    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
-        //Need to add initial conditions for the extra elements
-        //It does not really matter as this extra element is only used by TappedDelay to pass the current value
-        int elements = getInputPort(0)->getDataType().numberOfElements();
-
-        std::vector<NumericValue> extraPosInit;
-        for(int i = 0; i<elements; i++){
-            extraPosInit.push_back(initCondition[i]);
-        }
-
-        if(earliestFirst){
-            //Insert initial conditions at the front (this is where the current value would go)
-            initCondition.insert(initCondition.begin(), extraPosInit.begin(), extraPosInit.end());
-        }else{
-            //Insert initial conditions at the end (this is where the current value would go)
-            initCondition.insert(initCondition.end(), extraPosInit.begin(), extraPosInit.end());
-        }
-    }
+    propagatePropertiesHelper();
 }
 
 std::set<GraphMLParameter> Delay::graphMLParameters() {
@@ -176,22 +157,7 @@ std::set<GraphMLParameter> Delay::graphMLParameters() {
 void Delay::emitGraphMLDelayParams(xercesc::DOMDocument *doc, xercesc::DOMElement *xmlNode) {
     GraphMLHelper::addDataNode(doc, xmlNode, "DelayLength", GeneralHelper::to_string(delayValue));
 
-    std::vector<NumericValue> initConds;
-    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
-        //Remove the extra values when emitting
-
-        if(earliestFirst){
-            //Remove from the beginning
-            int elements = getInputPort(0)->getDataType().numberOfElements();
-            initConds.insert(initConds.begin(), initCondition.begin()+elements, initCondition.end());
-        }else{
-            //remove from the end
-            int initCondLen = initCondition.size();
-            initConds.insert(initConds.begin(), initCondition.begin(), initCondition.begin()+initCondLen);
-        }
-    }else{
-        initConds = initCondition;
-    }
+    std::vector<NumericValue> initConds = getExportableInitConds();
 
     GraphMLHelper::addDataNode(doc, xmlNode, "InitialCondition", NumericValue::toString(initConds));
 }
@@ -220,22 +186,7 @@ std::string Delay::labelStr() {
     label += "\nFunction: " + typeNameStr() +
              "\nDelayLength: " + GeneralHelper::to_string(delayValue);
 
-    std::vector<NumericValue> initConds;
-    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
-        //Remove the extra values when emitting
-
-        if(earliestFirst){
-            //Remove from the beginning
-            int elements = getInputPort(0)->getDataType().numberOfElements();
-            initConds.insert(initConds.begin(), initCondition.begin()+elements, initCondition.end());
-        }else{
-            //remove from the end
-            int initCondLen = initCondition.size();
-            initConds.insert(initConds.begin(), initCondition.begin(), initCondition.begin()+initCondLen);
-        }
-    }else{
-        initConds = initCondition;
-    }
+    std::vector<NumericValue> initConds = getExportableInitConds();
 
     label += "\nInitialCondition: " + NumericValue::toString(initConds);
 
@@ -266,12 +217,27 @@ void Delay::validate() {
     if(allocateExtraSpace){
         arraySize++;
     }
-    if (delayValue != 0 && arraySize*inType.numberOfElements() != initCondition.size()){
+
+    int expectedSize;
+    if(usesCircularBuffer() && roundCircularBufferToPowerOf2){
+        expectedSize = getBufferLength()*inType.numberOfElements();
+    }else{
+        expectedSize = arraySize*inType.numberOfElements();
+    }
+
+    if (delayValue != 0 && expectedSize != initCondition.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr(
                 "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
-                ") * Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
-                ") does not Match the Length of Init Condition Vector (" +
-                GeneralHelper::to_string(initCondition.size()) + ")", getSharedPointer()));
+                "), Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
+                "), Init Condition Vector (" +
+                GeneralHelper::to_string(initCondition.size()) +
+                ") does not match the expected initial condition length (" + GeneralHelper::to_string(expectedSize) +
+                ")", getSharedPointer()));
+    }
+
+    //TODO: Remove after updating FIFO delay absorption to handle ea
+    if(earliestFirst){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Standard Delay nodes do not currently support earliestFirst", getSharedPointer()));
     }
 }
 
@@ -290,9 +256,18 @@ std::vector<Variable> Delay::getCStateVars() {
     if(delayValue == 0){
         return vars;
     }else{
-        int arrayLen = delayValue;
-        if(allocateExtraSpace){
-            arrayLen++;
+        int arrayLen = getBufferLength(); //This also account for if a circular buffer is used and roundCircularBufferToPowerOf2 is selected
+
+        if(usesCircularBuffer()){
+            //Declare the circular buffer offset var
+            //This is initialized to be 0 at the start
+            NumericValue offsetInitVal = NumericValue((long) 0);
+            DataType offsetDT = DataType(false, false, false, (int) ceil(log2(arrayLen)), 0,
+                                         {1}).getCPUStorageType();
+            std::string offsetVarName = name+"_n"+GeneralHelper::to_string(id)+"_circBufHeadInd";
+            Variable offsetVar = Variable(offsetVarName, offsetDT, {offsetInitVal});
+            circularBufferOffsetVar = offsetVar;
+            vars.push_back(offsetVar);
         }
 
         //There is a single state variable for the delay.  However for a delay > 1, it is a vector if the input datatype is scalar and a matrix if the input datatype is a vector or matrix
@@ -301,11 +276,11 @@ std::vector<Variable> Delay::getCStateVars() {
         if(arrayLen == 1) { //Note, allocateExtra space will neve have an array length of 1 because it has no effect if the delay length is 0 (checked above)
             stateType = getInputPort(0)->getDataType();
         }else{
-            stateType = getInputPort(0)->getDataType().expandForBlock(arrayLen);
+            stateType = getInputPort(0)->getDataType().expandForBlock(arrayLen); //The vector elements will be stored contiguously
         }
 
         std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-        Variable var = Variable(varName, stateType, initCondition);
+        Variable var = Variable(varName, stateType, initCondition); //The initial condition was reversed from the input if earliestFirst is selected
         cStateVar = var;
         //Complex variable will be made if needed by the design code based on the data type
         vars.push_back(var);
@@ -374,22 +349,43 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             return CExpr(cStateVar.getCVarName(imag), getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
         }else{
             //Since datatype expansion adds another dimension to the front of the list (elements are stored contiguously in memory(, dereferencing the first index works even if the type is a vector or array
-            if(earliestFirst){
-                //If the samples come in at the beginning of the array, return the end of the array
-                //The extra space is at the front of the array, therefore, need to offset the returned index
-                return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(arrayLen-1) + "]", getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
+            if(usesCircularBuffer()){
+                //TODO: Implement
+                if (earliestFirst){
+                    //The oldest (latest) value is at the end of the array
+                    //Need to correct for the extra space at the front of the array.
+                    //arrayLen above is corrected when an extra array element is
+                    std::string indValue = "(" + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(arrayLen-1) + ")%" + GeneralHelper::to_string(getBufferLength());
+                    return CExpr(cStateVar.getCVarName(imag) + "[" + indValue + "]",
+                                 getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR
+                                                                                        : CExpr::ExprType::ARRAY);
+
+                }else{
+                    //Return the value at the front of the array (at the current offset)
+                    return CExpr(cStateVar.getCVarName(imag) + "[" + circularBufferOffsetVar.getCVarName(false) + "]",
+                                 getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR
+                                                                                        : CExpr::ExprType::ARRAY);
+                }
             }else {
-                //If later samples are at the beginning of the array, return the front of the array
-                //The extra space from allocateExtraSpace is at the end of the array and is not a factor in the return
-                return CExpr(cStateVar.getCVarName(imag) + "[0]", getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
+                if (earliestFirst) {
+                    //If the samples come in at the beginning of the array, return the end of the array
+                    //The extra space is at the front of the array, therefore, need to offset the returned index
+                    return CExpr(cStateVar.getCVarName(imag) + "[" + GeneralHelper::to_string(arrayLen - 1) + "]",
+                                 getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR
+                                                                                        : CExpr::ExprType::ARRAY);
+                } else {
+                    //If later samples are at the beginning of the array, return the front of the array
+                    //The extra space from allocateExtraSpace is at the end of the array and is not a factor in the return
+                    return CExpr(cStateVar.getCVarName(imag) + "[0]",
+                                 getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR
+                                                                                        : CExpr::ExprType::ARRAY);
+                }
             }
         }
     }
 }
 
 void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
-    //TODO: Implement Vector Support (Need 2D state)
-
     DataType inputDT = getInputPort(0)->getDataType(); //This is the datatype of the input and does not include any extra dimension for the buffer
 
     if(delayValue == 0){
@@ -444,132 +440,201 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
         }
 
     }else{
-        //This is a (pair) of arrays
-        //Emit a for loop to perform the shift for each
+        if(usesCircularBuffer()){
+            //We are using a circular buffer
+            //instead of shifting values, we will insert the new value into the array and then update the offset
+            //variable.  Depending on whether earliest first is selected, the offset is either incremented or decremented
+            //Note that, due to the behavior of % for signed numbers, if the array size is not forced to be a power of 2
+            //an if/else will be used to handle the wraparound condition.  Otherwise, a % operator will be used.
+            //this is OK with unsigned wrapparound and masking with a power of 2 long array)
 
-        //----Shift State ----
-        std::string loopVarNameUnsanitized = name+"_n"+GeneralHelper::to_string(id)+"_loopCounter";
-        Variable loopVar(loopVarNameUnsanitized, DataType());
-        std::string loopVarNameSanitized = loopVar.getCVarName(false);
+            if(earliestFirst){
+                //The earliest values (newest values) are stored at the front of the array.
+                //The latest values (oldest values) are stored at the end of the array
 
-        //Shift state loop
-        std::string assignToInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "]";
-        std::string assignToInShiftLoop_Im;
-        if(cStateVar.getDataType().isComplex()) {
-            assignToInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "]";
-        }
+                if(allocateExtraSpace){
+                    //Before modifying the offset, the occupied elements are [offset, offset+delay] (because [offset] is the extra space)
+                    //The new value is stored into the extra space ([offset])
+                    assignInputToBuffer(circularBufferOffsetVar.getCVarName(false), cStatementQueue);
+                    //The offset can then be decremented.
+                    decrementAndWrapCircularBufferOffset(cStatementQueue);
+                    //The extra space will be at the [new_offset] address.
+                    //The range of values not including the extra space are at [new_offset+1, new_offset+delay]
+                }else{
+                    //Before modifying the offset, the occupied elements are [offset, offset+delay-1]
+                    //The new value is stored at [offset-1]
+                    //The offset is decremented
+                    decrementAndWrapCircularBufferOffset(cStatementQueue);
+                    //The new value is stored at [new_offset]
+                    assignInputToBuffer(circularBufferOffsetVar.getCVarName(false), cStatementQueue);
+                    //The range of values ranges from [new_offset, new_offset+delay-1]
+                }
 
-        int arrayLength = delayValue;
-        if(allocateExtraSpace){
-            arrayLength++;
-        }
+                //For a standard delay, the oldest value is returned
+                //    ExtraSpace: [new_offset+delay]
+                //    Standard: [new_offset+delay-1]
 
-        std::string assignFromInShiftLoop_Re;
-        std::string assignFromInShiftLoop_Im;
-        if(earliestFirst){
-            //If allocateExtraSpace, the extra space is at the front of the array.  The shift indexes now need to be increased by 1
-            int lowInd = allocateExtraSpace ? 1 : 0;
-            cStatementQueue.push_back("for(unsigned long " + loopVarNameSanitized + " = " + GeneralHelper::to_string(arrayLength - 1) + "; " + loopVarNameSanitized + " > " + GeneralHelper::to_string(lowInd) + "; " + loopVarNameSanitized + "--){");
-            assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "-1]";
-            if(cStateVar.getDataType().isComplex()) {
-                assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "-1]";
+            }else{
+                //The latest values (oldest values) are stored at the front of the array.
+                //The earliest values (newest values) are stored at the end of the array.
+
+                //The insertion logic is the same regardless of whether an extra space was allocated or not:
+                //This is because the offset is where the last element in the array is in both the ExtraSpace and Standard case
+                //ExtraSpace:
+                //    At this point [offset, offset+delay] are occupied (because of the extra space at [offset+delay] allocated)
+                //    The new value is inserted into the extra space [offset+delay]
+                //    the offset is then incremented
+                //    The extra space is now at [new_offset+delay].
+                //    The range of values not including the extra space are [new_offset, new_offset+delay-1]
+                //Standard:
+                //    At this point [offset, offset+delay-1] are occupied
+                //    the new value is inserted into the next space at [offset+delay]
+                //    The offset is then incremented
+                //    The range of value is now [new_offset, new_offset+delay-1]
+
+                std::string insertPosition = "(" + circularBufferOffsetVar.getCVarName(false) + "+" +
+                                             GeneralHelper::to_string(delayValue) + ")%" +
+                                             GeneralHelper::to_string(getBufferLength());
+                assignInputToBuffer(insertPosition, cStatementQueue);
+                incrementAndWrapCircularBufferOffset(cStatementQueue);
+
+                //For a standard delay, both ExtraSpace and Standard return the oldest element which is at [new_offset]
             }
         }else {
-            //If allocateExtraSpace, the extra space is at the end of the array, shifting does not need to extend to that ind so no additional
-            cStatementQueue.push_back("for(unsigned long " + loopVarNameSanitized + " = 0; " + loopVarNameSanitized + " < " + GeneralHelper::to_string(delayValue - 1) + "; " + loopVarNameSanitized + "++){");
-            assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "+1]";
-            if(cStateVar.getDataType().isComplex()) {
-                assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "+1]";
+            //This is a (pair) of arrays
+            //Emit a for loop to perform the shift for each
+
+            //----Shift State ----
+            std::string loopVarNameUnsanitized = name + "_n" + GeneralHelper::to_string(id) + "_loopCounter";
+            Variable loopVar(loopVarNameUnsanitized, DataType());
+            std::string loopVarNameSanitized = loopVar.getCVarName(false);
+
+            //Shift state loop
+            std::string assignToInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "]";
+            std::string assignToInShiftLoop_Im;
+            if (cStateVar.getDataType().isComplex()) {
+                assignToInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "]";
             }
-        }
 
-        //If the input is not a scalar, insert additional nested for loops
-        std::vector<std::string> forLoopShiftClose;
-        if(!inputDT.isScalar()){
-            //Nest for loop with the dimension of the input (without any extra dimension added for the state variable)
-            //Note that the input may be a scalar and, in that case, an extra dimension is not added and the state variable will be a vector
-            //Note, additional dereferencing should occur after the delay index since the extra dimension for the buffer is prepended
-
-            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                    EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
-            std::vector<std::string> forLoopShiftOpen = std::get<0>(forLoopStrs);
-            std::vector<std::string> forLoopShiftIndexVars = std::get<1>(forLoopStrs);
-            forLoopShiftClose = std::get<2>(forLoopStrs);
-            cStatementQueue.insert(cStatementQueue.end(), forLoopShiftOpen.begin(), forLoopShiftOpen.end());
-
-            assignToInShiftLoop_Re += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
-            assignFromInShiftLoop_Re += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
-            if(cStateVar.getDataType().isComplex()) {
-                assignToInShiftLoop_Im += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
-                assignFromInShiftLoop_Im += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
+            int arrayLength = delayValue;
+            if (allocateExtraSpace) {
+                arrayLength++;
             }
-        }
 
-        //Assign shift
-        cStatementQueue.push_back(assignToInShiftLoop_Re + " = " + assignFromInShiftLoop_Re + ";");
-        if(cStateVar.getDataType().isComplex()){
-            cStatementQueue.push_back(assignToInShiftLoop_Im + " = " + assignFromInShiftLoop_Im + ";");
-        }
-
-        //Close inner for loops
-        if(!inputDT.isScalar()){
-            cStatementQueue.insert(cStatementQueue.end(), forLoopShiftClose.begin(), forLoopShiftClose.end());
-        }
-
-        //Close shift loop
-        cStatementQueue.push_back("}");
-
-        //----Input store----
-        std::string assignToInInputLoop_Re;
-        std::string assignToInInputLoop_Im;
-        if(earliestFirst){
-            //Extra element from allocateExtraSpace is at the front of the array, the start of the buffer for the delay is now 1 index up
-            int ind = allocateExtraSpace ? 1 : 0;
-            assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(ind) + "]";
-            if(cStateVar.getDataType().isComplex()) {
-                assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(ind) + "]";
+            std::string assignFromInShiftLoop_Re;
+            std::string assignFromInShiftLoop_Im;
+            if (earliestFirst) {
+                //If allocateExtraSpace, the extra space is at the front of the array.  The shift indexes now need to be increased by 1
+                int lowInd = allocateExtraSpace ? 1 : 0;
+                cStatementQueue.push_back("for(unsigned long " + loopVarNameSanitized + " = " +
+                                          GeneralHelper::to_string(arrayLength - 1) + "; " + loopVarNameSanitized +
+                                          " > " + GeneralHelper::to_string(lowInd) + "; " + loopVarNameSanitized +
+                                          "--){");
+                assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "-1]";
+                if (cStateVar.getDataType().isComplex()) {
+                    assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "-1]";
+                }
+            } else {
+                //If allocateExtraSpace, the extra space is at the end of the array, shifting does not need to extend to that ind so no additional
+                cStatementQueue.push_back(
+                        "for(unsigned long " + loopVarNameSanitized + " = 0; " + loopVarNameSanitized + " < " +
+                        GeneralHelper::to_string(delayValue - 1) + "; " + loopVarNameSanitized + "++){");
+                assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "+1]";
+                if (cStateVar.getDataType().isComplex()) {
+                    assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "+1]";
+                }
             }
-        }else {
-            //Extra element from allocateExtraSpace is at the end of the array, no modification nessasary
-            assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
-            if(cStateVar.getDataType().isComplex()) {
-                assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+
+            //If the input is not a scalar, insert additional nested for loops
+            std::vector<std::string> forLoopShiftClose;
+            if (!inputDT.isScalar()) {
+                //Nest for loop with the dimension of the input (without any extra dimension added for the state variable)
+                //Note that the input may be a scalar and, in that case, an extra dimension is not added and the state variable will be a vector
+                //Note, additional dereferencing should occur after the delay index since the extra dimension for the buffer is prepended
+
+                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                        EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+                std::vector<std::string> forLoopShiftOpen = std::get<0>(forLoopStrs);
+                std::vector<std::string> forLoopShiftIndexVars = std::get<1>(forLoopStrs);
+                forLoopShiftClose = std::get<2>(forLoopStrs);
+                cStatementQueue.insert(cStatementQueue.end(), forLoopShiftOpen.begin(), forLoopShiftOpen.end());
+
+                assignToInShiftLoop_Re += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
+                assignFromInShiftLoop_Re += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
+                if (cStateVar.getDataType().isComplex()) {
+                    assignToInShiftLoop_Im += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
+                    assignFromInShiftLoop_Im += EmitterHelpers::generateIndexOperation(forLoopShiftIndexVars);
+                }
             }
-        }
 
-        std::string assignFromInInputLoop_Re = cStateInputVar.getCVarName(false);
-        std::string assignFromInInputLoop_Im;
-        if(cStateVar.getDataType().isComplex()) {
-            assignFromInInputLoop_Im = cStateInputVar.getCVarName(true);
-        }
-
-        //For loop if input is vector/matrix
-        //Deref is nessissary
-        std::vector<std::string> forLoopInputClose;
-        if(!inputDT.isScalar()){
-            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                    EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
-            std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
-            std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
-            forLoopInputClose = std::get<2>(forLoopStrs);
-            cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
-
-            assignToInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
-            assignFromInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
-            if(cStateVar.getDataType().isComplex()) {
-                assignToInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
-                assignFromInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+            //Assign shift
+            cStatementQueue.push_back(assignToInShiftLoop_Re + " = " + assignFromInShiftLoop_Re + ";");
+            if (cStateVar.getDataType().isComplex()) {
+                cStatementQueue.push_back(assignToInShiftLoop_Im + " = " + assignFromInShiftLoop_Im + ";");
             }
-        }
 
-        cStatementQueue.push_back(assignToInInputLoop_Re + " = " + assignFromInInputLoop_Re + ";");
-        if(cStateVar.getDataType().isComplex()){
-            cStatementQueue.push_back(assignToInInputLoop_Im + " = " + assignFromInInputLoop_Im + ";");
-        }
+            //Close inner for loops
+            if (!inputDT.isScalar()) {
+                cStatementQueue.insert(cStatementQueue.end(), forLoopShiftClose.begin(), forLoopShiftClose.end());
+            }
 
-        //Close inner for loops
-        if(!inputDT.isScalar()){
-            cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+            //Close shift loop
+            cStatementQueue.push_back("}");
+
+            //----Input store----
+            std::string assignToInInputLoop_Re;
+            std::string assignToInInputLoop_Im;
+            if (earliestFirst) {
+                //Extra element from allocateExtraSpace is at the front of the array, the start of the buffer for the delay is now 1 index up
+                int ind = allocateExtraSpace ? 1 : 0;
+                assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(ind) + "]";
+                if (cStateVar.getDataType().isComplex()) {
+                    assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(ind) + "]";
+                }
+            } else {
+                //Extra element from allocateExtraSpace is at the end of the array, no modification nessasary
+                assignToInInputLoop_Re =
+                        cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+                if (cStateVar.getDataType().isComplex()) {
+                    assignToInInputLoop_Im =
+                            cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+                }
+            }
+
+            std::string assignFromInInputLoop_Re = cStateInputVar.getCVarName(false);
+            std::string assignFromInInputLoop_Im;
+            if (cStateVar.getDataType().isComplex()) {
+                assignFromInInputLoop_Im = cStateInputVar.getCVarName(true);
+            }
+
+            //For loop if input is vector/matrix
+            //Deref is nessissary
+            std::vector<std::string> forLoopInputClose;
+            if (!inputDT.isScalar()) {
+                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                        EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+                std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
+                std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
+                forLoopInputClose = std::get<2>(forLoopStrs);
+                cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
+
+                assignToInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                assignFromInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                if (cStateVar.getDataType().isComplex()) {
+                    assignToInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                    assignFromInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                }
+            }
+
+            cStatementQueue.push_back(assignToInInputLoop_Re + " = " + assignFromInInputLoop_Re + ";");
+            if (cStateVar.getDataType().isComplex()) {
+                cStatementQueue.push_back(assignToInInputLoop_Im + " = " + assignFromInInputLoop_Im + ";");
+            }
+
+            //Close inner for loops
+            if (!inputDT.isScalar()) {
+                cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+            }
         }
     }
 
@@ -635,7 +700,9 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
 
 Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue),
     initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar),
-    earliestFirst(orig->earliestFirst), allocateExtraSpace(orig->allocateExtraSpace){
+    earliestFirst(orig->earliestFirst), allocateExtraSpace(orig->allocateExtraSpace),
+    bufferImplementation(orig->bufferImplementation), circularBufferOffsetVar(orig->circularBufferOffsetVar),
+    roundCircularBufferToPowerOf2(orig->roundCircularBufferToPowerOf2){
 
 }
 
@@ -670,4 +737,254 @@ bool Delay::isAllocateExtraSpace() const {
 
 void Delay::setAllocateExtraSpace(bool allocateExtraSpace) {
     Delay::allocateExtraSpace = allocateExtraSpace;
+}
+
+Delay::BufferType Delay::getBufferImplementation() const {
+    return bufferImplementation;
+}
+
+void Delay::setBufferImplementation(Delay::BufferType bufferImplementation) {
+    Delay::bufferImplementation = bufferImplementation;
+}
+
+bool Delay::usesCircularBuffer() {
+    if(delayValue == 0 || delayValue == 1){
+        return false;
+    }
+
+    if(bufferImplementation == BufferType::AUTO){
+        if(delayValue==2) {
+            if (getInputPort(0)->getDataType().isScalar()) {
+                return false;
+            } else {
+                return true;
+            }
+        }else if(delayValue>2){
+            return true;
+        }else{
+            return false;
+        }
+    }else if(bufferImplementation == BufferType::SHIFT_REGISTER){
+        return false;
+    }else if(bufferImplementation == BufferType::CIRCULAR_BUFFER){
+        return true;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown BufferType", getSharedPointer()));
+    }
+
+}
+
+void Delay::decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) {
+    cStatementQueue.push_back("if(" + circularBufferOffsetVar.getCVarName(false) + "<=0){");
+    cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "=" + GeneralHelper::to_string(getBufferLength()-1) + ";");
+    cStatementQueue.push_back("}else{");
+    cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "--" + ";");
+    cStatementQueue.push_back("}");
+}
+
+void Delay::incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) {
+    cStatementQueue.push_back(circularBufferOffsetVar.getCVarName(false) +
+    "=(" + circularBufferOffsetVar.getCVarName(false) + "+1)%" + GeneralHelper::to_string(getBufferLength()) + ";");
+}
+
+int Delay::getBufferLength() {
+    int arrayLen = delayValue;
+    if(allocateExtraSpace){
+        arrayLen++;
+    }
+
+    if(usesCircularBuffer()) {
+        if (roundCircularBufferToPowerOf2) {
+            //Round the array length up the nearest power of 2
+            double arrayLenRounded = round(pow(2, ceil(log2(arrayLen))));
+            arrayLen = (int) arrayLenRounded;
+        }
+    }
+
+    return arrayLen;
+}
+
+void Delay::assignInputToBuffer(std::string insertPosition, std::vector<std::string> &cStatementQueue) {
+    DataType inputDT = getInputPort(0)->getDataType();
+
+    std::string input_Re = cStateInputVar.getCVarName(false);
+    std::string input_Im;
+    if (cStateVar.getDataType().isComplex()) {
+        input_Im = cStateInputVar.getCVarName(true);
+    }
+
+    std::string assignTo_Re = cStateVar.getCVarName(false) + "[" + insertPosition + "]";
+    std::string assignTo_Im;
+    if (cStateVar.getDataType().isComplex()) {
+        assignTo_Im = cStateVar.getCVarName(true) + "[" + insertPosition + "]";
+    }
+
+    //--- Create for Loop if Elements are Vectors/Matricies ---
+    std::vector<std::string> forLoopInputClose;
+    if (!inputDT.isScalar()) {
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+        std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
+        std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
+        forLoopInputClose = std::get<2>(forLoopStrs);
+        cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
+
+        assignTo_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+        input_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+        if (cStateVar.getDataType().isComplex()) {
+            assignTo_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+            input_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+        }
+    }
+
+    //Make the assignment
+    cStatementQueue.push_back(assignTo_Re + "=" + input_Re + ";");
+    if (cStateVar.getDataType().isComplex()) {
+        cStatementQueue.push_back(assignTo_Im + "=" + input_Im + ";");
+    }
+
+    //Close the for loop (if needed)
+    if (!inputDT.isScalar()) {
+        cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+    }
+}
+
+void
+Delay::assignInputToBuffer(CExpr src, std::string insertPosition, bool imag, std::vector<std::string> &cStatementQueue) {
+    DataType inputDT = getInputPort(0)->getDataType();
+
+    std::string assignTo = cStateVar.getCVarName(imag) + "[" + insertPosition + "]";
+
+    //--- Create for Loop if Elements are Vectors/Matricies ---
+    std::string srcStr;
+    std::vector<std::string> forLoopInputClose;
+    if (!inputDT.isScalar()) {
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+        std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
+        std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
+        forLoopInputClose = std::get<2>(forLoopStrs);
+        cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
+
+        assignTo += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+        srcStr = src.getExprIndexed(forLoopInputIndexVars, true);
+    }else{
+        srcStr = src.getExpr();
+    }
+
+    //Make the assignment
+    cStatementQueue.push_back(assignTo + "=" + srcStr + ";");
+
+    //Close the for loop (if needed)
+    if (!inputDT.isScalar()) {
+        cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+    }
+}
+
+std::vector<NumericValue> Delay::getExportableInitConds() {
+    std::vector<NumericValue> initConds = getExportableInitCondsHelper();
+
+    //The specified order for initial conditions is that the value at index[0] will be displayed first.
+    //This works directly if the oldest value (the one to be output next by the delay) is at index 0
+    //In other words, it works when earliestFirst is not true.
+    //If earliestFirst is true, the initial conditions should be flipped
+    //We now need to reverse that flip
+    if(earliestFirst) {
+        std::reverse(initConds.begin(), initConds.end());
+    }
+
+    return initConds;
+}
+
+std::vector<NumericValue> Delay::getExportableInitCondsHelper() {
+    //Need to undo any additional values inserted for handling circular buffers, the extra element, or supporting earliest first
+    //before emitting
+    std::vector<NumericValue> initCondsAfterCircularCorrection;
+    if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
+        //Undo extra elements for the circular buffer
+        int origArrayLen = delayValue;
+        if(allocateExtraSpace){
+            origArrayLen++;
+        }
+
+        int targetCount = getInputPort(0)->getDataType().numberOfElements() * origArrayLen;
+        for(int i = 0; i<targetCount; i++){
+            initCondsAfterCircularCorrection.push_back(initCondition[i]);
+        }
+    }else{
+        initCondsAfterCircularCorrection = initCondition;
+    }
+
+    std::vector<NumericValue> initConds;
+    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
+        //Remove the extra value for the extra space
+        if(earliestFirst){
+            //Remove from the beginning
+            int elements = getInputPort(0)->getDataType().numberOfElements();
+            initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin()+elements, initCondsAfterCircularCorrection.end());
+        }else{
+            //remove from the end
+            int initCondLen = initCondsAfterCircularCorrection.size();
+            initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin(), initCondsAfterCircularCorrection.begin()+initCondLen);
+        }
+    }else{
+        initConds = initCondsAfterCircularCorrection;
+    }
+
+    return initConds;
+}
+
+
+void Delay::propagatePropertiesHelper() {
+    //Check if broadcasting scalar initial condition is required
+    if(initCondition.size() == 1){
+        //May need to be expanded/broadcast
+        int elements = getInputPort(0)->getDataType().numberOfElements() * delayValue;
+
+        NumericValue uniformVal = initCondition[0];
+
+        //Already have one entry, add the rest
+        for(unsigned long i = 1; i<elements; i++){
+            initCondition.push_back(uniformVal);
+        }
+    }
+
+    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
+        //Need to add initial conditions for the extra elements
+        //It does not really matter as this extra element is only used by TappedDelay to pass the current value
+        int elements = getInputPort(0)->getDataType().numberOfElements();
+
+        std::vector<NumericValue> extraPosInit;
+        for(int i = 0; i<elements; i++){
+            extraPosInit.push_back(initCondition[i]);
+        }
+
+        if(earliestFirst){
+            //Insert initial conditions at the front (this is where the current value would go)
+            initCondition.insert(initCondition.begin(), extraPosInit.begin(), extraPosInit.end());
+        }else{
+            //Insert initial conditions at the end (this is where the current value would go)
+            initCondition.insert(initCondition.end(), extraPosInit.begin(), extraPosInit.end());
+        }
+    }
+
+    if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
+        int origArrayLen = delayValue;
+        if(allocateExtraSpace){
+            origArrayLen++;
+        }
+        //May need to add additional initial conditions when rounded up to a power of 2
+        int allocatedSize = getBufferLength()*getInputPort(0)->getDataType().numberOfElements();
+
+        //Will insert the extra elements at the end of the buffer.  Does not matter what they are since they will be overwritten
+        int initialCount = getInputPort(0)->getDataType().numberOfElements() * origArrayLen;
+
+        if(initialCount != initCondition.size()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected initial condition size when adding new initial values for circular buffer", getSharedPointer()));
+        }
+
+        for(int i = initialCount; i<allocatedSize; i++){
+            initCondition.push_back(NumericValue((long) 0));
+        }
+    }
 }

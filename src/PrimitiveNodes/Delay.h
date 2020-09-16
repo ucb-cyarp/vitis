@@ -23,17 +23,30 @@
 */
 
 /**
- * @brief Represents a Delay (z^-1) Block
+ * @brief Represents a Delay (z^-n) Block
+ *
+ * @warning earliestFirst is not currently supported for standard Delays (not TappedDelays) due to the current implementation
+ *          of delay absorption.  All Delays should be initialized to set earliestFirst to be false for now.
  */
 class Delay : public PrimitiveNode{
     friend NodeFactory;
+public:
+    enum class BufferType{
+        AUTO, ///<Selects Shift Register or Circular Buffer Implementation Automatically Based on Configuration
+        SHIFT_REGISTER, ///<Selects Shift Register Implementation
+        CIRCULAR_BUFFER ///<Selects Circular Buffer Implementation
+    };
+
 protected:
     int delayValue; ///<The amount of delay in this node
     std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Number of elements must match the delay value times the size of each element.  The initial condition that will be presented first is at index 0
     Variable cStateVar; ///<The C variable storing the state of the delay
     Variable cStateInputVar; ///<the C temporary variable holding the input to state before the update
+    Variable circularBufferOffsetVar; ///<The C variable shoring the current head index of the circular buffer (if a circular buffer implementation is being used)
+    bool roundCircularBufferToPowerOf2; ///<If true and using circular buffers, the buffer size is rounded up to the nearest power of 2
     //TODO: Re-evaluate if numeric value should be stored as double/complex double (like Matlab does).  An advantage to providing a class that can contain both is that there is less risk of an int being store improperly and full 64 bit integers can be represented.
     //TODO: Advantage of storing std::complex is that each element is smaller (does not need to allocate both a double and int version)
+    BufferType bufferImplementation; ///<The type of buffer to implement.  This is ignored for delays of 0 or 1
 
     bool earliestFirst; ///<If true, the new values are stored at the start of the array.  If false, new values are stored at the end of the array.  The default is false.
     bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  The default is false
@@ -75,6 +88,8 @@ public:
     void setDelayValue(int delayValue);
     std::vector<NumericValue> getInitCondition() const;
     void setInitCondition(const std::vector<NumericValue> &initCondition);
+    BufferType getBufferImplementation() const;
+    void setBufferImplementation(BufferType bufferImplementation);
 
     //For tappedDelay
     bool isEarliestFirst() const;
@@ -130,6 +145,9 @@ public:
 
     /**
      * @brief Emits the core parameters for the delay block.  Separated from emitGraphML so that TappedDelay can use it
+     *
+     * Undoes initial conditions added for an extra element (used by tapped delay) or for circular buffer with power of 2 allocation
+     *
      * @param doc
      * @param xmlNode
      */
@@ -174,6 +192,40 @@ public:
                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                bool includeContext) override;
 
+    /**
+     * @brief Check if a circular buffer implementation is used for this block.
+     *
+     * If bufferImplementation is AUTO, a circular buffer is implemented if:
+     *  - Delay is ==2 and the input is a vector
+     *  - Delay is >2
+     *
+     *  Otherwise, a shift register is used.
+     *
+     * @return
+     */
+    bool usesCircularBuffer();
+
+    /**
+     * @brief This function returns initial conditions without modifications for circular buffers or extra element, or reversing
+     * @return
+     */
+    virtual std::vector<NumericValue> getExportableInitConds();
+
+protected:
+    void decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
+    void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
+    int getBufferLength();
+
+    void assignInputToBuffer(std::string insertPosition, std::vector<std::string> &cStatementQueue);
+    void assignInputToBuffer(CExpr src, std::string insertPosition, bool imag, std::vector<std::string> &cStatementQueue);
+
+    std::vector<NumericValue> getExportableInitCondsHelper();
+
+    /**
+     * @brief Split from propagateProperties so the same logic can be used in both the Delay and TappedDelay nodes.
+     * Delays need to reverse initial conditions if earlyFirst is selected but TappedDelays do not
+     */
+    void propagatePropertiesHelper();
 };
 
 /*! @} */
