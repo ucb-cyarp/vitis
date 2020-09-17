@@ -502,7 +502,7 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
 
                 std::string insertPosition = "((" + circularBufferOffsetVar.getCVarName(false) + "+" +
                                              GeneralHelper::to_string(delayValue) + ")>=" +
-                                             GeneralHelper::to_string(getBufferLength()) + "-1 ? (" +
+                                             GeneralHelper::to_string(getBufferLength()) + " ? (" +
                                              circularBufferOffsetVar.getCVarName(false) + "+" +
                                              GeneralHelper::to_string(delayValue) + "-" +
                                              GeneralHelper::to_string(getBufferLength()) + ") : (" +
