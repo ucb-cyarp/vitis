@@ -15,13 +15,13 @@
 #include "General/EmitterHelpers.h"
 
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                 roundCircularBufferToPowerOf2(true){
+                 roundCircularBufferToPowerOf2(false){
 
 }
 
 Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0), earliestFirst(false),
                                                   allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                                                  roundCircularBufferToPowerOf2(true){
+                                                  roundCircularBufferToPowerOf2(false){
 
 }
 
@@ -355,8 +355,11 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
                     //The oldest (latest) value is at the end of the array
                     //Need to correct for the extra space at the front of the array.
                     //arrayLen above is corrected when an extra array element is
-                    std::string indValue = "(" + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(arrayLen-1) + ")%" + GeneralHelper::to_string(getBufferLength());
-                    return CExpr(cStateVar.getCVarName(imag) + "[" + indValue + "]",
+//                    std::string indValue = "(" + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(arrayLen-1) + ")%" + GeneralHelper::to_string(getBufferLength());
+                    CExpr circBufferExpr = CExpr(cStateVar.getCVarName(imag), getBufferLength(), circularBufferOffsetVar.getCVarName(false));
+                    std::vector<std::string> tgtInd = {GeneralHelper::to_string(arrayLen-1)};
+
+                    return CExpr(circBufferExpr.getExprIndexed(tgtInd, true),
                                  getOutputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR
                                                                                         : CExpr::ExprType::ARRAY);
 
@@ -492,9 +495,19 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
                 //    The offset is then incremented
                 //    The range of value is now [new_offset, new_offset+delay-1]
 
-                std::string insertPosition = "(" + circularBufferOffsetVar.getCVarName(false) + "+" +
-                                             GeneralHelper::to_string(delayValue) + ")%" +
-                                             GeneralHelper::to_string(getBufferLength());
+                //Version with mod
+//                std::string insertPosition = "(" + circularBufferOffsetVar.getCVarName(false) + "+" +
+//                                             GeneralHelper::to_string(delayValue) + ")%" +
+//                                             GeneralHelper::to_string(getBufferLength());
+
+                std::string insertPosition = "((" + circularBufferOffsetVar.getCVarName(false) + "+" +
+                                             GeneralHelper::to_string(delayValue) + ")>=" +
+                                             GeneralHelper::to_string(getBufferLength()) + "-1 ? (" +
+                                             circularBufferOffsetVar.getCVarName(false) + "+" +
+                                             GeneralHelper::to_string(delayValue) + "-" +
+                                             GeneralHelper::to_string(getBufferLength()) + ") : (" +
+                                             circularBufferOffsetVar.getCVarName(false) + "+" +
+                                             GeneralHelper::to_string(delayValue) + "))";
                 assignInputToBuffer(insertPosition, cStatementQueue);
                 incrementAndWrapCircularBufferOffset(cStatementQueue);
 
@@ -783,8 +796,16 @@ void Delay::decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStat
 }
 
 void Delay::incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) {
-    cStatementQueue.push_back(circularBufferOffsetVar.getCVarName(false) +
-    "=(" + circularBufferOffsetVar.getCVarName(false) + "+1)%" + GeneralHelper::to_string(getBufferLength()) + ";");
+    //Version with mod
+//    cStatementQueue.push_back(circularBufferOffsetVar.getCVarName(false) +
+//    "=(" + circularBufferOffsetVar.getCVarName(false) + "+1)%" + GeneralHelper::to_string(getBufferLength()) + ";");
+
+
+    cStatementQueue.push_back("if(" + circularBufferOffsetVar.getCVarName(false) + ">=" + GeneralHelper::to_string(getBufferLength()) + "-1){");
+    cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "=0;");
+    cStatementQueue.push_back("}else{");
+    cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "++" + ";");
+    cStatementQueue.push_back("}");
 }
 
 int Delay::getBufferLength() {

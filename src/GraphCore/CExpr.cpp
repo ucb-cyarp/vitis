@@ -76,7 +76,12 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
             throw std::runtime_error(ErrorHelpers::genErrorStr("When indexing in to a circular buffer, a single index expression is expected"));
         }
 
-        std::string indStr = "(" + offsetVar + "+" + indexExprs[0] + ")%" + GeneralHelper::to_string(vecLen);
+        //Version with Mod.  Should work best with power of 2
+//        std::string indStr = "(" + offsetVar + "+" + indexExprs[0] + ")%" + GeneralHelper::to_string(vecLen);
+
+        std::string indStr = "(((" + offsetVar + "+" + indexExprs[0] + ")<" + GeneralHelper::to_string(vecLen) + ") ? (" +
+                             offsetVar + "+" + indexExprs[0] + ") : (" + offsetVar + "+" + indexExprs[0] +
+                             "-" + GeneralHelper::to_string(vecLen) + "))";
 
         std::string str = expr;
         if(deref){
