@@ -115,6 +115,8 @@ public:
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag = false) override;
 
+    std::set<std::string> getExternalIncludes() override;
+
 //    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
 };
 

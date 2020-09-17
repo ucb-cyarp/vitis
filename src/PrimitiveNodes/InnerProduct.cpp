@@ -268,40 +268,91 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
 
             //--- Buffer to temporaries ---
             if(foundCircularBuffer) {
-                std::vector<std::string> forLoopIndexVarsReBuffer;
-                std::vector<std::string> forLoopCloseReBuffer;
-                if(!input0DT.isScalar()){
-                    //+++ Create a for loop over the dimensions of the vectors +++
-                    //Note that the inputs are allowed to be scalar as this is considered a degenerate case
-                    //The inputs should be validated to be vectors
-                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                            EmitterHelpers::generateVectorMatrixForLoops(input0DT.getDimensions());
-
-                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-                    forLoopIndexVarsReBuffer = std::get<1>(forLoopStrs);
-                    forLoopCloseReBuffer = std::get<2>(forLoopStrs);
-
-                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-                }
+//                std::vector<std::string> forLoopIndexVarsReBuffer;
+//                std::vector<std::string> forLoopCloseReBuffer;
+//                if(!input0DT.isScalar()){
+//                    //+++ Create a for loop over the dimensions of the vectors +++
+//                    //Note that the inputs are allowed to be scalar as this is considered a degenerate case
+//                    //The inputs should be validated to be vectors
+//                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+//                            EmitterHelpers::generateVectorMatrixForLoops(input0DT.getDimensions());
+//
+//                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+//                    forLoopIndexVarsReBuffer = std::get<1>(forLoopStrs);
+//                    forLoopCloseReBuffer = std::get<2>(forLoopStrs);
+//
+//                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+//                }
+//
+//                for (unsigned long i = 0; i < getInputPorts().size(); i++) {
+//                    if (inputExprs_re[i].getExprType() == CExpr::ExprType::CIRCULAR_BUFFER_ARRAY){
+//                        //Assign the
+//
+//                        cStatementQueue.push_back(inputExprsBuffered_re[i].getExprIndexed(forLoopIndexVarsReBuffer, true) +
+//                                                  " = " + inputExprs_re[i].getExprIndexed(forLoopIndexVarsReBuffer, true) + ";");
+//
+//                        if(getInputPort(i)->getDataType().isComplex()){
+//                            cStatementQueue.push_back(inputExprsBuffered_im[i].getExprIndexed(forLoopIndexVarsReBuffer, true) +
+//                                                      " = " + inputExprs_im[i].getExprIndexed(forLoopIndexVarsReBuffer, true) + ";");
+//                        }
+//
+//                    }
+//                }
+//
+//                //+++ Close For Loop +++
+//                if(!input0DT.isScalar()){
+//                    cStatementQueue.insert(cStatementQueue.end(), forLoopCloseReBuffer.begin(), forLoopCloseReBuffer.end());
+//                }
 
                 for (unsigned long i = 0; i < getInputPorts().size(); i++) {
-                    if (inputExprs_re[i].getExprType() == CExpr::ExprType::CIRCULAR_BUFFER_ARRAY){
-                        //Assign the
+                    if (inputExprs_re[i].getExprType() == CExpr::ExprType::CIRCULAR_BUFFER_ARRAY) {
+                        int bufferLen = inputExprs_re[i].getVecLen();
+                        int vecLen = getInputPort(i)->getDataType().numberOfElements();
+                        //memcpy method
+                        //Determine how may elements exist before the end of the buffer
+                        //
+                        //bufferLen-offset elements can be copied (starting at offset) before the discontinuity
+                        //   If bufferlen=5, offset=0, 5 elements can be copied [0,4]
+                        //   If bufferlen=5, offset=4, 1 element can be copied [4]
+                        //Take the minimum of this and the actual vector length (which may be shorter than the allocated buffer)
+                        //  num2copy = min(bufferLen-offset, vecLen)
+                        std::string num2CopyName =  name + "_n" + GeneralHelper::to_string(id) + "_num2copyStep1_input" + GeneralHelper::to_string(i);
+                        cStatementQueue.push_back("int " + num2CopyName +
+                            " = min(" + GeneralHelper::to_string(bufferLen) + "-" + inputExprs_re[i].getOffsetVar() +
+                            ", " + GeneralHelper::to_string(vecLen) + ");");
 
-                        cStatementQueue.push_back(inputExprsBuffered_re[i].getExprIndexed(forLoopIndexVarsReBuffer, true) +
-                                                  " = " + inputExprs_re[i].getExprIndexed(forLoopIndexVarsReBuffer, true) + ";");
-
-                        if(getInputPort(i)->getDataType().isComplex()){
-                            cStatementQueue.push_back(inputExprsBuffered_im[i].getExprIndexed(forLoopIndexVarsReBuffer, true) +
-                                                      " = " + inputExprs_im[i].getExprIndexed(forLoopIndexVarsReBuffer, true) + ";");
+                        //Copy tempBuf[0, num2copy-1] = origBuf[offset, offset+num2copy-1]
+                        DataType portDT = getInputPort(i)->getDataType();
+                        if(portDT.getTotalBits()%8 != 0){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Expected datatype to be a multiple of bytes", getSharedPointer()));
+                        }
+                        int bytesPerElement = portDT.getTotalBits()/8;
+                        cStatementQueue.push_back("memcpy(" + inputExprsBuffered_re[i].getExpr() + ", " +
+                            inputExprs_re[i].getExpr() + "+" + inputExprs_re[i].getOffsetVar() + ", " +
+                            num2CopyName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                        if(portDT.isComplex()){
+                            cStatementQueue.push_back("memcpy(" + inputExprsBuffered_im[i].getExpr() + ", " +
+                                                      inputExprs_im[i].getExpr() + "+" + inputExprs_im[i].getOffsetVar() + ", " +
+                                                      num2CopyName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
                         }
 
-                    }
-                }
+                        //Get remaining to be copied remaining=vecLen-num2copy (guaranteed to be >=0)
+                        std::string remainingVarName =  name + "_n" + GeneralHelper::to_string(id) + "_num2copyStep2_input" + GeneralHelper::to_string(i);
+                        cStatementQueue.push_back("int " + remainingVarName + " = " + GeneralHelper::to_string(vecLen) + "-" + num2CopyName + ";");
 
-                //+++ Close For Loop +++
-                if(!input0DT.isScalar()){
-                    cStatementQueue.insert(cStatementQueue.end(), forLoopCloseReBuffer.begin(), forLoopCloseReBuffer.end());
+                        //Copy the remaining starting at index 0 in the buffer
+                        //  Copy tempBuf[num2copy, num2copy+remaining-1] = origBuf[0, remaining-1]
+                        cStatementQueue.push_back("if(" + remainingVarName + ">0){");
+                        cStatementQueue.push_back("\tmemcpy(" + inputExprsBuffered_re[i].getExpr() + "+" + num2CopyName + ", " +
+                                                  inputExprs_re[i].getExpr() + ", " +
+                                                  remainingVarName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                        if(portDT.isComplex()){
+                            cStatementQueue.push_back("\tmemcpy(" + inputExprsBuffered_im[i].getExpr() + "+" + num2CopyName + ", " +
+                                                      inputExprs_im[i].getExpr() + ", " +
+                                                      remainingVarName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                        }
+                        cStatementQueue.push_back("}");
+                    }
                 }
             }
         }else{
@@ -434,4 +485,11 @@ InnerProduct::ComplexConjBehavior InnerProduct::getComplexConjBehavior() const {
 
 void InnerProduct::setComplexConjBehavior(InnerProduct::ComplexConjBehavior complexConjBehavior) {
     InnerProduct::complexConjBehavior = complexConjBehavior;
+}
+
+std::set<std::string> InnerProduct::getExternalIncludes() {
+    std::set<std::string> externalIncludes = Node::getExternalIncludes();
+    externalIncludes.insert("#include <string.h>"); //For memcpy
+
+    return externalIncludes;
 }
