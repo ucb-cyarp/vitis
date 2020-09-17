@@ -318,8 +318,10 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
                         //  num2copy = min(bufferLen-offset, vecLen)
                         std::string num2CopyName =  name + "_n" + GeneralHelper::to_string(id) + "_num2copyStep1_input" + GeneralHelper::to_string(i);
                         cStatementQueue.push_back("int " + num2CopyName +
-                            " = min(" + GeneralHelper::to_string(bufferLen) + "-" + inputExprs_re[i].getOffsetVar() +
-                            ", " + GeneralHelper::to_string(vecLen) + ");");
+                            " = (" + GeneralHelper::to_string(bufferLen) + "-" + inputExprs_re[i].getOffsetVar() +
+                            " < " + GeneralHelper::to_string(vecLen) + ") ? " +
+                            GeneralHelper::to_string(bufferLen) + "-" + inputExprs_re[i].getOffsetVar() +
+                            " : " + GeneralHelper::to_string(vecLen) + ";");
 
                         //Copy tempBuf[0, num2copy-1] = origBuf[offset, offset+num2copy-1]
                         DataType portDT = getInputPort(i)->getDataType();
