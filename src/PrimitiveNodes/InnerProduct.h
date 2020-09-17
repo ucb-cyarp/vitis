@@ -36,6 +36,7 @@ public:
 private:
     ComplexConjBehavior complexConjBehavior; ///<Controls how complex conjugates are taken.  The default is to take the complex conjugate of the first which follows the Matlab convention.  None is helpful for convolution where neither term has the complex conjugate taken.  Correlation does use the complex conjugation
     bool emittedBefore; ///<Tracks if this InnerProduct has been emitted before (used in emit - not a parameter to save to XML)
+    bool reBufferCircularBuffers; ///<If true, circular buffer inputs are re-buffered into linear temporary buffers before use by the inner product.
 
     //==== Constructors ====
     /**

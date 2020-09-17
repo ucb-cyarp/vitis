@@ -8,15 +8,15 @@
 #include "General/EmitterHelpers.h"
 #include "Product.h"
 
-InnerProduct::InnerProduct() : emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST) {
+InnerProduct::InnerProduct() : emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST), reBufferCircularBuffers(true) {
 
 }
 
-InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST) {
+InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST), reBufferCircularBuffers(true) {
 
 }
 
-InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent, InnerProduct *orig) : PrimitiveNode(parent, orig), emittedBefore(orig->emittedBefore), complexConjBehavior(orig->complexConjBehavior) {
+InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent, InnerProduct *orig) : PrimitiveNode(parent, orig), emittedBefore(orig->emittedBefore), complexConjBehavior(orig->complexConjBehavior), reBufferCircularBuffers(orig->reBufferCircularBuffers) {
 
 }
 
@@ -233,6 +233,82 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
             }
         }
 
+        //=== Create Temporary Variables if Src is a Circular Buffer ===
+        std::vector<CExpr> inputExprsBuffered_re;
+        std::vector<CExpr> inputExprsBuffered_im;
+
+        if(reBufferCircularBuffers) {
+            bool foundCircularBuffer = false;
+            for (unsigned long i = 0; i < getInputPorts().size(); i++) {
+                DataType portDT = getInputPort(i)->getDataType();
+
+                if (inputExprs_re[i].getExprType() == CExpr::ExprType::CIRCULAR_BUFFER_ARRAY) {
+                    foundCircularBuffer = true;
+
+                    //This is a circular buffer expression, create a temporary
+                    Variable bufferTmp = Variable(
+                            name + "_n" + GeneralHelper::to_string(id) + "_InputReBuffer" + GeneralHelper::to_string(i),
+                            portDT);
+
+                    cStatementQueue.push_back(bufferTmp.getCVarDecl(false, true, false, true, false) + ";");
+                    inputExprsBuffered_re.push_back(CExpr(bufferTmp.getCVarName(false), CExpr::ExprType::ARRAY));
+                    if (portDT.isComplex()) {
+                        cStatementQueue.push_back(bufferTmp.getCVarDecl(true, true, false, true, false) + ";");
+                        inputExprsBuffered_im.push_back(CExpr(bufferTmp.getCVarName(true), CExpr::ExprType::ARRAY));
+                    }else{
+                        //Insert a placeholder
+                        inputExprsBuffered_im.push_back(CExpr("", inputExprsBuffered_re[inputExprsBuffered_re.size()-1].getExprType()));
+                    }
+                } else {
+                    inputExprsBuffered_re.push_back(inputExprs_re[i]);
+                    //Copy the imag terms regardless of whether or not this port is imag because real ports have placeholders
+                    inputExprsBuffered_im.push_back(inputExprs_im[i]);
+                }
+            }
+
+            //--- Buffer to temporaries ---
+            if(foundCircularBuffer) {
+                std::vector<std::string> forLoopIndexVarsReBuffer;
+                std::vector<std::string> forLoopCloseReBuffer;
+                if(!input0DT.isScalar()){
+                    //+++ Create a for loop over the dimensions of the vectors +++
+                    //Note that the inputs are allowed to be scalar as this is considered a degenerate case
+                    //The inputs should be validated to be vectors
+                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                            EmitterHelpers::generateVectorMatrixForLoops(input0DT.getDimensions());
+
+                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                    forLoopIndexVarsReBuffer = std::get<1>(forLoopStrs);
+                    forLoopCloseReBuffer = std::get<2>(forLoopStrs);
+
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+                }
+
+                for (unsigned long i = 0; i < getInputPorts().size(); i++) {
+                    if (inputExprs_re[i].getExprType() == CExpr::ExprType::CIRCULAR_BUFFER_ARRAY){
+                        //Assign the
+
+                        cStatementQueue.push_back(inputExprsBuffered_re[i].getExprIndexed(forLoopIndexVarsReBuffer, true) +
+                                                  " = " + inputExprs_re[i].getExprIndexed(forLoopIndexVarsReBuffer, true) + ";");
+
+                        if(getInputPort(i)->getDataType().isComplex()){
+                            cStatementQueue.push_back(inputExprsBuffered_im[i].getExprIndexed(forLoopIndexVarsReBuffer, true) +
+                                                      " = " + inputExprs_im[i].getExprIndexed(forLoopIndexVarsReBuffer, true) + ";");
+                        }
+
+                    }
+                }
+
+                //+++ Close For Loop +++
+                if(!input0DT.isScalar()){
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopCloseReBuffer.begin(), forLoopCloseReBuffer.end());
+                }
+            }
+        }else{
+            inputExprsBuffered_re = inputExprs_re;
+            inputExprsBuffered_im = inputExprs_im;
+        }
+
         //=== Create accumulator variables - init to 0 ===
         //Init to 0 via the includeInit option in the decl
         cStatementQueue.push_back(accumulatorVar.getCVarDecl(false, false, true, false, false) + ";");
@@ -263,15 +339,15 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         //There should only be 2 ports (validated above) but easy to write the loop
         //note that the expression index is the same as the port number
         std::vector<std::string> emptyArr;
-        for(int i = 0; i<inputExprs_re.size(); i++){
-            std::string inputExpr_re_deref = inputExprs_re[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
+        for(int i = 0; i<inputExprsBuffered_re.size(); i++){
+            std::string inputExpr_re_deref = inputExprsBuffered_re[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
             std::string inputExpr_re_deref_cast = DataType::cConvertType(inputExpr_re_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
 
             inputExprsDeref_re.push_back(inputExpr_re_deref_cast);
         }
-        for(int i = 0; i<inputExprs_im.size(); i++){
+        for(int i = 0; i<inputExprsBuffered_im.size(); i++){
             if(getInputPort(i)->getDataType().isComplex()){
-                std::string inputExpr_im_deref = inputExprs_im[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
+                std::string inputExpr_im_deref = inputExprsBuffered_im[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
                 std::string inputExpr_im_deref_cast = DataType::cConvertType(inputExpr_im_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
 
                 inputExprsDeref_im.push_back(inputExpr_im_deref_cast);
