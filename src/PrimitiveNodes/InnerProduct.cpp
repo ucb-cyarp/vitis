@@ -324,34 +324,31 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
                             " : " + GeneralHelper::to_string(vecLen) + ";");
 
                         //Copy tempBuf[0, num2copy-1] = origBuf[offset, offset+num2copy-1]
+                        //Manually index here because we are bypassing typical indexing behavior
+                        //It was validated that the inputs were vectors or scalars.
                         DataType portDT = getInputPort(i)->getDataType();
-                        if(portDT.getTotalBits()%8 != 0){
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Expected datatype to be a multiple of bytes", getSharedPointer()));
-                        }
-                        int bytesPerElement = portDT.getTotalBits()/8;
-                        cStatementQueue.push_back("memcpy(" + inputExprsBuffered_re[i].getExpr() + ", " +
-                            inputExprs_re[i].getExpr() + "+" + inputExprs_re[i].getOffsetVar() + ", " +
-                            num2CopyName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                        std::string forLoopVarName = "i";
+                        cStatementQueue.push_back("for(unsigned long " + forLoopVarName + " = 0; " + forLoopVarName + "<" + num2CopyName + "; " + forLoopVarName + "++){");
+                        cStatementQueue.push_back("\t" + inputExprsBuffered_re[i].getExpr() + "[" + forLoopVarName + "]" +
+                        "=" + inputExprs_re[i].getExpr() + "[" + inputExprs_re[i].getOffsetVar() + "+" + forLoopVarName + "]" + ";");
                         if(portDT.isComplex()){
-                            cStatementQueue.push_back("memcpy(" + inputExprsBuffered_im[i].getExpr() + ", " +
-                                                      inputExprs_im[i].getExpr() + "+" + inputExprs_im[i].getOffsetVar() + ", " +
-                                                      num2CopyName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                            cStatementQueue.push_back("\t" + inputExprsBuffered_im[i].getExpr() + "[" + forLoopVarName + "]" +
+                                                      "=" + inputExprs_im[i].getExpr() + "[" + inputExprs_im[i].getOffsetVar() + "+" + forLoopVarName + "]" + ";");
                         }
+                        cStatementQueue.push_back("}");
 
                         //Get remaining to be copied remaining=vecLen-num2copy (guaranteed to be >=0)
                         std::string remainingVarName =  name + "_n" + GeneralHelper::to_string(id) + "_num2copyStep2_input" + GeneralHelper::to_string(i);
                         cStatementQueue.push_back("int " + remainingVarName + " = " + GeneralHelper::to_string(vecLen) + "-" + num2CopyName + ";");
 
+                        cStatementQueue.push_back("for(unsigned long " + forLoopVarName + " = 0; " + forLoopVarName + "<" + remainingVarName + "; " + forLoopVarName + "++){");
                         //Copy the remaining starting at index 0 in the buffer
                         //  Copy tempBuf[num2copy, num2copy+remaining-1] = origBuf[0, remaining-1]
-                        cStatementQueue.push_back("if(" + remainingVarName + ">0){");
-                        cStatementQueue.push_back("\tmemcpy(" + inputExprsBuffered_re[i].getExpr() + "+" + num2CopyName + ", " +
-                                                  inputExprs_re[i].getExpr() + ", " +
-                                                  remainingVarName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                        cStatementQueue.push_back("\t" + inputExprsBuffered_re[i].getExpr() + "[" + num2CopyName + "+" + forLoopVarName + "]" +
+                                                  "=" + inputExprs_re[i].getExpr() + "[" + forLoopVarName + "]" + ";");
                         if(portDT.isComplex()){
-                            cStatementQueue.push_back("\tmemcpy(" + inputExprsBuffered_im[i].getExpr() + "+" + num2CopyName + ", " +
-                                                      inputExprs_im[i].getExpr() + ", " +
-                                                      remainingVarName + "*" + GeneralHelper::to_string(bytesPerElement) + ");");
+                            cStatementQueue.push_back("\t" + inputExprsBuffered_im[i].getExpr() + "[" + num2CopyName + "+" + forLoopVarName + "]" +
+                                                      "=" + inputExprs_im[i].getExpr() + "[" + forLoopVarName + "]" + ";");
                         }
                         cStatementQueue.push_back("}");
                     }
