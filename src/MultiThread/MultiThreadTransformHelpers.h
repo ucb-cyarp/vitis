@@ -16,6 +16,7 @@
 #include "ThreadCrossingFIFO.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
+#include "MultiRate/RateChange.h"
 
 /**
  * \addtogroup MultiThread Multi-Thread Support
@@ -25,8 +26,7 @@
 /**
  * @brief A helper class containing methods for transforming a design for multi-thread emit
  */
-class MultiThreadTransformHelpers {
-public:
+namespace MultiThreadTransformHelpers {
     /**
      * @brief Class used to report if a delay was fully absorbed, partially absorbed, or not absorbed
      */
@@ -43,7 +43,7 @@ public:
      * One FIFO is inserted for each group of arcs passed to the function.  The FIFO is placed in the partition
      * of the src node for these arcs.  This is due to the scheduling behavior
      *
-     * The FIFO is placed in the context of the source unless the source is an EnableOutput in which case it is placed outside (1 context up)
+     * The FIFO is placed in the context of the source unless the source is an EnableOutput or RateChange output in which case it is placed outside (1 context up)
      *
      * The FIFO shares the same parent as its source unless it is an EnableOutput in which case its parent is another level up
      *
@@ -55,7 +55,7 @@ public:
      * @return The same map as provided in the arcGroups arguments excpet the groups have been replaced with the FIFO inserted for the grouo
      */
     template <typename T> //The FIFO type
-    static std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
     insertPartitionCrossingFIFOs(std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> arcGroups,
     std::vector<std::shared_ptr<Node>> &new_nodes,
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -89,23 +89,56 @@ public:
                 std::shared_ptr<SubSystem> fifoParent;
 
                 std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcPort->getParent());
+                std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcPort->getParent());
                 std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcPort->getParent());
+                std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcPort->getParent());
+                bool rateChangeOutput = false;
+                if(srcAsRateChange){
+                    rateChangeOutput = !srcAsRateChange->isInput();
+                }
+
                 //Note, the first getParent() gets the src node
                 std::shared_ptr<SubSystem> srcParent = srcPort->getParent()->getParent();
 
-                //TOOD: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
-                if(srcAsEnableOutput || srcAsContextRoot){
-                    if(!fifoContext.empty()){//May be empty if contexts have not yet been discovered
-                        fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).  Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
+                //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
+                //TODO: Come up with a more general way of performing this
+                if(srcAsEnableOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+                    if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
+                        fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
+
+                        // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
+                        // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
+                        // during encapsulation
                     }
 
                     //Check for encapsulation
-                    if(GeneralHelper::isType<Node, ContextContainer>(srcParent) != nullptr){
+                    if (GeneralHelper::isType<Node, ContextContainer>(srcParent) != nullptr) {
                         //Encapsulation has already occured.  Need to go 2 levels up
-                        fifoParent = srcParent->getParent()->getParent();
-                    }else{
+                        if (srcAsContextRoot == nullptr) {
+                            //If the src is not a context root, the node is one of the ContextContainers and going up 2 levels is nessiary
+                            fifoParent = srcParent->getParent()->getParent();
+                        } else {
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered src encapsulated in ContextContainer during FIFO insertion but expected src not to be ContextRoot"));
+                        }
+                    } else if(GeneralHelper::isType<Node, ContextFamilyContainer>(srcParent) != nullptr){
+                        if(srcAsContextRoot != nullptr){
+                            //If the src is a context root, the node is just inside the ContextFamilyContainer and we only need to go up one level
+                            //This is the case with mux
+                            fifoParent = srcParent->getParent();
+                        }else{
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered src encapsulated in ContextFamilyContainer during FIFO insertion but expected src to be ContextRoot"));
+                        }
+                    } else {
                         //Encapsulation has not occured yet, only need 1 level up
-                        fifoParent = srcParent->getParent();
+                        //Only need to go up if the src is not a ContextRoot
+                        //ie. need to go up a level if the node is a EnableOutput or rateChangeOutput since taking the parent of these nodes would
+                        //place the FIFO inside the EnabledSubsystem or ClockDomain context
+                        if (srcAsContextRoot == nullptr) {
+                            //Not a context root, it must be either an EnableOutput or a RateChange ouput
+                            fifoParent = srcParent->getParent();
+                        } else {
+                            fifoParent = srcParent;
+                        }
                     }
                 }else{
                     //Get the parent of the src node
@@ -177,7 +210,7 @@ public:
      * @param deleted_arcs a vector of arcs to be deleted from the design
      * @param printActions if true, prints when delay nodes are absorbed.  If false, does not print any status reports
      */
-    static void absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+    void absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
     std::vector<std::shared_ptr<Node>> &new_nodes,
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
     std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -199,7 +232,7 @@ public:
      * @param printActions if true, prints when delay nodes are absorbed.  If false, does not print any status reports
      * @return if a full, partial, or no absorption of a delay occured
      */
-    static AbsorptionStatus absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    AbsorptionStatus absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                int inputPartition,
                                                                std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -222,7 +255,7 @@ public:
      * @param printActions if true, prints when delay nodes are absorbed.  If false, does not print any status reports
      * @return if a full, partial, or no absorption of a delay occured
      */
-    static AbsorptionStatus absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    AbsorptionStatus absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                 int outputPartition,
                                                                 std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -243,14 +276,14 @@ public:
      * @param printActions
      * @return
      */
-    static void reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    void reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                          std::vector<std::shared_ptr<Node>> &new_nodes,
                                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                          bool printActions = true);
 
-    static void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                    int targetSize,
                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -264,13 +297,13 @@ public:
      * However, if the src port of the FIFO is a MasterInput node, the delay is placed on the output
      *
      * @param fifo
-     * @param numElementsToMove
+     * @param numElementsToMove These are elements in the FIFO and not in the intial conditions.  They can be scalar, vectors, or matricies
      * @param new_nodes
      * @param deleted_nodes
      * @param new_arcs
      * @param deleted_arcs
      */
-    static void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
+    void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                              int numElementsToMove,
                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -287,7 +320,7 @@ public:
      * @param printActions
      * @return
      */
-    static std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
+    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
     mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
     std::vector<std::shared_ptr<Node>> &new_nodes,
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -304,7 +337,7 @@ public:
      * @param nodes
      * @param partition
      */
-    static void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition);
+    void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition);
 };
 
 /*! @} */

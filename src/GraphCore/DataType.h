@@ -6,6 +6,7 @@
 #define VITIS_DATATYPE_H
 
 #include <string>
+#include <vector>
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -20,9 +21,9 @@ private:
     bool floatingPt;///< True if type is floating point, false if integer or fixed point
     bool signedType; ///< True if type is signed, false if unsigned
     bool complex; ///< True if the type is complex, false if it is real
-    int totalBits; ///< The total number of bits in this type
+    int totalBits; ///< The total number of bits in this type (per component)
     int fractionalBits; ///< The number of fractional bits if this is an integer or fixed point type
-    int width; ///< The width of the datatype (>1 if a vector)
+    std::vector<int> dimensions; ///< The dimensions of the datatype.  Each element of the vector is the size of that dimension.  Scalars have 1 dimension of size 1
 
 public:
     /**
@@ -47,11 +48,11 @@ public:
      * @param floatingPt True if floating point, false if integer or fixed point
      * @param signedType True if signed, false if unsigned
      * @param complex True if complex, false if real
-     * @param totalBits Total number of bits in type
+     * @param totalBits Total number of bits in type (per component)
      * @param fractionalBits Number of fractional bits if an integer or fixed point type
-     * @param width The width of the datatype (>1 if a vector)
+     * @param The dimensions of the datatype.  Each element of the vector is the size of that dimension.  Scalars have 1 dimension of size 1
      */
-    DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits, int width);
+    DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits, std::vector<int> dimensions);
 
     /**
      * @brief Constructs a DataType object from a string description of a type.
@@ -66,18 +67,30 @@ public:
      * @param complex true if the type is complex, false if it is real
      * @param width The width of the datatype (>1 if a vector)
      */
-    DataType(std::string str, bool complex, int width = 1);
+    DataType(std::string str, bool complex, std::vector<int> width = {1});
 
     //==== Functions ====
 
     /**
+     * @brief Gets the dimensions as a c style array definition with each dimension having a seperate "[]".  If the datatype is a scalar, an empty string is returned.
+     * @param includeDimension if true, the length of each dimension is included in the string (ex. [5][4] instead of [][])
+     * @return
+     */
+    std::string dimensionsToString(bool includeDimension);
+
+    /**
+     * Gets the number of elements in the vector/matrix.  If a scalar, returns 1
+     */
+    int numberOfElements();
+
+    /**
      * @brief Get the string representation of the DataType.  Complexity is not included in the string representation
      * @param stringStyle The stype of the string to return
-     * @param includeWidth if true, includes the vector width in the type string.  if false, does not include the vector width in the type string. (only used for C style).  incudeArray must be true for this to have effect
+     * @param includeDimensions if true, includes the dimensions in the type string.  if false, does not include the vector width in the type string. (only used for C style).  incudeArray must be true for this to have effect
      * @param includeArray if true, includes the array brackets [] in the type string.  If false, does not include the array brackets []. (only used for C style)
      * @return a type string
      */
-    std::string toString(StringStyle stringStyle = StringStyle::SIMULINK, bool includeWidth = false, bool includeArray = false);
+    std::string toString(StringStyle stringStyle = StringStyle::SIMULINK, bool includeDimensions = false, bool includeArray = false);
 
     /**
      * @brief Get the smallest standard CPU type which can accomodate the given datatype.
@@ -141,11 +154,26 @@ public:
     void setTotalBits(int totalBits);
     int getFractionalBits() const;
     void setFractionalBits(int fractionalBits);
-    int getWidth() const;
-    void setWidth(int width);
+    std::vector<int> getDimensions() const;
+    void setDimensions(const std::vector<int> &dimensions);
+    bool isScalar();
 
     //==== Added Functions ====
     bool isBool();
+
+    /**
+     * @brief Returns a new datatype that is expanded for block sizes or Delays
+     *
+     * For a block size of 1, the same datatype is returned
+     * For a block size > 1, scalars are expanded to vectors, matricies have another dimensions prepended to them
+     * The dimension is prepended so that each block is stored contiguously in memory (based on the C/C++ multidimensional array semantic)
+     *
+     * @param blockSize
+     * @return
+     */
+    DataType expandForBlock(int blockSize);
+
+    bool isVector();
 
 };
 

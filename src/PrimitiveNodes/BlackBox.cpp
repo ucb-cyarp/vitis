@@ -384,12 +384,12 @@ void BlackBox::validate() {
 
     //TODO: Implement Vector Support
     for(unsigned long i = 0; i<inputPorts.size(); i++) {
-        if(getInputPort(i)->getDataType().getWidth() > 1) {
+        if(!getInputPort(i)->getDataType().isScalar()) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
     }
     for(unsigned long i = 0; i<outputPorts.size(); i++) {
-        if(getOutputPort(i)->getDataType().getWidth() > 1) {
+        if(!getOutputPort(i)->getDataType().isScalar()) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BlackBox Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
     }
@@ -406,7 +406,7 @@ void BlackBox::emitCExprNextState(std::vector<std::string> &cStatementQueue, Sch
     //This is because, even though the blackbox may have state, there is no seperated functions which
 }
 
-void BlackBox::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void BlackBox::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //If this node is stateful, emit the state update
     if(stateful) {
         cStatementQueue.push_back(stateUpdateName+"();");

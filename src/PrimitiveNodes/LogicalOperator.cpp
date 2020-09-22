@@ -184,7 +184,7 @@ void LogicalOperator::validate() {
 
 CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getOutputPort(0)->getDataType().getWidth()>1){
+    if(!getOutputPort(0)->getDataType().isScalar()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Sum Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 

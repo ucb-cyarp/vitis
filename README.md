@@ -7,6 +7,7 @@ CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/viti
 ## Dependencies:
 - [CMake](https://cmake.org): Build Tool
 - [Apache Xerces-C](https://xerces.apache.org/xerces-c): XML Parser
+- [Boost](https://www.boost.org/): For Platform Independent FileIO
 - [Google Test (gtest)](https://github.com/google/googletest): Testing Framework
 - gcc or clang: C++ Compiler
 - lcov (if using GCC): Coverage Report Generator
@@ -35,11 +36,12 @@ For detaied information on the steps taken to generate a design, see:
 #### Ubuntu:
   
 ```
-sudo apt-get install build-essential
-sudo apt-get install cmake
-sudo apt-get install libxerces-c-dev
-sudo apt-get install graphviz
-sudo apt-get install doxygen
+sudo apt install build-essential
+sudo apt install libboost-all-dev
+sudo apt install cmake
+sudo apt install libxerces-c-dev
+sudo apt install graphviz
+sudo apt install doxygen
 ```
 
 #### Mac:
@@ -58,6 +60,7 @@ To install the dependencies manually, run the following commands:
   
 ```
 brew install cmake
+brew install boost
 brew install xerces-c
 brew install graphviz
 brew install doxygen
@@ -75,6 +78,22 @@ make
 ```
 
 Executables will be built in the ``vitis/build`` directory
+
+#### Build with an Alternate Compiler
+To build with a specific compiler (ex. clang), use the ``CMAKE_C_COMPILER`` and ``CMAKE_CXX_COMPILER`` flags.  For example, to build with clang, run:
+
+```
+cmake -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++ ..
+```
+
+Then run make.
+
+#### Run ``make`` with Multiple Threads
+If multiple cores are availible, use the ``-j`` option to specify the number of threads to use when building.  For example, with an 8 core machine, use:
+
+```
+make -j8
+```
     
 ## Test:
 To test your compiled vitis tools, run the following command inside the ``build`` directory:
@@ -124,13 +143,14 @@ To export a subsystem from simulink:
 6. Return to the Matlab command promp and run a varient of the following command:
 
 ```matlab
-simulink_to_graphml('designName', 'pathToSubsystem', 'outputFilename.graphml', verbosity);
+simulink_to_graphml('designName', 'pathToSubsystem', 'outputFilename.graphml', expand, verbosity);
 ```
 
 - ``designName`` should be replaced with the name of your Simulink design (ie. the filename without the ``.slx`` extension)
 - ``pathToSubsystem`` should be replaced with the absolute path to the subsystem in your design.  The root of the path is
 the name of your Simulink design and subsystems are speerated by ``/`` characters.
 - ``outputFilename`` should be replaced with your desired output filename
+- ``expand`` can be true or false.  It controls whether node expansion occurs in Matlab/Simulink (default to false)
 - ``verbosity`` can be one of the following:
     - 0: Warnings Only
     - 1: Limited Status Updates
@@ -140,7 +160,7 @@ the name of your Simulink design and subsystems are speerated by ``/`` character
 For example, if your design was named "mySystem" and the subsystem you wanted to export was named "design" and was nested
 within a subsystem named "container", you could run the following command to export the design to "myDesignExport.graphml"
 ```
-simulink_to_graphml('mySystem', 'mySystem/container/design', 'myDesignExport.graphml', 3);
+simulink_to_graphml('mySystem', 'mySystem/container/design', 'myDesignExport.graphml', false, 3);
 ```
 
 ### Importing Simulink Exported Design

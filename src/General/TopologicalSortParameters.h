@@ -22,6 +22,7 @@ public:
     enum class Heuristic{
         BFS, ///< Breadth First Search Style
         DFS, ///< Depth First Search Style
+        DFS_BLOCKED,
         RANDOM ///< Randomly Select Node to Schedule From List of Ready Nodes
     };
 

@@ -1,38 +1,43 @@
 //
-// Created by Christopher Yarp on 2019-03-15.
+// Created by Christopher Yarp on 7/31/20.
 //
 
 #ifndef VITIS_CONCATENATE_H
 #define VITIS_CONCATENATE_H
 
-#include "GraphCore/Node.h"
-#include "GraphCore/SubSystem.h"
-#include "GraphMLTools/GraphMLDialect.h"
+#include "PrimitiveNode.h"
 #include "GraphCore/NodeFactory.h"
 
 /**
- * \addtogroup BusNodes Bus Nodes
- *
- * @brief Nodes which act on buses and convert to/from buses and standard arcs
+ * \addtogroup PrimitiveNodes Primitives
  * @{
 */
 
 /**
- * @brief An abstract class for Vector Concatenate objects
+ * @brief Represents a vector/matrix concatenate function.
  *
- * Provides a factory function which parses Simulink Concatenate objects
+ * @note: Currently, only vector concatenate is currently supported
  */
-class Concatenate : public Node {
+class Concatenate : public PrimitiveNode {
     friend NodeFactory;
+    //TODO: implement multidimensional matrix concatenate support
 
 private:
+    //Parameters only used for multidimensional emit
+    // - ConcatenateDimension
+
+    //==== Constructors ====
     /**
      * @brief Constructs an empty Concatenate node
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
     Concatenate();
 
     /**
      * @brief Constructs an empty Concatenate node with a given parent.  This node is not added to the children list of the parent.
+     *
+     * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      *
      * @param parent parent node
      */
@@ -53,12 +58,9 @@ private:
     Concatenate(std::shared_ptr<SubSystem> parent, Concatenate* orig);
 
 public:
-
     //====Factories====
     /**
-     * @brief @brief Creates a VectorFan subclass node from a GraphML Description
-     *
-     * This factory exists to parse SimulinkExport VectorFan objects and to produce either a VectorFanIn or VectorFanOut object.
+     * @brief Creates a Concatenate node from a GraphML Description
      *
      * @note This function does not add the node to the design or to the nodeID/pointer map
      *
@@ -70,15 +72,13 @@ public:
      * @return a pointer to the new delay node
      */
     static std::shared_ptr<Concatenate> createFromGraphML(int id, std::string name,
-                                                        std::map<std::string, std::string> dataKeyValueMap,
-                                                        std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+                                                  std::map<std::string, std::string> dataKeyValueMap,
+                                                  std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
-    //====Methods====
-    bool canExpand() override;
-
+    //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
 
-    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
+    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type) override ;
 
     std::string typeNameStr() override;
 
@@ -87,6 +87,12 @@ public:
     void validate() override ;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
+
+    /**
+     * @brief Emits a C expression for the Concatenate
+     */
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag) override;
 
 };
 

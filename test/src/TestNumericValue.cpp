@@ -329,3 +329,51 @@ TEST(NumericValue, ParseComplexMixedArrayWithExponents) {
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), -90);
     ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), -20);
 }
+
+TEST(NumericValue, ParseRealMixedArrayWithNegativeExponents) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[9e-1, -8e-1, 2.25e-1]");
+
+    ASSERT_EQ(test.size(), 3);
+
+    ASSERT_EQ(test[0].isComplex(), false);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 0.9);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[1].isComplex(), false);
+    ASSERT_EQ(test[1].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), -0.8);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[2].isComplex(), false);
+    ASSERT_EQ(test[2].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().real(), 0.225);
+    ASSERT_DOUBLE_EQ(test[2].getComplexDouble().imag(), 0);
+}
+
+TEST(NumericValue, ParseRealFractionalArrayWithNegativeExponentsIntegerMantissa) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[9e-1, -8e-1]");
+
+    ASSERT_EQ(test.size(), 2);
+
+    ASSERT_EQ(test[0].isComplex(), false);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 0.9);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
+
+    ASSERT_EQ(test[1].isComplex(), false);
+    ASSERT_EQ(test[1].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().real(), -0.8);
+    ASSERT_DOUBLE_EQ(test[1].getComplexDouble().imag(), 0);
+}
+
+TEST(NumericValue, ParseLargeNegativeExponents) {
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[-5e-7]");
+
+    ASSERT_EQ(test.size(), 1);
+
+    ASSERT_EQ(test[0].isComplex(), false);
+    ASSERT_EQ(test[0].isFractional(), true);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), -5E-7);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
+}

@@ -64,7 +64,7 @@ void VectorFanOut::validate() {
     //Check that the width of the input arc == number of output ports
     std::shared_ptr<Arc> inputArc = *(inputPorts[0]->getArcs().begin());
 
-    if(inputArc->getDataType().getWidth() != outputPorts.size()){
+    if(inputArc->getDataType().numberOfElements() != outputPorts.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - VectorFanIn - Width of Input Arc Should = Number of Output Ports", getSharedPointer()));
     }
 }

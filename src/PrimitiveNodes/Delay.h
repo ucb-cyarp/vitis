@@ -27,13 +27,16 @@
  */
 class Delay : public PrimitiveNode{
     friend NodeFactory;
-private:
+protected:
     int delayValue; ///<The amount of delay in this node
-    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Length must match the delay value.  The initial condition that will be presented first is at index 0
-    Variable cStateVar; ///<The C variable storing the state of the dela
+    std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Number of elements must match the delay value times the size of each element.  The initial condition that will be presented first is at index 0
+    Variable cStateVar; ///<The C variable storing the state of the delay
     Variable cStateInputVar; ///<the C temporary variable holding the input to state before the update
     //TODO: Re-evaluate if numeric value should be stored as double/complex double (like Matlab does).  An advantage to providing a class that can contain both is that there is less risk of an int being store improperly and full 64 bit integers can be represented.
     //TODO: Advantage of storing std::complex is that each element is smaller (does not need to allocate both a double and int version)
+
+    bool earliestFirst; ///<If true, the new values are stored at the start of the array.  If false, new values are stored at the end of the array.  The default is false.
+    bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  The default is false
 
     //==== Constructors ====
     /**
@@ -73,6 +76,12 @@ public:
     std::vector<NumericValue> getInitCondition() const;
     void setInitCondition(const std::vector<NumericValue> &initCondition);
 
+    //For tappedDelay
+    bool isEarliestFirst() const;
+    void setEarliestFirst(bool earliestFirst);
+    bool isAllocateExtraSpace() const;
+    void setAllocateExtraSpace(bool allocateExtraSpace);
+
     //====Factories====
     /**
      * @brief Creates a delay node from a GraphML Description
@@ -90,10 +99,41 @@ public:
                                                     std::map<std::string, std::string> dataKeyValueMap,
                                                     std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
+    /**
+     * @brief Populates the delay properties from graphML into a delay node.  Declared seperatly from creatFromGraphML so that TappedDelay
+     * can use the same logic and later extend it.
+     * @param node the node to import properties into
+     * @param simulinkDelayLenName the simulink parameter name for delay length (different between delay and tapped delay)
+     * @param simulinkInitCondName the simulink parameter name for initial conditions (different between delay and tapped delay)
+     * @param id the ID number of the node
+     * @param name the human readable name of a node
+     * @param dataKeyValueMap A map of property keys and values extracted from the data nodes in the GraphML
+     * @param parent The parent of this node in the hierarchy
+     * @param dialect The dialect of the GraphML file being imported
+     */
+    static void populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::string simulinkInitCondName,
+                                              std::string simulinkDelayLenName,
+                                              int id, std::string name,
+                                              std::map<std::string, std::string> dataKeyValueMap,
+                                              std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    /**
+     * @brief Used to determine how to broadcast scalar initial conditions.  Knowledge of the dimensions of the input/output
+     * are required for this
+     */
+    void propagateProperties() override;
+
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type) override ;
+
+    /**
+     * @brief Emits the core parameters for the delay block.  Separated from emitGraphML so that TappedDelay can use it
+     * @param doc
+     * @param xmlNode
+     */
+    void emitGraphMLDelayParams(xercesc::DOMDocument *doc, xercesc::DOMElement* xmlNode);
 
     std::string typeNameStr() override;
 
@@ -111,7 +151,7 @@ public:
 
     void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
 
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 

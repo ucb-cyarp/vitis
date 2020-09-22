@@ -3,6 +3,7 @@
 //
 
 #include "StateUpdate.h"
+#include "General/EmitterHelpers.h"
 
 std::shared_ptr<Node> StateUpdate::getPrimaryNode() const {
     return primaryNode;
@@ -37,10 +38,17 @@ void StateUpdate::validate() {
 
     if(inputPorts.size() > 1){
         throw std::runtime_error("StateUpdate can have either 0 or 1 input ports");
+        //This is because the
     }
 
     if(inputPorts.size() != outputPorts.size()){
         throw std::runtime_error("StateUpdate must have an equal number of input and output ports");
+    }
+
+    if(inputPorts.size() == 1){
+        if(getInputPort(0)->getDataType() != getOutputPort(0)->getDataType()){
+            throw std::runtime_error("StateUpdate input and output ports must have the same type");
+        }
     }
 }
 
@@ -48,8 +56,9 @@ std::shared_ptr<Node> StateUpdate::shallowClone(std::shared_ptr<SubSystem> paren
     return NodeFactory::shallowCloneNode<StateUpdate>(parent, this);
 }
 
-void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
-    primaryNode->emitCStateUpdate(cStatementQueue, schedType);
+void StateUpdate::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
+    std::shared_ptr<StateUpdate> thisAsStateUpdate = std::static_pointer_cast<StateUpdate>(getSharedPointer());
+    primaryNode->emitCStateUpdate(cStatementQueue, schedType, thisAsStateUpdate);
 }
 
 std::set<GraphMLParameter> StateUpdate::graphMLParameters() {
@@ -82,12 +91,7 @@ bool StateUpdate::canExpand() {
 }
 
 CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-    //TODO: Implement Vector Support
-    if(getInputPort(outputPortNum)->getDataType().getWidth()>1 || getInputPort(outputPortNum)->getDataType().getWidth()>1){
-        throw std::runtime_error("C Emit Error - StateUpdate Support for Vector Types has Not Yet Been Implemented");
-    }
-
-    //Get the expressions for each input
+    //Get the expressions for the input
     std::string inputExpr;
 
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(outputPortNum)->getSrcOutputPort();
@@ -96,7 +100,41 @@ CExpr StateUpdate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
 
     inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
-    return CExpr(inputExpr, false);
+    DataType datatype = getInputPort(outputPortNum)->getDataType();
+
+    if(!datatype.isScalar()) {
+        //If a vector/matrix, create a temporary and copy the values into it.  Cannot rely on the emitter to create a variable for it
+        //A temporary is made to address some corner cases, like when the input is a delay, where the value of the expression could
+        //change later if the state was updated.
+        std::string vecOutName = name+"_n"+GeneralHelper::to_string(id)+ "_outVec"; //Changed to
+        Variable vecOutVar = Variable(vecOutName, datatype);
+        cStatementQueue.push_back(vecOutVar.getCVarDecl(imag, true, false, true, false) + ";");
+
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(datatype.getDimensions());
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+        //Dereference
+        std::string inputExprDeref = inputExpr + EmitterHelpers::generateIndexOperation(forLoopIndexVars);
+
+        //Copy to temporary variable
+        std::string tmpAssignment = vecOutVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + inputExprDeref + ";";
+        cStatementQueue.push_back(tmpAssignment);
+
+        //Close for loop
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+
+        //return temporary as a variable
+        return CExpr(vecOutVar.getCVarName(imag), true);
+    }else{
+        //If a scalar, just pass on the expression.  A variable will be created for it by the emitter
+        return CExpr(inputExpr, false);
+    }
 }
 
 std::string StateUpdate::typeNameStr(){

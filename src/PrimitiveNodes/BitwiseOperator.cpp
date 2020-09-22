@@ -166,13 +166,20 @@ void BitwiseOperator::validate() {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - \"(\"+inputExprs[0]+\")\"  - Should Have at most 2 Input Ports", getSharedPointer()));
         }
 
-        DataType shiftPortType = getOutputPort(1)->getDataType();
+        DataType shiftPortType = getOutputPort(0)->getDataType();
         if(shiftPortType.isComplex() || shiftPortType.isFloatingPt()){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Shift Amount Should be a Real Integer", getSharedPointer()));
         }
     }else{
-        if (inputPorts.size() != 2) {
+        if (inputPorts.size() < 2) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Should Have Exactly 2 Input Ports", getSharedPointer()));
+        }
+
+        for(int i = 0; i<inputPorts.size(); i++){
+            DataType inType = getInputPort(i)->getDataType();
+            if(inType.isFloatingPt()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Inputs Should Not be Floating Point", getSharedPointer()));
+            }
         }
     }
 
@@ -180,11 +187,15 @@ void BitwiseOperator::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
+    if(getOutputPort(0)->getDataType().isFloatingPt()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - BitwiseOperator - Output Should Not be Floating Point", getSharedPointer()));
+    }
+
 }
 
 CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getOutputPort(0)->getDataType().getWidth()>1){
+    if(!getOutputPort(0)->getDataType().isScalar()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - BitwiseOperator Support for Vector Types has Not Yet Been Implemented" , getSharedPointer()));
     }
 
@@ -205,12 +216,35 @@ CExpr BitwiseOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         //This is a special case for a single operand
         expr = bitwiseOpToCString(BitwiseOp::NOT) + "(" + inputExprs[0] + ")";
     }else{
-        //For 2 operands
-
-        expr = "("+inputExprs[0]+")" + bitwiseOpToCString(op) + "("+inputExprs[1]+")";
+        //For >=2 operands
+        for(unsigned long i = 0; i<numInputPorts; i++) {
+            if(i > 0){
+                expr += bitwiseOpToCString(op);
+            }
+            expr += "(" + inputExprs[i] + ")";
+        }
     }
 
-    return CExpr(expr, false);
+    //Already validated inputs are not floating pt
+    //Find the type the expression will be promoted to
+    //See https://en.cppreference.com/w/c/language/conversion
+    //With types of the same width, unsigned wins and signed types are converted to unsigned
+    //With types of different widths, if the signed type can represent the values of the unsigned type, the unsigned type
+    //is converted to the signed type
+    DataType largestType = getInputPort(0)->getDataType();
+    for(int i = 1; i<numInputPorts; i++){
+        DataType type = getInputPort(i)->getDataType();
+        if(type.getTotalBits()>largestType.getTotalBits()){
+            largestType = type;
+        }else if(type.getTotalBits() == largestType.getTotalBits() && !type.isSignedType()){
+            largestType = type;
+        }
+    }
+
+    //Cast the expression to the correct output type (if necessary)
+    std::string outputExpr = DataType::cConvertType(expr, largestType, getOutputPort(0)->getDataType());
+
+    return CExpr(outputExpr, false);
 }
 
 BitwiseOperator::BitwiseOperator(std::shared_ptr<SubSystem> parent, BitwiseOperator* orig) : PrimitiveNode(parent, orig), op(orig->op){

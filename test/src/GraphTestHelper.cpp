@@ -37,13 +37,13 @@ void GraphTestHelper::verifyArcLinksTerminator(std::shared_ptr<Arc> arc) {
 
 void GraphTestHelper::verifyDataType(DataType dataType, bool floatingPtExpected, bool signedTypeExpected,
                                      bool complexExpected, int totalBitsExpected, int fractionalBitsExpected,
-                                     int widthExpected) {
+                                     std::vector<int> dimensionsExpected) {
     ASSERT_EQ(dataType.isFloatingPt(), floatingPtExpected);
     ASSERT_EQ(dataType.isSignedType(), signedTypeExpected);
     ASSERT_EQ(dataType.isComplex(), complexExpected);
     ASSERT_EQ(dataType.getTotalBits(), totalBitsExpected);
     ASSERT_EQ(dataType.getFractionalBits(), fractionalBitsExpected);
-    ASSERT_EQ(dataType.getWidth(), widthExpected);
+    ASSERT_EQ(dataType.getDimensions(), dimensionsExpected);
 }
 
 void GraphTestHelper::verifyPortNumbers(std::shared_ptr<Node> node) {

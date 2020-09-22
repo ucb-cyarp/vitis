@@ -26,6 +26,7 @@
 #include "ContextContainer.h"
 #include "ContextFamilyContainer.h"
 #include "ContextRoot.h"
+#include "DummyReplica.h"
 
 #include "GraphCore/StateUpdate.h"
 
@@ -41,6 +42,9 @@
 #include "Estimators/EstimatorCommon.h"
 #include "Estimators/ComputationEstimator.h"
 #include "Estimators/CommunicationEstimator.h"
+
+#include "MultiRate/MultiRateHelpers.h"
+#include "MultiRate/DownsampleClockDomain.h"
 
 //==== Constructors
 Design::Design() {
@@ -183,7 +187,8 @@ void Design::assignArcIDs() {
 
     for(unsigned long i = 0; i<numArcs; i++){
         if(arcs[i]->getId()<0){
-            arcs[i]->setId(newID);
+            std::shared_ptr<Arc> arcToSet = arcs[i];
+            arcToSet->setId(newID);
             newID++;
         }
     }
@@ -211,6 +216,11 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("arc_complex", "string", false));
     parameters.insert(GraphMLParameter("arc_width", "string", false));
     parameters.insert(GraphMLParameter("arc_id", "int", true));
+
+    //Add the static entries for partition crossing arcs in communication graph
+    parameters.insert(GraphMLParameter("partition_crossing_init_state_count_blocks", "int", false));
+    parameters.insert(GraphMLParameter("partition_crossing_bytes_per_sample", "int", false));
+    parameters.insert(GraphMLParameter("partition_crossing_bytes_per_block", "int", false));
 
     std::set<GraphMLParameter> inputParameters = inputMaster->graphMLParameters();
     parameters.insert(inputParameters.begin(), inputParameters.end());
@@ -320,6 +330,11 @@ bool Design::expand() {
         if(expandedPtr != nullptr){
             expanded = true;
         }
+    }
+
+    //Call propagateProperties on the new nodes in case they need to initilize properties from arc connections
+    for(const auto & newNode : newNodes){
+        newNode->propagateProperties();
     }
 
     addRemoveNodesAndArcs(newNodes, deletedNodes, newArcs, deletedArcs);
@@ -436,44 +451,47 @@ std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePat
     return cursor;
 }
 
-std::vector<Variable> Design::getCInputVariables() {
+std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> Design::getCInputVariables() {
     return EmitterHelpers::getCInputVariables(inputMaster);
 }
 
-std::vector<Variable> Design::getCOutputVariables() {
+std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> Design::getCOutputVariables() {
     return EmitterHelpers::getCOutputVariables(outputMaster);
 }
 
 std::string Design::getCFunctionArgPrototype(bool forceArray) {
     std::string prototype = "";
 
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarsWithRates = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarsWithRates.first;
     unsigned long numInputVars = inputVars.size();
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     if(numInputVars>0){
         Variable var = inputVars[0];
 
-        if(forceArray){
+        //Note, if it is already an array, preserve the dimensions
+        if(forceArray && var.getDataType().isScalar()){
             DataType varType = var.getDataType();
-            varType.setWidth(2);
+            varType.setDimensions({2});
             var.setDataType(varType);
         }
 
-        prototype += "const " + var.getCVarDecl(false, false, false, true);
+        prototype += "const " + var.getCVarDecl(false, true, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, false, false, true);
+            prototype += ", const " + var.getCVarDecl(true, true, false, true);
         }
     }
 
     for(unsigned long i = 1; i<numInputVars; i++){
         Variable var = inputVars[i];
 
-        if(forceArray){
+        //Note, if it is already an array, preserve the dimensions
+        if(forceArray && var.getDataType().isScalar()){
             DataType varType = var.getDataType();
-            varType.setWidth(2);
+            varType.setDimensions({2});
             var.setDataType(varType);
         }
 
@@ -497,23 +515,21 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
     return prototype;
 }
 
-std::string Design::getCInputStructDefn(int blockSize){
-    std::vector<Variable> inputVars = getCInputVariables();
-    return EmitterHelpers::getCIOPortStructDefn(inputVars, "InputType", blockSize);
-
-}
-
 std::string Design::getCOutputStructDefn(int blockSize) {
-    std::vector<Variable> outputVars = getCOutputVariables();
-    return EmitterHelpers::getCIOPortStructDefn(outputVars, "OutputType", blockSize);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> outputVarsPairdWithRates = getCOutputVariables();
+    std::vector<int> blockSizes = EmitterHelpers::getBlockSizesFromRates(outputVarsPairdWithRates.second, blockSize);
+    return EmitterHelpers::getCIOPortStructDefn(outputVarsPairdWithRates.first, blockSizes, "OutputType");
 }
 
 void Design::generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, unsigned long blockSize, bool emitGraphMLSched, bool printNodeSched){
     if(schedType == SchedParams::SchedType::BOTTOM_UP)
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     else if(schedType == SchedParams::SchedType::TOPOLOGICAL) {
-        scheduleTopologicalStort(topoSortParams, true, false, designName, outputDir, printNodeSched, false);
-        verifyTopologicalOrder(true);
+        prune(true);
+        pruneUnconnectedArcs(true);
+
+        scheduleTopologicalStort(topoSortParams, false, false, designName, outputDir, printNodeSched, false);
+        verifyTopologicalOrder(true, schedType);
 
         if(emitGraphMLSched) {
             //Export GraphML (for debugging)
@@ -525,6 +541,30 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         emitSingleThreadedC(outputDir, designName, designName, schedType, blockSize);
     }else if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
         prune(true);
+        pruneUnconnectedArcs(true);
+
+        std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
+        //TODO Optimize this so a second pass is not needed
+        //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
+        //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
+        resetMasterNodeClockDomainLinks();
+        MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
+
+        //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
+        clockDomains = specializeClockDomains(clockDomains);
+        assignNodeIDs();
+        assignArcIDs();
+        //This also converts RateChangeNodes to Input or Output implementations.
+        //This is done before other operations since these operations replace the objects because the class is changed to a subclass
+
+        //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
+        createClockDomainSupportNodes(clockDomains, false, true); //Have not done context discovery & marking yet so do not request context inclusion
+        assignNodeIDs();
+        assignArcIDs();
+
+        //Check the ClockDomain rates are appropriate
+        MultiRateHelpers::validateClockDomainRates(clockDomains);
+
         expandEnabledSubsystemContexts();
         //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
         //Is ok for them to exist (specifically order constraint arcs) after state update node and context encapsulation
@@ -536,10 +576,6 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         assignArcIDs();
 
         createContextVariableUpdateNodes(); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes
-        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
-        assignArcIDs();
-
-        createStateUpdateNodes(); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
         assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
         assignArcIDs();
 
@@ -556,12 +592,22 @@ void Design::generateSingleThreadedC(std::string outputDir, std::string designNa
         assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
         assignArcIDs();
 
+        //Moved from before discoverAndMarkContexts to afterEncapsulate contexts to better match the multithreaded emitter
+        //Since this is occuring after contexts are discovered and marked, the include context options should be set to true
+        createStateUpdateNodes(true); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
+        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+        assignArcIDs();
+
         //Export GraphML (for debugging)
 //        std::cout << "Emitting GraphML pre-Schedule File: " << outputDir << "/" << designName << "_preSortGraph.graphml" << std::endl;
 //        GraphMLExporter::exportGraphML(outputDir+"/"+designName+"_preSchedGraph.graphml", *this);
 
         scheduleTopologicalStort(topoSortParams, false, true, designName, outputDir, printNodeSched, false); //Pruned before inserting state update nodes
-        verifyTopologicalOrder(true);
+        verifyTopologicalOrder(true, schedType);
+
+        //TODO: ValidateIO Block
+
+        //TODO: Create variables for clock domains
 
         if(emitGraphMLSched) {
             //Export GraphML (for debugging)
@@ -938,8 +984,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     cFile << fctnProto << "{" << std::endl;
 
     //emit inner loop
-    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, {1});
     if(blockSize > 1) {
+        //TODO: Creatr other variables for clock domains
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
     }
 
@@ -960,7 +1007,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         cFile << std::endl << "//==== Update State Vars ====" << std::endl;
         for(unsigned long i = 0; i<nodesWithState.size(); i++){
             std::vector<std::string> stateUpdateExprs;
-            nodesWithState[i]->emitCStateUpdate(stateUpdateExprs, sched);
+            nodesWithState[i]->emitCStateUpdate(stateUpdateExprs, sched, nullptr);
 
             unsigned long numStateUpdateExprs = stateUpdateExprs.size();
             for(unsigned long j = 0; j<numStateUpdateExprs; j++){
@@ -970,6 +1017,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
     }
 
     if(blockSize > 1) {
+        //TODO: Increment other variables here
         cFile << "}" << std::endl;
     }
 
@@ -995,7 +1043,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                 cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
             }else{
                 for(unsigned long k = 0; k < initValsLen; k++){
-                    cFile << stateVars[j].getCVarName(false) << "[" << k << "] = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
+                    cFile << stateVars[j].getCVarName(false) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
                 }
             }
 
@@ -1004,7 +1052,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
                     cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
                 }else{
                     for(unsigned long k = 0; k < initValsLen; k++){
-                        cFile << stateVars[j].getCVarName(true) << "[" << k << "] = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
+                        cFile << stateVars[j].getCVarName(true) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
                     }
                 }
             }
@@ -1051,7 +1099,8 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
                    "\tunsigned long outputCount;\n";
 
     //Generate loop
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePairs = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarRatePairs.first;
     unsigned long numInputVars = inputVars.size();
 
     std::vector<NumericValue> defaultArgs;
@@ -1068,57 +1117,43 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
 
     std::string fctnCall = designName + "(";
 
-    if(blockSize >1) {
-        //For a block size greater than 1, constant arrays need to be created
-        for (unsigned long i = 0; i < numInputVars; i++) {
-            //Expand the size of the variable to account for the block size;
-            Variable blockInputVar = inputVars[i];
-            DataType blockDT = blockInputVar.getDataType();
-            int blockedWidth = blockDT.getWidth()*blockSize;
-            blockDT.setWidth(blockedWidth);
-            blockInputVar.setDataType(blockDT);
-            benchKernel << "\t" << blockInputVar.getCVarDecl(false, true, false, true) << " = {";
+    //TODO: Update for clock domains
+    //For a block size greater than 1, constant arrays need to be created
+    for (unsigned long i = 0; i < numInputVars; i++) {
+        //Expand the size of the variable to account for the block size;
+        Variable blockInputVar = inputVars[i];
+        DataType blockDT = blockInputVar.getDataType().expandForBlock(blockSize);
 
-            for (unsigned long j = 0; j < blockedWidth; j++){
-                if(j>0){
-                    benchKernel << ", ";
-                }
-                benchKernel << defaultArgs[i].toStringComponent(false, blockDT);
-            }
-            benchKernel << "};" << std::endl;
+        blockInputVar.setDataType(blockDT);
 
-            if(i>0){
-                fctnCall += ", ";
-            }
+        std::vector<int> blockedDim = blockDT.getDimensions();
+
+        //Insert comma between variables
+        if (i > 0) {
+            fctnCall += ", ";
+        }
+
+        if(!blockDT.isScalar()) {
+            //Create a constant array and pass it as the argument
+            benchKernel << "\t" << blockInputVar.getCVarDecl(false, true, false, true)
+                        << EmitterHelpers::arrayLiteral(blockedDim, defaultArgs[i].toStringComponent(false, blockDT)) << ";";
             fctnCall += blockInputVar.getCVarName(false);
+        }else{
+            //Just pass the scalar argument
+            fctnCall += defaultArgs[i].toStringComponent(false, blockDT);
+        }
 
-            if (inputVars[i].getDataType().isComplex()) {
-                benchKernel << "\t" << blockInputVar.getCVarDecl(true, true, false, true) << " = {";
+        if (inputVars[i].getDataType().isComplex()) {
+            fctnCall += ", "; //This is guarenteed to be needed as the real component will come first
 
-                for (unsigned long j = 0; j < blockedWidth; j++){
-                    if(j>0){
-                        benchKernel << ", ";
-                    }
-                    benchKernel << defaultArgs[i].toStringComponent(true, blockDT);
-                }
-                benchKernel << "};" << std::endl;
-
-                fctnCall += ", "; //This is guarenteed to be needed as the real component will come first
+            if(!blockDT.isScalar()) {
+                //Create a constant array and pass it as the argument
+                benchKernel << "\t" << blockInputVar.getCVarDecl(true, true, false, true)
+                            << EmitterHelpers::arrayLiteral(blockedDim, defaultArgs[i].toStringComponent(true, blockDT)) << ";";
                 fctnCall += blockInputVar.getCVarName(true);
-            }
-        }
-    }else{
-        //For a block size of 1, the arguments are passed as scalars
-        if (numInputVars > 0) {
-            fctnCall += defaultArgs[0].toStringComponent(false, inputVars[0].getDataType());
-            if (inputVars[0].getDataType().isComplex()) {
-                fctnCall += ", " + defaultArgs[0].toStringComponent(true, inputVars[0].getDataType());
-            }
-        }
-        for (unsigned long i = 1; i < numInputVars; i++) {
-            fctnCall += ", " + defaultArgs[i].toStringComponent(false, inputVars[i].getDataType());
-            if (inputVars[i].getDataType().isComplex()) {
-                fctnCall += ", " + defaultArgs[i].toStringComponent(true, inputVars[i].getDataType());
+            }else{
+                //Just pass the scalar argument
+                fctnCall += defaultArgs[i].toStringComponent(true, blockDT);
             }
         }
     }
@@ -1228,9 +1263,9 @@ Design::emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string
                                    "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
                                    "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                    "#Generated system should be allowed to optomize - reintepret as c++ file\n"
-                                   "SYSTEM_CFLAGS = -O3 -c -g -x c++ -std=c++11 -march=native -masm=att\n"
+                                   "SYSTEM_CFLAGS = -Ofast -c -g -x c++ -std=c++11 -march=native -masm=att\n"
                                    "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
-                                   "KERNEL_CFLAGS = -O3 -c -g -std=c++11 -march=native -masm=att\n"
+                                   "KERNEL_CFLAGS = -Ofast -c -g -std=c++11 -march=native -masm=att\n"
                                    "#For kernels that should not be optimized, the following is used\n"
                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                    "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
@@ -1346,7 +1381,8 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
     benchKernelMem << "\t" << designName << "_reset();\n";
 
     //Cast the input and output arrays to the correct type
-    std::vector<Variable> inputVars = getCInputVariables();
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePairs = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarRatePairs.first;
     unsigned long numInputVars = inputVars.size();
     int inCur = 0; //This is used to track the current index in the input array since it may not allign with i (due to mixed real and imag inputs)
     for(unsigned long i = 0; i<numInputVars; i++){
@@ -1361,6 +1397,8 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
 
     //Cast output array
     benchKernelMem << "\tOutputType* outArr = (OutputType*) out[0];" << std::endl;
+
+    //TODO: Update for clock domains
 
     //Generate loop
     benchKernelMem << "\tunsigned long outputCount;\n";
@@ -1564,9 +1602,9 @@ void Design::emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::str
                                    "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
                                    "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                    "#Generated system should be allowed to optomize - reintepret as c++ file\n"
-                                   "SYSTEM_CFLAGS = -O3 -c -g -x c++ -std=c++11 -march=native -masm=att\n"
+                                   "SYSTEM_CFLAGS = -Ofast -c -g -x c++ -std=c++11 -march=native -masm=att\n"
                                    "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
-                                   "KERNEL_CFLAGS = -O3 -c -g -std=c++11 -march=native -masm=att\n"
+                                   "KERNEL_CFLAGS = -Ofast -c -g -std=c++11 -march=native -masm=att\n"
                                    "#For kernels that should not be optimized, the following is used\n"
                                    "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                    "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
@@ -1743,13 +1781,14 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
         }
         nodeCopies[i]->setContext(newContext);
 
-        //Copy StateUpdate (if not null)
-        if(origNode->getStateUpdateNode() != nullptr){
-            std::shared_ptr<Node> stateUpdateNode = origToCopyNode[origNode->getStateUpdateNode()];
-            std::shared_ptr<StateUpdate> stateUpdateNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(stateUpdateNode);
+        //Copy StateUpdate(s).  This should preserve the order of the stateUpdateNodes vector in the copy
+        std::vector<std::shared_ptr<StateUpdate>> stateUpdateNodes = origNode->getStateUpdateNodes();
+        for(unsigned long j = 0; j<stateUpdateNodes.size(); j++){
+            std::shared_ptr<Node> stateUpdateNodeCopy = origToCopyNode[stateUpdateNodes[j]];
+            std::shared_ptr<StateUpdate> stateUpdateCopyNodeAsStateUpdate = GeneralHelper::isType<Node, StateUpdate>(stateUpdateNodeCopy);
 
-            if(stateUpdateNodeAsStateUpdate) {
-                nodeCopies[i]->setStateUpdateNode(stateUpdateNodeAsStateUpdate);
+            if(stateUpdateCopyNodeAsStateUpdate) {
+                nodeCopies[i]->addStateUpdateNode(stateUpdateCopyNodeAsStateUpdate);
             }else{
                 throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a StateUpdate");
             }
@@ -1819,6 +1858,19 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                         nodeCopyAsContextRoot->addSubContextNode(j, origToCopyNode[origContextNodes[k]]);
                     }
                 }
+
+                //Copy Dummy Nodes
+                std::map<int, std::shared_ptr<DummyReplica>> origDummyReplicas = origNodeAsContextRoot->getDummyReplicas();
+                for(auto origDummyNode = origDummyReplicas.begin(); origDummyNode != origDummyReplicas.end(); origDummyNode++){
+                    std::shared_ptr<Node> copyDummyReplicaNode = origToCopyNode[origDummyNode->second];
+                    std::shared_ptr<DummyReplica> copyDummyReplica = std::dynamic_pointer_cast<DummyReplica>(copyDummyReplicaNode);
+                    if(copyDummyReplica) {
+                        nodeCopyAsContextRoot->setDummyReplica(origDummyNode->first, copyDummyReplica);
+                    }else{
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find cloned dummy node", nodeCopies[i]));
+                    }
+                }
+
             }else{
                 throw std::runtime_error("Node encountered durring Graph Copy which was expected to be a ContextRoot");
             }
@@ -1849,7 +1901,35 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                 contextFamilyContainerCopy->setContextRoot(nullptr);
             }
 
+            //Copy DummyNode
+
             //subContextContainers are handled in the clone method
+            if(contextFamilyContainerOrig->getDummyNode() != nullptr){
+                std::shared_ptr<Node> dummyCopyAsNode = origToCopyNode[contextFamilyContainerOrig->getDummyNode()];
+                std::shared_ptr<DummyReplica> dummyCopy = std::dynamic_pointer_cast<DummyReplica>(dummyCopyAsNode);
+                contextFamilyContainerCopy->setDummyNode(dummyCopy);
+            }else{
+                contextFamilyContainerCopy->setDummyNode(nullptr);
+            }
+        }
+
+        if(GeneralHelper::isType<Node, DummyReplica>(nodeCopies[i]) != nullptr){
+            //Set the dummyOf field
+            std::shared_ptr<DummyReplica> copyNodeAsDummyReplica = std::static_pointer_cast<DummyReplica>(nodeCopies[i]);
+            std::shared_ptr<DummyReplica> origNodeAsDummyReplica = std::dynamic_pointer_cast<DummyReplica>(copyToOrigNode[copyNodeAsDummyReplica]);
+            std::shared_ptr<ContextRoot> origDummyOf = origNodeAsDummyReplica->getDummyOf();
+            std::shared_ptr<Node> copyDummyOf = origToCopyNode[std::dynamic_pointer_cast<Node>(origDummyOf)];
+            copyNodeAsDummyReplica->setDummyOf(std::dynamic_pointer_cast<ContextRoot>(copyDummyOf));
+        }
+
+        if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodeCopies[i]) != nullptr){
+            std::shared_ptr<ThreadCrossingFIFO> copyNodeAsThreadCrossingFIFO = std::static_pointer_cast<ThreadCrossingFIFO>(nodeCopies[i]);
+            std::shared_ptr<ThreadCrossingFIFO> origNodeAsThreadCrossingFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(copyToOrigNode[copyNodeAsThreadCrossingFIFO]);
+            std::shared_ptr<ClockDomain> origClockDomain = origNodeAsThreadCrossingFIFO->getClockDomain();
+            if(origClockDomain) {
+                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomain]);
+                copyNodeAsThreadCrossingFIFO->setClockDomain(cloneClockDomain);
+            }
         }
     }
 
@@ -1875,13 +1955,81 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
     std::vector<std::shared_ptr<Arc>> arcCopiesOrdered;
     for(unsigned long i = 0; i<arcs.size(); i++){
         if(origToCopyArc.find(arcs[i]) == origToCopyArc.end()){
-            throw std::runtime_error("While cloning design, found an arc that has no clone");
+            throw std::runtime_error("While cloning design, found an arc that has no clone: [" + arcs[i]->getSrcPort()->getParent()->getFullyQualifiedName() + " -> " + arcs[i]->getDstPort()->getParent()->getFullyQualifiedName() + "]");
         }
 
         arcCopiesOrdered.push_back(origToCopyArc[arcs[i]]);
     }
 
     designCopy.arcs = arcCopiesOrdered;
+
+    //Update ClockDomain ports (Using arc copies)
+    for (unsigned long i = 0; i < numNodes; i++) {
+        if(GeneralHelper::isType<Node, ClockDomain>(nodes[i])){
+            std::shared_ptr<ClockDomain> origClkDomain = std::static_pointer_cast<ClockDomain>(nodes[i]);
+            std::shared_ptr<ClockDomain> cloneClkDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClkDomain]);
+
+            //Update the IO input ports
+            std::set<std::shared_ptr<OutputPort>> origInputs = origClkDomain->getIoInput();
+            for(auto origPort = origInputs.begin(); origPort != origInputs.end(); origPort++){
+                //Get one of the output arcs of this port (dosn't matter which one but there should be at least one since it was connected to a node in the clock domain)
+                std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
+                //Get the cloned arc
+                std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                if(cloneArc == nullptr){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying ports of clock domain", nodes[i]));
+                }
+                //Get the source port of this cloned arc (for which this arc is an output)
+                std::shared_ptr<OutputPort> clonePort = cloneArc->getSrcPort();
+                //Add this to the set
+                cloneClkDomain->addIOInput(clonePort);
+            }
+
+            //Update the IO output ports
+            std::set<std::shared_ptr<InputPort>> origOutputs = origClkDomain->getIoOutput();
+            for(auto origPort = origInputs.begin(); origPort != origInputs.end(); origPort++){
+                //Get the input arc to this port (it should exist as it was conneted to a node in the clock domain
+                std::shared_ptr<Arc> origArc = *((*origPort)->getArcs().begin());
+                //Get the cloned arc
+                std::shared_ptr<Arc> cloneArc = origToCopyArc[origArc];
+                if(cloneArc == nullptr){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying ports of clock domain", nodes[i]));
+                }
+                //Get the destination port of this cloned arc (for which this arc is an input)
+                std::shared_ptr<InputPort> clonePort = cloneArc->getDstPort();
+                //Add this to the set
+                cloneClkDomain->addIOOutput(clonePort);
+            }
+
+            //Update ContextDrivers for DownsampleSubsystems
+            //TODO: Refactor into a function in Node which runs after the initial clone and allows initialization of
+            //graph references
+
+            if(GeneralHelper::isType<Node, DownsampleClockDomain>(nodes[i])){
+                std::shared_ptr<DownsampleClockDomain> origClkDomainDownsample = std::static_pointer_cast<DownsampleClockDomain>(nodes[i]);
+                std::shared_ptr<DownsampleClockDomain> cloneClkDomainDownsample = std::dynamic_pointer_cast<DownsampleClockDomain>(origToCopyNode[origClkDomainDownsample]);
+
+                std::shared_ptr<Arc> origDriver = origClkDomainDownsample->getContextDriver();
+                if(origDriver) {
+                    std::shared_ptr<Arc> copyArc = origToCopyArc[origDriver];
+                    if(copyArc == nullptr){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain", nodes[i]));
+                    }
+                    cloneClkDomainDownsample->setContextDriver(copyArc);
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain.  No driver", nodes[i]));
+                }
+            }
+
+        }
+    }
+
+    //Update master port clock domain references
+    MultiRateHelpers::cloneMasterNodePortClockDomains(inputMaster, designCopy.inputMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(outputMaster, designCopy.outputMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(visMaster, designCopy.visMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(unconnectedMaster, designCopy.unconnectedMaster, origToCopyNode);
+    MultiRateHelpers::cloneMasterNodePortClockDomains(terminatorMaster, designCopy.terminatorMaster, origToCopyNode);
 
     //Copy topLevelNode entries
     for(unsigned long i = 0; i<numTopLevelNodes; i++){
@@ -2038,7 +2186,7 @@ unsigned long Design::prune(bool includeVisMaster) {
     return nodesDeleted.size();
 }
 
-void Design::verifyTopologicalOrder(bool checkOutputMaster) {
+void Design::verifyTopologicalOrder(bool checkOutputMaster, SchedParams::SchedType schedType) {
     //First, check that the output is scheduled (so long as there are output arcs)
     if(checkOutputMaster && outputMaster->inDegree() > 0){
         if(outputMaster->getSchedOrder() == -1){
@@ -2049,7 +2197,8 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster) {
     for(unsigned long i = 0; i<arcs.size(); i++){
         //Check if the src node is a constant or the input master node
         //If so, do not check the ordering
-        std::shared_ptr<Node> srcNode = arcs[i]->getSrcPort()->getParent();
+        std::shared_ptr<Arc> arc = arcs[i];
+        std::shared_ptr<Node> srcNode = arc->getSrcPort()->getParent();
 
         //The one case that needs to be checked if the src has state is the StateUpdate node for the given state element
         //Otherwise the outputs of nodes with state are considered constants
@@ -2079,21 +2228,13 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster) {
         }
 
         if(shouldCheck){
-            //It is allowed for the destination node to have order -1 (ie. not emitted) but the reverse is not OK
-            //The srcNode can only be -1 if the destination is also -1
             if (srcNode->getSchedOrder() == -1) {
                 //Src node is unscheduled
-                if (dstNode->getSchedOrder() != -1) {
-                    //dst node is scheduled
-                    throw std::runtime_error(
-                            "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
-                            ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
-                            GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
-                            "] is Unscheduled but Dst Node (" + dstNode->getFullyQualifiedName() +
-                            ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
-                            GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "] is Scheduled");
-                }
-                //otherwise, there is no error here as both nodes are unscheduled
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                        ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                        GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
+                        "] is Unscheduled"));
             } else {
                 //Src node is scheduled
                 if (dstNode->getSchedOrder() != -1) {
@@ -2107,8 +2248,15 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster) {
                                 ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
                                 GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "]");
                     }
+                }else{
+                    throw std::runtime_error(
+                            "Topological Order Validation: Src Node (" + srcNode->getFullyQualifiedName() +
+                            ") [Sched Order: " + GeneralHelper::to_string(srcNode->getSchedOrder()) + ", ID: " +
+                            GeneralHelper::to_string(srcNode->getId()) + ", Part: " + GeneralHelper::to_string(srcNode->getPartitionNum()) +
+                            "] is scheduled but Dst Node (" + dstNode->getFullyQualifiedName() +
+                            ") [Sched Order: " + GeneralHelper::to_string(dstNode->getSchedOrder()) + ", ID: " +
+                            GeneralHelper::to_string(dstNode->getId()) + ", Part: " + GeneralHelper::to_string(dstNode->getPartitionNum()) + "] is not.");
                 }
-                //Dst node unscheduled is OK
             }
         }
     }
@@ -2126,7 +2274,27 @@ void Design::verifyTopologicalOrder(bool checkOutputMaster) {
             }
 
             for(unsigned long j = 0; j < context.size(); j++){
-                std::vector<std::shared_ptr<Arc>> drivers = context[j].getContextRoot()->getContextDecisionDriver();
+                std::vector<std::shared_ptr<Arc>> drivers;
+
+                if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT) {
+                    //Topoligical context creates new context driver arcs durring encapsulation (for each partition the context is present in)
+                    //We will check against these as this can handle multiple partition scheduling where
+                    //the relative order of the schedule between the different partitons does not matter
+                    //but where the context driver arc may produce a false depencency
+                    drivers = context[j].getContextRoot()->getContextDriversForPartition(nodes[i]->getPartitionNum());
+
+                    std::vector<std::shared_ptr<Arc>> origDriver = context[j].getContextRoot()->getContextDecisionDriver(); //This is the context driver before encapsulation
+
+                    //Sanity check if no context partition drivers exist.
+                    if (drivers.empty() && !origDriver.empty()) {
+                        std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(context[j].getContextRoot());
+                        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                "ContextRoot Found that has context drivers but no context drivers for a given partition.  This should have been created during encapsulation.",
+                                asNode));
+                    }
+                }else{
+                    drivers = context[j].getContextRoot()->getContextDecisionDriver();
+                }
 
                 for(unsigned long k = 0; k < drivers.size(); k++){
                     std::shared_ptr<Node> driverSrc = drivers[k]->getSrcPort()->getParent();
@@ -2237,6 +2405,10 @@ std::vector<std::shared_ptr<Node>> Design::topologicalSortDestructive(std::strin
 }
 
 unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched, bool schedulePartitions) {
+    //TODO: WARNING: UpsampleClockDomains currently rely on all of their nodes being scheduled together (ie not being split up).
+    //This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
+    //later, a method for having vector intermediates would be required.
+
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2299,7 +2471,7 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 
             //Thread crossing FIFOs will have their outputs disconnected by this method as they declare that they have state and no combinational path
 
-            //Note, arcs to state update nodes should not be removed.
+            //Note, arcs to state update nodes should not be removed (except for ThreadCrossingFIFOs).
 
             std::set<std::shared_ptr<Arc>> outputArcs = designClone.nodes[i]->getOutputArcs();
             for(auto it = outputArcs.begin(); it != outputArcs.end(); it++){
@@ -2308,6 +2480,25 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
                 if(dstAsStateUpdate == nullptr){
                     (*it)->disconnect();
                     arcsToDelete.insert(*it);
+                }else if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(designClone.nodes[i])){
+                    //The destination is a state update but the src is a ThreadCrossingFIFO.
+                    //The ThreadCrossingFIFO data should be from another partition and the dependency is effectively handled by
+                    //reading rhe ThreadCrossingFIFO at the start of function execution (or on demand during execution if that
+                    //model is implemented).  The possible exception to this is when the ThreadCrossingFIFO's input is
+                    //a stateful element in which case an order constraint arc is possible and should be honnored.  Note that
+                    //ThreadCrossingFIFOs exist in the src partition of the transfer.  It should not be possible for the FIFO's own
+                    //state update node to be in a different partition.  This condition will be checked.
+                    //Therefore, the arc will be removed only if the ThreadCrossingFIFO and StateUpdate are in different partitions.
+
+                    if(designClone.nodes[i]->getPartitionNum() != dstAsStateUpdate->getPartitionNum()){
+                        if(dstAsStateUpdate->getPrimaryNode() == designClone.nodes[i]){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Arc from ThreadCrossingFIFO to its own state update in another partition", designClone.nodes[i]));
+                        }else{
+                            (*it)->disconnect();
+                            arcsToDelete.insert(*it);
+                        }
+                    }
+                    //Else, this arc to the state update
                 }
                 //Else, this is a State node connected to its StateUpdate node and should not be removed
             }
@@ -2429,6 +2620,7 @@ void Design::expandEnabledSubsystemContexts(){
 void Design::discoverAndMarkContexts() {
     std::vector<std::shared_ptr<Mux>> discoveredMuxes;
     std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
+    std::vector<std::shared_ptr<ClockDomain>> discoveredClockDomains;
     std::vector<std::shared_ptr<Node>> discoveredGeneral;
 
     //The top level context stack has no entries
@@ -2436,14 +2628,21 @@ void Design::discoverAndMarkContexts() {
 
     //Discover contexts at the top layer (and below non-enabled subsystems).  Also set the contexts of these top level nodes
     GraphAlgs::discoverAndUpdateContexts(topLevelNodes, initialStack, discoveredMuxes, discoveredEnabledSubsystems,
-                                         discoveredGeneral);
+                                         discoveredClockDomains, discoveredGeneral);
 
-    //Add context nodes (muxes and enabled subsystems) to the topLevelContextRoots list
+    //Add context nodes (muxes, enabled subsystems, and clock domains) to the topLevelContextRoots list
     for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
         topLevelContextRoots.push_back(discoveredMuxes[i]);
     }
     for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
         topLevelContextRoots.push_back(discoveredEnabledSubsystems[i]);
+    }
+    for(unsigned long i = 0; i<discoveredClockDomains.size(); i++){
+        std::shared_ptr<ContextRoot> clkDomainAsContextRoot = std::dynamic_pointer_cast<ContextRoot>(discoveredClockDomains[i]);
+        if(clkDomainAsContextRoot == nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered a clock domain that is not a ContextRoot when discovering and marking contexts", discoveredClockDomains[i]));
+        }
+        topLevelContextRoots.push_back(clkDomainAsContextRoot);
     }
 
     //Get and mark the Mux contexts
@@ -2453,6 +2652,12 @@ void Design::discoverAndMarkContexts() {
     for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++) {
         discoveredEnabledSubsystems[i]->discoverAndMarkContexts(initialStack);
     }
+
+    //Recursivly call on the discovered clock domains
+    for(unsigned long i = 0; i<discoveredClockDomains.size(); i++) {
+        discoveredClockDomains[i]->discoverAndMarkContexts(initialStack);
+    }
+
 }
 
 void Design::createStateUpdateNodes(bool includeContext) {
@@ -2577,12 +2782,34 @@ void Design::encapsulateContexts() {
 
         if(origParent != nullptr){
             origParent->removeChild(asNode);
+        }else{
+            //If has no parent, remove from topLevelNodes
+            topLevelNodes.erase(std::remove(topLevelNodes.begin(), topLevelNodes.end(), asNode), topLevelNodes.end());
         }
 
         std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = getContextFamilyContainerCreateIfNotNoParent(contextRootNodes[i], asNode->getPartitionNum());
         contextFamilyContainer->addChild(asNode);
         contextFamilyContainer->setContextRoot(contextRootNodes[i]);
         asNode->setParent(contextFamilyContainer);
+
+        //Also move dummy nodes of this ContextRoot into their relevent ContextFamilyContainers
+        std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas = contextRootNodes[i]->getDummyReplicas();
+        for(auto dummyPair = dummyReplicas.begin(); dummyPair != dummyReplicas.end(); dummyPair++){
+            int dummyPartition = dummyPair->first;
+            std::shared_ptr<DummyReplica> dummyNode = dummyPair->second;
+            std::shared_ptr<SubSystem> dummyOrigParent = dummyNode->getParent();
+
+            //Move the dummy node
+            if(dummyOrigParent != nullptr){
+                dummyOrigParent->removeChild(dummyNode);
+            }
+
+            std::shared_ptr<ContextFamilyContainer> contextFamilyContainer = getContextFamilyContainerCreateIfNotNoParent(contextRootNodes[i], dummyPartition);
+            contextFamilyContainer->addChild(dummyNode);
+            //Set as the dummy node for ContextFamilyContainer
+            contextFamilyContainer->setDummyNode(dummyNode);
+            dummyNode->setParent(contextFamilyContainer);
+        }
     }
 
     //Iterate through the ContextFamilyContainers (which should all be created now) and set the parent based on the context.
@@ -2626,18 +2853,35 @@ void Design::encapsulateContexts() {
 
 void Design::orderConstrainZeroInputNodes(){
 
-    std::vector<std::shared_ptr<Node>> predecessorNodes;
     std::vector<std::shared_ptr<Node>> new_nodes;
     std::vector<std::shared_ptr<Node>> deleted_nodes;
     std::vector<std::shared_ptr<Arc>> new_arcs;
     std::vector<std::shared_ptr<Arc>> deleted_arcs;
 
     //Call the recursive function on any subsystem at the top level
-    for(unsigned long i = 0; i<topLevelNodes.size(); i++){
-        std::shared_ptr<SubSystem> nodeAsSubSystem = GeneralHelper::isType<Node, SubSystem>(topLevelNodes[i]);
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        if(nodes[i]->inDegree() == 0){
+            //Needs to be order constrained if in a context
 
-        if(nodeAsSubSystem){
-            nodeAsSubSystem->orderConstrainZeroInputNodes(predecessorNodes, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+            std::vector<Context> contextStack = nodes[i]->getContext();
+            if(contextStack.size() > 0){
+                //Create new order constraint arcs for this node.
+
+                //Run through the context stack
+                for(unsigned long j = 0; j<contextStack.size(); j++){
+                    std::shared_ptr<ContextRoot> contextRoot = contextStack[j].getContextRoot();
+                    std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDriversForPartition(nodes[i]->getPartitionNum());
+                    if(driverArcs.size() == 0 && contextRoot->getContextDecisionDriver().size() > 0){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("When order constraining this node, found no context decision drivers for the partition it is in but found general context driver.  This function was likely called before partitioning and/or encapsulation", nodes[i]));
+                    }
+
+                    for(unsigned long k = 0; k<driverArcs.size(); k++){
+                        std::shared_ptr<OutputPort> driverSrc = driverArcs[k]->getSrcPort();
+                        std::shared_ptr<Arc> orderConstraintArc = Arc::connectNodes(driverSrc, nodes[i]->getOrderConstraintInputPortCreateIfNot(), driverArcs[k]->getDataType(), driverArcs[k]->getSampleTime());
+                        new_arcs.push_back(orderConstraintArc);
+                    }
+                }
+            }
         }
     }
 
@@ -2667,118 +2911,33 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> contextRootOrigArcs, contextRootRewiredArcs; //Want Arc orders to be consistent across runs
 
     //For each discovered context root
-    for(unsigned long i = 0; i<contextRoots.size(); i++){
-        //Rewire Drivers
-        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoots[i]->getContextDecisionDriver();
+    //Mark the driver arcs to be removed because order constraint arcs serving representing the drivers for each partition's
+    //ContextFamilyContainer should have already been created durring encapsulation.  This should include an arc to the
+    //ContextFamilyContainer in the same partition as the ContextRoot.  In the past, this function would create replicas
+    //of the context driver arcs for each partition.  However, that could result in undesierable behavior if a context
+    //is split across partitions.  Normally, unless the ContextRoot requests driver node replication, FIFOs are inserted
+    //at the order constraint arcs introduced during encapsulation that span partitions.  Arcs after these FIFOs are
+    //removed before this function is called as part of scheduling because the FIFOs are stateful nodes with no
+    //cobinational path.  This prevents the partition context drivers from becoming false cross partition dependencies
 
-        //Note: All of these share the same destination context root, so checking the destination context root is not required
-        std::map<std::shared_ptr<OutputPort>, std::vector<std::shared_ptr<Arc>>> srcPortToNewArcs; //Use this to check for duplicate new arcs (before creating them).  Return the pointer from the map instead.  This is used when
+    //Mark the origional (before encapsulation) ContextDriverArcs for deletion
+    for(unsigned long i = 0; i<contextRoots.size(); i++){
+        std::shared_ptr<ContextRoot> contextRoot = contextRoots[i];
+        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
 
         for(unsigned long j = 0; j<driverArcs.size(); j++){
             //The driver arcs must have the destination re-wired.  At a minimum, they should be rewired to
             //the context container node.  However, if they exist inside of a nested context, the destination
             //may need to be rewired to another context family container higher in the hierarchy
 
+            //TODO: Remove check
+            if(driverArcs[j] == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Null Arc discovered when rewiring driver arcs"));
+            }
+
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
-
-            //Check if the driver src / destination contextRoot pair have been encountered before
-            std::shared_ptr<OutputPort> driverSrc = driverArcs[j]->getSrcPort();
-
-            std::vector<std::shared_ptr<Arc>> rewiredArcs;
-            if(srcPortToNewArcs.find(driverSrc) != srcPortToNewArcs.end()){
-                //This src port has been seen before and has already been re-wired to the context family containers
-                //return the new arcs
-                rewiredArcs = srcPortToNewArcs[driverSrc];
-            }else{
-                //Have not seen this driver source for this particular ContextRoot before
-                //Create new rewiredArcs, one for each ContextFamilyContainer associated with this ContextRoot
-                std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoots[i]);
-
-                std::vector<Context> srcContext = driverSrc->getParent()->getContext();
-                std::vector<Context> dstContext = contextRootAsNode->getContext();
-                //Add the context family container to the context stack of the destination (the context root is not in its own context
-                dstContext.push_back(Context(contextRoots[i], -1)); //The subcontext number is a dummy
-
-                //Note, the src may be different for different ContextFamilyContainers due to partition differences
-                std::map<int, std::shared_ptr<ContextFamilyContainer>> dstContextFamilyContainers = contextRoots[i]->getContextFamilyContainers();
-                for(auto it = dstContextFamilyContainers.begin(); it != dstContextFamilyContainers.end(); it++) {
-                    std::shared_ptr<Node> newSrc = driverSrc->getParent(); //Default to orig
-                    //Check if the src should be changed
-                    if ((!Context::isEqOrSubContext(dstContext, srcContext)) ||
-                        (driverSrc->getParent()->getPartitionNum() != it->first)) { //it->first is the partition number
-                        //Need to pick new src
-                        /* Since we are now checking for partitions, it is possible for the source and destination to
-                         * actually be in the same context but in different partitions (different ContextFamilyContainers)
-                         * We need to pick the appropriate ContextFamilyContainer partition
-                         */
-                        long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
-
-                        std::shared_ptr<ContextRoot> newSrcAsContextRoot;
-
-                        if(commonContextInd == -1 && srcContext.empty()){
-                            //These nodes have no common context and the src node is not even in a context
-                            //This only happens if the nodes are in different partitions.  Otherwise, the destination
-                            //would be in an equal or sub context of the source
-
-                            //Leave the src unchanged.
-                        }
-                        else {
-                            if (commonContextInd + 1 == srcContext.size()) {
-                                //The destination is in the same context or below as the src, just in a different partiton
-                                //Will re-wire the src to the ContextFamilyContainer of the src
-                                newSrcAsContextRoot = srcContext[commonContextInd].getContextRoot();
-                            }else if (commonContextInd + 1 > srcContext.size()) {
-                                throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected common context found when re-wiring arcs to source", contextRootAsNode));
-                            }else {
-                                //The nodes share a context at a higher level of the context stack.
-                                //Set the source to be the ContextFamilyContainer one level down in the context stack
-                                //(the src node's context must finish executing before the result is ready to drive this context)
-                                newSrcAsContextRoot = srcContext[commonContextInd + 1].getContextRoot();
-                            }
-
-                            //TODO: fix diamond inheritcance
-
-                            newSrc = newSrcAsContextRoot->getContextFamilyContainers()[driverSrc->getParent()->getPartitionNum()]; //Get the src ContextFamilyContainer corresponding to the src partition
-                        }
-                    }
-
-                    //The dst needs to be rewired (at least to the ContextFamily container of the context root
-                    //However, may be higher up in the higherarchy.
-                    //Determine new dst node
-                    long commonContextInd = Context::findMostSpecificCommonContext(srcContext, dstContext);
-
-                    std::shared_ptr<ContextRoot> newDstAsContextRoot;
-
-                    if (commonContextInd + 1 > dstContext.size()) {
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected common context found when re-wiring arcs to destination", contextRootAsNode));
-                    }else if(commonContextInd + 1 == dstContext.size()){
-                        //The src is in the same context or below as the dst, just in a different partiton
-                        //Will re-wire the dst to the ContextFamilyContainer of the dst
-
-                        newDstAsContextRoot = dstContext[commonContextInd].getContextRoot();
-                    }else{
-                        newDstAsContextRoot = dstContext[commonContextInd + 1].getContextRoot();
-                    }
-
-                    //TODO: fix diamond inheritcance
-
-                    std::shared_ptr<Node> newDest = newDstAsContextRoot->getContextFamilyContainers()[it->first]; //it->first is the partition of the origional ContextFamilyContainer destination for this ContextRoot
-
-                    std::shared_ptr<Arc> rewiredArc = Arc::connectNodesOrderConstraint(newSrc, newDest, driverArcs[j]->getDataType(),
-                                                                  driverArcs[j]->getSampleTime());
-                    rewiredArcs.push_back(rewiredArc);
-                }
-            }
-
-            //Add to the map and the set of contextRootRewiredArcs
-            srcPortToNewArcs[driverSrc] = rewiredArcs;
-
-            for(int rewiredArcInd = 0; rewiredArcInd < rewiredArcs.size(); rewiredArcInd++) {
-                contextRootRewiredArcs.insert(rewiredArcs[rewiredArcInd]);
-            }
-
-            contextArcs.push_back(rewiredArcs);
+            contextArcs.push_back({}); //Replace with nothing
         }
     }
 
@@ -2804,16 +2963,35 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
         //arcs to the ContextRoots are elevated to the ContextFamily container for that ContextRoot as if it were in its
         //own subcontext.  We will therefore check for context roots and temporarily insert a dummy context entry
         std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getSrcPort()->getParent());
+        std::shared_ptr<DummyReplica> srcAsDummyReplica = GeneralHelper::isType<Node, DummyReplica>(candidateArc->getSrcPort()->getParent());
         if(srcAsContextRoot){
             srcContext.push_back(Context(srcAsContextRoot, -1));
+        }else if(srcAsDummyReplica){
+            srcContext.push_back(Context(srcAsDummyReplica->getDummyOf(), -1));
         }
         std::shared_ptr<ContextRoot> dstAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(candidateArc->getDstPort()->getParent());
+        std::shared_ptr<DummyReplica> dstAsDummyReplica = GeneralHelper::isType<Node, DummyReplica>(candidateArc->getDstPort()->getParent());
         if(dstAsContextRoot){
             dstContext.push_back(Context(dstAsContextRoot, -1));
+        }else if(dstAsDummyReplica){
+            dstContext.push_back(Context(dstAsDummyReplica->getDummyOf(), -1));
         }
 
         bool rewireSrc = false;
         bool rewireDst = false;
+
+        //Basically, we need to re-wire the arc if the src and destination are not in the same context for the perpose of scheduling
+        //If the the destination is in a subcontext of where the src is, the source does not need to be rewired.
+        //However, the destination will need to be re-wired up to the ContextFamilyContainer that resides at the same
+        //Context level as the source
+
+        //If the src is in a subcontext compared to the destination, the source needs to be re-wired up to the ContextFamilyContainer
+        //that resides at the same level as the destination.  The destination does not need to be re-wired.
+
+        //The case where both the source and destination need to be re-wired is when they are in seperate subcontexts
+        //and one is not nested inside the other.
+
+        //We may also need to re-wire the the arc for nodes in the same context if they are in different partitions
 
         /* Since we are now checking for partitions, it is possible for the source and destination to
          * actually be in the same context but in different partitions (different ContextFamilyContainers)
@@ -2852,7 +3030,6 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
                     //The dst is above the src in context, need to rewire
                     newSrcAsContextRoot = srcContext[commonContextInd+1].getContextRoot();
                 }//The case of the src not having a context is handled when checking if src rewiring is needed
-
 
                 //TODO: fix diamond inheritcance
 
@@ -3029,7 +3206,7 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
                         std::string srcPath = (*outArc)->getSrcPort()->getParent()->getFullyQualifiedName();
                         std::shared_ptr<Node> dst = (*outArc)->getDstPort()->getParent();
                         std::string dstPath = dst->getFullyQualifiedName();
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1"));
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1 [" + srcPath + "(" + GeneralHelper::to_string(srcPartition) + ") -> " + dstPath + " (" + GeneralHelper::to_string(dstPartition) + ")]"));
                     }
 
                     currentGroups[dstPartition].push_back(*outArc);
@@ -3094,54 +3271,56 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //would potentially be inserted where they are not needed).
     //Note what nodes and ports are disconnected
 
-    std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
-
-    //Unconnected master
-    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromUnconnectedMaster = unconnectedMaster->getInputArcs();
-    for(auto it = arcsToDisconnectFromUnconnectedMaster.begin(); it != arcsToDisconnectFromUnconnectedMaster.end(); it++){
-        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
-    }
-    std::set<std::shared_ptr<Arc>> unconnectedArcsSet = unconnectedMaster->disconnectNode();
-    std::vector<std::shared_ptr<Arc>> unconnectedArcs;
-    unconnectedArcs.insert(unconnectedArcs.end(), unconnectedArcsSet.begin(), unconnectedArcsSet.end());
-    std::vector<std::shared_ptr<Arc>> emptyArcSet;
-    std::vector<std::shared_ptr<Node>> emptyNodeSet;
-    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, unconnectedArcs);
-
-    //Terminator master
-    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromTerminatorMaster = terminatorMaster->getInputArcs();
-    for(auto it = arcsToDisconnectFromTerminatorMaster.begin(); it != arcsToDisconnectFromTerminatorMaster.end(); it++){
-        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
-    }
-    std::set<std::shared_ptr<Arc>> terminatedArcsSet = terminatorMaster->disconnectNode();
-    std::vector<std::shared_ptr<Arc>> terminatedArcs;
-    terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
-    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
-
-    //Vis Master (TODO: Re-enable later?)
-    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromVisMaster = visMaster->getInputArcs();
-    for(auto it = arcsToDisconnectFromVisMaster.begin(); it != arcsToDisconnectFromVisMaster.end(); it++){
-        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
-    }
-    std::set<std::shared_ptr<Arc>> visArcsSet = visMaster->disconnectNode();
-    std::vector<std::shared_ptr<Arc>> visArcs;
-    visArcs.insert(visArcs.end(), visArcsSet.begin(), visArcsSet.end());
-    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, visArcs);
-
-    //Emit a notification of ports that are disconnected (pruned)
-    //TODO: clean this up so that the disconnect warning durring emit refers back to the origional node path
-    for(auto it = outputPortsWithArcDisconnected.begin(); it != outputPortsWithArcDisconnected.end(); it++) {
-        if((*it)->getArcs().empty()) {
-            std::cout << "Pruned: All Arcs from Output Port " << (*it)->getPortNum() << " of " <<
-                      (*it)->getParent()->getFullyQualifiedName(true) << " [ID: " << (*it)->getParent()->getId() << "]"
-                      << std::endl;
-        }
-    }
+    pruneUnconnectedArcs(true);
 
     //Print Nodes
 //    for(int i = 0; i<nodes.size(); i++){
 //        std::cout << "Partition " << nodes[i]->getPartitionNum() << ", " << nodes[i]->getFullyQualifiedName() << std::endl;
 //    }
+
+    //=== Handle Clock Domains ===
+    //Should do this after all pruning has taken place (and all node disconnects have taken place)
+    //Should do after disconnects take place so that no arcs are going to the terminator master as the clock domain
+    //discovery and check logic does not distinguish between the actual output master and the terminator master
+    //since they are both MasterOutputs
+    //TODO: re-evaluate this
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains();
+    //TODO Optimize this so a second pass is not needed
+    //After pruning, re-discover clock domain parameters since rate change nodes and links to MasterIO ports may have been removed
+    //Before doing that, reset the ClockDomain links for master nodes as ports may have become disconnected
+    resetMasterNodeClockDomainLinks();
+    MultiRateHelpers::rediscoverClockDomainParameters(clockDomains);
+
+    //ClockDomain Rate Change Specialization.  Convert ClockDomains to UpsampleClockDomains or DownsampleClockDomains
+    clockDomains = specializeClockDomains(clockDomains);
+    assignNodeIDs();
+    assignArcIDs();
+    //This also converts RateChangeNodes to Input or Output implementations.
+    //This is done before other operations since these operations replace the objects because the class is changed to a subclass
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
+//    }
+
+    //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
+    createClockDomainSupportNodes(clockDomains, false, false); //Have not done context discovery & marking yet so do not request context inclusion
+    assignNodeIDs();
+    assignArcIDs();
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
+//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
+//    }
+
+    //Check the ClockDomain rates are appropriate
+    MultiRateHelpers::validateClockDomainRates(clockDomains);
+
+    //==== Proceeed with Context Discovery ====
 
     //This is an optimization pass to widen the enabled subsystem context
     expandEnabledSubsystemContexts();
@@ -3161,15 +3340,25 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //TODO: Partition Here
 
+    //Assign EnableNodes to partitions do before encapsulation and Context/StateUpdate node creation, but after EnabledSubsystem expansion so that EnableNodes are moved/created/deleted as appropriate ahead of time
+    placeEnableNodesInPartitions();
+
     //TODO: Modify to not stop at FIFOs with no initial state when finding Mux contexts.  FIFOs with initial state are are treated as containing delays.  FIFOs without initial state treated like wires.
     //Do this after FIFO insertion so that FIFOs are properly marked
     discoverAndMarkContexts();
 //        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
 //        assignArcIDs();
 
+    //Replicate ContextRoot Drivers (if should be replicated) for each partition
+    //Do this after ContextDiscovery and Marking but before encapsulation
+    replicateContextRootDriversIfRequested();
+    assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
+    assignArcIDs();
+
     //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
     //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
+    //TODO: Modify to check for ContextRootDrivers per partition
     //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
 
 
@@ -3182,7 +3371,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
     //TODO: fix encapsuleate to duplicate driver arc for each ContextFamilyContainer in other partitions
     //to the given partition and add an out
-    encapsulateContexts();
+    encapsulateContexts(); //TODO: Modify to only insert FIFOs for contextDecisionDrivers when replication was not requested.  If replication was requr
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
@@ -3231,6 +3420,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 
         switch (fifoType) {
             case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
+                //Note that FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChangeOutput in which case they are placed one level up).
                 fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
                 break;
             default:
@@ -3259,11 +3449,17 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
 
     //Set FIFO length and block size here (do before delay ingest)
-    //TODO: update to be sized on a per FIFO basis
     for(int i = 0; i<fifoVec.size(); i++){
         fifoVec[i]->setFifoLength(fifoLength);
-        fifoVec[i]->setBlockSize(blockSize);
+//        fifoVec[i]->setBlockSize(blockSize); //TODO: Remove this when setAndValidateFifoBlockSizes implemented below
     }
+
+    //Since FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChange output),
+    //FIFOs connected to the input master should have their rate set based on the port rate of the input master.
+    //FIFOs connected to the output master should have their rate properly set based on the ClockDomain they are in, especially
+    //since any FIFO connected to a RateChange output will be placed in the next context up.
+    MultiRateHelpers::setFIFOClockDomains(fifoVec);
+    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
 
     //TODO: Retime Here
 
@@ -3288,10 +3484,31 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size() << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements() << std::endl;
         }
     }
     std::cout << std::endl;
+
+
+    //Report Communication before StateUpdate nodes inserted to avoid false positive errors when detecting arcs to state update nodes
+    //in the input partition of a ThreadCrossingFIFO
+    std::string graphMLCommunicationInitCondFileName = "";
+    std::string graphMLCommunicationInitCondSummaryFileName = "";
+
+    if(emitGraphMLSched) {
+        //Export GraphML (for debugging)
+        graphMLCommunicationInitCondFileName = fileName + "_communicationInitCondGraph.graphml";
+        graphMLCommunicationInitCondSummaryFileName = fileName + "_communicationInitCondGraphSummary.graphml";
+        std::cout << "Emitting GraphML Communication Initial Conditions File: " << path << "/" << graphMLCommunicationInitCondFileName << std::endl;
+        Design communicationGraph = CommunicationEstimator::createCommunicationGraph(*this, false, false);
+        GraphMLExporter::exportGraphML(path + "/" + graphMLCommunicationInitCondFileName, communicationGraph);
+        std::cout << "Emitting GraphML Communication Initial Conditions Summary File: " << path << "/" << graphMLCommunicationInitCondSummaryFileName << std::endl << std::endl;
+        Design communicationGraphSummary = CommunicationEstimator::createCommunicationGraph(*this, true, false);
+        GraphMLExporter::exportGraphML(path + "/" + graphMLCommunicationInitCondSummaryFileName, communicationGraphSummary);
+    }
+
+    //Check for deadlock among partitions
+    CommunicationEstimator::checkForDeadlock(*this, designName, path);
 
 //    {
 //        std::vector<std::shared_ptr<Node>> new_nodes;
@@ -3344,6 +3561,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphAfterStateUpdate.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphAfterStateUpdate.graphml", *this);
+//    }
+
     //TODO: Validate deadlock free (no cycles with 0 initial fifo state, disallow context driver "cycles")
 
     //TODO: Validate in general.  Note, validation has to change since it is now OK for some output ports to be disconnected (or unconnected master need to be left connected and arcs to/from it should be ignored when inserting FIFOs and checking sheduling)
@@ -3362,7 +3586,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
 //    }
 
     //Verify
-    verifyTopologicalOrder(false); //TODO: May just work as is (unmodified from single threaded version) because FIFOs declare state and no combination path and thus are treated similarly to delays
+    verifyTopologicalOrder(false, schedType);
 
     std::string graphMLSchedFileName = "";
     if(emitGraphMLSched) {
@@ -3389,6 +3613,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         }
     }
 
+    //Get the ClockDomainRates in each partition (to report)
+//    std::map<int, std::set<std::pair<int, int>>> partitionClockDomainRates = findPartitionClockDomainRates();
+
     std::cout << "Partition Node Count Report:" << std::endl;
     ComputationEstimator::printComputeInstanceTable(counts, names);
     std::cout << std::endl;
@@ -3411,7 +3638,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
-            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second, inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first], path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName, threadDebugPrint, printTelem, telemDumpPrefix, false);
+            //Note that all I/O into and out of the partitions threads is via thread crossing FIFOs from the IO_PARTITION thread
+            MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
+                                                            inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
+                                                            path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
+                                                            threadDebugPrint, printTelem, telemDumpPrefix, false);
         }
     }
 
@@ -3460,7 +3691,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         partitionSet.insert(it->first);
     }
 
-    std::vector<Variable> inputVars = getCInputVariables();
+    //TODO: Modify Drivers to look at MasterIO
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePair = getCInputVariables();
+    std::vector<Variable> inputVars = inputVarRatePair.first;
 
     //++++Emit Const I/O Driver++++
     ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
@@ -3470,10 +3703,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, constIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, constIOSuffix, false, otherCFiles);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles);
 
     //++++Emit Linux Pipe I/O Driver++++
     StreamIOThread::emitFileStreamHelpers(path, fileName);
@@ -3490,13 +3723,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, pipeIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, pipeIOSuffix, inputVars);
 
     //Emit the client handlers
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, pipeIOSuffix, false, otherCFilesFileStream);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream);
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
@@ -3509,10 +3742,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, socketIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, socketIOSuffix, false, otherCFilesFileStream);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream);
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
@@ -3526,12 +3759,60 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, blockSize, sharedMemoryFIFOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);
 
     //Emit the benchmark makefile
     std::vector<std::string> otherCFilesSharedMem = otherCFiles;
     otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, blockSize, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
+}
+
+void Design::pruneUnconnectedArcs(bool removeVisArcs) {
+    std::set<std::shared_ptr<OutputPort>> outputPortsWithArcDisconnected;
+
+    //Unconnected master
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromUnconnectedMaster = unconnectedMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromUnconnectedMaster.begin(); it != arcsToDisconnectFromUnconnectedMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
+    std::set<std::shared_ptr<Arc>> unconnectedArcsSet = unconnectedMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> unconnectedArcs;
+    unconnectedArcs.insert(unconnectedArcs.end(), unconnectedArcsSet.begin(), unconnectedArcsSet.end());
+    std::vector<std::shared_ptr<Arc>> emptyArcSet;
+    std::vector<std::shared_ptr<Node>> emptyNodeSet;
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, unconnectedArcs);
+
+    //Terminator master
+    std::set<std::shared_ptr<Arc>> arcsToDisconnectFromTerminatorMaster = terminatorMaster->getInputArcs();
+    for(auto it = arcsToDisconnectFromTerminatorMaster.begin(); it != arcsToDisconnectFromTerminatorMaster.end(); it++){
+        outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+    }
+    std::set<std::shared_ptr<Arc>> terminatedArcsSet = terminatorMaster->disconnectNode();
+    std::vector<std::shared_ptr<Arc>> terminatedArcs;
+    terminatedArcs.insert(terminatedArcs.end(), terminatedArcsSet.begin(), terminatedArcsSet.end());
+    addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, terminatedArcs);
+
+    //Vis Master (TODO: Re-enable later?)
+    if(removeVisArcs) {
+        std::set<std::shared_ptr<Arc>> arcsToDisconnectFromVisMaster = visMaster->getInputArcs();
+        for (auto it = arcsToDisconnectFromVisMaster.begin(); it != arcsToDisconnectFromVisMaster.end(); it++) {
+            outputPortsWithArcDisconnected.insert((*it)->getSrcPort());
+        }
+        std::set<std::shared_ptr<Arc>> visArcsSet = visMaster->disconnectNode();
+        std::vector<std::shared_ptr<Arc>> visArcs;
+        visArcs.insert(visArcs.end(), visArcsSet.begin(), visArcsSet.end());
+        addRemoveNodesAndArcs(emptyNodeSet, emptyNodeSet, emptyArcSet, visArcs);
+    }
+
+    //Emit a notification of ports that are disconnected (pruned)
+//TODO: clean this up so that the disconnect warning durring emit refers back to the origional node path
+    for(auto it = outputPortsWithArcDisconnected.begin(); it != outputPortsWithArcDisconnected.end(); it++) {
+        if((*it)->getArcs().empty()) {
+            std::cout << "Pruned: All Arcs from Output Port " << (*it)->getPortNum() << " of " <<
+                      (*it)->getParent()->getFullyQualifiedName(true) << " [ID: " << (*it)->getParent()->getId() << "]"
+                      << std::endl;
+        }
+    }
 }
 
 //For now, the emitter will not track if a temp variable's declaration needs to be moved to allow it to be used outside the local context.  This could occur with contexts not being scheduled together.  It could be aleviated by the emitter checking for context breaks.  However, this will be a future todo for now.
@@ -3546,6 +3827,7 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
         nodes.push_back(familyContainer);
         familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition));
         familyContainer->setPartitionNum(partition);
+        familyContainer->setContextRoot(contextRoot);
 
         //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
         std::vector<Context> origContext = asNode->getContext();
@@ -3563,13 +3845,35 @@ std::shared_ptr<ContextFamilyContainer> Design::getContextFamilyContainerCreateI
 
         //Create an order constraint arcs based on the context driver arcs.  This ensures that the context driver will be
         //Available in each partition that the context resides in (so long as FIFOs are inserted after this).
-        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
-        std::vector<std::shared_ptr<Arc>> partitionDrivers;
-        for(int i = 0; i<driverArcs.size(); i++){
-            std::shared_ptr<Arc> partitionDriver = Arc::connectNodes(driverArcs[i]->getSrcPort(), familyContainer->getOrderConstraintInputPortCreateIfNot(), driverArcs[i]->getDataType(), driverArcs[i]->getSampleTime());
-            partitionDrivers.push_back(partitionDriver);
+        //Only do this if the context root did not request replication
+        if(!contextRoot->shouldReplicateContextDriver()) {
+            //For cases like enabled subsystems where multiple enable arcs exist for the context but
+            //all derive from the same source, we will avoid creating duplicate arcs
+            //by checking to see if an equivalent order constraint arc has already been created durring
+            //the encapsulation process
+
+            std::set<std::shared_ptr<OutputPort>> driverSrcPortsSeen;
+
+            std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
+            std::vector<std::shared_ptr<Arc>> partitionDrivers;
+            for (int i = 0; i < driverArcs.size(); i++){
+                std::shared_ptr<OutputPort> driverSrcPort = driverArcs[i]->getSrcPort();
+
+                //Check if we have already seen this src port.  If we have do not create a duplicate
+                //order constraint arc
+                if(driverSrcPortsSeen.find(driverSrcPort) == driverSrcPortsSeen.end()) {
+                    std::shared_ptr<Arc> partitionDriver = Arc::connectNodes(driverSrcPort,
+                                                                             familyContainer->getOrderConstraintInputPortCreateIfNot(),
+                                                                             driverArcs[i]->getDataType(),
+                                                                             driverArcs[i]->getSampleTime());
+                    driverSrcPortsSeen.insert(driverSrcPort);
+                    partitionDrivers.push_back(partitionDriver);
+                    //Also add arc to design
+                    arcs.push_back(partitionDriver);
+                }
+            }
+            contextRoot->addContextDriverArcsForPartition(partitionDrivers, partition);
         }
-        contextRoot->addContextDriverArcsForPartition(partitionDrivers, partition);
 
         //Create Context Containers inside of the context Family container;
         int numContexts = contextRoot->getNumSubContexts();
@@ -3639,6 +3943,363 @@ void Design::cleanupEmptyHierarchy(std::string reason){
             //Get its parent before removing it
             parent = parent->getParent();
             addRemoveNodesAndArcs(emptyNodeVector, nodesToRemove, emptyArcVector, emptyArcVector);
+        }
+    }
+}
+
+void Design::replicateContextRootDriversIfRequested(){
+    //Find ContextRoots that request repliction
+    std::vector<std::shared_ptr<ContextRoot>> contextRootsRequestingExpansion;
+    for(int i = 0; i<nodes.size(); i++){
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodes[i]);
+
+        if(asContextRoot){
+            if(asContextRoot->shouldReplicateContextDriver()){
+                contextRootsRequestingExpansion.push_back(asContextRoot);
+            }
+        }
+    }
+
+    for(int i = 0; i<contextRootsRequestingExpansion.size(); i++) {
+        std::shared_ptr<ContextRoot> contextRoot = contextRootsRequestingExpansion[i];
+        std::set<int> contextPartitions = contextRoot->partitionsInContext();
+
+        std::shared_ptr<Node> contextRootAsNode = std::dynamic_pointer_cast<Node>(contextRoot);
+        if(contextRootAsNode == nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a ContextRoot that is not a Node"));
+        }
+        std::vector<std::shared_ptr<Arc>> driverArcs = contextRoot->getContextDecisionDriver();
+
+        for(int j = 0; j<driverArcs.size(); j++){
+            std::shared_ptr<Arc> driverArc = driverArcs[j];
+            std::shared_ptr<OutputPort> driverSrcPort = driverArc->getSrcPort();
+            std::shared_ptr<Node> driverSrc = driverSrcPort->getParent();
+
+            //Check for conditions of driver src for clone
+            //Check that the driver node has no inputs and a single output
+            std::set<std::shared_ptr<Arc>> srcInputArcs = driverSrc->getInputArcs();
+            if(srcInputArcs.size() != 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Context Driver Replication Currently requires the driver source to have no inputs", contextRootAsNode));
+            }
+            std::set<std::shared_ptr<Arc>> srcOutputArcs = driverSrc->getOutputArcs();
+            if(srcOutputArcs.size() != 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Context Driver Replication Currently requires the driver source to have only 1 output arc", contextRootAsNode));
+            }
+
+            //Replicate for each partition (keep the one that exists and avoid creating a duplicate)
+            for(auto partitionIt = contextPartitions.begin(); partitionIt != contextPartitions.end(); partitionIt++){
+                int partition = *partitionIt;
+                std::shared_ptr<Node> partitionContextDriver;
+                std::shared_ptr<Node> partitionContextDst;
+                if(driverSrc->getPartitionNum() == partition){
+                    //Reuse the existing node
+                    //Replicate the arc
+                    partitionContextDriver = driverSrc;
+                    partitionContextDst = contextRootAsNode;
+                }else{
+                    //Replicate the node
+                    std::shared_ptr<Node> clonedDriver = driverSrc->shallowClone(driverSrc->getParent());
+                    //The clone method copies the node ID allong with the other parameters.  When making a copy of the design,
+                    //this is desired but, since both nodes will be present in this design, it is not desierable
+                    //reset the ID to -1 so that it can be assigned later.
+                    //TODO: Make ID copy an option in shallowClone
+                    clonedDriver->setId(-1);
+                    clonedDriver->setName(driverSrc->getName() + "_Replicated_Partition_" + GeneralHelper::to_string(partition));
+                    clonedDriver->setPartitionNum(partition); //Also set the partition number
+                    std::vector<Context> origContext = driverSrc->getContext();
+                    clonedDriver->setContext(origContext);
+                    if(origContext.size()>0){ //Add the replicated node to the ContextRoot if appropriate
+                        std::shared_ptr<ContextRoot> contextRoot = origContext[origContext.size()-1].getContextRoot();
+                        int subContext = origContext[origContext.size()-1].getSubContext();
+                        contextRoot->addSubContextNode(subContext, clonedDriver);
+                    }
+
+                    partitionContextDriver = clonedDriver;
+
+                    //Create a dummy node
+                    std::shared_ptr<DummyReplica> dummyContextRoot = NodeFactory::createNode<DummyReplica>(contextRootAsNode->getParent());
+                    dummyContextRoot->setName(contextRootAsNode->getName() + "_Dummy_Partition_" + GeneralHelper::to_string(partition));
+                    dummyContextRoot->setPartitionNum(partition); //Also set the partition number
+                    dummyContextRoot->setDummyOf(contextRoot);
+                    std::vector<Context> contextRootContext = contextRootAsNode->getContext();
+                    dummyContextRoot->setContext(contextRootContext);
+                    if(contextRootContext.size()>0){ //Add the replicated node to the ContextRoot if appropriate
+                        std::shared_ptr<ContextRoot> contextRoot = contextRootContext[contextRootContext.size()-1].getContextRoot();
+                        int subContext = contextRootContext[contextRootContext.size()-1].getSubContext();
+                        contextRoot->addSubContextNode(subContext, dummyContextRoot);
+                    }
+                    contextRoot->setDummyReplica(partition, dummyContextRoot);
+                    partitionContextDst = dummyContextRoot;
+
+                    std::vector<std::shared_ptr<Node>> clonedDriverVec = {clonedDriver, dummyContextRoot};
+                    std::vector<std::shared_ptr<Node>> emptyNodeVec;
+                    std::vector<std::shared_ptr<Arc>> emptyArcVec;
+
+                    //Add replicated node to design
+                    addRemoveNodesAndArcs(clonedDriverVec, emptyNodeVec, emptyArcVec, emptyArcVec);
+                }
+
+                //Create a new arc for the node
+                std::shared_ptr<OutputPort> partitionDriverPort = partitionContextDriver->getOutputPortCreateIfNot(driverSrcPort->getPortNum());
+                std::shared_ptr<Arc> partitionDriverArc = Arc::connectNodes(partitionDriverPort, partitionContextDst->getOrderConstraintInputPortCreateIfNot(), driverArc->getDataType(), driverArc->getSampleTime());
+                std::vector<std::shared_ptr<Arc>> newArcVec = {partitionDriverArc};
+                std::vector<std::shared_ptr<Node>> emptyNodeVec;
+                std::vector<std::shared_ptr<Arc>> emptyArcVec;
+                addRemoveNodesAndArcs(emptyNodeVec, emptyNodeVec, newArcVec, emptyArcVec);
+
+                //Add it to the list of partition drivers
+                contextRoot->addContextDriverArcsForPartition({partitionDriverArc}, partition);
+            }
+        }
+    }
+}
+
+std::vector<std::shared_ptr<ClockDomain>> Design::findClockDomains(){
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains;
+
+    for(unsigned long i = 0; i<nodes.size(); i++) {
+        std::shared_ptr<ClockDomain> asClkDomain = GeneralHelper::isType<Node, ClockDomain>(nodes[i]);
+
+        if (asClkDomain) {
+            clockDomains.push_back(asClkDomain);
+        }
+    }
+
+    return clockDomains;
+}
+
+std::vector<std::shared_ptr<ClockDomain>> Design::specializeClockDomains(std::vector<std::shared_ptr<ClockDomain>> clockDomains){
+    std::vector<std::shared_ptr<ClockDomain>> specializedDomains;
+
+    for(unsigned long i = 0; i<clockDomains.size(); i++){
+        if(!clockDomains[i]->isSpecialized()){
+            std::vector<std::shared_ptr<Node>> nodesToAdd, nodesToRemove;
+            std::vector<std::shared_ptr<Arc>> arcsToAdd, arcsToRemove;
+            std::shared_ptr<ClockDomain> specializedDomain = clockDomains[i]->specializeClockDomain(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+            specializedDomains.push_back(specializedDomain);
+            addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+        }else{
+            specializedDomains.push_back(clockDomains[i]);
+        }
+    }
+
+    return specializedDomains;
+}
+
+void Design::createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext, bool includeOutputBridgingNodes) {
+    for(unsigned long i = 0; i<clockDomains.size(); i++){
+        std::vector<std::shared_ptr<Node>> nodesToAdd, nodesToRemove;
+        std::vector<std::shared_ptr<Arc>> arcsToAdd, arcsToRemove;
+        clockDomains[i]->createSupportNodes(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, includeContext, includeOutputBridgingNodes);
+        addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+    }
+}
+
+void Design::resetMasterNodeClockDomainLinks() {
+    inputMaster->resetIoClockDomains();
+    outputMaster->resetIoClockDomains();
+    visMaster->resetIoClockDomains();
+    unconnectedMaster->resetIoClockDomains();
+    terminatorMaster->resetIoClockDomains();
+}
+
+std::map<int, std::set<std::pair<int, int>>> Design::findPartitionClockDomainRates() {
+    std::map<int, std::set<std::pair<int, int>>> clockDomains;
+
+    //Find clock domains in IO
+    //Only looking at Input, Output, and Visualization.  Unconnected and Terminated are unnessasary
+    std::set<std::pair<int, int>> ioRates;
+    std::vector<std::shared_ptr<MasterNode>> mastersToInclude = {inputMaster, outputMaster, visMaster};
+    for(int i = 0; i<mastersToInclude.size(); i++) {
+        std::shared_ptr<MasterNode> master = mastersToInclude[i];
+        std::set<std::shared_ptr<ClockDomain>> inputClockDomains = master->getClockDomains();
+        for (auto clkDomain = inputClockDomains.begin(); clkDomain != inputClockDomains.end(); clkDomain++) {
+            if (*clkDomain == nullptr) {
+                ioRates.emplace(1, 1);
+            } else {
+                ioRates.insert((*clkDomain)->getRateRelativeToBase());
+            }
+        }
+    }
+    clockDomains[IO_PARTITION_NUM] = ioRates;
+
+    for(unsigned long i = 0; i<nodes.size(); i++){
+        int partition = nodes[i]->getPartitionNum();
+
+        //Do not include clock domains themselves in this
+        if(GeneralHelper::isType<Node, ClockDomain>(nodes[i]) == nullptr) {
+            std::shared_ptr<ClockDomain> clkDomain;
+
+            //Note that FIFOs report their clock domain differently in order to handle the case when they are connected directly to the InputMaster
+            if (GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i])) {
+                std::shared_ptr<ThreadCrossingFIFO> fifo = std::dynamic_pointer_cast<ThreadCrossingFIFO>(nodes[i]);
+                clkDomain = fifo->getClockDomain();
+            } else {
+                clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
+            }
+
+            if (clkDomain == nullptr) {
+                clockDomains[partition].emplace(1, 1);
+            } else {
+                std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                clockDomains[partition].insert(rate);
+            }
+        }
+    }
+
+    return clockDomains;
+}
+
+void Design::validateNodes() {
+    for(const auto & node : nodes){
+        node->validate();
+    }
+}
+
+void Design::placeEnableNodesInPartitions() {
+    std::vector<std::shared_ptr<Node>> nodesToAdd;
+    std::vector<std::shared_ptr<Arc>> arcsToAdd;
+
+    for(const std::shared_ptr<Node> &node : nodes){
+        if(GeneralHelper::isType<Node, EnableInput>(node)){
+            //Should be validated to only have 1 input
+            if(node->getPartitionNum() == -1) {
+                //Reassign Output arcs to Replicas of this Enable Input as appropriate
+                std::shared_ptr<EnableInput> nodeAsEnabledInput = std::dynamic_pointer_cast<EnableInput>(node);
+                std::shared_ptr<Arc> inputArc = *node->getInputPortCreateIfNot(0)->getArcs().begin();
+                std::set<std::shared_ptr<Arc>> driverArcs = nodeAsEnabledInput->getEnablePort()->getArcs();
+                std::set<std::shared_ptr<Arc>> outArcs = node->getOutputPortCreateIfNot(0)->getArcs();
+                std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = node->getOrderConstraintInputArcs();
+                std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = node->getOrderConstraintOutputArcs();
+
+                std::map<int, std::shared_ptr<EnableInput>> replicas;
+                //Reassign outputs
+                for(const std::shared_ptr<Arc> &outArc : outArcs){
+                    std::shared_ptr<EnableInput> replicaNode;
+                    int dstPartitionNum = outArc->getDstPort()->getParent()->getPartitionNum();
+
+                    if(dstPartitionNum == -1){
+                        if(GeneralHelper::isType<Node, EnableOutput>(outArc->getDstPort()->getParent()) != nullptr){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an EnableInput directly connected to an EnableOutput", node));
+                        }else{
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an EnableInput that is connected to a node not in a partition", node));
+                        }
+                    }
+
+                    //Check if this is the first
+                    if(node->getPartitionNum() == -1){
+                        node->setPartitionNum(dstPartitionNum);
+                        replicas[dstPartitionNum] = nodeAsEnabledInput;
+                        replicaNode = nodeAsEnabledInput;
+                    }else{
+                        //Check if there is already a replica
+                        if(replicas.find(dstPartitionNum) == replicas.end()){
+                            std::shared_ptr<SubSystem> parent = nodeAsEnabledInput->getParent();
+                            if(GeneralHelper::isType<SubSystem, EnabledSubSystem>(parent) == nullptr){
+                                throw std::runtime_error(ErrorHelpers::genErrorStr("Found an Enable node that was not directly under an EnabledSubsystem", node));
+                            }
+                            std::shared_ptr<EnabledSubSystem> parentAsEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(parent);
+                            //TODO: Remove sanity check
+                            std::vector<std::shared_ptr<EnableInput>> parentEnabledInputs = parentAsEnabledSubsystem->getEnableInputs();
+                            if(std::find(parentEnabledInputs.begin(), parentEnabledInputs.end(), nodeAsEnabledInput) == parentEnabledInputs.end()){
+                                throw std::runtime_error(ErrorHelpers::genErrorStr("Found an Enable node that was not directly under its own EnabledSubsystem", node));
+                            }
+
+                            //Need to replicate node
+                            replicaNode = NodeFactory::shallowCloneNode<EnableInput>(node->getParent(), nodeAsEnabledInput.get());
+                            parentAsEnabledSubsystem->addEnableInput(replicaNode);
+                            replicaNode->setPartitionNum(dstPartitionNum);
+                            nodesToAdd.push_back(replicaNode);
+                            replicas[dstPartitionNum] = replicaNode;
+
+                            //Replicate input arc
+                            std::shared_ptr<Arc> newInputArc = Arc::connectNodes(inputArc->getSrcPort(),
+                                                                                 replicaNode->getInputPortCreateIfNot(inputArc->getDstPort()->getPortNum()),
+                                                                                 inputArc->getDataType(), inputArc->getSampleTime());
+                            arcsToAdd.push_back(newInputArc);
+
+                            //Replicate order constraint inputs
+                            for(const std::shared_ptr<Arc> &orderConstraintInputArc : orderConstraintInputArcs){
+                                std::shared_ptr<Arc> newOrderConstraintInputArc = Arc::connectNodes(inputArc->getSrcPort(),
+                                                                                                    replicaNode->getInputPortCreateIfNot(inputArc->getDstPort()->getPortNum()),
+                                                                                                    inputArc->getDataType(), inputArc->getSampleTime());
+                                arcsToAdd.push_back(newOrderConstraintInputArc);
+                            }
+
+                        }else{
+                            //Get the appropriate replica
+                            replicaNode = replicas[dstPartitionNum];
+                        }
+                    }
+
+                    //Reassign arc
+                    if(replicaNode != node){//Only reassign if nessasary
+                        outArc->setSrcPortUpdateNewUpdatePrev(replicaNode->getOutputPortCreateIfNot(outArc->getSrcPort()->getPortNum()));
+                    }
+                }
+
+                //Reassign order constraint outputs error if an output to the same partiton does not exist
+                for(const std::shared_ptr<Arc> &orderConstraintOutputArc : orderConstraintOutputArcs){
+                    std::shared_ptr<EnableInput> replicaNode;
+                    int dstPartitionNum = orderConstraintOutputArc->getDstPort()->getParent()->getPartitionNum();
+
+                    //Check if this is the first
+                    if(node->getPartitionNum() == -1){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledInput" , node));
+                    }else{
+                        //Check if there is already a replica
+                        if(replicas.find(dstPartitionNum) == replicas.end()){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Found order constraint to partition where there is no output from EnabledInput" , node));
+                        }else{
+                            //Get the appropriate replica
+                            replicaNode = replicas[dstPartitionNum];
+                        }
+                    }
+
+                    //Reassign arc
+                    if(replicaNode != node){//Only reassign if nessasary
+                        orderConstraintOutputArc->setSrcPortUpdateNewUpdatePrev(replicaNode->getOrderConstraintOutputPortCreateIfNot());
+                    }
+                }
+            }
+        }else if(GeneralHelper::isType<Node, EnableOutput>(node)) {
+            if (node->getPartitionNum() == -1) {
+                //Place in the partition of the input
+                std::shared_ptr<Arc> inputArc = *node->getInputPortCreateIfNot(0)->getArcs().begin();
+                int srcPartition = inputArc->getSrcPort()->getParent()->getPartitionNum();
+
+                if(srcPartition == -1){
+                    if(GeneralHelper::isType<Node, EnableInput>(inputArc->getSrcPort()->getParent()) != nullptr){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered an EnableInput directly connected to an EnableOutput", node));
+                    }else {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                "Encountered an EnableOutput that is connected to a node not in a partition", node));
+                    }
+                }
+
+                node->setPartitionNum(srcPartition);
+            }
+        }
+    }
+
+    //Add remove nodes and arcs
+    std::vector<std::shared_ptr<Node>> emptyNodes;
+    std::vector<std::shared_ptr<Arc>> emptyArcs;
+    addRemoveNodesAndArcs(nodesToAdd, emptyNodes, arcsToAdd, emptyArcs);
+
+    //Place EnabledSubsystem nodes into partitons
+    for(const std::shared_ptr<Node> &node : nodes) {
+        if (GeneralHelper::isType<Node, EnabledSubSystem>(node)) {
+            if(node->getPartitionNum() == -1){
+                std::shared_ptr<EnabledSubSystem> nodeAsEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(node);
+                if(!nodeAsEnabledSubsystem->getEnableInputs().empty()){
+                    nodeAsEnabledSubsystem->setPartitionNum(nodeAsEnabledSubsystem->getEnableInputs()[0]->getPartitionNum());
+                }else if(!nodeAsEnabledSubsystem->getEnableOutputs().empty()){
+                    nodeAsEnabledSubsystem->setPartitionNum(nodeAsEnabledSubsystem->getEnableOutputs()[0]->getPartitionNum());
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found enabled subsystem with no inputs or outputs", node));
+                }
+            }
         }
     }
 }

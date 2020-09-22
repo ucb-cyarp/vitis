@@ -267,9 +267,9 @@ void NestedSubSystemValidator::validate(Design &design) {
     //we can be sure we are not missing arcs
 
     //Some common types in this design
-    DataType real_uint16_width1 = DataType(false, false, false, 16, 0, 1);
-    DataType real_uint32_width1 = DataType(false, false, false, 32, 0, 1);
-    DataType real_ufix48_width1 = DataType(false, false, false, 48, 0, 1);
+    DataType real_uint16_width1 = DataType(false, false, false, 16, 0, {1});
+    DataType real_uint32_width1 = DataType(false, false, false, 32, 0, {1});
+    DataType real_ufix48_width1 = DataType(false, false, false, 48, 0, {1});
 
     unsigned long arcCheckCount = 0;
 

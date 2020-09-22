@@ -7,6 +7,7 @@
 #include "GraphMLTools/GraphMLHelper.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 Product::Product() : emittedBefore(false) {
 
@@ -124,6 +125,21 @@ void Product::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Product - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
+    //Check if inputs have the same dimension as the output (or are scalar)
+    std::vector<int> outputDim = outputPorts[0]->getDataType().getDimensions();
+    for(unsigned long i = 0; i<inputPorts.size(); i++){
+        DataType inputDT = inputPorts[i]->getDataType();
+
+        //If the input is a scalar, do not check the dimensions
+        //Otherwise, check that the dimensions match
+        if(!inputDT.isScalar()){
+            std::vector<int> inputDim = inputPorts[i]->getDataType().getDimensions();
+            if(inputDim != outputDim){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Product - The dimensions of input port " + GeneralHelper::to_string(i) + " did not match the output", getSharedPointer()));
+            }
+        }
+    }
+
     //Check that if any input is complex, the result is complex
     unsigned long numInputPorts = inputPorts.size();
     bool foundComplex = false;
@@ -157,11 +173,6 @@ void Product::validate() {
 }
 
 CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
-    //TODO: Implement Vector Support
-    if(getOutputPort(0)->getDataType().getWidth()>1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Product Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //====Calculate Types====
     //Check if any of the inputs are floating point & if so, find the largest
     //Also check for any fixed point types.  Find the integer final width
@@ -175,7 +186,7 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     for (unsigned long i = 0; i < numInputPorts; i++) {
         DataType portDataType = getInputPort(i)->getDataType();
         if (portDataType.isFloatingPt()) {
-            if (foundFloat == false) {
+            if (!foundFloat) {
                 foundFloat = true;
                 largestFloat = portDataType;
             } else {
@@ -201,6 +212,9 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
         }
     }
 
+    DataType outputType = getOutputPort(0)->getDataType();
+
+    //Determine the intermediate type
     DataType intermediateType;
     if (foundFloat) {
         intermediateType = largestFloat; //Floating point types do not grow
@@ -213,10 +227,18 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
         intermediateType.setComplex(false); //The intermediate is real
     };
 
+    //Set the dimension of the intermediate type to be the same as the output.
+    //This is because the largest float datatype may be a scalar while other inputs are vectors/matricies
+    intermediateType.setDimensions(outputType.getDimensions());
+
     DataType intermediateTypeCplx = intermediateType;
     intermediateTypeCplx.setComplex(true);
 
     std::string outputVarName = name + "_n" + GeneralHelper::to_string(id) + "_out";
+
+    //Note: this emit functions differently from the sum in that the computation of the real and imagionary portion of the solution is not independent
+    //To avoid redundant computation, both the real and imagionary components are computed the first time the emit function is called and are stored in
+    //temporary variables.  These variables are what are ultimately returned
 
     //====Emit====
     //Check if this is the first time this emit function has been called, if so, get the input expressions and compute the results
@@ -239,6 +261,31 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             }
         }
 
+        //Declare the variable here in case it is a vector
+        Variable outputVar = Variable(outputVarName, outputType);
+
+        //Emit variable declaration
+        std::string outputVarDecl_re = outputVar.getCVarDecl(false, true, false, true) + ";";
+        cStatementQueue.push_back(outputVarDecl_re);
+        if(outputType.isComplex()){
+            std::string outputVarDecl_im = outputVar.getCVarDecl(true, true, false, true) + ";";
+            cStatementQueue.push_back(outputVarDecl_im);
+        }
+
+        //Insert for loops here
+        std::vector<std::string> forLoopIndexVars;
+        std::vector<std::string> forLoopClose;
+        if(!outputType.isScalar()){
+            //Create nested loops for a given array
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(outputType.getDimensions());
+
+            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+            forLoopIndexVars = std::get<1>(forLoopStrs);
+            forLoopClose = std::get<2>(forLoopStrs);
+
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        }
 
         //Output the Computation
         //For more than 2 inputs, we will emit a chain of expressions with each subexpression being emitted seperately
@@ -249,18 +296,31 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             std::string first_expr_re = "";
             std::string first_expr_im = "";
 
-            std::string input0_re = DataType::cConvertType(inputExprs_re[0], getInputPort(0)->getDataType(),
+            //Dereference here with index of for loop if a vector/matrix
+            std::string inputExprDeref_re = inputExprs_re[0] + (getInputPort(0)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            std::string input0_re = DataType::cConvertType(inputExprDeref_re, getInputPort(0)->getDataType(),
                                                            intermediateType);
             std::string input0_im = "";
             if (getInputPort(0)->getDataType().isComplex()) {
-                input0_im = DataType::cConvertType(inputExprs_im[0], getInputPort(0)->getDataType(), intermediateType);
+                //Dereference here with index of for loop if a vector/matrix
+                std::string inputExprDeref_im = inputExprs_im[0] + (getInputPort(0)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                input0_im = DataType::cConvertType(inputExprDeref_im, getInputPort(0)->getDataType(), intermediateType);
             }
 
+            //First input is handled separately, it is passed through if the operation is multiply or the reciprocal is calculated if the operation is divide
             if (!inputOp[0]) {
                 //The 1st input is a reciprocal
                 if (getInputPort(0)->getDataType().isComplex()) {
-                    //1st input is imagionary
+                    //1st input is imagionary, need to compute a complex reciprocal
+                    //However, we need real and imagionary components for the result
+                    //We accomplish this by multipying the numberator and denominator by the complex conjugate of the denominator.
+                    //This leads to the complex conjugate of the input being divided by a real number which is called the "normalization" here
                     //Compute the normalization
+
+                    //This normalization value is used in both the computation of the real and imagionary component which is why it is stored in a variable
+                    //However, it is a temporary variable that is only used for computing first_expr_re and first_expr_im
+                    //For vectors/matricies, it is OK if this temporary is declared inside of the for loop since it is not
+                    //used outside of the local computation
                     std::string result_norm_expr_body =
                             "((" + input0_re + ")*(" + input0_re + ")+(" + input0_im + ")*(" + input0_im + "))";
                     Variable result_norm_expr_var = Variable(norm_var_name_prefix + GeneralHelper::to_string(0),
@@ -280,7 +340,7 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
 
                 } else {
                     //1st input is real, do a simple reciprocal
-                    first_expr_re = "( (" + intermediateType.toString(DataType::StringStyle::C, false) + " ) 1.0)/(" +
+                    first_expr_re = "( (" + intermediateType.toString(DataType::StringStyle::C, false) + " ) 1)/(" +
                                     input0_re + ")";
                 }
 
@@ -290,6 +350,8 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
                 first_expr_im = input0_im;
             }
 
+            //It is OK for intermediates to be declared inside of the for loop as the intermediate is not used after the final
+            //result is generated.
             std::string intermediate_var_name_prefix = name + "_n" + GeneralHelper::to_string(id) + "_intermediate";
 
             //Emit the products / divisions
@@ -322,10 +384,21 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
                     operand_a_expr_im = first_expr_im;
                 }
 
-                std::string operand_b_expr_re = DataType::cConvertType(inputExprs_re[i], getInputPort(0)->getDataType(),
+                //Dereference here with index of for loop if a vector/matrix
+                std::string inputExprDeref_re = inputExprs_re[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::string operand_b_expr_re = DataType::cConvertType(inputExprDeref_re, getInputPort(0)->getDataType(),
                                                                        intermediateType);
-                std::string operand_b_expr_im = DataType::cConvertType(inputExprs_im[i], getInputPort(0)->getDataType(),
-                                                                       intermediateType);
+
+                std::string operand_b_expr_im = inputExprs_im[i];
+                if(getInputPort(i)->getDataType().isComplex()) {
+                    //Dereference here with index of for loop if a vector/matrix.  Only do this if the input port is complex.  Otherwise, leave as ""
+                    std::string inputExprDeref_im = inputExprs_im[i] + (getInputPort(i)->getDataType().isScalar() ? "" :
+                            EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+
+                    //Only do the data type conversion if the input expression is not empty (ie. if there is an imagionary component of the input)
+                    //Otherwise, leave it as ""
+                    operand_b_expr_im = DataType::cConvertType(inputExprDeref_im, getInputPort(i)->getDataType(), intermediateType);
+                }
 
                 std::string norm_expr = "";
 
@@ -335,24 +408,28 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
                                   prev_expr_re, prev_expr_im);
 
                 if (!norm_expr.empty()) {
+                    //Since the norm expression is a temporary intermediate, it is OK for it be be declared inside the for loops
                     cStatementQueue.push_back(norm_expr);
                 }
             }
 
-            Variable outputVar;
-            if(getOutputPort(0)->getDataType().isComplex()) {
-                outputVar = Variable(outputVarName, intermediateTypeCplx);
-            }else{
-                outputVar = Variable(outputVarName, intermediateType);
-            }
-
             //emit the final result
-            std::string final_result_re = outputVar.getCVarDecl(false, false, false, false) + " = " + prev_expr_re + ";";
+            //Note that the variables are now declared above
+            //Dereference here with index of for loop if a vector/matrix
+            std::string finalResultDeref_re = outputVar.getCVarName(false)  + (outputType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            std::string final_result_re = finalResultDeref_re + " = " + DataType::cConvertType(prev_expr_re, intermediateType, getOutputPort(0)->getDataType()) + ";";
             cStatementQueue.push_back(final_result_re);
 
-            if(getOutputPort(0)->getDataType().isComplex()){
-                std::string final_result_im = outputVar.getCVarDecl(true, false, false, false) + " = " + prev_expr_im + ";";
+            if(outputType.isComplex()){
+                //Dereference here with index of for loop if a vector/matrix
+                std::string finalResultDeref_im = outputVar.getCVarName(true) + (outputType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::string final_result_im = finalResultDeref_im + " = " + DataType::cConvertType(prev_expr_im, intermediateTypeCplx, getOutputPort(0)->getDataType()) + ";";
                 cStatementQueue.push_back(final_result_im);
+            }
+
+            //close for loop if vector/matrix
+            if(!outputType.isScalar()){
+                cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
             }
 
             emittedBefore = true;

@@ -158,7 +158,7 @@ void Compare::validate() {
 
 CExpr Compare::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
     //TODO: Implement Vector Support
-    if(getInputPort(0)->getDataType().getWidth()>1 || getInputPort(1)->getDataType().getWidth()>1){
+    if(!getInputPort(0)->getDataType().isScalar() || !getInputPort(1)->getDataType().isScalar()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Compare Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 

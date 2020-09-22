@@ -12,6 +12,7 @@
 #include "GraphMLTools/GraphMLDialect.h"
 #include "MultiThread/PartitionParams.h"
 #include "General/ErrorHelpers.h"
+#include "General/FileIOHelpers.h"
 
 int main(int argc, char* argv[]) {
 
@@ -66,7 +67,7 @@ int main(int argc, char* argv[]) {
     ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType = ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86;
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;//This is the only supported scheduler for multi-threaded emit
     TopologicalSortParameters::Heuristic heuristic = TopologicalSortParameters::Heuristic::BFS;
-    unsigned long randSeed = 0;
+    unsigned long randSeed = 4;
     unsigned long blockSize = 1;
     unsigned long fifoLength = 16;
     unsigned long ioFifoSize = 16;
@@ -247,6 +248,9 @@ int main(int argc, char* argv[]) {
     design->assignNodeIDs();
     design->assignArcIDs();
 
+    //Validate after expansion
+    design->validateNodes();
+
     //Print Partitioner and Scheduler
     std::cout << "PARTITIONER: " << PartitionParams::partitionTypeToString(partitioner) << std::endl;
     std::cout << "FIFO_TYPE: " << ThreadCrossingFIFOParameters::threadCrossingFIFOTypeToString(fifoType) << std::endl;
@@ -266,13 +270,15 @@ int main(int argc, char* argv[]) {
         //TODO: Other cases?
     }
 
+    FileIOHelpers::createDirectoryIfDoesNotExist(outputDir, true);
+
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
-//    try{
+    try{
         design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment);
-//    }catch(std::exception& e) {
-//        std::cerr << e.what() << std::endl;
-//        return 1;
-//    }
+    }catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }

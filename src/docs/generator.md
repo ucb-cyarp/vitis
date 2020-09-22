@@ -55,6 +55,10 @@ Entry Point: Design::emitMultiThreadedC
    Note that it is not strictly speaking a requirement that the entire ContextFamilyContainer be scheduled together,
    it just reduces the number of condition checks emitted.  This could be relaxed in later versions of the tool.
    
+   **Warning: UpsampleClockDomains currently rely on all of their nodes being scheduled together (ie not being split up).
+   This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
+   later, a method for having vector intermediates would be required.**
+   
    It is important to note that, during encapsulation, a ContextFamilyContainer (and associated ContextContainers) is 
    created for each partition.  This allows the ContextFamilyContainer to be correctly scheduled for each partition.
    It also facilitates automatic FIFO insertion for the context drivers.  During encapsulation, order constraint arcs 
@@ -103,7 +107,12 @@ Entry Point: Design::emitMultiThreadedC
     determining the order in which operations in each partition are emitted.  Several different heuristics are available
     for the topological sort algorithm.  Because topological sort algorithms are natural to implement destructively, 
     they are performed on a copy of the design which is taken right before scheduling.  The scheduling is performed by 
-    Design::scheduleTopologicalStort.
+    Design::scheduleTopologicalStort.  The scheduler currently works hierarchically with nodes within contexts being 
+    scheduled together.
+    
+    **Warning: UpsampleClockDomains currently rely on all of their nodes being scheduled together (ie not being split up).
+    This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
+    later, a method for having vector intermediates would be required.**
     
     After scheduling, a check is make to ensure that no node is scheduled before its arguments are.  This is accomplished
     by Design::verifyTopologicalOrder

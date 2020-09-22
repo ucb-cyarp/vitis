@@ -22,7 +22,7 @@ void EnablePort::validate() {
     //Check the datatype of the input
     DataType inputType = (*(arcs.begin())).lock()->getDataType();
 
-    if(!inputType.isBool() || inputType.getWidth() != 1){
+    if(!inputType.isBool() || !inputType.isScalar()){
         throw std::runtime_error("Validation Failed - Enable Port Not Boolean");
     }
 }

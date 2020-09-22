@@ -1,45 +1,45 @@
 //
-// Created by Christopher Yarp on 2019-03-15.
+// Created by Christopher Yarp on 6/2/20.
 //
 
-#ifndef VITIS_TAPPEDDELAY_H
-#define VITIS_TAPPEDDELAY_H
+#ifndef VITIS_SIMULINKBITWISEOPERATOR_H
+#define VITIS_SIMULINKBITWISEOPERATOR_H
 
-#include "HighLevelNode.h"
-#include "GraphMLTools/GraphMLDialect.h"
+#include "MediumLevelNode.h"
 #include "GraphCore/NodeFactory.h"
+#include "PrimitiveNodes/BitwiseOperator.h"
 
 /**
- * \addtogroup HighLevelNodes High Level Nodes
- *
- * @brief Expandable to primitives and may have multiple implementation possibilities
- *
- * A Convenience For Referring to a Common Structure
+ * \addtogroup MediumLevelNodes Medium Level Nodes
  * @{
 */
 
-class TappedDelay : public HighLevelNode {
-    friend NodeFactory;
+/**
+ * @brief Represents a bitwise operator from simulink
+ */
+class SimulinkBitwiseOperator : public MediumLevelNode{
+friend NodeFactory;
 
 private:
-    int delays; ///<The number of delays in the tapped delay line
-    std::vector<NumericValue> initVals; ///<The initial values of the state elements in the Tapped Delay line
+    BitwiseOperator::BitwiseOp bitwiseOp; ///<The bitwise operator to implement
+    std::vector<NumericValue> mask; ///<The constant mask (if used)
+    bool useMask; ///<If true, a constant mask is used, if false, a secondary input is used
 
     /**
-     * @brief Constructs a TappedDelay line with 0 delay.
+     * @brief Constructs a SimulinkBitwiseOperator node with no value
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
-    TappedDelay();
+    SimulinkBitwiseOperator();
 
     /**
-     * @brief Constructs a TappedDelay line with 0 delay and a specified parent
+     * @brief Constructs a SimulinkBitwiseOperator node with no value and a given parent.  This node is not added to the children list of the parent.
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      *
      * @param parent parent node
      */
-    explicit TappedDelay(std::shared_ptr<SubSystem> parent);
+    explicit SimulinkBitwiseOperator(std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
@@ -53,19 +53,20 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    TappedDelay(std::shared_ptr<SubSystem> parent, TappedDelay* orig);
+    SimulinkBitwiseOperator(std::shared_ptr<SubSystem> parent, SimulinkBitwiseOperator* orig);
 
 public:
     //==== Getters/Setters ====
-    int getDelays() const;
-    void setDelays(int delays);
-
-    std::vector<NumericValue> getInitVals() const;
-    void setInitVals(const std::vector<NumericValue> &initVals);
+    BitwiseOperator::BitwiseOp getBitwiseOp() const;
+    void setBitwiseOp(BitwiseOperator::BitwiseOp bitwiseOp);
+    std::vector<NumericValue> getMask() const;
+    void setMask(const std::vector<NumericValue> &mask);
+    bool isUseMask() const;
+    void setUseMask(bool useMask);
 
     //==== Factories ====
     /**
-     * @brief Creates a DiscreteFIR node from a GraphML Description
+     * @brief Creates a SimulinkBitwiseOperator node from a GraphML Description
      *
      * @note This function does not add the node to the design or to the nodeID/pointer map
      *
@@ -76,18 +77,13 @@ public:
      * @param dialect The dialect of the GraphML file being imported
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<TappedDelay> createFromGraphML(int id, std::string name,
-                                                          std::map<std::string, std::string> dataKeyValueMap,
-                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+    static std::shared_ptr<SimulinkBitwiseOperator> createFromGraphML(int id, std::string name,
+                                                   std::map<std::string, std::string> dataKeyValueMap,
+                                                   std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
 
     //==== Expand ====
     /**
-     * @brief Expands the CompareToConstant block into primitive blocks
-     *
-     * Validates before expansion to check assumptions are fulfilled.
-     *
-     * Expands into direct form FIR
-     *
+     * @brief Expands the SimulinkBitwiseOperator block into a multiply block and a constant block.
      */
     std::shared_ptr<ExpandedNode> expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                          std::vector<std::shared_ptr<Arc>> &new_arcs, std::vector<std::shared_ptr<Arc>> &deleted_arcs,
@@ -105,9 +101,8 @@ public:
     void validate() override ;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
-
 };
 
 /*! @} */
 
-#endif //VITIS_TAPPEDDELAY_H
+#endif //VITIS_SIMULINKBITWISEOPERATOR_H

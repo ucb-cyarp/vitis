@@ -53,6 +53,8 @@ set(COMMON_SRCS
         src/General/EmitterHelpers.h
         src/General/ErrorHelpers.cpp
         src/General/ErrorHelpers.h
+        src/General/FileIOHelpers.cpp
+        src/General/FileIOHelpers.h
         src/GraphCore/SchedParams.cpp
         src/GraphCore/SchedParams.h
         src/GraphCore/Node.cpp
@@ -100,6 +102,8 @@ set(COMMON_SRCS
         src/GraphCore/CExpr.h
         src/GraphCore/Context.cpp
         src/GraphCore/Context.h
+        src/GraphCore/ContextHelper.cpp
+        src/GraphCore/ContextHelper.h
         src/GraphCore/ContextContainer.cpp
         src/GraphCore/ContextContainer.h
         src/GraphCore/ContextFamilyContainer.cpp
@@ -110,6 +114,8 @@ set(COMMON_SRCS
         src/GraphCore/ContextVariableUpdate.h
         src/GraphCore/StateUpdate.cpp
         src/GraphCore/StateUpdate.h
+        src/GraphCore/DummyReplica.cpp
+        src/GraphCore/DummyReplica.h
         src/MasterNodes/MasterNode.cpp
         src/MasterNodes/MasterNode.h
         src/MasterNodes/MasterInput.cpp
@@ -177,6 +183,14 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Trigonometry/Atan.h
         src/PrimitiveNodes/Trigonometry/Atan2.cpp
         src/PrimitiveNodes/Trigonometry/Atan2.h
+        src/PrimitiveNodes/WrappingCounter.cpp
+        src/PrimitiveNodes/WrappingCounter.h
+        src/PrimitiveNodes/InnerProduct.cpp
+        src/PrimitiveNodes/InnerProduct.h
+        src/PrimitiveNodes/Concatenate.cpp
+        src/PrimitiveNodes/Concatenate.h
+        src/PrimitiveNodes/Select.cpp
+        src/PrimitiveNodes/Select.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp
@@ -195,12 +209,18 @@ set(COMMON_SRCS
         src/MediumLevelNodes/DigitalModulator.h
         src/MediumLevelNodes/DigitalDemodulator.cpp
         src/MediumLevelNodes/DigitalDemodulator.h
+        src/MediumLevelNodes/SimulinkSelect.cpp
+        src/MediumLevelNodes/SimulinkSelect.h
+        src/MediumLevelNodes/SimulinkBitwiseOperator.cpp
+        src/MediumLevelNodes/SimulinkBitwiseOperator.h
+        src/MediumLevelNodes/SimulinkBitShift.cpp
+        src/MediumLevelNodes/SimulinkBitShift.h
         src/HighLevelNodes/HighLevelNode.cpp
         src/HighLevelNodes/HighLevelNode.h
         src/HighLevelNodes/DiscreteFIR.cpp
         src/HighLevelNodes/DiscreteFIR.h
-        src/HighLevelNodes/TappedDelay.cpp
-        src/HighLevelNodes/TappedDelay.h
+        src/PrimitiveNodes/TappedDelay.cpp
+        src/PrimitiveNodes/TappedDelay.h
         src/MultiThread/MultiThreadEmitterHelpers.cpp
         src/MultiThread/MultiThreadEmitterHelpers.h
         src/MultiThread/MultiThreadTransformHelpers.cpp
@@ -217,20 +237,40 @@ set(COMMON_SRCS
         src/MultiThread/ThreadCrossingFIFOParameters.h
         src/MultiThread/ConstIOThread.cpp
         src/MultiThread/ConstIOThread.h
+        src/MultiRate/MultiRateHelpers.cpp
+        src/MultiRate/MultiRateHelpers.h
+        src/MultiRate/ClockDomain.cpp
+        src/MultiRate/ClockDomain.h
+        src/MultiRate/RateChange.cpp
+        src/MultiRate/RateChange.h
+        src/MultiRate/Upsample.cpp
+        src/MultiRate/Upsample.h
+        src/MultiRate/Downsample.cpp
+        src/MultiRate/Downsample.h
+        src/MultiRate/Repeat.cpp
+        src/MultiRate/Repeat.h
+        src/MultiRate/UpsampleClockDomain.cpp
+        src/MultiRate/UpsampleClockDomain.h
+        src/MultiRate/DownsampleClockDomain.cpp
+        src/MultiRate/DownsampleClockDomain.h
+        src/MultiRate/UpsampleOutput.cpp
+        src/MultiRate/UpsampleOutput.h
+        src/MultiRate/RepeatOutput.cpp
+        src/MultiRate/RepeatOutput.h
+        src/MultiRate/DownsampleInput.cpp
+        src/MultiRate/DownsampleInput.h
         src/BusNodes/VectorFan.cpp
         src/BusNodes/VectorFan.h
         src/BusNodes/VectorFanIn.cpp
         src/BusNodes/VectorFanIn.h
         src/BusNodes/VectorFanOut.cpp
         src/BusNodes/VectorFanOut.h
-        src/BusNodes/Concatenate.cpp
-        src/BusNodes/Concatenate.h
         src/Estimators/EstimatorCommon.cpp
         src/Estimators/EstimatorCommon.h
         src/Estimators/ComputationEstimator.cpp
         src/Estimators/ComputationEstimator.h
         src/Estimators/CommunicationEstimator.cpp
-        src/Estimators/CommunicationEstimator.h)
+        src/Estimators/CommunicationEstimator.h src/Estimators/PartitionNode.cpp src/Estimators/PartitionNode.h src/Estimators/PartitionCrossing.cpp src/Estimators/PartitionCrossing.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
@@ -243,23 +283,24 @@ add_library(VitisLib STATIC ${COMMON_SRCS})
 #This was based off the CLion boost import snippit
 # see https://cmake.org/cmake/help/latest/module/FindXercesC.html
 find_package(XercesC)
-include_directories(${XercesC_INCLUDE_DIRS})
+find_package(Boost REQUIRED filesystem)
+include_directories(${XercesC_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 #==== Executables ====
 add_executable(simulinkGraphMLImporter src/Tools/simulinkGraphMLImporter.cpp)
-target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(simulinkGraphMLImporter VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(simulinkGraphmlDOMPrint src/Tools/simulinkGraphmlDOMPrint.cpp)
-target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(designExpander src/Tools/designExpander.cpp)
-target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
-target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(multiThreadedGenerator src/Tools/multiThreadedGenerator.cpp)
-target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(checkPlatformDataTypes src/Tools/checkPlatformDataTypes.cpp)
 

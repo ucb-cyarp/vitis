@@ -30,7 +30,7 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetPtr() {
 
     if(!initialized) {
         //Offset is in blocks
-        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, {1});
         newDT = newDT.getCPUStorageType();
         cWriteOffsetPtr.setDataType(newDT);
         cWriteOffsetPtr.setAtomicVar(true);
@@ -46,7 +46,7 @@ Variable LocklessThreadCrossingFIFO::getCReadOffsetPtr() {
 
     if(!initialized){
         //Offset is in blocks
-        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, {1});
         newDT = newDT.getCPUStorageType();
         cReadOffsetPtr.setDataType(newDT);
         cReadOffsetPtr.setAtomicVar(true);
@@ -78,7 +78,7 @@ Variable LocklessThreadCrossingFIFO::getCWriteOffsetCached() {
 
     if(!initialized) {
         //Offset is in blocks
-        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, {1});
         newDT = newDT.getCPUStorageType();
         cWriteOffsetCached.setDataType(newDT);
         cWriteOffsetCached.setAtomicVar(false);
@@ -94,7 +94,7 @@ Variable LocklessThreadCrossingFIFO::getCReadOffsetCached() {
 
     if(!initialized) {
         //Offset is in blocks
-        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, 1);
+        DataType newDT = DataType(false, true, false, std::ceil(std::log2(2*(fifoLength+1))), 0, {1});
         newDT = newDT.getCPUStorageType();
         cReadOffsetCached.setDataType(newDT);
         cReadOffsetCached.setAtomicVar(false);

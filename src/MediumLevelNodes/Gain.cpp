@@ -233,8 +233,15 @@ std::shared_ptr<ExpandedNode> Gain::expand(std::vector<std::shared_ptr<Node>> &n
 
     //Get complexity and width from value
     //Width can be different from output width (ex. vector*scalar = vector)
-    constantType.setWidth(gain.size());
+    //TODO: Implement logic for multimensional constants, possibly by looking at input & output dimensions
+    //TODO: Implement vector support
+    std::vector<int> constDim;
+    constDim.push_back(gain.size());
+    constantType.setDimensions(constDim);
     constantType.setComplex(gain[0].isComplex());
+    if(!constantType.isScalar()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Gain with vector/matrix constants are currently unsupported", getSharedPointer()));
+    }
 
     //Connect constant node to multiply node
     std::shared_ptr<Arc> constantArc = Arc::connectNodes(constantNode, 0, multiplyNode, 1, constantType);

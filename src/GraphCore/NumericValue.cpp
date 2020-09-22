@@ -293,24 +293,25 @@ std::vector<NumericValue> NumericValue::parseXMLString(std::string str) {
     std::vector<NumericValue> rtnVal;
 
     bool array = str.find("[") != std::string::npos;
-    bool fractional = str.find(".") != std::string::npos;
+    //A number is fractional either if it contains a decimal point or if it includes a negative exponent
+    bool fractional = (str.find(".") != std::string::npos) || (str.find("e-") != std::string::npos) || (str.find("E-") != std::string::npos);
     bool complex = str.find("i") != std::string::npos || str.find("j") != std::string::npos || str.find("I") != std::string::npos || str.find("J") != std::string::npos;
 
     //Setup Regex
-    std::string complexStdForm = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*e[-]?[0-9]+))\\s*([+-])\\s*((?:[0-9]+[.]?[0-9]*)|(?:[0-9]+[.]?[0-9]*e[-]?[0-9]+))[ijIJ]\\s*";
-    std::string complexNonStdForm = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*e[-]?[0-9]+))[ijIJ]\\s*([+-])\\s*((?:[0-9]+[.]?[0-9]*)|(?:[0-9]+[.]?[0-9]*e[-]?[0-9]+))\\s*";
+    std::string complexStdForm = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*[eE][-]?[0-9]+))\\s*([+-])\\s*((?:[0-9]+[.]?[0-9]*)|(?:[0-9]+[.]?[0-9]*[eE][-]?[0-9]+))[ijIJ]\\s*";
+    std::string complexNonStdForm = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*[eE][-]?[0-9]+))[ijIJ]\\s*([+-])\\s*((?:[0-9]+[.]?[0-9]*)|(?:[0-9]+[.]?[0-9]*[eE][-]?[0-9]+))\\s*";
 //    std::string complexStdFormTranspose = "\\s*([+-]?[0-9]+[.]?[0-9]*)\\s*([+-])\\s*[ijIJ]([0-9]+[.]?[0-9]*)\\s*";
 //    std::string complexNonStdFormTranspose = "\\s*([+-]?)[ijIJ]([0-9]+[.]?[0-9]*)\\s*([+-])\\s*(-?[0-9]+[.]?[0-9]*)\\s*";
-    std::string complexNoReal = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*e[-]?[0-9]+))[ijIJ]\\s*";
+    std::string complexNoReal = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*[eE][-]?[0-9]+))[ijIJ]\\s*";
 //    std::string complexNoRealTransposed = "\\s*([+-]?)[ijIJ]([0-9]+[.]?[0-9]*)\\s*";
-    std::string real = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*e[-]?[0-9]+))\\s*";
+    std::string real = "\\s*((?:[+-]?[0-9]+[.]?[0-9]*)|(?:[+-]?[0-9]+[.]?[0-9]*[eE][-]?[0-9]+))\\s*";
 
     std::regex complexStdFormRegex(complexStdForm);
     std::regex complexNonStdFormRegex(complexNonStdForm);
 //    std::regex complexStdFormTransposeRegex(complexStdFormTranspose);
 //    std::regex complexNonStdFormTransposeRegex(complexNonStdFormTranspose);
     std::regex complexNoRealRegex(complexNoReal);
-//    std::regex complexNoRealTransposedRegex(complexNoRealTransposed);
+//    std::regex complexNoRealTrfractionalansposedRegex(complexNoRealTransposed);
     std::regex realRegex(real);
 
     //Get Tokens

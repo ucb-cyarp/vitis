@@ -14,6 +14,7 @@
 #include "GraphCore/NumericValue.h"
 #include "GraphMLTools/GraphMLDialect.h"
 #include "GraphCore/StateUpdate.h"
+#include "MultiRate/ClockDomain.h"
 
 /**
  * \addtogroup MultiThread Multi-Thread Support
@@ -44,11 +45,13 @@ protected:
 
     //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
     //Special casing may be preferrable for now
-    std::string cBlockIndexVarInputName; ///The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
-    std::string cBlockIndexVarOutputName; ///The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
+    std::string cBlockIndexVarInputName; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
+    std::string cBlockIndexVarOutputName; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
 
     std::vector<bool> cStateVarsInitialized;
     std::vector<bool> cStateInputVarsInitialized;
+
+    std::shared_ptr<ClockDomain> clockDomain; ///<The clock domain that this FIFO is associated with.  Because the FIFO exists in the context of the source, FIFOs connected to the MasterInput will not be in the context of the clock domain they belong to
 
     //==== Constructors ====
     /**
@@ -99,6 +102,9 @@ public:
     //====Getters/Setters====
     int getFifoLength() const;
     void setFifoLength(int fifoLength);
+
+    std::shared_ptr<ClockDomain> getClockDomain() const;
+    void setClockDomain(const std::shared_ptr<ClockDomain> &clockDomain);
 
     std::vector<std::vector<NumericValue>> getInitConditions() const;
     void setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions);
@@ -208,7 +214,7 @@ public:
      * @param cStatementQueue
      * @param schedType
      */
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override = 0;
 

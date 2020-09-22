@@ -6,16 +6,17 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         name %The name of the block (from simulink)
         
         nodeType %Type of block.  Can be 1 of the following
-                 % 0 = Standard
-                 % 1 = Subsystem
-                 % 2 = Enabled Subsystem
-                 % 3 = Special Input Port
-                 % 4 = Special Output Port
-                 % 5 = Top Level
-                 % 6 = Master
-                 % 7 = Expanded (Node which has been expanded into a subsystem)
-                 % 8 = VectorFan
-                 % 9 = Stateflow
+                 % 0  = Standard
+                 % 1  = Subsystem
+                 % 2  = Enabled Subsystem
+                 % 3  = Special Input Port
+                 % 4  = Special Output Port
+                 % 5  = Top Level
+                 % 6  = Master
+                 % 7  = Expanded (Node which has been expanded into a subsystem)
+                 % 8  = VectorFan
+                 % 9  = Stateflow
+                 % 10 = RateChange
         
         simulinkBlockType %Simulink blocktype
         simulinkHandle %Simulink node handle
@@ -107,6 +108,8 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 type = 'VectorFan';
             elseif obj.nodeType == 9
                 type = 'Stateflow';
+            elseif obj.nodeType == 10
+                type = 'RateChange';
             else
                 type = 'Error';
             end
@@ -134,8 +137,10 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
                 obj.nodeType = 8;
             elseif strcmp(type, 'Stateflow')
                 obj.nodeType = 9;
-            else
+            elseif strcmp(type, 'RateChange')
                 obj.nodeType = 10;
+            else
+                obj.nodeType = 11;
                 error(['''', type, ''' is not a recognized node type']);
             end
         end
@@ -277,7 +282,7 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function special = isSpecial(obj)
             %isMaster Returns true if the node is a special Input/Output
             %node or a Stateflow node
-            special = obj.nodeType == 3 || obj.nodeType == 4 || obj.nodeType == 9;
+            special = obj.nodeType == 3 || obj.nodeType == 4 || obj.nodeType == 9 || obj.nodeType == 10;
         end
         
         function special = isSpecialInput(obj)
@@ -293,6 +298,11 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         function special = isStateflow(obj)
             %isSpecialOutput Returns true if the node is a Stateflow node
             special = obj.nodeType == 9;
+        end
+        
+        function special = isRateChange(obj)
+            %isSpecialOutput Returns true if the node is a RateChange node
+            special = obj.nodeType == 10;
         end
         
         function emitDialogParameters(obj, file, numTabs)
@@ -371,12 +381,16 @@ classdef GraphNode < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         
         function nodeLabelStr = labelStr(obj)
                nodeLabelStr = sprintf('%s\nID: %s', obj.name, obj.getFullIDPath('::', 'n%d', false));
-               if ~obj.isVectorFan() && ~obj.isMaster() && ~obj.isStateflow()
+               if ~obj.isVectorFan() && ~obj.isMaster() && ~obj.isStateflow() && ~obj.isRateChange()
                    nodeLabelStr = [nodeLabelStr, sprintf('\nFunction: %s', obj.simulinkBlockType)];
                else
                    nodeLabelStr = [nodeLabelStr, sprintf('\nType: %s', obj.getNodeTypeText())];
                    if(isa(obj, 'VectorFan'))
                       nodeLabelStr = [nodeLabelStr, sprintf('\nDirection: %s', obj.dialogProperties('Direction'))];
+                   end
+
+                   if(obj.isRateChange)
+                      nodeLabelStr = [nodeLabelStr, sprintf('\nFunction: %s', obj.simulinkBlockType)];
                    end
                end
                

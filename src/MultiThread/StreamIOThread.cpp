@@ -106,26 +106,66 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     headerFile << threadFctnDecl << ";" << std::endl;
     headerFile << std::endl;
 
-    std::vector<Variable>  masterInputVars = EmitterHelpers::getCInputVariables(inputMaster);
-    std::vector<Variable> masterOutputVars = EmitterHelpers::getCOutputVariables(outputMaster);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> masterInputVarRatePairs = EmitterHelpers::getCInputVariables(inputMaster);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> masterOutputVarRatePairs = EmitterHelpers::getCOutputVariables(outputMaster);
+
+    std::vector<Variable> masterInputVars = masterInputVarRatePairs.first;
+    std::vector<Variable> masterOutputVars = masterOutputVarRatePairs.first;
+
+    std::vector<int> masterInputVarBlockSizes = EmitterHelpers::getBlockSizesFromRates(masterInputVarRatePairs.second, blockSize);
+    std::vector<int> masterOutputVarBlockSizes = EmitterHelpers::getBlockSizesFromRates(masterOutputVarRatePairs.second, blockSize);
 
     //Sort I/O varaibles into bundles - each bundle will have a separate stream
     //the default bundle is bundle 0
     std::set<int> bundles;
-    std::map<int, std::vector<Variable>> masterInputBundles;
-    std::map<int, std::vector<Variable>> masterOutputBundles;
-    sortIntoBundles(masterInputVars, masterOutputVars,masterInputBundles,masterOutputBundles, bundles);
+    std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> masterInputBundles;
+    std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> masterOutputBundles;
+    sortIntoBundles(masterInputVars, masterOutputVars, masterInputVarBlockSizes, masterOutputVarBlockSizes, masterInputBundles, masterOutputBundles, bundles);
 
     //For each bundle, create a IO Port structure definition
+
     for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++){
         std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-        headerFile << EmitterHelpers::getCIOPortStructDefn(it->second, inputStructTypeName, blockSize) << std::endl;
+        std::vector<int> blkSizes = it->second.second;
+
+        std::string bundleBlockSizeName = GeneralHelper::toUpper(designName) + "_INPUT_BUNDLE" + GeneralHelper::to_string(it->first) + "_BLOCKSIZE";
+
+        int blockSize = 0;
+        for(unsigned long i = 0; i<blkSizes.size(); i++){
+            if(i == 0){
+                blockSize = blkSizes[i];
+            }else{
+                if(blockSize != blkSizes[i]){
+                    std::cerr << "WARNING: A port of input bundle " << GeneralHelper::to_string(it->first) << " has a different rate than the other ports. " << bundleBlockSizeName << " may be unreliable as an indication of the block size" << std::endl;
+                }
+            }
+        }
+
+        headerFile << "#define " << bundleBlockSizeName << " (" << blockSize << ")" << std::endl;
+        headerFile << EmitterHelpers::getCIOPortStructDefn(it->second.first, it->second.second, inputStructTypeName) << std::endl;
         headerFile << std::endl;
     }
 
     for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++){
-        std::string inputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
-        headerFile << EmitterHelpers::getCIOPortStructDefn(it->second, inputStructTypeName, blockSize) << std::endl;
+        std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
+        std::vector<int> blkSizes = it->second.second;
+
+        std::string bundleBlockSizeName = GeneralHelper::toUpper(designName) + "_OUTPUT_BUNDLE" + GeneralHelper::to_string(it->first) + "_BLOCKSIZE";
+
+        int blockSize = 0;
+        for(unsigned long i = 0; i<blkSizes.size(); i++){
+            if(i == 0){
+                blockSize = blkSizes[i];
+            }else{
+                if(blockSize != blkSizes[i]){
+                    std::cerr << "WARNING: A port of output bundle " << GeneralHelper::to_string(it->first) << " has a different rate than the other ports. " << bundleBlockSizeName << " may be unreliable as an indication of the block size" << std::endl;
+                }
+            }
+        }
+
+        headerFile << "#define " << bundleBlockSizeName << " (" << blockSize << ")" << std::endl;
+
+        headerFile << EmitterHelpers::getCIOPortStructDefn(it->second.first, it->second.second, outputStructTypeName) << std::endl;
         headerFile << std::endl;
     }
 
@@ -549,7 +589,8 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //This allows a read from the external stream to occur if availible
         ioThread << "//Copy Between Input Buffers" << std::endl;
         ioThread << "if(" << extInputBufferFilledName << " && !" << toComputeFIFOFilledName << "){" << std::endl;
-        copyIOInputsToFIFO(ioThread, it->second, inputPortFifoMap, linuxInputTmpName, blockSize);
+
+        copyIOInputsToFIFO(ioThread, it->second.first, inputPortFifoMap, linuxInputTmpName, it->second.second);
         ioThread << extInputBufferFilledName << " = false;" << std::endl;
         ioThread << toComputeFIFOFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -703,7 +744,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Copy ext input into the compute buffer if possible
         ioThread << "//Copy Between Input Buffers" << std::endl;
         ioThread << "if(" << extInputBufferFilledName << " && !" << toComputeFIFOFilledName << "){" << std::endl;
-        copyIOInputsToFIFO(ioThread, it->second, inputPortFifoMap, linuxInputTmpName, blockSize);
+        copyIOInputsToFIFO(ioThread, it->second.first, inputPortFifoMap, linuxInputTmpName, it->second.second);
         ioThread << extInputBufferFilledName << " = false;" << std::endl;
         ioThread << toComputeFIFOFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -928,7 +969,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
         //This allows a read from the external stream to occur if availible
         ioThread << "if(" << fromComputeFIFOFilledName << " && !" << extOutputBufferFilledName << "){" << std::endl;
-        copyFIFOToIOOutputs(ioThread, it->second, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+        copyFIFOToIOOutputs(ioThread, it->second.first, outputPortFifoMap, outputMaster, linuxOutputTmpName, it->second.second);
         ioThread << fromComputeFIFOFilledName << " = false;" << std::endl;
         ioThread << extOutputBufferFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -1040,7 +1081,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Copy ext input into the compute buffer if the external input buffer has data but the computeFIFO buffer does not
         //This allows a read from the external stream to occur if availible
         ioThread << "if(" << fromComputeFIFOFilledName << " && !" << extOutputBufferFilledName << "){" << std::endl;
-        copyFIFOToIOOutputs(ioThread, it->second, outputPortFifoMap, outputMaster, linuxOutputTmpName, blockSize);
+        copyFIFOToIOOutputs(ioThread, it->second.first, outputPortFifoMap, outputMaster, linuxOutputTmpName, it->second.second);
         ioThread << fromComputeFIFOFilledName << " = false;" << std::endl;
         ioThread << extOutputBufferFilledName << " = true;" << std::endl;
         ioThread << "}" << std::endl;
@@ -1227,23 +1268,10 @@ StreamIOThread::getOutputPortFIFOMapping(std::shared_ptr<MasterOutput> outputMas
     return portToFIFO;
 }
 
-std::string
-StreamIOThread::getInputStructDefn(std::shared_ptr<MasterInput> inputMaster, std::string structTypeName, int blockSize) {
-
-    std::vector<Variable> inputVariables = EmitterHelpers::getCInputVariables(inputMaster);
-    return EmitterHelpers::getCIOPortStructDefn(inputVariables, structTypeName, blockSize);
-}
-
-std::string
-StreamIOThread::getOutputStructDefn(std::shared_ptr<MasterOutput> outputMaster, std::string structTypeName,
-                                    int blockSize) {
-    std::vector<Variable> outputVars = EmitterHelpers::getCOutputVariables(outputMaster);
-    return EmitterHelpers::getCIOPortStructDefn(outputVars, structTypeName, blockSize);
-}
-
-void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, int blockSize) {
+void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, std::vector<int> masterInputBlockSizes) {
     for(int i = 0; i<masterInputVars.size(); i++){
-        DataType dt = masterInputVars[i].getDataType();
+        //The port in the FIFO structure is expanded according to the block size of the indevidual FIFO
+        DataType dt = masterInputVars[i].getDataType().expandForBlock(masterInputBlockSizes[i]);
 
         //The index is the port number
         //Find if this element is used and where
@@ -1256,18 +1284,26 @@ void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Var
                 std::string tmpName = fifoPortVec[j].first->getName() + "_writeTmp";
                 int fifoPortNum = fifoPortVec[j].second;
 
-                if(dt.getWidth() == 1 && blockSize == 1) {
+                //Note that dt is the dataype before expansion for block size.
+                if(dt.isScalar()) {
                     ioThread << tmpName << ".port" << fifoPortNum << "_real = " << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << ";" << std::endl;
                     if (dt.isComplex()) {
                         ioThread << tmpName << ".port" << fifoPortNum << "_imag = " << linuxInputPipeName << "."
                                  << masterInputVars[i].getCVarName(true) << ";" << std::endl;
                     }
-                }else if((*fifoPortVec[j].first->getInputArcs().begin())->getDataType().getWidth() != 1 && blockSize != 1){
-                    //TODO: Implement full support for 2D arrays.  Implemented in FIFOs but not in most primitive elements
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Multi dimension arrays are not currently supported for master input ports"));
                 }else{
-                    //Simple array
+                    //Array inputs/outputs are OK so long as they follow the C/C++ convention
+                    //The input/output from this program is still a vector so any multidimensional array
+                    //is flattened according to the C/C++ convention for contiguous memory access in a multidimensional array
+                    //Note that the block is the left most index in the multidimensional array so blocks are grouped congiguously.
+                    //Also note that the blocks are handled in the declaration of the stucture elements
+
+                    //--- Confirm that this works with block sizes adjusted for port rates.  It looks like it should if the
+                    //structure is updated properly
+                    //---Addendum, it should work if the structure was updated correctly since sizeof with an array of know dimensions
+                    //will return the number of bytes in the array and not the number of bytes in a single array element
+
                     ioThread << "memcpy(" << tmpName << ".port" << fifoPortNum << "_real, " << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << ", sizeof(" << linuxInputPipeName << "."
                              << masterInputVars[i].getCVarName(false) << "));" << std::endl;
@@ -1285,9 +1321,10 @@ void StreamIOThread::copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Var
 void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Variable> masterOutputVars,
                                          std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap,
                                          std::shared_ptr<MasterOutput> outputMaster, std::string linuxOutputPipeName,
-                                         int blockSize) {
+                                         std::vector<int> masterOutputBlockSizes) {
     for(int i = 0; i<masterOutputVars.size(); i++){
-        DataType dt = masterOutputVars[i].getDataType();
+        //The port in the FIFO structure is expanded according to the block size of the indevidual FIFO
+        DataType dt = masterOutputVars[i].getDataType().expandForBlock(masterOutputBlockSizes[i]);
 
         //The index is the port number
         //Find if this element is used and where
@@ -1299,18 +1336,19 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
             std::string tmpName = fifoPort.first->getName() + "_readTmp";
             int fifoPortNum = fifoPort.second;
 
-            if(dt.getWidth() == 1 && blockSize == 1) {
+            if(dt.isScalar()) {
                 ioThread << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(false) << " = "
                          << tmpName << ".port" << fifoPortNum << "_real;" << std::endl;
                 if (dt.isComplex()) {
                     ioThread << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(true) << " = "
                              << tmpName << ".port" << fifoPortNum << "_imag;" << std::endl;
                 }
-            }else if((*fifoPort.first->getInputArcs().begin())->getDataType().getWidth() != 1 && blockSize != 1){
-                //TODO: Implement full support for 2D arrays.  Implemented in FIFOs but not in most primitive elements
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Multi dimension arrays are not currently supported for master output ports", outputMaster));
             }else{
-                //Simple array
+                //Array inputs/outputs are OK so long as they follow the C/C++ convention
+                //The input/output from this program is still a vector so any multidimensional array
+                //is flattened according to the C/C++ convention for contiguous memory access in a multidimensional array
+                //Note that the block is the left most index in the multidimensional array so blocks are grouped congiguously.
+                //Also note that the blocks are handled in the declaration of the stucture elements
                 ioThread << "memcpy(" << linuxOutputPipeName << "." << masterOutputVars[i].getCVarName(false)
                          << ", " << tmpName << ".port" << fifoPortNum << "_real" << ", sizeof(" << linuxOutputPipeName << "."
                          << masterOutputVars[i].getCVarName(false) << "));" << std::endl;
@@ -1351,13 +1389,19 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
     headerFile << std::endl;
 
-    std::vector<Variable> masterInputVars = EmitterHelpers::getCInputVariables(inputMaster);
-    std::vector<Variable> masterOutputVars = EmitterHelpers::getCOutputVariables(outputMaster);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> masterInputVarRatePairs = EmitterHelpers::getCInputVariables(inputMaster);
+    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> masterOutputVarRatePairs = EmitterHelpers::getCOutputVariables(outputMaster);
+    std::vector<Variable> masterInputVars = masterInputVarRatePairs.first;
+    std::vector<Variable> masterOutputVars = masterOutputVarRatePairs.first;
+
+    //TODO: Optimize
+    std::vector<int> masterInputBlockSizes = EmitterHelpers::getBlockSizesFromRates(masterInputVarRatePairs.second, 1);//Using a dummy blockSize
+    std::vector<int> masterOutputBlockSizes = EmitterHelpers::getBlockSizesFromRates(masterOutputVarRatePairs.second, 1);//Using a dummy blockSize
 
     std::set<int> bundles;
-    std::map<int, std::vector<Variable>> masterInputBundles;
-    std::map<int, std::vector<Variable>> masterOutputBundles;
-    sortIntoBundles(masterInputVars, masterOutputVars, masterInputBundles, masterOutputBundles, bundles);
+    std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> masterInputBundles;
+    std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> masterOutputBundles;
+    sortIntoBundles(masterInputVars, masterOutputVars, masterInputBlockSizes, masterOutputBlockSizes,  masterInputBundles, masterOutputBundles, bundles);
 
     //Only need one of the connect/disconnect functions
     //Output function prototypes for the socket client
@@ -1501,8 +1545,11 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
 }
 
 void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std::vector<Variable> masterOutputVars,
-                                      std::map<int, std::vector<Variable>> &masterInputBundles,
-                                      std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles) {
+                                     std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
+                                     std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterInputBundles,
+                                     std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterOutputBundles, std::set<int> &bundles) {
+    //TODO: Possibly Update this to also export the relative clock rates of each input/output so that the block sizes
+    //can be adapted
     //Sort I/O varaibles into bundles - each bundle will have a separate stream
     //the default bundle is bundle 0
 
@@ -1517,11 +1564,13 @@ void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std:
         if (matched) {
             //Goes in the specified bundle
             int tgtBundle = std::stoi(matches[1]);
-            masterInputBundles[tgtBundle].push_back(masterInputVars[i]);
+            masterInputBundles[tgtBundle].first.push_back(masterInputVars[i]);
+            masterInputBundles[tgtBundle].second.push_back(inputBlockSizes[i]);
             bundles.insert(tgtBundle);
         } else {
             //Goes in bundle 0
-            masterInputBundles[0].push_back(masterInputVars[i]);
+            masterInputBundles[0].first.push_back(masterInputVars[i]);
+            masterInputBundles[0].second.push_back(inputBlockSizes[i]);
             bundles.insert(0);
         }
     }
@@ -1535,11 +1584,13 @@ void StreamIOThread::sortIntoBundles(std::vector<Variable> masterInputVars, std:
         if (matched) {
             //Goes in the specified bundle
             int tgtBundle = std::stoi(matches[1]);
-            masterOutputBundles[tgtBundle].push_back(masterOutputVars[i]);
+            masterOutputBundles[tgtBundle].first.push_back(masterOutputVars[i]);
+            masterOutputBundles[tgtBundle].second.push_back(outputBlockSizes[i]);
             bundles.insert(tgtBundle);
         } else {
             //Goes in bundle 0
-            masterOutputBundles[0].push_back(masterOutputVars[i]);
+            masterOutputBundles[0].first.push_back(masterOutputVars[i]);
+            masterOutputBundles[0].second.push_back(outputBlockSizes[i]);
             bundles.insert(0);
         }
     }

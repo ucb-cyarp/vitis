@@ -52,7 +52,7 @@ ReinterpretCast::createFromGraphML(int id, std::string name, std::map<std::strin
     //NOTE: complex is set to true and width is set to 1 for now.  These will be resolved with a call to propagate from Arcs.
     DataType dataType;
     try {
-        dataType = DataType(datatypeStr, true, 1);
+        dataType = DataType(datatypeStr, true, {1});
         newNode->setTgtDataType(dataType);
     }catch(const std::invalid_argument& e){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Could not parse specified DataType: " + datatypeStr, newNode));
@@ -117,7 +117,7 @@ void ReinterpretCast::propagateProperties() {
 
     //Propagate the complex and width to the tgtDataType as this was not known when the DataTypeConversion object was created
     tgtDataType.setComplex(outDataType.isComplex());
-    tgtDataType.setWidth(outDataType.getWidth());
+    tgtDataType.setDimensions(outDataType.getDimensions());
 }
 
 void ReinterpretCast::validate() {
@@ -131,7 +131,6 @@ void ReinterpretCast::validate() {
     if(outputPorts.size() != 1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - ReinterpretCast - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
-
 
     std::shared_ptr<Arc> outArc = *(outputPorts[0]->getArcs().begin());
 
@@ -162,7 +161,7 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         emittedBefore = true;
 
         //TODO: Implement Vector Support
-        if (getInputPort(0)->getDataType().getWidth() > 1) {
+        if (!getInputPort(0)->getDataType().isScalar()) {
             throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - ReinterpretCast Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
         }
 

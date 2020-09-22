@@ -317,6 +317,8 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
     //Validate first to check that node is properly wired (ie. there is the proper number of ports, only 1 input arc, etc.)
     validate();
 
+    //TODO: Implement vector support
+
     //---- Create the expanded node ----
     std::shared_ptr<SubSystem> thisParent = parent;
 
@@ -362,7 +364,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
         std::shared_ptr<Arc> realInputToComparison = Arc::connectNodes(complexToRealImag, 0, compareToZeroReal, 0, inputRealDT);
         new_arcs.push_back(realInputToComparison);
 
-        DataType boolDT = DataType(false, false, false, 1, 0, 1);
+        DataType boolDT = DataType(false, false, false, 1, 0, {1});
 
         if(bitsPerSymbol == 1) {
             //Create Mux and return demodulated signal
@@ -562,7 +564,7 @@ std::shared_ptr<ExpandedNode> DigitalDemodulator::expand(std::vector<std::shared
 
         //Down-cast to int (truncate)
         //Can be unsigned since saturation occured first and forced the value to be in the domain [0, #rows/cols)
-        DataType castIntDTExact = DataType(false, false, false, bitsPerSymbol, 0, 1);
+        DataType castIntDTExact = DataType(false, false, false, bitsPerSymbol, 0, {1});
         //The cast needs to be to a CPU type for datatype convert
         DataType castIntDT = castIntDTExact.getCPUStorageType();
 

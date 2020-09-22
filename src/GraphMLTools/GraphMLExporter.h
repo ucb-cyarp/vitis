@@ -19,15 +19,14 @@
 /**
  * @brief Exporter for exporting a DSP design to a GraphML file
  */
-class GraphMLExporter {
-public:
+namespace GraphMLExporter {
     /**
      * @brief Exports a design to a GraphML Design
      *
      * @param filename The filename of the GraphML file to import
      * @param design Design to export
      */
-    static void exportGraphML(std::string filename, Design &design);
+    void exportGraphML(std::string filename, Design &design);
 
     /**
      * @brief Exports Port names to a GraphML (vitis) file
@@ -35,14 +34,14 @@ public:
      * @param doc the XML document to export to
      * @param graphNode the XML graph node to export the ports into
      */
-    static void exportPortNames(std::shared_ptr<Node> node, xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode);
+    void exportPortNames(std::shared_ptr<Node> node, xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode);
 
     /**
      * @brief Adds port name parameters to the set of graphMLPaemeters
      * @param node the node from which to add its port name parameters
      * @param graphMLParameters the set of GraphML Parameters to add to
      */
-    static void addPortNameProperties(std::shared_ptr<Node> node, std::set<GraphMLParameter> &graphMLParameters);
+    void addPortNameProperties(std::shared_ptr<Node> node, std::set<GraphMLParameter> &graphMLParameters);
 
 };
 

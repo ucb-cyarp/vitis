@@ -4,7 +4,22 @@
 * Partitions: A subsystem can be denoted as a partition by placing a constant block inside the subsystem and naming it 
   ```VITIS_PARTITION```.  The name of the block indicates the partition number.  Note that the I/O partition is always 
   - The constant can be attached to a terminator block and will be pruned away by vitis before C code generation.
-
+* Clock Domains: A clock domain can be specified by naming a subsystem with the prefix ```VITIS_CLOCK_DOMAIN```.
+  - All of the input ports need to share the same rate change (ex. upsample by 2, repeat by 2) and all of the output 
+    ports need to be the inverse rate change (ex. downsample by 2).
+       - Rate changes blocks can be nested within subsystems but must be between logic external to the clock domain and 
+         any logic within the clock domain.
+  - The one exception is for system inputs/outputs which are allowed to be connected without a rate change.  If a rate
+    change is supplied for an I/O line, it needs to be consistent with the other inputs and outputs to the domain.
+       - I/O which is directly connected to a node in a clock domain (ie. is not connected to a rate change block at 
+         the boundary of the clock domain) is defined to operate at the rate of that clock domain
+       - Fanout of an input to different clock domains operating at the same rate is permitted.  Fanout to domains 
+         operating at different rates is not permitted.
+  - Upsample and repeat blocks can be mixed so long as they represent the same rate change.
+  - All clock domains in the design must be an integer upsample or downsample factor from the base rate (input rate).
+    This allows the block size and vector lengths to be set statically.  This requirement may be relaxed in a future 
+    version.
+    
 ## Limited Support:
 * Vectors: Vector operations are currently expanded by the simulink to GraphML export script into primitive (width 1) operations.  Vector ports are not yet supported.
 

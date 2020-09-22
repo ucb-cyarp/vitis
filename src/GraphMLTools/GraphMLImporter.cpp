@@ -11,9 +11,11 @@
 #include "GraphCore/ExpandedNode.h"
 #include "GraphCore/SubSystem.h"
 #include "GraphCore/EnabledSubSystem.h"
+#include "GraphCore/DummyReplica.h"
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterOutput.h"
 #include "MasterNodes/MasterUnconnected.h"
+#include "MultiRate/ClockDomain.h"
 
 #include "PrimitiveNodes/Sum.h"
 #include "PrimitiveNodes/Product.h"
@@ -37,6 +39,10 @@
 #include "PrimitiveNodes/Trigonometry/Cos.h"
 #include "PrimitiveNodes/Trigonometry/Atan.h"
 #include "PrimitiveNodes/Trigonometry/Atan2.h"
+#include "PrimitiveNodes/WrappingCounter.h"
+#include "PrimitiveNodes/InnerProduct.h"
+#include "PrimitiveNodes/TappedDelay.h"
+#include "PrimitiveNodes/Select.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -45,13 +51,23 @@
 #include "MediumLevelNodes/NCO.h"
 #include "MediumLevelNodes/DigitalModulator.h"
 #include "MediumLevelNodes/DigitalDemodulator.h"
+#include "MediumLevelNodes/SimulinkSelect.h"
+#include "MediumLevelNodes/SimulinkBitwiseOperator.h"
+#include "MediumLevelNodes/SimulinkBitShift.h"
 #include "HighLevelNodes/DiscreteFIR.h"
-#include "HighLevelNodes/TappedDelay.h"
 #include "BusNodes/VectorFan.h"
 #include "BusNodes/VectorFanIn.h"
 #include "BusNodes/VectorFanOut.h"
-#include "BusNodes/Concatenate.h"
+#include "PrimitiveNodes/Concatenate.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
+#include "MultiRate/RateChange.h"
+#include "MultiRate/Downsample.h"
+#include "MultiRate/Upsample.h"
+#include "MultiRate/Repeat.h"
+#include "MultiRate/DownsampleInput.h"
+#include "MultiRate/UpsampleOutput.h"
+#include "MultiRate/RepeatOutput.h"
+#include "MultiRate/DownsampleClockDomain.h"
 
 #include <iostream>
 #include <fstream>
@@ -64,6 +80,8 @@
 #include "General/ErrorHelpers.h"
 
 using namespace xercesc;
+
+#define VITIS_SIMULINK_CLOCK_DOMAIN_PREFIX "VITIS_CLOCK_DOMAIN" ///<This prefix is used in Vitis Simulink to Declare Subsystems as Clock Domains
 
 std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, GraphMLDialect dialect)
 {
@@ -212,6 +230,15 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
         std::vector<std::shared_ptr<Node>> nodes = design->getNodes();
         for(auto node = nodes.begin(); node != nodes.end(); node++){
             (*node)->propagateProperties();
+        }
+
+        //Discover Clock domain parameters/hierarchy and associate RateChange nodes with ClockDomains
+        // - This needs to be done before validation
+        for(auto node = nodes.begin(); node != nodes.end(); node++){
+            if(GeneralHelper::isType<Node, ClockDomain>(*node)){
+                std::shared_ptr<ClockDomain> clkDomain = std::static_pointer_cast<ClockDomain>(*node);
+                clkDomain->discoverClockDomainParameters();
+            }
         }
 
         //Validate nodes (get the node vector again in case nodes were added)
@@ -463,12 +490,41 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
     //Based of the node type, we construct nodes:
     std::string blockType = dataKeyValueMap.at("block_node_type");
 
-    if (blockType == "Subsystem") {
-        std::shared_ptr<SubSystem> newSubsystem = NodeFactory::createNode<SubSystem>(parent);
-        newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
-        if (hasName) {
+    if (blockType == "Subsystem" || blockType == "ClockDomain") {
+        std::shared_ptr<SubSystem> newSubsystem;
+
+        if(blockType == "Subsystem"){
+            //Check if the Subsystem is a Clock Domain (defined using Subsystems in Vitis Simulink)
+            if (dialect == GraphMLDialect::SIMULINK_EXPORT && hasName) {
+                std::string simulinkClockDomainPrefix = VITIS_SIMULINK_CLOCK_DOMAIN_PREFIX;
+                if (name.compare(0, simulinkClockDomainPrefix.length(), simulinkClockDomainPrefix) == 0) {
+                    //Found a ClockDomain declared in simulink, instantiate a ClockDomain instead
+                    //Note that properties of clock domains are discovered in a later stage of the import via
+                    //ClockDomain::discoverClockDomainParameters
+                    newSubsystem = NodeFactory::createNode<ClockDomain>(parent);
+                } else {
+                    newSubsystem = NodeFactory::createNode<SubSystem>(parent);
+                }
+            } else {
+                newSubsystem = NodeFactory::createNode<SubSystem>(parent);
+            }
+        }
+        else{
+            //Block Type is ClockDomain
+            if(blockType == "DownsampleClockDomain"){
+                newSubsystem = NodeFactory::createNode<DownsampleClockDomain>(parent);
+            }else {
+                //Note that properties of clock domains are discovered in a later stage of the import via
+                //ClockDomain::discoverClockDomainParameters
+                newSubsystem = NodeFactory::createNode<ClockDomain>(parent);
+            }
+        }
+
+        if(hasName){
             newSubsystem->setName(name);
         }
+
+        newSubsystem->setId(Node::getIDFromGraphMLFullPath(fullNodeID));
 
         //Add node to design
         design.addNode(newSubsystem);
@@ -664,6 +720,21 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         //For now: Stateflow is the only blackboxed module.  The emit logic is there for the blackbox, just not the access name importing
     } else if (blockType == "ThreadCrossingFIFO"){
         std::shared_ptr<Node> newNode = GraphMLImporter::importThreadCrossingFIFONode(fullNodeID, dataKeyValueMap, parent, dialect);
+
+        //Add new node to design and to name node map
+        design.addNode(newNode);
+        if (parent == nullptr) {//If the parent is null, add this to the top level node list
+            design.addTopLevelNode(newNode);
+        }
+        nodeMap[fullNodeID] = newNode;
+    } else if (blockType == "RateChange") {
+        //When the RateChange nodes are imported, they are not yet associated with ClockDomains.  This is because, while
+        //we can identify the clock domain a RateChange is under based on the hierarchy, we can't tell if it is an
+        //input or output until the arcs have been imported.  We can then check to see if the src or destination nodes
+        //are nested under the ClockDomain or not.  Because of this, the association of rate change nodes to clock domains
+        //occurs later
+
+        std::shared_ptr<Node> newNode = GraphMLImporter::importRateChangeNode(fullNodeID, dataKeyValueMap, parent, dialect);
 
         //Add new node to design and to name node map
         design.addNode(newNode);
@@ -928,7 +999,34 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     if(blockFunction == "Sum"){
         newNode = Sum::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Product"){
-        newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+            //For simulink, we need to check for element wise or matrix multiplication
+
+            if(dataKeyValueMap.find("Multiplication") == dataKeyValueMap.end()){
+                std::cerr << "Warning: Multiplication node from Simulink without Multiplication Parameter, assuming \"Element-wise(.*)\"" << std::endl;
+                newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+            }else {
+                std::string multType = dataKeyValueMap.at("Multiplication");
+
+                if (multType == "Element-wise(.*)") {
+                    //For element-wise, we use the Product block.
+                    newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+                } else if (multType == "Matrix(*)") {
+                    //TODO: Implement Matrix Multiplication
+                    throw std::runtime_error(
+                            ErrorHelpers::genErrorStr("Matrix Multiplication is not yet implemented: " + blockFunction,
+                                                      parent->getFullyQualifiedName() + "/" + name));
+                } else {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown multiplication type: " + blockFunction,
+                                                                       parent->getFullyQualifiedName() + "/" + name));
+                }
+            }
+
+        }else {
+            //This is the Product block.  Matrix Multiply is declared seperatly
+            newNode = Product::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }
+    //TODO: Add vitis only block matrix multiply
     }else if(blockFunction == "Delay") {
         newNode = Delay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Constant"){
@@ -989,8 +1087,12 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = UnsupportedSink::createFromGraphML(id, name, blockFunction, dataKeyValueMap, parent);
     }else if(blockFunction == "ReinterpretCast"){ //--This is a Vitis Only Node --
         newNode = ReinterpretCast::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "BitwiseOperator"){ //--This is a Vitis Only Node --
-        newNode = BitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "BitwiseOperator"){ //--This is a Vitis Only Node -- However, Simulink's BitwiseOperator shares the same name
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT){
+            newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }else{
+            newNode = BitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+        }
     }else if(blockFunction == "NCO" ){ //Vitis name is NCO, Simulink Name is NCO (changed by export scripts)
         newNode = NCO::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DigitalModulator" || blockFunction == "BPSK_ModulatorBaseband" || blockFunction == "QPSK_ModulatorBaseband" || blockFunction == "RectangularQAM_ModulatorBaseband"){ //Vitis name is DigitalModulator, other names are set in simulink export script (are technically different blocks)
@@ -1041,8 +1143,56 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
             //TODO: implement more Trigonometry functions
             throw std::runtime_error(ErrorHelpers::genErrorStr("Trigonometry blocks of type " + op + " are not yet supported: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
         }
+    }else if(blockFunction == "WrappingCounter"){ //--This is a Vitis Only Node --
+        newNode = WrappingCounter::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DummyReplica" ) { //Vitis only node
+        newNode = DummyReplica::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "InnerProduct" || blockFunction == "DotProduct"){ //Vitis name is InnerProduct, Simulink name is DotProduct
+        newNode = InnerProduct::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Select"){ //Vitis name is Select, Simulink name is Selector but that is translated to SimulinkSelect
+        newNode = Select::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "SimulinkSelect" || blockFunction == "Selector"){ //Vitis name is SimulinkSelect, Simulink name is Selector
+        newNode = SimulinkSelect::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "SimulinkBitwiseOperator"){ //--Vitis name is SimulinkBitwiseOperator.  Simulink Name is BitwiseOperator but that conflicts with the vitis primitive BitwiseOperator
+        newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "SimulinkBitShift" || blockFunction == "BitShift"){ //--Vitis name is SimulinkBitShift. Simulink Name is Bit Shift
+        newNode = SimulinkBitShift::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
+    }
+
+    return newNode;
+}
+
+std::shared_ptr<RateChange> GraphMLImporter::importRateChangeNode(std::string idStr, std::map<std::string, std::string> dataKeyValueMap,
+                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect) {
+
+    int id = Node::getIDFromGraphMLFullPath(idStr);
+
+    std::string name = "";
+
+    if(dataKeyValueMap.find("instance_name") != dataKeyValueMap.end()){
+        name = dataKeyValueMap["instance_name"];
+    }
+
+    std::string blockFunction = dataKeyValueMap.at("block_function");
+
+    std::shared_ptr<RateChange> newNode;
+
+    if(blockFunction == "Downsample" || blockFunction == "DownSample"){ //Vitis name is Downsample.  Simulink name is DownSample
+        newNode = Downsample::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Upsample" || blockFunction == "UpSample"){ //Vitis name is Upsample.  Simulink name is UpSample
+        newNode = Upsample::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Repeat"){
+        newNode = Repeat::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "UpsampleOutput"){
+        newNode = UpsampleOutput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "RepeatOutput"){
+        newNode = RepeatOutput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "DownsampleInput"){
+        newNode = DownsampleInput::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown RateChange block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }
 
     return newNode;
@@ -1192,13 +1342,68 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
         std::string complexStr = dataKeyValueMap.at("arc_complex");
         bool complex = !(complexStr == "0" || complexStr == "false");
 
-        int width = std::stoi(dataKeyValueMap.at("arc_width"));
+
+        std::vector<int> dimensions;
+        if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
+            //Reformat the dimensions array from Simulink to exclude the number of dimensions
+            std::string simulinkDimStr = dataKeyValueMap.at("arc_dimension");
+            std::vector<int> simulinkDim = GeneralHelper::parseIntVecStr(simulinkDimStr);
+
+            if(simulinkDim.size() <= 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions not specified: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+            if(simulinkDim.size() < 2){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions for arc illegal, expect [#dim, dim1, dim2, ...]: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+            if(simulinkDim[0] != simulinkDim.size()-1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions for arc disagreed with the length of the dimension vector: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+            //Get the dimensions of the wire.  Detect if all dimensions are 1
+            bool allOnes = true;
+            for(int dim = 1; dim<simulinkDim.size(); dim++){
+                dimensions.push_back(simulinkDim[dim]);
+                if(simulinkDim[dim] != 1){
+                    allOnes = false;
+                    break;
+                }
+            }
+
+            //Check if the #dimensions>1 but lengths indicate a scalar
+            if(allOnes && dimensions.size()>1){
+                //Emit a warning if this happens
+                std::cerr << ErrorHelpers::genWarningStr("Converting wire of Simulink dimension " + simulinkDimStr + " (number of dimensions is first element in array) to scalar: Edge ID: " + GeneralHelper::to_string(id)) << std::endl;
+                dimensions = std::vector<int>({1});
+            }
+
+            //Check that the number of elements equals the dimensions
+            int width = std::stoi(dataKeyValueMap.at("arc_width"));
+
+            int elements = 0;
+            for(unsigned long dim = 0; dim < dimensions.size(); dim++){
+                if(dim == 0){
+                    elements = dimensions[dim];
+                }else{
+                    elements *= dimensions[dim];
+                }
+            }
+
+            if(elements != width){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Simulink dimensions for arc don't match width: Edge ID: " + GeneralHelper::to_string(id)));
+            }
+
+        }else{
+            //Just grab the dimension array
+            std::string dimensionsStr = dataKeyValueMap.at("arc_dimension");
+            dimensions = GeneralHelper::parseIntVecStr(dimensionsStr);
+        }
 
         std::string dataTypeStr = dataKeyValueMap.at("arc_datatype");
 
-
         //==== Create DataType object ====
-        DataType dataType(dataTypeStr, complex, width);
+        DataType dataType(dataTypeStr, complex, dimensions);
 
         //==== Lookup Nodes ====
         std::shared_ptr<Node> srcNode = nodeMap.at(srcFullPath);

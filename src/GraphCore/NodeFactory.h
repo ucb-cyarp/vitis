@@ -8,7 +8,12 @@
 #include <memory>
 #include <MasterNodes/MasterOutput.h>
 #include <MasterNodes/MasterInput.h>
-
+#include <MultiRate/RateChange.h>
+#include <MultiRate/Upsample.h>
+#include <MultiRate/Repeat.h>
+#include <MultiRate/Downsample.h>
+#include <MultiRate/ClockDomain.h>
+#include <MasterNodes/MasterNode.h>
 
 #include "Node.h"
 #include "SubSystem.h"

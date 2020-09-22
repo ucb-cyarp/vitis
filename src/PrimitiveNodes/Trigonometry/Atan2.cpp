@@ -115,7 +115,7 @@ CExpr Atan2::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     DataType dstType = getOutputPort(0)->getDataType();
 
     //TODO: Implement Vector Support
-    if (getInputPort(0)->getDataType().getWidth() > 1 || getInputPort(1)->getDataType().getWidth() > 1) {
+    if (!getInputPort(0)->getDataType().isScalar() || !getInputPort(1)->getDataType().isScalar()) {
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Atan2 Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
@@ -131,10 +131,10 @@ CExpr Atan2::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     DataType rtnType;
     std::string fctnCall;
     if(inputType1.getTotalBits() <= 32 && inputType2.getTotalBits() <= 32){
-        rtnType = DataType(true, true, false, 32, 0, 1); //The atan2f function returns a float
+        rtnType = DataType(true, true, false, 32, 0, {1}); //The atan2f function returns a float
         fctnCall = "atan2f(" + inputExprY + ", " + inputExprX + ")";
     }else{
-        rtnType = DataType(true, true, false, 64, 0, 1); //The atan2 function returns a double
+        rtnType = DataType(true, true, false, 64, 0, {1}); //The atan2 function returns a double
         fctnCall = "atan2(" + inputExprY + ", " + inputExprX + ")";
     }
 

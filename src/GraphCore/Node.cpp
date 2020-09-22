@@ -311,10 +311,17 @@ void Node::removeKnownReferences(){
     }
 
     //Remove from context root
-    if(context.size() > 0){
+//    for(int i = 0; i<context.size(); i++){
+//        std::shared_ptr<ContextRoot> contextRoot = context[i].getContextRoot();
+//        int subcontext = context[i].getSubContext();
+//        contextRoot->removeSubContextNode(subcontext, getSharedPointer());
+//    }
+
+    //Should only be in lowest level
+    if(context.size()>0){
         std::shared_ptr<ContextRoot> contextRoot = context[context.size()-1].getContextRoot();
         int subcontext = context[context.size()-1].getSubContext();
-        context[context.size()-1].getContextRoot()->removeSubContextNode(subcontext, getSharedPointer());
+        contextRoot->removeSubContextNode(subcontext, getSharedPointer());
     }
 }
 
@@ -418,7 +425,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
 
 CExpr Node::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPort, bool imag) {
     //For now, the default behavior is to return an error message stating that the emitCExpr has not yet been implemented for this node.
-    throw std::runtime_error("emitCExpr not yet implemented for node: \n" + labelStr());
+    throw std::runtime_error("emitCExpr not yet implemented for node: " + getFullyQualifiedName() + " \n" + labelStr());
 
     return CExpr();
 }
@@ -437,13 +444,21 @@ bool Node::hasCombinationalPath(){
     return true;
 }
 
-std::shared_ptr<StateUpdate> Node::getStateUpdateNode(){
+std::vector<std::shared_ptr<StateUpdate>> Node::getStateUpdateNodes(){
     //default has no state
-    return stateUpdateNode;
+    return stateUpdateNodes;
 }
 
-void Node::setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
-    stateUpdateNode = stateUpdate;
+void Node::setStateUpdateNodes(std::vector<std::shared_ptr<StateUpdate>> stateUpdates){
+    stateUpdateNodes = stateUpdates;
+}
+
+void Node::addStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
+    stateUpdateNodes.push_back(stateUpdate);
+}
+
+void Node::removeStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate){
+    stateUpdateNodes.erase(std::remove(stateUpdateNodes.begin(), stateUpdateNodes.end(), stateUpdate), stateUpdateNodes.end());
 }
 
 bool Node::hasGlobalDecl(){
@@ -452,11 +467,9 @@ bool Node::hasGlobalDecl(){
 }
 
 bool Node::hasInternalFanout(int inputPort, bool imag){
-    //Default is to check if that port has a width >1.  If so, internal fanout is assumed.
+    //Default is to check if that port is not a scalar.  If so, internal fanout is assumed.
 
-    int inputWidth = getInputPort(inputPort)->getDataType().getWidth();
-
-    return inputWidth>1;
+    return !getInputPort(inputPort)->getDataType().isScalar();
 }
 
 std::vector<Variable> Node::getCStateVars() {
@@ -464,7 +477,7 @@ std::vector<Variable> Node::getCStateVars() {
     return std::vector<Variable>();
 }
 
-void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void Node::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //Default behavior is no action (since default is to have no state)
 }
 
@@ -1081,11 +1094,14 @@ void Node::copyPortNames(std::shared_ptr<Node> copyFrom) {
 std::set<std::shared_ptr<Arc>> Node::getDirectInputArcs(){
     std::set<std::shared_ptr<Arc>> arcs;
 
+    //Get the input ports (including any special ports - ie. select)
+    std::vector<std::shared_ptr<InputPort>> inputPortSet = getInputPortsIncludingSpecial();
+
     //Iterate through the output ports/arcs
-    unsigned long numInputPorts = inputPorts.size();
+    unsigned long numInputPorts = inputPortSet.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
         //Get a copy of the arc set for this port
-        std::set<std::shared_ptr<Arc>> inputArcs = inputPorts[i]->getArcs();
+        std::set<std::shared_ptr<Arc>> inputArcs = inputPortSet[i]->getArcs();
         arcs.insert(inputArcs.begin(), inputArcs.end());
     }
 

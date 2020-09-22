@@ -30,7 +30,7 @@ jobs:
 #      env: COMPILER=g++
     - compiler: clang
       os: osx
-      osx_image: xcode9.4
+      osx_image: xcode12
       env: COMPILER=clang++
 
 addons:
@@ -40,6 +40,7 @@ addons:
 #    - llvm-toolchain-trusty-3.8
     packages:
     - cmake
+    - libboost-all-dev
     - libxerces-c-dev
     - clang-3.8
     - gcc-5

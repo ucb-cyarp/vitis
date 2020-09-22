@@ -3,7 +3,9 @@
 //
 
 #include "ContextRoot.h"
+#include "Node.h"
 #include <algorithm>
+#include "DummyReplica.h"
 
 void ContextRoot::addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node) {
     //Create sub-vectors if needed
@@ -79,4 +81,36 @@ std::vector<std::shared_ptr<Arc>> ContextRoot::getContextDriversForPartition(int
 void ContextRoot::addContextDriverArcsForPartition(std::vector<std::shared_ptr<Arc>> drivers, int partitionNum){
     //Note that map[] returns a reference so direct insertion should be possible
     contextDriversPerPartition[partitionNum].insert(contextDriversPerPartition[partitionNum].end(), drivers.begin(), drivers.end());
+}
+
+std::set<int> ContextRoot::partitionsInContext(){
+    std::set<int> partitions;
+    for(auto subcontextNodes = nodesInSubContexts.begin(); subcontextNodes != nodesInSubContexts.end(); subcontextNodes++){
+        for(auto node = subcontextNodes->begin(); node != subcontextNodes->end(); node++) {
+            partitions.insert((*node)->getPartitionNum());
+        }
+    }
+
+    return partitions;
+}
+
+std::map<int, std::shared_ptr<DummyReplica>> ContextRoot::getDummyReplicas() const {
+    return dummyReplicas;
+}
+
+void ContextRoot::setDummyReplicas(const std::map<int, std::shared_ptr<DummyReplica>> &dummyReplicas) {
+    ContextRoot::dummyReplicas = dummyReplicas;
+}
+
+std::shared_ptr<DummyReplica> ContextRoot::getDummyReplica(int partition) {
+    auto dummyReplica = dummyReplicas.find(partition);
+
+    if(dummyReplica != dummyReplicas.end()){
+        return dummyReplica->second;
+    }
+    return nullptr;
+}
+
+void ContextRoot::setDummyReplica(int partition, std::shared_ptr<DummyReplica> dummyReplica){
+    dummyReplicas[partition] = dummyReplica;
 }

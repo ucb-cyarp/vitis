@@ -221,7 +221,7 @@ public:
 
     void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
 
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     /**
      * @brief Creates a the StateUpdate node for the Delay

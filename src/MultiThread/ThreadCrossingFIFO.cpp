@@ -5,6 +5,7 @@
 #include <General/GeneralHelper.h>
 #include "ThreadCrossingFIFO.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 int ThreadCrossingFIFO::getFifoLength() const {
     return fifoLength;
@@ -378,13 +379,13 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
 
     std::string expr;
     if(blockSize > 1){
-        int width = getCStateVar(outputPortNum).getDataType().getWidth();
-        if(width > 1){
-            expr = "(" + getCStateVar(outputPortNum).getCVarName(imag) + "+" + GeneralHelper::to_string(width) + "*" + cBlockIndexVarInputName + ")";
-        }else{
-            expr = "(" +  getCStateVar(outputPortNum).getCVarName(imag) + "[" + cBlockIndexVarInputName + "])";
-        }
+        //Because of C multidimensional array semantics, and because the added dimension for blocks >1 is prepended to
+        //the dimensions, indexing the first dimension will return the correct value.  If the data type is a scalar, it
+        //returns a scalar value for the given block.  If the data type is a vector or matrix, this will still return a
+        //a pointer but a pointer to the correct block.
+        expr = "(" +  getCStateVar(outputPortNum).getCVarName(imag) + "[" + cBlockIndexVarInputName + "])";
     }else{
+        //The block size is 1, just return the state variable.  No indexing based on the current block is required
         expr = getCStateVar(outputPortNum).getCVarName(imag);
     }
 
@@ -392,7 +393,7 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
     return CExpr(expr, true);
 }
 
-void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //This does not do anything.  The read/write operations are handled by the core schedulers
 }
 
@@ -415,24 +416,46 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
 
         //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
 
-        if (blockSize > 1) {
-            std::string stateInputDeclAssignRe =
-                    getCStateInputVar(i).getCVarName(false) + "[" + cBlockIndexVarOutputName + "] = " + inputExprRe + ";";
-            cStatementQueue.push_back(stateInputDeclAssignRe);
-            if (inputDataType.isComplex()) {
-                std::string stateInputDeclAssignIm =
-                        getCStateInputVar(i).getCVarName(true) + "[" + cBlockIndexVarOutputName + "] = " + inputExprIm + ";";
-                cStatementQueue.push_back(stateInputDeclAssignIm);
-            }
-        } else {
-            std::string stateInputDeclAssignRe =
-                    "*" + getCStateInputVar(i).getCVarName(false) + " = " + inputExprRe + ";";
-            cStatementQueue.push_back(stateInputDeclAssignRe);
-            if (inputDataType.isComplex()) {
-                std::string stateInputDeclAssignIm =
-                        "*" + getCStateInputVar(i).getCVarName(true) + " = " + inputExprIm + ";";
-                cStatementQueue.push_back(stateInputDeclAssignIm);
-            }
+        //TODO:If type is a vector, emit a for loop
+        std::vector<std::string> forLoopIndexVars;
+        std::vector<std::string> forLoopClose;
+        //If the output is a vector, construct a for loop which puts the results in a temporary array
+        if(!inputDataType.isScalar()){
+            //Create nested loops for a given array
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(inputDataType.getDimensions());
+
+            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+            forLoopIndexVars = std::get<1>(forLoopStrs);
+            forLoopClose = std::get<2>(forLoopStrs);
+
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        }
+
+        std::string stateInputDeclAssignRe =
+                ((blockSize == 1 && inputDataType.isScalar()) ? "*" : "") + //Need to dereference the state variable if the block size is 1 and the type is a scalar
+                getCStateInputVar(i).getCVarName(false) +
+                ((blockSize > 1) ? "[" + cBlockIndexVarOutputName + "]" : "") + //Index into the block
+                (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
+                " = " + inputExprRe +
+                (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
+                ";";
+        cStatementQueue.push_back(stateInputDeclAssignRe);
+        if (inputDataType.isComplex()) {
+            std::string stateInputDeclAssignIm =
+            ((blockSize == 1 && inputDataType.isScalar()) ? "*" : "") + //Need to dereference the state variable if the block size is 1 and the type is a scalar
+            getCStateInputVar(i).getCVarName(true) +
+            ((blockSize > 1) ? "[" + cBlockIndexVarOutputName + "]" : "") + //Index into the block
+            (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
+            " = " + inputExprIm +
+            (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
+            ";";
+            cStatementQueue.push_back(stateInputDeclAssignIm);
+        }
+
+        //Close for loop
+        if(!inputDataType.isScalar()){
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
         }
     }
 }
@@ -506,24 +529,31 @@ std::string ThreadCrossingFIFO::getFIFOStructTypeName(){
 std::string ThreadCrossingFIFO::createFIFOStruct(){
     std::string typeName = getFIFOStructTypeName();
 
-
     //TODO: Check 2D case
     std::string structStr = "typedef struct {\n";
     for(int i = 0; i<inputPorts.size(); i++) {
         DataType stateDT = getCStateVar(i).getDataType();
-        int elementWidth = stateDT.getWidth();
+
+        //Expand the data type for the block size.  Note that this does not propagate outside of this function
+        DataType blockStateDT = stateDT.expandForBlock(blockSize);
 
         //There are possibly 2 entries per port
         structStr += stateDT.toString(DataType::StringStyle::C) + " port" + GeneralHelper::to_string(i) + "_real" +
-                     (blockSize > 1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") +
-                     (elementWidth > 1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
+                     blockStateDT.dimensionsToString(true) + ";\n";
 
         if (stateDT.isComplex()) {
             structStr += stateDT.toString(DataType::StringStyle::C) + " port" + GeneralHelper::to_string(i) + "_imag" +
-                         (blockSize > 1 ? "[" + GeneralHelper::to_string(blockSize) + "]" : "") +
-                         (elementWidth > 1 ? "[" + GeneralHelper::to_string(elementWidth) + "]" : "") + ";\n";
+                         blockStateDT.dimensionsToString(true) + ";\n";
         }
     }
     structStr += "} " + typeName + ";";
     return structStr;
+}
+
+std::shared_ptr<ClockDomain> ThreadCrossingFIFO::getClockDomain() const {
+    return clockDomain;
+}
+
+void ThreadCrossingFIFO::setClockDomain(const std::shared_ptr<ClockDomain> &clockDomain) {
+    ThreadCrossingFIFO::clockDomain = clockDomain;
 }

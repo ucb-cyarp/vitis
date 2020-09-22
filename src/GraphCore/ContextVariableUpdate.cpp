@@ -4,6 +4,8 @@
 
 #include "ContextVariableUpdate.h"
 #include "General/GeneralHelper.h"
+#include "General/EmitterHelpers.h"
+#include "General/ErrorHelpers.h"
 #include "SubSystem.h"
 #include "ContextRoot.h"
 #include "NodeFactory.h"
@@ -74,20 +76,31 @@ void ContextVariableUpdate::validate() {
     Node::validate();
 
     if(contextRoot == nullptr){
-        throw std::runtime_error("A ContextVariableUpdate node has no contextRoot node");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("A ContextVariableUpdate node has no contextRoot node", getSharedPointer()));
     }
 
     if(contextVarIndex < contextRoot->getNumSubContexts()){
-        throw std::runtime_error("SubContext " + GeneralHelper::to_string(contextVarIndex) + " requested by ContextVariableUpdate does not exist in context with " + GeneralHelper::to_string(contextRoot->getNumSubContexts()) + " subcontexts");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("SubContext " + GeneralHelper::to_string(contextVarIndex) + " requested by ContextVariableUpdate does not exist in context with " + GeneralHelper::to_string(contextRoot->getNumSubContexts()) + " subcontexts", getSharedPointer()));
     }
 
-    if(inputPorts.size() > 1){
-        throw std::runtime_error("ContextVariableUpdate can have either 0 or 1 input ports");
+    if(inputPorts.size() != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("ContextVariableUpdate must have exactly 1 input port", getSharedPointer()));
     }
 
     if(inputPorts.size() != outputPorts.size()){
-        throw std::runtime_error("ContextVariableUpdate must have an equal number of input and output ports");
+        throw std::runtime_error(ErrorHelpers::genErrorStr("ContextVariableUpdate must have an equal number of input and output ports", getSharedPointer()));
     }
+
+    //Check that the datatypes of the input and output port match
+    if(getInputPort(0)->getDataType() != getOutputPort(0)->getDataType()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("ContextVariableUpdate input and output must have the same type", getSharedPointer()));
+    }
+
+    //Check that the input and output datatype are the same as the context variable
+    if(getInputPort(0)->getDataType() != contextRoot->getCContextVar(contextVarIndex).getDataType()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("ContextVariableUpdate input and ContextVariable must have the same type", getSharedPointer()));
+    }
+
 }
 
 std::shared_ptr<Node> ContextVariableUpdate::shallowClone(std::shared_ptr<SubSystem> parent) {
@@ -100,27 +113,97 @@ CExpr ContextVariableUpdate::emitCExpr(std::vector<std::string> &cStatementQueue
     int srcOutPortNum = srcPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
-    std::string stateInputName = name + "_n" + GeneralHelper::to_string(id) + "_contextVar" + GeneralHelper::to_string(contextVarIndex) + "Input";
-    Variable stateInputVar = Variable(stateInputName, getInputPort(0)->getDataType());
-
-    //Emit the upstream
+    //--- Emit the upstream ---
     std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
-    //Assign the expr to a temporary variable
+    //Used to create a tmeporary variable to store the input to this node.  The idea was that this would allow the output
+    //to be used inside the context without relying on the underlying context variable.  However, this is superflous as this node
+    //sets the context variable before emitting anything for its output.  Because of this, the state variable can be returned as the output.
 
-    //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to defualt behavior of internal fanoud_
+    //There are some corner cases where a temporary would be needed.  These include when a node other than the corresponding ContextRoot
+    //is at the output.  If this occurs, the state variable could concievable be updated again by a downstream ContextVariableUpdate node.
+    //Another case is if the scheduler is not context aware.  In this case, the update of the context variable occurs elsewhere and this
+    //block should act as a passthrough.  This should be rare as there really isn't any point in these nodes existing unless the scheduler is
+    //context aware, but is an easy enough case to handle.
 
-    std::string inputDeclAssign = stateInputVar.getCVarDecl(imag, false, false, false) + " = " + inputExpr + ";";
-    cStatementQueue.push_back(inputDeclAssign);
+    bool emitTemporary = false;
+    std::set<std::shared_ptr<Arc>> outArcs = getOutputPort(0)->getArcs();
+    for(auto arc : outArcs){
+        std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+        if(contextRoot != nullptr && contextRootAsNode == nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a ContextRoot that is node a node while processing ContextVariableUpdateNode", getSharedPointer()));
+        }
+        if(arc->getDstPort()->getParent() != contextRootAsNode){
+            emitTemporary = true;
+        }
+    }
+    if(!SchedParams::isContextAware(schedType)){
+        emitTemporary = true;
+    }
 
-    //Assign to ContextVariable
+    DataType datatype = getInputPort(0)->getDataType();
+
+    //--- Declare temporary outside for loop ---
+    Variable stateInputVar;
+    if(emitTemporary){
+        std::string stateInputName = name + "_n" + GeneralHelper::to_string(id) + "_contextVar" + GeneralHelper::to_string(contextVarIndex) + "Input";
+        //Note that if the input is a vector/matrix, the  temporary variable will be a
+        stateInputVar = Variable(stateInputName, datatype);
+        //Emit the variable declaration seperatly from the assignment incase we need to loop
+        std::string inputDecl = stateInputVar.getCVarDecl(imag, true, false, true) + ";";
+        cStatementQueue.push_back(inputDecl);
+    }
+
+    //If matrix/vector, need to emit for loop
+    std::vector<std::string> forLoopIndexVars;
+    std::vector<std::string> forLoopClose;
+    if(!datatype.isScalar()){
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(datatype.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        forLoopIndexVars = std::get<1>(forLoopStrs);
+        forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+    }
+
     Variable contextVariable = contextRoot->getCContextVar(contextVarIndex);
 
-    std::string contextVariableAssign = contextVariable.getCVarName(imag) + " = " + stateInputVar.getCVarName(imag) + ";";
+    std::string termToAssign;
+    std::string inputExprDeref = inputExpr + (datatype.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+    if(emitTemporary) {
+        //--- Assign the expr to a temporary variable ---
+        //Dereference is nessisary
+        std::string stateInputVarDeref = stateInputVar.getCVarName(imag) + (datatype.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+        
+        std::string inputAssign = stateInputVarDeref + " = " + inputExprDeref + ";";
+        cStatementQueue.push_back(inputAssign);
+
+        termToAssign = stateInputVarDeref;
+    }else{
+        termToAssign = inputExprDeref;
+    }
+
+    //--- Assign to ContextVariable ---
+    std::string contextVariableAssign = contextVariable.getCVarName(imag) +
+            (datatype.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+            " = " + termToAssign + ";";
     cStatementQueue.push_back(contextVariableAssign);
 
-    //Return the temporary var
-    return CExpr(stateInputVar.getCVarName(imag), true);
+    // --- Close For Loop ---
+    if(!datatype.isScalar()){
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+    }
+
+    if(emitTemporary) {
+        //Return the temporary var
+        return CExpr(stateInputVar.getCVarName(imag), true);
+    }else{
+        //Return the state var
+        return CExpr(contextVariable.getCVarName(imag), true);
+    }
 }
 
 std::string ContextVariableUpdate::typeNameStr(){

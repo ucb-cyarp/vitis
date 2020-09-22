@@ -42,7 +42,7 @@ public:
     struct PtrID_Compare{
         bool operator() (const std::shared_ptr<Arc>& lhs, const std::shared_ptr<Arc>& rhs) const;
     };
-private:
+protected:
     int id; ///< ID number for arc
     std::shared_ptr<OutputPort> srcPort; ///< Pointer to the source port this arc is connected to
     std::shared_ptr<InputPort> dstPort; ///< Pointer to the destination port this arc is connected to
@@ -54,8 +54,6 @@ private:
     //For use in destructor, a weak pointer to itself is kept
     std::weak_ptr<Arc> weakSelf;
 
-
-protected:
     //==== Constructors ====
     /**
      * @brief Construct a blank arc
@@ -226,13 +224,13 @@ public:
      *
      * @return pointer to this arcs's associated DOMNode
      */
-    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
+    virtual xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode);
 
     /**
      * @brief Get a human readable description of the arc
      * @return human readable description of arc
      */
-    std::string labelStr();
+    virtual std::string labelStr();
 
     //==== Getters/Setters (With added functionality) ====
 

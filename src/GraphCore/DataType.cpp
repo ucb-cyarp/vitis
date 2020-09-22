@@ -47,12 +47,12 @@ void DataType::setFractionalBits(int fractionalBits) {
     DataType::fractionalBits = fractionalBits;
 }
 
-int DataType::getWidth() const {
-    return width;
+std::vector<int> DataType::getDimensions() const {
+    return dimensions;
 }
 
-void DataType::setWidth(int width) {
-    DataType::width = width;
+void DataType::setDimensions(const std::vector<int> &dimensions) {
+    DataType::dimensions = dimensions;
 }
 
 
@@ -62,21 +62,21 @@ bool DataType::operator==(const DataType &rhs) const {
            complex == rhs.complex &&
            totalBits == rhs.totalBits &&
            fractionalBits == rhs.fractionalBits &&
-           width == rhs.width;
+           dimensions == rhs.dimensions;
 }
 
 bool DataType::operator!=(const DataType &rhs) const {
     return !(rhs == *this);
 }
 
-DataType::DataType() : signedType(false), complex(false), floatingPt(false), totalBits(0), fractionalBits(0), width(1){
+DataType::DataType() : signedType(false), complex(false), floatingPt(false), totalBits(0), fractionalBits(0), dimensions({1}){
 }
 
-DataType::DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits, int width) : floatingPt(floatingPt), signedType(signedType), complex(complex), totalBits(totalBits), fractionalBits(fractionalBits), width(width){
+DataType::DataType(bool floatingPt, bool signedType, bool complex, int totalBits, int fractionalBits, std::vector<int> dimensions) : floatingPt(floatingPt), signedType(signedType), complex(complex), totalBits(totalBits), fractionalBits(fractionalBits), dimensions(dimensions){
 
 }
 
-DataType::DataType(std::string str, bool complex, int width) : complex(complex), width(width) {
+DataType::DataType(std::string str, bool complex, std::vector<int> dimensions) : complex(complex), dimensions(dimensions) {
     //Note: complex is handled seperatly from the string
 
     //Floating Point
@@ -218,7 +218,7 @@ DataType::DataType(std::string str, bool complex, int width) : complex(complex),
     }
 }
 
-std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool includeArray) {
+std::string DataType::toString(StringStyle stringStyle, bool includeDimensions, bool includeArray) {
 
     if(floatingPt){
         //Floing point types
@@ -227,12 +227,8 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 return "single";
             }else if(stringStyle == StringStyle::C){
                 std::string str = "float";
-                if(width > 1 && includeArray){
-                    str += "[";
-                    if(includeWidth){
-                        str += GeneralHelper::to_string(width);
-                    }
-                    str += "]";
+                if(!isScalar() && includeArray){
+                    str += dimensionsToString(includeDimensions);
                 }
                 return str;
             }else{
@@ -243,12 +239,8 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                 return "double";
             }else if(stringStyle == StringStyle::C){
                 std::string str = "double";
-                if(width > 1 && includeArray){
-                    str += "[";
-                    if(includeWidth){
-                        str += GeneralHelper::to_string(width);
-                    }
-                    str += "]";
+                if(!isScalar() && includeArray){
+                    str += dimensionsToString(includeDimensions);
                 }
                 return str;
             }else{
@@ -271,12 +263,8 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     return str;
                 }else if(stringStyle == StringStyle::C){
                     str += "_t";
-                    if(width > 1 && includeArray){
-                        str += "[";
-                        if(includeWidth){
-                            str += GeneralHelper::to_string(width);
-                        }
-                        str += "]";
+                    if(!isScalar() && includeArray){
+                        str += dimensionsToString(includeDimensions);
                     }
                     return str;
                 }else{
@@ -290,12 +278,8 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     return "boolean";
                 }else if(stringStyle == StringStyle::C){
                     std::string str =  "vitisBool_t";  //Changing bool to be defined in an include file.  Important if working across compilers/computers that bool is defined in the same way
-                    if(width > 1 && includeArray){
-                        str += "[";
-                        if(includeWidth){
-                            str += GeneralHelper::to_string(width);
-                        }
-                        str += "]";
+                    if(!isScalar() && includeArray){
+                        str += dimensionsToString(includeDimensions);
                     }
                     return str;
                 }else{
@@ -307,12 +291,8 @@ std::string DataType::toString(StringStyle stringStyle, bool includeWidth, bool 
                     return str;
                 }else if(stringStyle == StringStyle::C){
                     str += "_t";
-                    if(width > 1 && includeArray){
-                        str += "[";
-                        if(includeWidth){
-                            str += GeneralHelper::to_string(width);
-                        }
-                        str += "]";
+                    if(!isScalar() && includeArray){
+                        str += dimensionsToString(includeDimensions);
                     }
                     return str;
                 }else{
@@ -462,5 +442,64 @@ bool DataType::isCPUType(){
 
     //Check for int type
     return totalBits == 1 || totalBits == 8 || totalBits == 16 || totalBits == 32 || totalBits == 64;
+}
 
+bool DataType::isScalar() {
+    if(dimensions.size() == 1){
+        if(dimensions[0] == 1){
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string DataType::dimensionsToString(bool includeDimensions) {
+    std::string str = "";
+
+    if(!isScalar()) {
+        for (int i = 0; i < dimensions.size(); i++) {
+            str += "[";
+            if (includeDimensions) {
+                str += GeneralHelper::to_string(dimensions[i]);
+            }
+            str += "]";
+        }
+    }
+
+    return str;
+}
+
+int DataType::numberOfElements(){
+    int num = 0;
+    for(unsigned long dim = 0; dim < dimensions.size(); dim++){
+        if(dim == 0){
+            num = dimensions[dim];
+        }else{
+            num *= dimensions[dim];
+        }
+    }
+
+    return num;
+}
+
+DataType DataType::expandForBlock(int blockSize){
+    DataType blockDT = *this; //Copy this datatype
+
+    //If the variable is a scalar, convert to a vector
+    //If the variable is a vector/matrix, add an additional dimension
+    if(blockSize>1){
+        std::vector<int> blockedDim = blockDT.getDimensions();
+        if(blockDT.isScalar()){
+            blockedDim[0] = blockSize;
+        }else{
+            blockedDim.insert(blockedDim.begin(), blockSize);
+        }
+        blockDT.setDimensions(blockedDim);
+    }
+
+    return blockDT;
+}
+
+bool DataType::isVector(){
+    return dimensions.size() == 1 && dimensions[0] > 1;
 }

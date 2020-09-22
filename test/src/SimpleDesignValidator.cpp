@@ -93,7 +93,7 @@ void SimpleDesignValidator::validate(Design &design) {
     DataType inPort0ArcDataType = inPort0Arc->getDataType();
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(inPort0ArcDataType, false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(inPort0ArcDataType, false, false, false, 16, 0, {1});
     }
 
     //++++ Check Sum Node ++++
@@ -133,7 +133,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(In2->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(In2->getDataType(), false, false, false, 16, 0, {1});
     }
 
     //----Check Only 1 Output----
@@ -151,7 +151,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(delayIn->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(delayIn->getDataType(), false, false, false, 16, 0, {1});
     }
 
     //++++ Check Delay Node ++++
@@ -215,7 +215,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(OutArc->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(OutArc->getDataType(), false, false, false, 16, 0, {1});
     }
 
     //Verify Arc Links
@@ -227,7 +227,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(Sum2Arc->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(Sum2Arc->getDataType(), false, false, false, 16, 0, {1});
     }
 
     //Verify Arc Links
@@ -239,7 +239,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(ProductArc->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(ProductArc->getDataType(), false, false, false, 16, 0, {1});
     }
 
     //++++ Sum2 Node ++++
@@ -277,7 +277,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(Sum2Input2->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(Sum2Input2->getDataType(), false, false, false, 16, 0, {1});
     }
     ASSERT_EQ(Sum2Input2->getSrcPort(), inputs->getOutputPort(1));
 
@@ -295,7 +295,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(Sum2Out->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(Sum2Out->getDataType(), false, false, false, 16, 0, {1});
     }
     //Check that this arc's src is Sum2's Output
     ASSERT_EQ(Sum2Out->getSrcPort(), Sum2Node->getOutputPort(0));
@@ -310,7 +310,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(Sum2Vis->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(Sum2Vis->getDataType(), false, false, false, 16, 0, {1});
     }
     //Check that this arc's src is Sum2's Output
     ASSERT_EQ(Sum2Vis->getSrcPort(), Sum2Node->getOutputPort(0));
@@ -350,7 +350,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(ProductInput2->getDataType(), false, false, false, 16, 0, 1);
+        GraphTestHelper::verifyDataType(ProductInput2->getDataType(), false, false, false, 16, 0, {1});
     }
 
     //Check Comes from Input Master Port 1
@@ -366,7 +366,7 @@ void SimpleDesignValidator::validate(Design &design) {
     //Verify Arc DataType
     {
         SCOPED_TRACE("");
-        GraphTestHelper::verifyDataType(ProductTerm->getDataType(), false, false, false, 32, 0, 1);
+        GraphTestHelper::verifyDataType(ProductTerm->getDataType(), false, false, false, 32, 0, {1});
     }
 
     //Check connection to terminator

@@ -244,48 +244,44 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
         std::string structType = fifos[i]->getFIFOStructTypeName();
         exprs.push_back(structType + " " + tmpName + ";");
 
+        //Gets block size from FIFO directly so no changes are required to support multiple clock domains
         int blockSize = fifos[i]->getBlockSize();
 
         for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
 
-            DataType dt = fifos[i]->getCStateVar(portNum).getDataType();
-            int width = dt.getWidth();
-            if (blockSize == 1 && width == 1) {
-                exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
-                if (dt.isComplex()) {
-                    exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag = " + defaultVal[i][portNum].toStringComponent(true, dt) + ";");
-                }
-            } else if ((blockSize == 1 && width > 1) || (blockSize > 1 && width == 1)) {
-                //Cannot initialize with = {} because inside a structure
-                int entries = std::max(blockSize, width);
-                for (int j = 0; j < entries; j++) {
-                    exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real[" + GeneralHelper::to_string(j) + "] = " +
-                                    defaultVal[i][portNum].toStringComponent(false, dt) + ";");
-                }
-                if (dt.isComplex()) {
-                    for (int j = 0; j < entries; j++) {
-                        exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(j) + "] = " +
-                                        defaultVal[i][portNum].toStringComponent(true, dt) + ";");
-                    }
-                }
-            } else {
-                for (int j = 0; j < blockSize; j++) {
-                    for (int k = 0; k < width; k++) {
-                        exprs.push_back(
-                                tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real[" + GeneralHelper::to_string(j) + "][" + GeneralHelper::to_string(k) +
-                                "] = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
-                    }
-                }
+            //Note that the datatype when we use getCStateVar does not include
+            //the block size. However, the structure that is generated for the FIFO
+            //is expanded for the block size.
+            //Expand it here to match the structure definition
+            DataType dt = fifos[i]->getCStateVar(portNum).getDataType().expandForBlock(blockSize);
 
-                if (dt.isComplex()) {
-                    for (int j = 0; j < blockSize; j++) {
-                        for (int k = 0; k < width; k++) {
-                            exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(j) + "][" +
-                                            GeneralHelper::to_string(k) + "] = " +
-                                            defaultVal[i][portNum].toStringComponent(true, dt) + ";");
-                        }
-                    }
-                }
+            //Open for loops if datatype (after expansion for blocks) is a vector/matrix
+            std::vector<std::string> forLoopIndexVars;
+            std::vector<std::string> forLoopClose;
+            //If the output is a vector, construct a for loop which puts the results in a temporary array
+            if(!dt.isScalar()){
+                //Create nested loops for a given array
+                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                        EmitterHelpers::generateVectorMatrixForLoops(dt.getDimensions());
+                std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                forLoopIndexVars = std::get<1>(forLoopStrs);
+                forLoopClose = std::get<2>(forLoopStrs);
+                exprs.insert(exprs.end(), forLoopOpen.begin(), forLoopOpen.end());
+            }
+
+            //Deref if nessasary
+            exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real" +
+                (dt.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                " = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
+            if (dt.isComplex()) {
+                exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag" +
+                    (dt.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                    " = " + defaultVal[i][portNum].toStringComponent(true, dt) + ";");
+            }
+
+            //Close for loop
+            if(!dt.isScalar()){
+                exprs.insert(exprs.end(), forLoopClose.begin(), forLoopClose.end());
             }
         }
     }
@@ -651,7 +647,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
+void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
     //#### Emit Driver File ####
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
@@ -721,7 +717,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, int blockSize, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -756,9 +752,9 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "#Main Benchmark file is not optomized to avoid timing code being re-organized\n"
                                     "CFLAGS = -O0 -c -g -std=c++11 -march=native -masm=att\n"
                                     "#Generated system should be allowed to optomize - reintepret as c++ file\n"
-                                    "SYSTEM_CFLAGS = -O3 -c -g -std=gnu11 -march=native -masm=att\n"
+                                    "SYSTEM_CFLAGS = -Ofast -c -g -std=gnu11 -march=native -masm=att\n"
                                     "#Most kernels are allowed to be optomized.  Most assembly kernels use asm 'volitile' to force execution\n"
-                                    "KERNEL_CFLAGS = -O3 -c -g -std=gnu11 -march=native -masm=att\n"
+                                    "KERNEL_CFLAGS = -Ofast -c -g -std=gnu11 -march=native -masm=att\n"
                                     "#For kernels that should not be optimized, the following is used\n"
                                     "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
@@ -871,18 +867,44 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     std::string blockIndVar = "";
 
+    //The base block size should be validated before this point to ensure that it is acceptible in light of the clock domains present
+    //If no downsample domains are present, a base block size of 1 is valid
+    //However, for upsample domains, the index variable will still be emitted and set to 0.  However, it will not be incremented
+    //because, with a base blockSize of 1, the upsample domains will produce/consume their entire block in 1 iteration
+
     if(blockSize > 1) {
-        blockIndVar = "blkInd";
+        blockIndVar = getClkDomainIndVarName(std::pair<int, int>(1, 1), false);
     }
+
+    //Discover clock rates of all input and output FIFOs
+    //Create a counter for each one, base rate is redundant
+    //Set the FIFO index variable to the approprate index variable for its rate.
+
+    std::set<std::pair<int, int>> fifoClockDomainRates;
 
     //Set the index variable in the input FIFOs
     for(int i = 0; i<inputFIFOs.size(); i++){
-        inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVar);
+        //Create the index variable name based on the base
+        std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomain();
+        std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+        inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVarStr);
+        if(clkDomain){
+            fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+        }else {
+            fifoClockDomainRates.emplace(1, 1);
+        }
     }
 
     //Also need to set the index variable of the output FIFOs
     for(int i = 0; i<outputFIFOs.size(); i++){
-        outputFIFOs[i]->setCBlockIndexVarOutputName(blockIndVar);
+        std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomain();
+        std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+        outputFIFOs[i]->setCBlockIndexVarOutputName(blockIndVarStr);
+        if(clkDomain){
+            fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+        }else {
+            fifoClockDomainRates.emplace(1, 1);
+        }
     }
 
     //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
@@ -1064,9 +1086,31 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << computeFctnProto << "{" << std::endl;
 
+    //Create and init clock domain indexes
+    for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
+        std::pair<int, int> clkDomainRate = *clkDomainRateIt;
+        if(clkDomainRate != std::pair<int, int>(1, 1)) {
+            DataType varDt = DataType(false, false, false, (int) std::ceil(
+                    std::log2(blockSize * clkDomainRate.first / clkDomainRate.second) + 1), 0, {1});
+            std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
+            cFile << varDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " " << indVarStr
+                  << " = 0;" << std::endl;
+            //Only emit the counter var if the denominator is not 1, otherwise, the index unconditionally increments
+            if (clkDomainRate.second != 1) {
+                DataType varCounterDt = DataType(false, false, false,
+                                                 (int) std::ceil(std::log2(blockSize * clkDomainRate.second) + 1), 0,
+                                                 {1});
+                std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
+                cFile << varCounterDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " "
+                      << indVarCounterStr << " = 0;" << std::endl;
+            }
+        }
+    }
+
     //emit inner loop
-    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, 1);
+    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, {1});
     if(blockSize > 1) {
+        //TODO: Set the other index variables to 0 here
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
     }
 
@@ -1078,6 +1122,27 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     if(blockSize > 1) {
+        //Increment the counter variables or wrap them around.  Increment the index variables on wraparound
+        for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
+            std::pair<int, int> clkDomainRate = *clkDomainRateIt;
+            if(clkDomainRate != std::pair<int, int>(1, 1)) {
+                std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
+                if (clkDomainRate.second == 1) {
+                    //Just increment the index
+                    cFile << indVarStr << " += " << clkDomainRate.first << std::endl;
+                } else {
+                    //Increment the counter and conditionaly wrap and increment the index
+                    std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
+                    cFile << "if(" << indVarCounterStr << " < " << (clkDomainRate.second-1) << "){" << std::endl;
+                    cFile << indVarCounterStr << "++;" << std::endl;
+                    cFile << "}else{" << std::endl;
+                    cFile << indVarCounterStr << " = 0;" << std::endl;
+                    cFile << indVarStr << " += " << clkDomainRate.first << ";" << std::endl;
+                    cFile << "}" << std::endl;
+                }
+            }
+        }
+
         cFile << "}" << std::endl;
     }
 
@@ -1100,7 +1165,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
             }else{
                 for(unsigned long k = 0; k < initValsLen; k++){
-                    cFile << stateVars[j].getCVarName(false) << "[" << k << "] = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
+                    cFile << stateVars[j].getCVarName(false) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
                 }
             }
 
@@ -1109,7 +1174,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                     cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
                 }else{
                     for(unsigned long k = 0; k < initValsLen; k++){
-                        cFile << stateVars[j].getCVarName(true) << "[" << k << "] = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
+                        cFile << stateVars[j].getCVarName(true) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
                     }
                 }
             }
@@ -1185,8 +1250,76 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
+    //Create temp entries for outputs
+    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
+    for(int i = 0; i<tmpWriteDecls.size(); i++){
+        cFile << tmpWriteDecls[i] << std::endl;
+    }
+
     //Create Loop
     cFile << "while(1){" << std::endl;
+
+    //Move telemetry reporting to start of loop for more consistent telemetry reporting (no longer inside a single transaction)
+    //The start time is before any of the telemetry is printed/written so, what is effectively captured is the time to report telemetry
+    //for the last interval + the time to evaluate the current interval.  In this case, nothing is double counted.
+    if(collectTelem){
+        //Emit timer reporting
+        cFile << "timespec_t currentTime;" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        cFile << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
+        cFile << "if(duration >= printDuration){" << std::endl;
+        cFile << "lastPrint = currentTime;" << std::endl;
+        cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
+        cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
+        cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
+        if (printTelem) {
+            //Print the telemetry information to stdout
+            cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
+            cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", "
+                  << std::endl;
+            cFile << "rateMSps, ";
+            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/durationSinceStart*100, ";
+            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/durationSinceStart*100, ";
+            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/durationSinceStart*100, ";
+            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/durationSinceStart*100, ";
+            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/durationSinceStart*100, ";
+            cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
+        }
+        if (!telemDumpFilePrefix.empty()) {
+            //Write the telemetry to the file
+            //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
+            //The partition number is included in the filename and is not written to the file
+            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
+                     "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
+                     "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
+                     "durationTelemMisc, durationSinceStart);" << std::endl;
+
+            //flush the file
+            cFile << "fflush(telemDumpFile);" << std::endl;
+            cFile << std::endl;
+        }
+
+        if (!telemAvg) {
+            //Reset the counters for the next collection interval.
+            cFile << "startTime = currentTime;" << std::endl;
+            cFile << "rxSamples = 0;" << std::endl;
+            cFile << "timeTotal = 0;" << std::endl;
+            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
+            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
+            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
+            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
+            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+        }
+
+        cFile << "}" << std::endl;
+    }
 
     if(threadDebugPrint) {
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " waiting for inputs ...\\n\");"
@@ -1210,69 +1343,15 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStop);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-
-        //Emit timer reporting
-        cFile << "rxSamples += " << blockSize << ";" << std::endl;
-        cFile << "timespec_t currentTime;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
-        cFile << "if(duration >= printDuration){" << std::endl;
-        cFile << "lastPrint = currentTime;" << std::endl;
-        cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
-        cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-        cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
-        if(printTelem) {
-            //Print the telemetry information to stdout
-            cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", " << std::endl;
-            cFile << "rateMSps, ";
-            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/timeTotal*100, ";
-            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/timeTotal*100, ";
-            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/timeTotal*100, ";
-            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/timeTotal*100, ";
-            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/timeTotal*100, ";
-            cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
-        }
-        if(!telemDumpFilePrefix.empty()){
-            //Write the telemetry to the file
-            //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
-            //The partition number is included in the filename and is not written to the file
-            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
-                     "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
-                     "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
-                     "durationTelemMisc, timeTotal);" << std::endl;
-
-            //flush the file
-            cFile << "fflush(telemDumpFile);" << std::endl;
-            cFile << std::endl;
-        }
-
-        if(!telemAvg){
-            //Reset the counters for the next collection interval.
-            cFile << "startTime = waitingForInputFIFOsStart;" << std::endl;
-            cFile << "rxSamples = 0;" << std::endl;
-            cFile << "timeTotal = 0;" << std::endl;
-            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
-            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
-            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
-            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
-            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
-        }
-
-        cFile << "}" << std::endl;
-
-        //Now, finish timeReadingExtFIFO
-        cFile << "double durationWaitingForInputFIFOs = difftimespec(&waitingForInputFIFOsStop, &waitingForInputFIFOsStart);" << std::endl;
+        cFile
+                << "double durationWaitingForInputFIFOs = difftimespec(&waitingForInputFIFOsStop, &waitingForInputFIFOsStart);"
+                << std::endl;
         cFile << "timeWaitingForInputFIFOs += durationWaitingForInputFIFOs;" << std::endl;
         cFile << "timeTotal += durationWaitingForInputFIFOs;" << std::endl;
+    }
 
+    if(collectTelem){
+        //Now, time how long it takes to read the FIFO
         cFile << "timespec_t readingInputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStart);" << std::endl;
@@ -1303,12 +1382,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
         cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
         cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
-    }
-
-    //Create temp entries for outputs
-    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
-    for(int i = 0; i<tmpWriteDecls.size(); i++){
-        cFile << tmpWriteDecls[i] << std::endl;
+        cFile << "rxSamples += " << blockSize << ";" << std::endl;
     }
 
     if(threadDebugPrint) {
@@ -1433,7 +1507,16 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     std::vector<Variable> inputVars;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
-            inputVars.push_back(inputFIFOs[i]->getCStateVar(j));
+            Variable var = inputFIFOs[i]->getCStateVar(j);
+
+            //Expand the variable based on the block size of the FIFO
+            if(inputFIFOs[i]->getBlockSize()>1){
+                DataType dt = var.getDataType();
+                dt = dt.expandForBlock(inputFIFOs[i]->getBlockSize());
+                var.setDataType(dt);
+            }
+
+            inputVars.push_back(var);
         }
     }
 
@@ -1441,23 +1524,17 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     for(unsigned long i = 0; i<inputVars.size(); i++){
         Variable var = inputVars[i];
 
-        if(blockSize>1){
-            DataType varType = var.getDataType();
-            varType.setWidth(varType.getWidth()*blockSize);
-            var.setDataType(varType);
-        }
-
         //Pass as not volatile
         var.setAtomicVar(false);
 
         if(i > 0){
             prototype += ", ";
         }
-        prototype += "const " + var.getCVarDecl(false, false, false, true);
+        prototype += "const " + var.getCVarDecl(false, true, false, true);
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, false, false, true);
+            prototype += ", const " + var.getCVarDecl(true, true, false, true);
         }
     }
 
@@ -1465,7 +1542,16 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     std::vector<Variable> outputVars;
     for(int i = 0; i<outputFIFOs.size(); i++){
         for(int j = 0; j<outputFIFOs[i]->getInputPorts().size(); j++){
-            outputVars.push_back(outputFIFOs[i]->getCStateInputVar(j));
+            Variable var = outputFIFOs[i]->getCStateInputVar(j);
+
+            //Expand the variable based on the block size of the FIFO
+            if(outputFIFOs[i]->getBlockSize()>1){
+                DataType dt = var.getDataType();
+                dt = dt.expandForBlock(outputFIFOs[i]->getBlockSize());
+                var.setDataType(dt);
+            }
+
+            outputVars.push_back(var);
         }
     }
 
@@ -1478,12 +1564,6 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     for(unsigned long i = 0; i<outputVars.size(); i++){
         Variable var = outputVars[i];
 
-        if(blockSize>1){
-            DataType varType = var.getDataType();
-            varType.setWidth(varType.getWidth()*blockSize);
-            var.setDataType(varType);
-        }
-
         //Pass as not volatile
         var.setAtomicVar(false);
 
@@ -1491,12 +1571,22 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
             prototype += ", ";
         }
         //The output variables are always pointers
-        prototype += var.getCPtrDecl(false);
+        if(var.getDataType().isScalar()) {
+            //Force a pointer for scalar values
+            prototype += var.getCPtrDecl(false);
+        }else{
+            prototype += var.getCVarDecl(false, true, false, true);
+
+        }
 
         //Check if complex
         if(var.getDataType().isComplex()){
             prototype += ", ";
-            prototype += var.getCPtrDecl(true);
+            if(var.getDataType().isScalar()) {
+                prototype += var.getCPtrDecl(true);
+            }else {
+                prototype += var.getCVarDecl(true, true, false, true);
+            }
         }
     }
 
@@ -1539,8 +1629,13 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
     for(unsigned long i = 0; i<outputFIFOs.size(); i++) {
         for (unsigned long portNum = 0; portNum < outputFIFOs[i]->getInputPorts().size(); portNum++) {
             Variable var = outputFIFOs[i]->getCStateInputVar(portNum);
+
+            //Note that the FIFO state variable does not include the expansion for
+            //block size, do it here.
+            DataType varDatatypeExpanded = var.getDataType().expandForBlock(blockSize);
+
             std::string tmpName = "";
-            if (var.getDataType().getWidth() * blockSize == 1) {
+            if (varDatatypeExpanded.numberOfElements() == 1) {
                 tmpName += "&";
             }
             tmpName += outputFIFOs[i]->getName() + "_writeTmp";
@@ -1646,6 +1741,11 @@ void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::
     configFile << "\t\"timestampSecName\": \"TimeStamp_s\"," << std::endl;
     configFile << "\t\"timestampNSecName\": \"TimeStamp_ns\"," << std::endl;
     configFile << "\t\"rateMSPSName\": \"Rate_msps\"," << std::endl;
+    configFile << "\t\"waitingForInputFIFOsMetricName\": \"WaitingForInputFIFOs_s\"," << std::endl;
+    configFile << "\t\"readingInputFIFOsMetricName\": \"ReadingInputFIFOs_s\"," << std::endl;
+    configFile << "\t\"waitingForOutputFIFOsMetricName\": \"WaitingForOutputFIFOs_s\"," << std::endl;
+    configFile << "\t\"writingOutputFIFOsMetricName\": \"WritingOutputFIFOs_s\"," << std::endl;
+    configFile << "\t\"telemetryMiscMetricName\": \"Telemetry_Misc_s\"," << std::endl;
 
     configFile << "\t\"schedGraphMLFile\": \"" << graphmlSchedFile << "\"" << std::endl;
 
@@ -1942,4 +2042,28 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
              "#endif" << std::endl;
 
     cFile.close();
+}
+
+std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter) {
+    std::string indVarName = BLOCK_IND_VAR_PREFIX;
+
+    if(clkDomainRate != std::pair<int, int>(1, 1)){
+        indVarName += "_N" + GeneralHelper::to_string(clkDomainRate.first) + "_D" + GeneralHelper::to_string(clkDomainRate.second);
+    }
+
+    if(counter){
+        indVarName += "_C";
+    }
+
+    return indVarName;
+}
+
+std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter) {
+    std::pair<int, int> rate = std::pair<int, int>(1, 1);
+
+    if(clkDomain){
+        rate = clkDomain->getRateRelativeToBase();
+    }
+
+    return getClkDomainIndVarName(rate, counter);
 }

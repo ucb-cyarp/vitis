@@ -167,8 +167,15 @@ std::shared_ptr<ExpandedNode> CompareToConstant::expand(std::vector<std::shared_
 
     //Get complexity and width from value
     //Width can be different from output width (ex. vector*scalar = vector)
-    constantType.setWidth(compareConst.size());
+    //TODO: Implement logic for multimensional constants, possibly by looking at input & output dimensions
+    //TODO: Implement vector support
+    std::vector<int> constDim;
+    constDim.push_back(compareConst.size());
+    constantType.setDimensions(constDim);
     constantType.setComplex(compareConst[0].isComplex());
+    if(!constantType.isScalar()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("CompareToConstant with vector/matrix constants are currently unsupported", getSharedPointer()));
+    }
 
     //Connect constant node to compare node
     std::shared_ptr<Arc> constantArc = Arc::connectNodes(constantNode, 0, compareNode, 1, constantType);

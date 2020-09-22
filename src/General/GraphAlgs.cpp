@@ -6,12 +6,15 @@
 #include "GraphAlgs.h"
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/EnabledSubSystem.h"
+#include "GraphCore/DummyReplica.h"
 #include "PrimitiveNodes/Mux.h"
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
 #include "GraphCore/StateUpdate.h"
 #include "General/ErrorHelpers.h"
 #include "GraphMLTools/GraphMLExporter.h"
+#include "MultiRate/RateChange.h"
+#include "MultiRate/DownsampleClockDomain.h"
 
 #include <iostream>
 #include <random>
@@ -28,8 +31,8 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 
         std::shared_ptr<Node> srcNode = (*it)->getSrcPort()->getParent();
 
-        //Check if the src node is a state element or a enable node (input or output)
-        if(!(srcNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(srcNode) == nullptr){
+        //Check if the src node is a state element or a enable node (input or output), or a RateChange node
+        if(!(srcNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(srcNode) == nullptr && GeneralHelper::isType<Node, RateChange>(srcNode) == nullptr){
             //The src node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -82,7 +85,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
             //else, this node is either not in the context or there is a longer path to the node from within the context.
             //If there is a longer path to the node within the context, the longest path will eventually trigger the node to be inserted
 
-        }//else, stop traversal.  This is a state element or enable node.  Do not mark and do not recurse
+        }//else, stop traversal.  This is a state element, enable node, or RateChange.  Do not mark and do not recurse
     }
 
     return contextNodes;
@@ -100,8 +103,8 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 
         std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
 
-        //Check if the dst node is a state element or a enable node (input or output)
-        if(!(dstNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(dstNode) == nullptr){
+        //Check if the dst node is a state element, a enable node (input or output), or RateChange node
+        if(!(dstNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(dstNode) == nullptr && GeneralHelper::isType<Node, RateChange>(dstNode) == nullptr){
             //The dst node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -154,7 +157,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
             //else, this node is either not in the context or there is a longer path to the node from within the context.
             //If there is a longer path to the node within the context, the longest path will eventually trigger the node to be inserted
 
-        }//else, stop traversal.  This is a state element or enable node.  Do not mark and do not recurse
+        }//else, stop traversal.  This is a state element, enable node, or RateChange node.  Do not mark and do not recurse
     }
 
     return contextNodes;
@@ -227,6 +230,7 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                          std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
 
     for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
@@ -234,14 +238,20 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
         (*it)->setContext(contextStack);
 
         //Recurse
-        if(GeneralHelper::isType<Node, Mux>(*it) != nullptr){
+        if(GeneralHelper::isType<Node, Mux>(*it) != nullptr) {
             discoveredMux.push_back(std::dynamic_pointer_cast<Mux>(*it));
+        }else if(GeneralHelper::isType<Node, ClockDomain>(*it) != nullptr){//Check this first because ClockDomains are SubSystems
+            std::shared_ptr<ClockDomain> foundClkDomain = std::dynamic_pointer_cast<ClockDomain>(*it);
+            if(!foundClkDomain->isSpecialized()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When discovering contexts, found an unspecialized ClockDomain.  Specialization into UpsampleClockDomain or DownsampleClockDomain should occure before context discovery", foundClkDomain));
+            }
+            discoveredClockDomains.push_back(foundClkDomain);
         }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr){//Check this first because EnabledSubSystems are SubSystems
             discoveredEnabledSubSystems.push_back(std::dynamic_pointer_cast<EnabledSubSystem>(*it));
         }else if(GeneralHelper::isType<Node, SubSystem>(*it) != nullptr){
             std::shared_ptr<SubSystem> subSystem = std::dynamic_pointer_cast<SubSystem>(*it);
             subSystem->discoverAndUpdateContexts(contextStack, discoveredMux, discoveredEnabledSubSystems,
-                                                 discoveredGeneral);
+                                                 discoveredClockDomains, discoveredGeneral);
         }else{
             discoveredGeneral.push_back(*it);
         }
@@ -355,6 +365,9 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 
     std::default_random_engine rndGen(parameters.getRandSeed());
 
+    std::vector<std::shared_ptr<Node>> nodesWithZeroInDegHolding; //This is used by the DFS blocking heuristic as a temporary store for nodes which have 0 indegree.  This allows N nodes that are independent to be scheduled
+    int schedInDFSBlock = 0;
+
     //Schedule Nodes
     while(!nodesWithZeroInDeg.empty()){
         //Schedule Nodes with Zero In Degree
@@ -366,6 +379,10 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 break;
 
             case TopologicalSortParameters::Heuristic::DFS:
+                ind = nodesWithZeroInDeg.size() - 1;
+                break;
+
+            case TopologicalSortParameters::Heuristic::DFS_BLOCKED:
                 ind = nodesWithZeroInDeg.size() - 1;
                 break;
 
@@ -432,16 +449,17 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 schedule.insert(schedule.end(), subSched.begin(), subSched.end());
             }
 
-            //Schedule the contextRoot
+            //Schedule the contextRoot if in the correct partition
             std::shared_ptr<ContextRoot> contextRoot = familyContainer->getContextRoot();
             bool schedContextRoot = true;
-            if(limitRecursionToPartition){
-                std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
-                if(contextRootAsNode) {
+
+            std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+            if(contextRootAsNode) {
+                if(limitRecursionToPartition) {
                     schedContextRoot = (contextRootAsNode->getPartitionNum() == partition);
-                }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to cast a ContextRoot to a Node"));
                 }
+            }else{
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to cast a ContextRoot to a Node"));
             }
 
             if(schedContextRoot) {
@@ -455,15 +473,39 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
 //                candidateNodes.insert(moreCandidateNodes.begin(), moreCandidateNodes.end());
                 } else if (GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr) {
                     //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
-                } else {
+                } else if (GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot) != nullptr) {
+                    //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
+                    //However, the context drivers go directly to the DownsampleClockDomain so it needs to be explicitally scheduled
+                    //even though it does not emit any actual c
+                    schedule.push_back(GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot)); //Schedule the Mux node (context root)
+                }else {
                     throw std::runtime_error(ErrorHelpers::genErrorStr(
                             "When scheduling, a context root was encountered which is not yet implemented"));
                 }
             }
 
+            //Schedule the Dummy Node if it is the correct partition (and it exists)
+            std::shared_ptr<DummyReplica> dummyNode = familyContainer->getDummyNode();
+            bool schedDummyNode = false;
+            if(dummyNode != nullptr) {
+                if (limitRecursionToPartition) {
+                    schedDummyNode = dummyNode->getPartitionNum() == partition;
+                }else{
+                    schedDummyNode = true;
+                }
+            }
+
+            if(schedDummyNode){
+                schedule.push_back(dummyNode);
+            }
+
         }else{//----End node is a ContextContainerFamily----
             schedule.push_back(to_sched);
         }
+
+        //If this is the nth scheduling, add the zero degree nodes holding to the list
+        //Or, if there are no nodes in the zero degree list, add the nodes
+        //Reset the scheduling counter
 
         //Find discovered nodes from the candidate list (that are in the nodes to be sorted set)
         //Also, find nodes with zero in degree
@@ -476,11 +518,28 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                     discoveredNodes.insert(candidateNode);
 
                     if (candidateNode->inDegree() == 0) {
-                        nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS and DFS.  Dequeuing determines BFS or DFS
+                        if(parameters.getHeuristic() == TopologicalSortParameters::Heuristic::BFS || parameters.getHeuristic() == TopologicalSortParameters::Heuristic::DFS) {
+                            nodesWithZeroInDeg.push_back(candidateNode); //Push Back for BFS and DFS.  Dequeuing determines BFS or DFS
+                        }else if(parameters.getHeuristic() == TopologicalSortParameters::Heuristic::DFS_BLOCKED){
+                            nodesWithZeroInDegHolding.push_back(candidateNode);
+                        }else{
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Scheduling Heuristic"));
+                        }
                     }
                 }
             }
         }
+
+        if(parameters.getHeuristic() == TopologicalSortParameters::Heuristic::DFS_BLOCKED){
+            if(nodesWithZeroInDeg.empty() || schedInDFSBlock >= parameters.getRandSeed()){ //RandomSeed is a temporary standin for the dfs block size of number of independent instructions to try to schedule together
+                nodesWithZeroInDeg.insert(nodesWithZeroInDeg.end(), nodesWithZeroInDegHolding.begin(), nodesWithZeroInDegHolding.end());
+                nodesWithZeroInDegHolding.clear();
+                schedInDFSBlock = 0;
+            }else{
+                schedInDFSBlock++;
+            }
+        }
+
     }
 
     //If there are still viable discovered nodes, there was a cycle.
@@ -517,7 +576,7 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
     stateUpdate->setPartitionNum(statefulNode->getPartitionNum());
     stateUpdate->setPrimaryNode(statefulNode);
-    statefulNode->setStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
+    statefulNode->addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
 
     if(includeContext) {
         //Set context to be the same as the primary node

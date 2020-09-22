@@ -141,7 +141,7 @@ public:
     /**
      * @brief Sets the latch (state) from the calculated input
      */
-    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     //==== Getters & Setters ====
     Variable getStateVar() const;

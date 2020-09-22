@@ -32,9 +32,7 @@ class EnabledNode;
 /**
  * @brief Helper class to contain graph algorithms
  */
-class GraphAlgs {
-public:
-
+namespace GraphAlgs {
     /**
      * @brief Traces back from a port through the design graph to discover a port's context, stopping at state elements and enabled subsystem boundaries.
      *
@@ -52,7 +50,7 @@ public:
      * @param marks A map containing the marks for each arc.  A arc is considered marked if the value returned from the map is true.  This will be modified durring the call
      * @return The set of nodes in the port's context
      */
-    static std::set<std::shared_ptr<Node>> scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks);
+    std::set<std::shared_ptr<Node>> scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks);
 
     /**
      * @brief Traces forward from a port through the design graph to discover a port's context, stopping at state elements and enabled subsystem boundaries.
@@ -71,7 +69,7 @@ public:
      * @param marks A map containing the marks for each arc.  A arc is considered marked if the value returned from the map is true.  This will be modified during the call
      * @return The set of nodes in the port's context
      */
-    static std::set<std::shared_ptr<Node>> scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks);
+    std::set<std::shared_ptr<Node>> scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks);
 
     /**
      * @brief Moves a node from its current position in the hierarchy to a position under another subsystem.
@@ -91,25 +89,31 @@ public:
      * @param moveSuffix this suffix is added to new subsystems created during the move process
      * @param overridePartition if not -1, overrides the partition of any created subsystem with the given partition
      */
-    static void moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std::shared_ptr<SubSystem> moveUnder, std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix = "_moved", int overridePartition = -1);
+    void moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std::shared_ptr<SubSystem> moveUnder, std::vector<std::shared_ptr<Node>> &newNodes, std::string moveSuffix = "_moved", int overridePartition = -1);
 
     /**
-     * @brief Discovers all the nodes at this level in the context hierarchy (including at enabled subsystems and muxes).
+     * @brief Discovers all the nodes at this level in the context hierarchy (including at enabled subsystems, muxes, and ClockDomains).
      *
-     * Also finds muxes and enabled enabled within subsystems (and below).
+     * Also finds muxes, enabled subsystems, and clock domains within subsystems (and below).
      *
-     * @note Does not recurse into enabled subsystems
+     * @note Does not recurse into enabled subsystems or ClockDomains
+     *
+     * @note ClockDomains are not ContextRoots until they are specialized (ie. are Upsample or Downsample ClockDomains)
+     * This function will check this before adding it to the list.  Discovering and updating contexts should occur
+     * after the specialization of clock domains
      *
      * @param nodesToSearch a set of nodes within this level of the design
      * @param contextStack The context stack at this point.  Nodes at this level will be updated with this context stack
      * @param discoveredMux a vector modified to include discovered muxes
      * @param discoveredEnabledSubSystems a vector modified to include discovered enabled subsystems
+     * @param discoveredClockDomains a vector modified to include discovered ClockDomains
      * @param discoveredGeneral a vector modified to include discovered general nodes
      */
-    static void discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nodesToSearch,
+    void discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nodesToSearch,
                                           std::vector<Context> contextStack,
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
+                                          std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 
     /**
@@ -132,7 +136,7 @@ public:
      * @param partition partition to limit to if limitRecursionToPartition is true
      * @return A vector of nodes arranged in topological order
      */
-    static std::vector<std::shared_ptr<Node>> topologicalSortDestructive(TopologicalSortParameters parameters,
+    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(TopologicalSortParameters parameters,
                                                                          std::vector<std::shared_ptr<Node>> nodesToSort,
                                                                          bool limitRecursionToPartition,
                                                                          int partition,
@@ -149,7 +153,7 @@ public:
      * @param nodesToSearch a list of nodes to search
      * @return a list of found nodes
      */
-    static std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch);
+    std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch);
 
     /**
      * @brief Recursively finds nodes in a hierarchy starting from a list of provided nodes.  Subsystems, including EnabledSubystems are searched.  ContexFamilyNodes are included but are not recursed into
@@ -164,7 +168,7 @@ public:
      * @param nodesToSearch a list of nodes to search
      * @return a list of found nodes
      */
-    static std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch, int partitionNum);
+    std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch, int partitionNum);
 
     /**
      * @brief Creates a the StateUpdate node for the given node (in the style of Delay)
@@ -183,7 +187,7 @@ public:
      *   The partition of the StateUpdate node is set to be the same as the stateful node
      *
      */
-    static bool createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNode,
+    bool createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNode,
                                                 std::vector<std::shared_ptr<Node>> &new_nodes,
                                                 std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                 std::vector<std::shared_ptr<Arc>> &new_arcs,

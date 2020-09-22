@@ -12,6 +12,7 @@
 #include "Context.h"
 
 #include "PrimitiveNodes/Mux.h"
+#include "ContextHelper.h"
 
 #include <map>
 
@@ -519,54 +520,10 @@ void EnabledSubSystem::extendEnabledSubsystemContext(std::vector<std::shared_ptr
 }
 
 std::vector<std::shared_ptr<Node>> EnabledSubSystem::discoverAndMarkContexts(std::vector<Context> curContextStack){
-    //Add this to the context stack
-    std::vector<Context> newContextStack = curContextStack;
-    newContextStack.push_back(Context(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()), 0)); //The sub-context for enabled subsystems is 0
-
-    //Update each of the nodes in this system with the input context + the context for this enabled subsystem
-    //Also, Find the multiplexers and enabled subsystems at this level
-    std::vector<std::shared_ptr<Mux>> discoveredMuxes;
-    std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
-    std::vector<std::shared_ptr<Node>> discoveredGeneral;
-
-    discoverAndUpdateContexts(newContextStack, discoveredMuxes, discoveredEnabledSubsystems, discoveredGeneral);
-
-    std::vector<std::shared_ptr<Node>> discoveredNodes;
-    discoveredNodes.insert(discoveredNodes.end(), discoveredMuxes.begin(), discoveredMuxes.end());
-    discoveredNodes.insert(discoveredNodes.end(), discoveredEnabledSubsystems.begin(), discoveredEnabledSubsystems.end());
-    discoveredNodes.insert(discoveredNodes.end(), discoveredGeneral.begin(), discoveredGeneral.end());
-
-    //Set the nodes in the context for this enabled subsystem
-    for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
-        addSubContextNode(0, discoveredMuxes[i]);
-    }
-    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
-        addSubContextNode(0, discoveredEnabledSubsystems[i]);
-    }
-    for(unsigned long i = 0; i<discoveredGeneral.size(); i++){
-        addSubContextNode(0, discoveredGeneral[i]);
-    }
-
-    //Get and mark the Mux contexts
-    //Note that context should be set for the nodes within this subsystem before this is called (done above)
-    Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
-
-    //Recursivly call on the discovered enabled subsystems
-    for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
-        std::vector<std::shared_ptr<Node>> nestedDiscoveries = discoveredEnabledSubsystems[i]->discoverAndMarkContexts(newContextStack);
-
-        //Add nodes returned by recursive call
-        discoveredNodes.insert(discoveredNodes.end(), nestedDiscoveries.begin(), nestedDiscoveries.end());
-
-        //Add the nodes returned by the recursive call to the list of nodes within this context
-        for(unsigned long j = 0; j<nestedDiscoveries.size(); j++){
-            addSubContextNode(0, nestedDiscoveries[j]);
-        }
-    }
-
     //Return all nodes in context (including ones from recursion)
+    std::shared_ptr<EnabledSubSystem> thisAsEnabledSubsystem = std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer());
 
-    return discoveredNodes;
+    return ContextHelper::discoverAndMarkContexts_SubsystemContextRoots(curContextStack, thisAsEnabledSubsystem);
 }
 
 void EnabledSubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
@@ -668,4 +625,8 @@ std::vector<std::shared_ptr<Arc>> EnabledSubSystem::getContextDecisionDriver() {
     }
 
     return driverArcs;
+}
+
+bool EnabledSubSystem::shouldReplicateContextDriver() {
+    return false;
 };

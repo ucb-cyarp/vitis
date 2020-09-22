@@ -26,7 +26,7 @@ class Constant : public PrimitiveNode{
     friend NodeFactory;
 
 private:
-    std::vector<NumericValue> value; ///<The value of this constant block (can be a vector of values)
+    std::vector<NumericValue> value; ///<The value of this constant block (can be a vector of values).  Uses the dimension of the output port to determine if this is a scalar, vector or matrix.  Constants in the vector should be supplied in C/C++ memory order
 
     //==== Constructors ====
     /**
@@ -106,6 +106,9 @@ public:
     emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
               bool checkFanout, bool forceFanout) override;
 
+    bool hasGlobalDecl() override;
+
+    std::string getGlobalDecl() override;
 
 };
 

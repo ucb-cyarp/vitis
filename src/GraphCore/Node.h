@@ -100,7 +100,7 @@ protected:
     int partitionNum; ///<The partition set this node is contained within.  Used for multicore output
     int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
     std::vector<Context> context; ///<A stack of contexts this node resides in.  The most specific context has the highest index.  Pushes onto the back of the stack and pops from the back of the stack.
-    std::shared_ptr<StateUpdate> stateUpdateNode; ///<A reference to the state update node for this delay
+    std::vector<std::shared_ptr<StateUpdate>> stateUpdateNodes; ///<A reference to the state update node for this delay
 
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
@@ -560,6 +560,7 @@ public:
 
     /**
      * @brief Get a list of direct input arcs connected to this node (not order constraint arcs)
+     * Includes special arcs (ex. select)
      * @return list of direct input arcs (not order constraint arcs)
      */
     std::set<std::shared_ptr<Arc>> getDirectInputArcs();
@@ -824,16 +825,20 @@ public:
     virtual bool hasCombinationalPath();
 
     /**
-     * @brief If this node has state, get the corresponding StateUpdate node
-     * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state or is a latch type (ex. EnableOutput)
+     * @brief If this node has state, get the corresponding StateUpdate node(s)
+     * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state
      */
-    std::shared_ptr<StateUpdate> getStateUpdateNode();
+    std::vector<std::shared_ptr<StateUpdate>> getStateUpdateNodes();
 
     /**
      * @brief Set the state update node (useful for cloneing)
      * @param stateUpdate StateUpdate node to set
      */
-     void setStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate);
+     void setStateUpdateNodes(std::vector<std::shared_ptr<StateUpdate>> stateUpdates);
+
+     void addStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate);
+
+     void removeStateUpdateNode(std::shared_ptr<StateUpdate> stateUpdate);
 
     /**
      * @brief If this node has state, create its corresponding StateUpdate node and insert it into the graph.  Also sets
@@ -910,12 +915,11 @@ public:
     /**
      * @brief Emits the C code to update the state varibles of this node.
      *
-     * This code should be called at the end of the emit for the given function.
-     *
      * @param cStatementQueue a reference to the queue containing C statements for the function being emitted.  The state update statements for this node are enqueued onto this queue
      * @param schedType the scheduler used (parameter may not be used unless the C emit for the given node is different depending on the scheduler used - ex. if the scheduler is context aware)
+     * @param stateUpdateSrc a pointer to the state update node causing the update.  Is used by nodes which contextually update state (UpsampleOutput).  For most nodes, this can be set to nullptr
      */
-    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType);
+    virtual void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc);
 
     /**
      * @brief Get a human readable description of the node

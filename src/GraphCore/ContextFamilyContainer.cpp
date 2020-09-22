@@ -259,3 +259,11 @@ void ContextFamilyContainer::setSiblingContainers(
 std::string ContextFamilyContainer::typeNameStr(){
     return "ContextFamilyContainer";
 }
+
+std::shared_ptr<DummyReplica> ContextFamilyContainer::getDummyNode() const {
+    return dummyNode;
+}
+
+void ContextFamilyContainer::setDummyNode(const std::shared_ptr<DummyReplica> &dummyNode) {
+    ContextFamilyContainer::dummyNode = dummyNode;
+}

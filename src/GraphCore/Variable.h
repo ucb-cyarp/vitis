@@ -26,7 +26,7 @@ class Variable {
 protected:
     std::string name; ///<The name of the variable
     DataType dataType; ///<The DataType of the variable
-    std::vector<NumericValue> initValue; ///<The Initial value of the variable
+    std::vector<NumericValue> initValue; ///<The Initial value of the variable.  Stored in C/C++ memory order
     bool atomicVar; ///< Indicates if the variable is a stdatomic type
 
 public:
@@ -58,13 +58,13 @@ public:
      * @note If imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
      *
      * @param imag if true, generates the imaginary component's declaration.  if false, generate the real component's declaration
-     * @param includeWidth if true, includes width for vector types in declaration (ex. int name[5]), otherwise does not (ex. int name[]).  includeArray
+     * @param includeDimensions if true, includes dimensions for vector/matrix types in declaration (ex. int name[5]), otherwise does not (ex. int name[]).  includeArray
      * @param includeInit if true, includes an assignment to the initial value.  If not, no assignment is made in the declaration statement
      * @param includeArray if true, includes the array brackets in the declaration (int name[]), if false the array brackets are not included (int name).
      * @param includeRef if true, includes the & after the type declaration
      * @return a C variable declaration statement
      */
-    std::string getCVarDecl(bool imag = false, bool includeWidth = false, bool includeInit = false, bool includeArray = false, bool includeRef = false);
+    std::string getCVarDecl(bool imag = false, bool includeDimensions = false, bool includeInit = false, bool includeArray = false, bool includeRef = false);
 
     std::string getCPtrDecl(bool imag = false);
 
@@ -76,6 +76,10 @@ public:
     void setInitValue(const std::vector<NumericValue> &initValue);
     bool isAtomicVar() const;
     void setAtomicVar(bool volatileVar);
+
+    bool operator==(const Variable &rhs) const;
+
+    bool operator!=(const Variable &rhs) const;
 };
 
 /*! @} */
