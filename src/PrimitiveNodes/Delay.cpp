@@ -766,17 +766,13 @@ bool Delay::usesCircularBuffer() {
     }
 
     if(bufferImplementation == BufferType::AUTO){
-        if(delayValue==2) {
-            if (getInputPort(0)->getDataType().isScalar()) {
-                return false;
-            } else {
-                return true;
-            }
-        }else if(delayValue>2){
+        if (!getInputPort(0)->getDataType().isScalar()) {
+	    return true;
+	}
+        if(delayValue>2){
             return true;
-        }else{
-            return false;
         }
+        return false;
     }else if(bufferImplementation == BufferType::SHIFT_REGISTER){
         return false;
     }else if(bufferImplementation == BufferType::CIRCULAR_BUFFER){
