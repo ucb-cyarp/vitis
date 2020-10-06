@@ -468,9 +468,16 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
                 //The latest values (oldest values) are stored at the end of the array
 
                 if(allocateExtraSpace){
-                    //Before modifying the offset, the occupied elements are [offset, offset+delay] (because [offset] is the extra space)
-                    //The new value is stored into the extra space ([offset])
-                    assignInputToBuffer(circularBufferOffsetVar.getCVarName(false), cStatementQueue);
+                    if(requiresStandaloneCExprNextState()) {
+                        //Before modifying the offset, the occupied elements are [offset, offset+delay] (because [offset] is the extra space)
+                        //The new value is stored into the extra space ([offset])
+                        assignInputToBuffer(circularBufferOffsetVar.getCVarName(false), cStatementQueue);
+                    }else{
+                        cStatementQueue.push_back("//Explicit next state assignment for " + getFullyQualifiedName() +
+                                                  " [ID: " + GeneralHelper::to_string(id) + ", Type:" + typeNameStr() +
+                                                  "] is not needed because a combinational path exists through the node and the input has already been captured in the Delay buffer");
+                    }
+
                     //The offset can then be decremented.
                     decrementAndWrapCircularBufferOffset(cStatementQueue);
                     //The extra space will be at the [new_offset] address.
@@ -507,10 +514,16 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
                 //    The offset is then incremented
                 //    The range of value is now [new_offset, new_offset+delay-1]
 
-                std::string insertPosition = "(" + circularBufferOffsetVar.getCVarName(false) + "+" +
-                                             GeneralHelper::to_string(delayValue) + ")%" +
-                                             GeneralHelper::to_string(getBufferLength());
-                assignInputToBuffer(insertPosition, cStatementQueue);
+                if(requiresStandaloneCExprNextState()) { //Includes check for allocateExtraSpace
+                    std::string insertPosition = "(" + circularBufferOffsetVar.getCVarName(false) + "+" +
+                                                 GeneralHelper::to_string(delayValue) + ")%" +
+                                                 GeneralHelper::to_string(getBufferLength());
+                    assignInputToBuffer(insertPosition, cStatementQueue);
+                }else{
+                    cStatementQueue.push_back("//Explicit next state assignment for " + getFullyQualifiedName() +
+                                              " [ID: " + GeneralHelper::to_string(id) + ", Type:" + typeNameStr() +
+                                              "] is not needed because a combinational path exists through the node and the input has already been captured in the Delay buffer");
+                }
                 incrementAndWrapCircularBufferOffset(cStatementQueue);
 
                 //For a standard delay, both ExtraSpace and Standard return the oldest element which is at [new_offset]
@@ -540,7 +553,8 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
             std::string assignFromInShiftLoop_Im;
             if (earliestFirst) {
                 //If allocateExtraSpace, the extra space is at the front of the array.  The shift indexes now need to be increased by 1
-                int lowInd = allocateExtraSpace ? 1 : 0;
+                //However, since the current value will have already been writen durring cEmit, can just add it to the shift
+                int lowInd = requiresStandaloneCExprNextState() ? 1 : 0;
                 cStatementQueue.push_back("for(unsigned long " + loopVarNameSanitized + " = " +
                                           GeneralHelper::to_string(arrayLength - 1) + "; " + loopVarNameSanitized +
                                           " > " + GeneralHelper::to_string(lowInd) + "; " + loopVarNameSanitized +
@@ -551,9 +565,10 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
                 }
             } else {
                 //If allocateExtraSpace, the extra space is at the end of the array, shifting does not need to extend to that ind so no additional
+                int endInd = requiresStandaloneCExprNextState() ? delayValue - 1 : delayValue;
                 cStatementQueue.push_back(
                         "for(unsigned long " + loopVarNameSanitized + " = 0; " + loopVarNameSanitized + " < " +
-                        GeneralHelper::to_string(delayValue - 1) + "; " + loopVarNameSanitized + "++){");
+                        GeneralHelper::to_string(endInd) + "; " + loopVarNameSanitized + "++){");
                 assignFromInShiftLoop_Re = cStateVar.getCVarName(false) + "[" + loopVarNameSanitized + "+1]";
                 if (cStateVar.getDataType().isComplex()) {
                     assignFromInShiftLoop_Im = cStateVar.getCVarName(true) + "[" + loopVarNameSanitized + "+1]";
@@ -597,58 +612,65 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
             cStatementQueue.push_back("}");
 
             //----Input store----
-            std::string assignToInInputLoop_Re;
-            std::string assignToInInputLoop_Im;
-            if (earliestFirst) {
-                //Extra element from allocateExtraSpace is at the front of the array, the start of the buffer for the delay is now 1 index up
-                int ind = allocateExtraSpace ? 1 : 0;
-                assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(ind) + "]";
-                if (cStateVar.getDataType().isComplex()) {
-                    assignToInInputLoop_Im = cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(ind) + "]";
+            if(requiresStandaloneCExprNextState()) {
+                std::string assignToInInputLoop_Re;
+                std::string assignToInInputLoop_Im;
+                if (earliestFirst) {
+                    //Extra element from allocateExtraSpace is at the front of the array, the start of the buffer for the delay is now 1 index up
+                    int ind = allocateExtraSpace ? 1 : 0;
+                    assignToInInputLoop_Re = cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(ind) + "]";
+                    if (cStateVar.getDataType().isComplex()) {
+                        assignToInInputLoop_Im =
+                                cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(ind) + "]";
+                    }
+                } else {
+                    //Extra element from allocateExtraSpace is at the end of the array, no modification nessasary
+                    assignToInInputLoop_Re =
+                            cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+                    if (cStateVar.getDataType().isComplex()) {
+                        assignToInInputLoop_Im =
+                                cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+                    }
                 }
-            } else {
-                //Extra element from allocateExtraSpace is at the end of the array, no modification nessasary
-                assignToInInputLoop_Re =
-                        cStateVar.getCVarName(false) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+
+                std::string assignFromInInputLoop_Re = cStateInputVar.getCVarName(false);
+                std::string assignFromInInputLoop_Im;
                 if (cStateVar.getDataType().isComplex()) {
-                    assignToInInputLoop_Im =
-                            cStateVar.getCVarName(true) + "[" + GeneralHelper::to_string(delayValue - 1) + "]";
+                    assignFromInInputLoop_Im = cStateInputVar.getCVarName(true);
                 }
-            }
 
-            std::string assignFromInInputLoop_Re = cStateInputVar.getCVarName(false);
-            std::string assignFromInInputLoop_Im;
-            if (cStateVar.getDataType().isComplex()) {
-                assignFromInInputLoop_Im = cStateInputVar.getCVarName(true);
-            }
+                //For loop if input is vector/matrix
+                //Deref is nessissary
+                std::vector<std::string> forLoopInputClose;
+                if (!inputDT.isScalar()) {
+                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                            EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+                    std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
+                    std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
+                    forLoopInputClose = std::get<2>(forLoopStrs);
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
 
-            //For loop if input is vector/matrix
-            //Deref is nessissary
-            std::vector<std::string> forLoopInputClose;
-            if (!inputDT.isScalar()) {
-                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                        EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
-                std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
-                std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
-                forLoopInputClose = std::get<2>(forLoopStrs);
-                cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
+                    assignToInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                    assignFromInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                    if (cStateVar.getDataType().isComplex()) {
+                        assignToInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                        assignFromInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                    }
+                }
 
-                assignToInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
-                assignFromInInputLoop_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                cStatementQueue.push_back(assignToInInputLoop_Re + " = " + assignFromInInputLoop_Re + ";");
                 if (cStateVar.getDataType().isComplex()) {
-                    assignToInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
-                    assignFromInInputLoop_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                    cStatementQueue.push_back(assignToInInputLoop_Im + " = " + assignFromInInputLoop_Im + ";");
                 }
-            }
 
-            cStatementQueue.push_back(assignToInInputLoop_Re + " = " + assignFromInInputLoop_Re + ";");
-            if (cStateVar.getDataType().isComplex()) {
-                cStatementQueue.push_back(assignToInInputLoop_Im + " = " + assignFromInInputLoop_Im + ";");
-            }
-
-            //Close inner for loops
-            if (!inputDT.isScalar()) {
-                cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+                //Close inner for loops
+                if (!inputDT.isScalar()) {
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+                }
+            }else{
+                cStatementQueue.push_back("//Explicit next state assignment for " + getFullyQualifiedName() +
+                                          " [ID: " + GeneralHelper::to_string(id) + ", Type:" + typeNameStr() +
+                                          "] is not needed because a combinational path exists through the node and the input has already been captured in the Delay buffer");
             }
         }
     }
@@ -656,60 +678,89 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
     Node::emitCStateUpdate(cStatementQueue, schedType, stateUpdateSrc);
 }
 
-void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+bool Delay::requiresStandaloneCExprNextState(){
+    bool foundReOut = false;
+    bool foundImOut = false;
+    std::set<std::shared_ptr<Arc>> outputArcs = getDirectOutputArcs();
+    for(auto const &outputArc : outputArcs){
+        foundReOut = true;
+        if(outputArc->getDataType().isComplex()){
+            foundImOut = true;
+        }
+    }
+
     DataType inputDataType = getInputPort(0)->getDataType();
-    std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
-    int srcOutPortNum = srcPort->getPortNum();
-    std::shared_ptr<Node> srcNode = srcPort->getParent();
+    bool outputExists = foundReOut && (inputDataType.isComplex() ? foundImOut : true);
 
-    //Emit the upstream
-    CExpr inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
-    CExpr inputExprIm;
+    return !allocateExtraSpace || !outputExists;
+}
 
-    if(inputDataType.isComplex()){
-        inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
-    }
+void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
+    if(requiresStandaloneCExprNextState()) {
+        DataType inputDataType = getInputPort(0)->getDataType();
+        std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+        int srcOutPortNum = srcPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcPort->getParent();
 
-    //Assign the expr to a special variable defined here (before the state update)
-    std::string stateInputName = name + "_n" + GeneralHelper::to_string(id) + "_state_input";
-    DataType inputDT = getInputPort(0)->getDataType();
-    Variable stateInputVar = Variable(stateInputName, inputDT);
-    cStateInputVar = stateInputVar;
+        //Emit the upstream
+        CExpr inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
+        CExpr inputExprIm;
 
-    //Declare the input variables here since input may be a vector/matrix
-    cStatementQueue.push_back(stateInputVar.getCVarDecl(false, true, false, true) + ";");
-    if(inputDataType.isComplex()){
-        cStatementQueue.push_back(stateInputVar.getCVarDecl(true, true, false, true) + ";");
-    }
+        if (inputDataType.isComplex()) {
+            inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
+        }
 
-    //Create for loop here if input (not delay state) is a vector/matrix
-    std::vector<std::string> forLoopIndexVars;
-    std::vector<std::string> forLoopClose;
-    //If the output is a vector, construct a for loop which puts the results in a temporary array
-    if(!inputDT.isScalar()){
-        //Create nested loops for a given array
-        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
-        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-        forLoopIndexVars = std::get<1>(forLoopStrs);
-        forLoopClose = std::get<2>(forLoopStrs);
-        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-    }
+        //Assign the expr to a special variable defined here (before the state update)
+        std::string stateInputName = name + "_n" + GeneralHelper::to_string(id) + "_state_input";
+        DataType inputDT = getInputPort(0)->getDataType();
+        Variable stateInputVar = Variable(stateInputName, inputDT);
+        cStateInputVar = stateInputVar;
 
-    //Deref if input vector/matrix
-    std::vector<std::string> emptyArr;
-    std::string stateInputDeclAssignRe = stateInputVar.getCVarName(false) + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
-            " = " + inputExprRe.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true) + ";";
-    cStatementQueue.push_back(stateInputDeclAssignRe);
-    if(inputDataType.isComplex()){
-        std::string stateInputDeclAssignIm = stateInputVar.getCVarName(true) +(inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
-                " = " + inputExprIm.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true) + ";";
-        cStatementQueue.push_back(stateInputDeclAssignIm);
-    }
+        //Declare the input variables here since input may be a vector/matrix
+        cStatementQueue.push_back(stateInputVar.getCVarDecl(false, true, false, true) + ";");
+        if (inputDataType.isComplex()) {
+            cStatementQueue.push_back(stateInputVar.getCVarDecl(true, true, false, true) + ";");
+        }
 
-    //Close for loop
-    if(!inputDT.isScalar()){
-        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+        //Create for loop here if input (not delay state) is a vector/matrix
+        std::vector<std::string> forLoopIndexVars;
+        std::vector<std::string> forLoopClose;
+        //If the output is a vector, construct a for loop which puts the results in a temporary array
+        if (!inputDT.isScalar()) {
+            //Create nested loops for a given array
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+            forLoopIndexVars = std::get<1>(forLoopStrs);
+            forLoopClose = std::get<2>(forLoopStrs);
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        }
+
+        //Deref if input vector/matrix
+        std::vector<std::string> emptyArr;
+        std::string stateInputDeclAssignRe = stateInputVar.getCVarName(false) +
+                                             (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(
+                                                     forLoopIndexVars)) +
+                                             " = " + inputExprRe.getExprIndexed(
+                inputDT.isScalar() ? emptyArr : forLoopIndexVars, true) + ";";
+        cStatementQueue.push_back(stateInputDeclAssignRe);
+        if (inputDataType.isComplex()) {
+            std::string stateInputDeclAssignIm = stateInputVar.getCVarName(true) +
+                                                 (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(
+                                                         forLoopIndexVars)) +
+                                                 " = " + inputExprIm.getExprIndexed(
+                    inputDT.isScalar() ? emptyArr : forLoopIndexVars, true) + ";";
+            cStatementQueue.push_back(stateInputDeclAssignIm);
+        }
+
+        //Close for loop
+        if (!inputDT.isScalar()) {
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+        }
+    }else{
+        cStatementQueue.push_back("//Explicit next state for " + getFullyQualifiedName() +
+                                  " [ID: " + GeneralHelper::to_string(id) + ", Type:" + typeNameStr() +
+                                  "] is not needed because a combinational path exists through the node and the input has already been captured in the Delay buffer");
     }
 }
 

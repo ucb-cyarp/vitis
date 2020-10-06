@@ -176,8 +176,12 @@ public:
 
     std::vector<Variable> getCStateVars() override;
 
+    //When include current value (allocateExtraSpace in Delay) is true, getting the next state and updating the state
+    //are partially superfluous because the current value has already been copied into the array by cEmitExpr (so long
+    //as it was called before emitCExprNextState and emitCStateUpdate.  If this node has an output arc at the time of
+    //emit, we will assume this is true and the added logic is not required.
+    bool requiresStandaloneCExprNextState();
     void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
-
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
