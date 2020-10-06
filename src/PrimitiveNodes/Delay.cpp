@@ -15,13 +15,14 @@
 #include "General/EmitterHelpers.h"
 
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                 roundCircularBufferToPowerOf2(true){
+                 roundCircularBufferToPowerOf2(true), circularBufferType(CircularBufferType::NO_EXTRA_LEN){
 
 }
 
 Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0), earliestFirst(false),
                                                   allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                                                  roundCircularBufferToPowerOf2(true){
+                                                  roundCircularBufferToPowerOf2(true),
+                                                  circularBufferType(CircularBufferType::NO_EXTRA_LEN){
 
 }
 
@@ -219,8 +220,8 @@ void Delay::validate() {
     }
 
     int expectedSize;
-    if(usesCircularBuffer() && roundCircularBufferToPowerOf2){
-        expectedSize = getBufferLength()*inType.numberOfElements();
+    if(usesCircularBuffer()){
+        expectedSize = getBufferAllocatedLen()*inType.numberOfElements();
     }else{
         expectedSize = arraySize*inType.numberOfElements();
     }
@@ -235,9 +236,21 @@ void Delay::validate() {
                 ")", getSharedPointer()));
     }
 
-    //TODO: Remove after updating FIFO delay absorption to handle ea
+    //TODO: Remove after updating FIFO delay absorption to handle earliest first
     if(earliestFirst){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Standard Delay nodes do not currently support earliestFirst", getSharedPointer()));
+    }
+
+    //TODO: Add error check for extra length circular buffers in standard delay node
+    //      Remove after updating FIFO delay absorption to handle alternate implementations (which introduce additional initial conditions)
+    if(circularBufferType != CircularBufferType::NO_EXTRA_LEN){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Standard Delay nodes do not currently support alternate circular buffer implementations", getSharedPointer()));
+    }
+
+    //TODO: Add error check for extra length circular buffers in standard delay node
+    //      Remove after updating FIFO delay absorption to handle the extra space ((which introduces an additional initial condition)
+    if(allocateExtraSpace){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Standard Delay nodes should not allocate extra space", getSharedPointer()));
     }
 }
 
@@ -256,7 +269,7 @@ std::vector<Variable> Delay::getCStateVars() {
     if(delayValue == 0){
         return vars;
     }else{
-        int arrayLen = getBufferLength(); //This also account for if a circular buffer is used and roundCircularBufferToPowerOf2 is selected
+        int arrayLen = getBufferAllocatedLen(); //This also account for if a circular buffer is used and roundCircularBufferToPowerOf2 is selected
 
         if(usesCircularBuffer()){
             //Declare the circular buffer offset var
@@ -350,7 +363,7 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         }else{
             //Since datatype expansion adds another dimension to the front of the list (elements are stored contiguously in memory(, dereferencing the first index works even if the type is a vector or array
             if(usesCircularBuffer()){
-                //TODO: Implement
+                //TODO: Add error for standard delay c emit and extra length circular buffers
                 if (earliestFirst){
                     //The oldest (latest) value is at the end of the array
                     //Need to correct for the extra space at the front of the array.
@@ -441,6 +454,8 @@ void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedPar
 
     }else{
         if(usesCircularBuffer()){
+            //TODO: Need to update to handle extra space circular buffers
+
             //We are using a circular buffer
             //instead of shifting values, we will insert the new value into the array and then update the offset
             //variable.  Depending on whether earliest first is selected, the offset is either incremented or decremented
@@ -699,10 +714,11 @@ void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedP
 }
 
 Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(parent, orig), delayValue(orig->delayValue),
-    initCondition(orig->initCondition), cStateVar(orig->cStateVar), cStateInputVar(orig->cStateInputVar),
-    earliestFirst(orig->earliestFirst), allocateExtraSpace(orig->allocateExtraSpace),
+    initCondition(orig->initCondition), cStateVar(orig->cStateVar),
+    cStateInputVar(orig->cStateInputVar), earliestFirst(orig->earliestFirst), allocateExtraSpace(orig->allocateExtraSpace),
     bufferImplementation(orig->bufferImplementation), circularBufferOffsetVar(orig->circularBufferOffsetVar),
-    roundCircularBufferToPowerOf2(orig->roundCircularBufferToPowerOf2){
+    roundCircularBufferToPowerOf2(orig->roundCircularBufferToPowerOf2),
+    circularBufferType(orig->circularBufferType){
 
 }
 
@@ -745,6 +761,14 @@ Delay::BufferType Delay::getBufferImplementation() const {
 
 void Delay::setBufferImplementation(Delay::BufferType bufferImplementation) {
     Delay::bufferImplementation = bufferImplementation;
+}
+
+Delay::CircularBufferType Delay::getCircularBufferType() const {
+    return circularBufferType;
+}
+
+void Delay::setCircularBufferType(Delay::CircularBufferType circularBufferType) {
+    Delay::circularBufferType = circularBufferType;
 }
 
 bool Delay::usesCircularBuffer() {
@@ -800,7 +824,7 @@ int Delay::getBufferLength() {
     return arrayLen;
 }
 
-void Delay::assignInputToBuffer(std::string insertPosition, std::vector<std::string> &cStatementQueue) {
+void Delay::assignInputToBuffer(std::string insertPositionIn, std::vector<std::string> &cStatementQueue) {
     DataType inputDT = getInputPort(0)->getDataType();
 
     std::string input_Re = cStateInputVar.getCVarName(false);
@@ -809,6 +833,13 @@ void Delay::assignInputToBuffer(std::string insertPosition, std::vector<std::str
         input_Im = cStateInputVar.getCVarName(true);
     }
 
+    std::string circBufferExtraLenOffset = getBufferOffset();
+    std::string insertPosition = insertPositionIn;
+    if(!circBufferExtraLenOffset.empty()) {
+        insertPosition = "(" + insertPositionIn + ")+" + circBufferExtraLenOffset;
+    }
+
+    //==== Do the first assignment ====
     std::string assignTo_Re = cStateVar.getCVarName(false) + "[" + insertPosition + "]";
     std::string assignTo_Im;
     if (cStateVar.getDataType().isComplex()) {
@@ -843,12 +874,73 @@ void Delay::assignInputToBuffer(std::string insertPosition, std::vector<std::str
     if (!inputDT.isScalar()) {
         cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
     }
+
+    //==== Do the second assignment if applicable ====
+    if(usesCircularBuffer() && circularBufferType != CircularBufferType::NO_EXTRA_LEN){
+        //Find the index to insert into.  Note that index may not be valid for CircularBufferType::PLUS_DELAY_LEN_M1
+        std::string insertPositionSecond = getSecondIndex(insertPosition);
+
+        //If CircularBufferType::PLUS_DELAY_LEN_M1, a condition check is required before writing to second entry
+        if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+            cStatementQueue.push_back(getSecondWriteCheck(insertPositionIn));
+        }
+
+        std::string assignTo_Re = cStateVar.getCVarName(false) + "[" + insertPositionSecond + "]";
+        std::string assignTo_Im;
+        if (cStateVar.getDataType().isComplex()) {
+            assignTo_Im = cStateVar.getCVarName(true) + "[" + insertPositionSecond + "]";
+        }
+
+        //--- Create for Loop if Elements are Vectors/Matricies ---
+        std::vector<std::string> forLoopInputClose;
+        if (!inputDT.isScalar()) {
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+            std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
+            std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
+            forLoopInputClose = std::get<2>(forLoopStrs);
+            cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
+
+            assignTo_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+            input_Re += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+            if (cStateVar.getDataType().isComplex()) {
+                assignTo_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+                input_Im += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+            }
+        }
+
+        //Make the assignment
+        cStatementQueue.push_back(assignTo_Re + "=" + input_Re + ";");
+        if (cStateVar.getDataType().isComplex()) {
+            cStatementQueue.push_back(assignTo_Im + "=" + input_Im + ";");
+        }
+
+        //Close the for loop (if needed)
+        if (!inputDT.isScalar()) {
+            cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+        }
+
+        //Close condition
+        if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+            cStatementQueue.push_back("}");
+        }
+    }
 }
 
 void
-Delay::assignInputToBuffer(CExpr src, std::string insertPosition, bool imag, std::vector<std::string> &cStatementQueue) {
+Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, std::vector<std::string> &cStatementQueue) {
+    //TODO: need to add logic for double writing in extra length circular buffers
+    //      Including adding an offset for recent last case
+
     DataType inputDT = getInputPort(0)->getDataType();
 
+    std::string circBufferExtraLenOffset = getBufferOffset();
+    std::string insertPosition = insertPositionIn;
+    if(!circBufferExtraLenOffset.empty()){
+        insertPosition = "(" + insertPositionIn + ")+" + circBufferExtraLenOffset;
+    }
+
+    //==== Do the first assignment ====
     std::string assignTo = cStateVar.getCVarName(imag) + "[" + insertPosition + "]";
 
     //--- Create for Loop if Elements are Vectors/Matricies ---
@@ -875,6 +967,49 @@ Delay::assignInputToBuffer(CExpr src, std::string insertPosition, bool imag, std
     if (!inputDT.isScalar()) {
         cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
     }
+
+    //==== Do the second assignment if applicable ====
+    if(usesCircularBuffer() && circularBufferType != CircularBufferType::NO_EXTRA_LEN) {
+        //Find the index to insert into.  Note that index may not be valid for CircularBufferType::PLUS_DELAY_LEN_M1
+        std::string insertPositionSecond = getSecondIndex(insertPosition);
+
+        //If CircularBufferType::PLUS_DELAY_LEN_M1, a condition check is required before writing to second entry
+        if (circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1) {
+            cStatementQueue.push_back(getSecondWriteCheck(insertPositionIn));
+        }
+
+        std::string assignTo = cStateVar.getCVarName(imag) + "[" + insertPositionSecond + "]";
+
+        //--- Create for Loop if Elements are Vectors/Matricies ---
+        std::string srcStr;
+        std::vector<std::string> forLoopInputClose;
+        if (!inputDT.isScalar()) {
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+            std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
+            std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
+            forLoopInputClose = std::get<2>(forLoopStrs);
+            cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
+
+            assignTo += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
+            srcStr = src.getExprIndexed(forLoopInputIndexVars, true);
+        }else{
+            srcStr = src.getExpr();
+        }
+
+        //Make the assignment
+        cStatementQueue.push_back(assignTo + "=" + srcStr + ";");
+
+        //Close the for loop (if needed)
+        if (!inputDT.isScalar()) {
+            cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
+        }
+
+        //Close condition
+        if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+            cStatementQueue.push_back("}");
+        }
+    }
 }
 
 std::vector<NumericValue> Delay::getExportableInitConds() {
@@ -893,22 +1028,47 @@ std::vector<NumericValue> Delay::getExportableInitConds() {
 }
 
 std::vector<NumericValue> Delay::getExportableInitCondsHelper() {
+    int origArrayLen = delayValue;
+    if(allocateExtraSpace){
+        origArrayLen++;
+    }
+
     //Need to undo any additional values inserted for handling circular buffers, the extra element, or supporting earliest first
     //before emitting
+
+    //Undo alternate circular buffer extra elements
+    std::vector<NumericValue> initCondsAfterCircularAlternateImplCorrection;
+    if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::DOUBLE_LEN){
+        //Copy one half of the initial conditions
+        for(unsigned long i = 0; i<getBufferLength()*getInputPort(0)->getDataType().numberOfElements(); i++){
+            initCondsAfterCircularAlternateImplCorrection.push_back(initCondition[i]);
+        }
+    }else if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+        if(earliestFirst){
+            //Extra elements are at the end of the buffer, copy the first part
+            for(unsigned long i = 0; i<getBufferLength()*getInputPort(0)->getDataType().numberOfElements(); i++){
+                initCondsAfterCircularAlternateImplCorrection.push_back(initCondition[i]);
+            }
+        }else{
+            //extra elements are at the start (and there are fifoLen-1 extra elements), copy the latter elements
+            for(unsigned long i = 0; i<getBufferLength()*getInputPort(0)->getDataType().numberOfElements(); i++){
+                initCondsAfterCircularAlternateImplCorrection.push_back(initCondition[i+(origArrayLen-1)*getInputPort(0)->getDataType().numberOfElements()]);
+            }
+        }
+    }else{
+        initCondsAfterCircularAlternateImplCorrection = initCondition;
+    }
+
+    //Undo circular buffer power of 2 roundup
     std::vector<NumericValue> initCondsAfterCircularCorrection;
     if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
         //Undo extra elements for the circular buffer
-        int origArrayLen = delayValue;
-        if(allocateExtraSpace){
-            origArrayLen++;
-        }
-
         int targetCount = getInputPort(0)->getDataType().numberOfElements() * origArrayLen;
         for(int i = 0; i<targetCount; i++){
-            initCondsAfterCircularCorrection.push_back(initCondition[i]);
+            initCondsAfterCircularCorrection.push_back(initCondsAfterCircularAlternateImplCorrection[i]);
         }
     }else{
-        initCondsAfterCircularCorrection = initCondition;
+        initCondsAfterCircularCorrection = initCondsAfterCircularAlternateImplCorrection;
     }
 
     std::vector<NumericValue> initConds;
@@ -964,11 +1124,12 @@ void Delay::propagatePropertiesHelper() {
         }
     }
 
+    int origArrayLen = delayValue;
+    if(allocateExtraSpace){
+        origArrayLen++;
+    }
+
     if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
-        int origArrayLen = delayValue;
-        if(allocateExtraSpace){
-            origArrayLen++;
-        }
         //May need to add additional initial conditions when rounded up to a power of 2
         int allocatedSize = getBufferLength()*getInputPort(0)->getDataType().numberOfElements();
 
@@ -979,8 +1140,97 @@ void Delay::propagatePropertiesHelper() {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected initial condition size when adding new initial values for circular buffer", getSharedPointer()));
         }
 
-        for(int i = initialCount; i<allocatedSize; i++){
+        for(unsigned long i = initialCount; i<allocatedSize; i++){
             initCondition.push_back(NumericValue((long) 0));
         }
+    }
+
+    if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::DOUBLE_LEN){
+        //Replicate all init conds
+        //Does not matter if earliest first or not, need 2 copies of the initial conditions
+        int initCondOrigSizeOrig = initCondition.size();
+        for(unsigned long i = 0; i<initCondOrigSizeOrig; i++){
+            initCondition.push_back(initCondition[i]);
+        }
+    }else if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+        //Replicate some init conds
+        int addedElements = getInputPort(0)->getDataType().numberOfElements()*(origArrayLen-1);
+        if(earliestFirst){
+            //Extra space is at the end of the array.  Number of additional elements is delayLen-1 (+1 if allocate extra space)
+            for(unsigned long i = 0; i<addedElements; i++){
+                initCondition.push_back(initCondition[i]);
+            }
+        }else{
+            //Extra space is at the beginning of the array
+            std::vector<NumericValue> initCondTmp;
+            for(unsigned long i = 0; i<addedElements; i++){
+                initCondTmp.push_back(initCondition[initCondition.size()-1-addedElements+i]);
+            }
+            initCondTmp.insert(initCondTmp.end(), initCondition.begin(), initCondition.end());
+
+            initCondition = initCondTmp;
+        }
+    }
+}
+
+int Delay::getBufferAllocatedLen() {
+    int stdBufferLen = getBufferLength();
+
+    if(usesCircularBuffer()) {
+        if (circularBufferType == CircularBufferType::DOUBLE_LEN) {
+            return stdBufferLen * 2;
+        } else if (circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1) {
+            int fifoLen = delayValue;
+            if (allocateExtraSpace) {
+                fifoLen++;
+            }
+
+            return stdBufferLen+fifoLen-1;
+        }
+    }
+
+    return stdBufferLen;
+}
+
+std::string Delay::getBufferOffset() {
+    std::string circBufferExtraLenOffset = "";
+    if(usesCircularBuffer() && circularBufferType != CircularBufferType::NO_EXTRA_LEN && !earliestFirst){
+        if(circularBufferType == CircularBufferType::DOUBLE_LEN){
+            circBufferExtraLenOffset = GeneralHelper::to_string(getBufferLength()); //Do not get the allocated length, get the length of the buffer without the circular buffer extra space
+        }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+            int fifoLen = delayValue;
+            if(allocateExtraSpace){
+                fifoLen++;
+            }
+            circBufferExtraLenOffset = GeneralHelper::to_string(fifoLen-1); //the extra length added was fifoLen-1
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown CircularBufferType", getSharedPointer()));
+        }
+    }
+
+    return circBufferExtraLenOffset;
+}
+
+std::string Delay::getSecondIndex(std::string firstIndexWithOffset) {
+    std::string insertPositionSecond = "";
+    if(earliestFirst){
+        insertPositionSecond = firstIndexWithOffset + "+" + GeneralHelper::to_string(getBufferLength()); //Need the buffer length without extra circular buffer elements
+    }else{
+        insertPositionSecond = firstIndexWithOffset + "-" + GeneralHelper::to_string(getBufferLength()); //Need the buffer length without extra circular buffer elements
+    }
+
+    return insertPositionSecond;
+}
+
+std::string Delay::getSecondWriteCheck(std::string indexWithoutOffset) {
+    int fifoLen = delayValue;
+    if(allocateExtraSpace){
+        fifoLen++;
+    }
+
+    if(earliestFirst){
+        return "if(" + indexWithoutOffset + "<" + GeneralHelper::to_string(fifoLen-1) + "){"; //Need the orig insert position
+    }else{
+        return "if(" + indexWithoutOffset + ">" + GeneralHelper::to_string(getBufferLength() - fifoLen) + "){"; //Need the orig insert position.  Also need buffer length without extra circular buffer elements
     }
 }

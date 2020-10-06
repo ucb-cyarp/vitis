@@ -7,12 +7,16 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 
-TappedDelay::TappedDelay() {
+#define CIRC_BUFF_TYPE CircularBufferType::DOUBLE_LEN
 
+TappedDelay::TappedDelay() : Delay(){
+    //Override the circular buffer type
+    setCircularBufferType(CIRC_BUFF_TYPE);
 }
 
 TappedDelay::TappedDelay(std::shared_ptr<SubSystem> parent) : Delay(parent) {
-
+    //Override the circular buffer type
+    setCircularBufferType(CIRC_BUFF_TYPE);
 }
 
 TappedDelay::TappedDelay(std::shared_ptr<SubSystem> parent, TappedDelay *orig) : Delay(parent, orig) {
@@ -148,12 +152,12 @@ void TappedDelay::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Output must be the length of the delay (+1 if current value passed)", getSharedPointer()));
     }
 
-    if(usesCircularBuffer() && roundCircularBufferToPowerOf2){
-        int expectedInitCondSize = (int) round(pow(2, ceil(log2(outType.numberOfElements()))));
+    if(usesCircularBuffer()){
+        int expectedInitCondSize = getBufferAllocatedLen()*inType.numberOfElements();
         int initConditionSize = initCondition.size();
         if (initConditionSize != expectedInitCondSize) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
-                    "Validation Failed - TappedDelay - Number of initial conditions must be number of elements in the output rounded up to the nearest power of 2 when running with a circular buffer with power of 2 allocation",
+                    "Validation Failed - TappedDelay - Number of initial conditions does not match the allocated size of the circular buffer",
                     getSharedPointer()));
         }
     }else {
@@ -172,8 +176,6 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
                        bool imag) {
 
     if(usesCircularBuffer()){
-        //TODO: implement
-
         //Need to pass the current value through if requested.  It is inserted into the extra slot
         //Instead of inserting from the next state variable, we are inserting from the input (see below)
         if(allocateExtraSpace) {
@@ -194,11 +196,39 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
                                  GeneralHelper::to_string(getBufferLength());
             }
 
+            //The function should handle the case where where circular buffers with extra elements are in use
             assignInputToBuffer(inputExpr, insertPosition, imag, cStatementQueue);
         }
 
         //Return the variable
-        return CExpr(cStateVar.getCVarName(imag), getBufferLength(), circularBufferOffsetVar.getCVarName(false));
+        if(circularBufferType == CircularBufferType::NO_EXTRA_LEN) {
+            return CExpr(cStateVar.getCVarName(imag), getBufferLength(), circularBufferOffsetVar.getCVarName(false));
+        }else{
+            if(earliestFirst){
+                //The returned array is simply the allocated array starting at the current offset of the circular buffer
+                return CExpr("(" + cStateVar.getCVarName(imag) + "+" + circularBufferOffsetVar.getCVarName(false) + ")", CExpr::ExprType::ARRAY);
+            }else{
+                int fifoLen = delayValue;
+                if(allocateExtraSpace){
+                    fifoLen++;
+                }
+
+                //The start of the primary buffer region since the extra elements are added at the front of the array
+                int bufferStart;
+                if(circularBufferType == CircularBufferType::DOUBLE_LEN){
+                    bufferStart = getBufferLength();
+                }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+                    bufferStart = fifoLen-1;
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown CircularBufferType", getSharedPointer()));
+                }
+
+                return CExpr("(" + cStateVar.getCVarName(imag) + "+" + GeneralHelper::to_string(bufferStart) +
+                                         "+((" + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(fifoLen-1) + ")" + "%" + GeneralHelper::to_string(getBufferLength()) + ")"
+                                         + "-" + GeneralHelper::to_string(fifoLen-1)
+                                         + ")", CExpr::ExprType::ARRAY);
+            }
+        }
     }else {
         //We need to pass the current value through if requested
         if (allocateExtraSpace) {
