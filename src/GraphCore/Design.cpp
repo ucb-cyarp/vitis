@@ -3679,14 +3679,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         std::map<int, int> partitionToCPU;
         for(auto it = partitions.begin(); it!=partitions.end(); it++) {
             if (partitionMap.empty()) {
-                //Default case.  Assign I/O thread to CPU0 and each thread on the
-                if (it->first == IO_PARTITION_NUM) {
-                    partitionToCPU[it->first] = 0;
-                } else {
-                    if (it->first < 0) {
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Partition Requested Core " + GeneralHelper::to_string(it->first) + " which is not valid"));
-                    }
-                }
+                //No thread affinities are set, set the CPUs to -1
+                partitionToCPU[it->first] = -1;
             } else {
                 //Use the partition map
                 if (it->first == IO_PARTITION_NUM) {

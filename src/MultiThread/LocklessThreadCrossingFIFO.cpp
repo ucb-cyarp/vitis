@@ -412,6 +412,7 @@ void LocklessThreadCrossingFIFO::createSharedVariables(std::vector<std::string> 
 
     if(core < 0) {
         cStatementQueue.push_back(
+                cWriteOffsetDT + "* " + getCWriteOffsetPtr().getCVarName(false) + " = (" + cWriteOffsetDT +
                 "*) vitis_aligned_alloc(VITIS_MEM_ALIGNMENT, sizeof(" + cWriteOffsetDT + "));");
     }else{
         cStatementQueue.push_back(

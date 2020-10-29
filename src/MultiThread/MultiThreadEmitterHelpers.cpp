@@ -391,24 +391,8 @@ std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, st
 int MultiThreadEmitterHelpers::getCore(int parititon, const std::vector<int> &partitionMap, bool print){
     int core = 0;
     if(partitionMap.empty()) {
-        //Default case.  Assign I/O thread to CPU0 and each thread on the
-        if (parititon == IO_PARTITION_NUM) {
-            core = 0;
-            if(print) {
-                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
-            }
-        } else {
-            if (core < 0) {
-                throw std::runtime_error(ErrorHelpers::genErrorStr(
-                        "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
-//                    std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
-//                    core = 0;
-            }
-
-            if(print) {
-                std::cout << "Setting Partition " << parititon << " thread to run on CPU" << core << std::endl;
-            }
-        }
+        //In this case, no thread pinning occurs
+        return -1;
     }else{
         //Use the partition map
         if (parititon == IO_PARTITION_NUM) {
@@ -516,7 +500,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         std::vector<std::string> statements;
         for(int i = 0; i<fifos.size(); i++){
 
-            fifos[i]->createSharedVariables(statements, core);
+            fifos[i]->createSharedVariables(statements, core); //Note, if the CPU is -1, which occurs if no CPU map is provided (no thresd pinning is performed), the array is allocated on the CPU running the setup code
             fifos[i]->initializeSharedVariables(statements);
         }
 
@@ -568,7 +552,6 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile << "int status;" << std::endl;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         std::string partitionSuffix = (*it < 0 ? "N" + GeneralHelper::to_string(-*it) : GeneralHelper::to_string(*it));
-        cFile << "cpu_set_t cpuset_" << partitionSuffix << ";" << std::endl;
         cFile << "pthread_t thread_" << partitionSuffix << ";" << std::endl;
         cFile << "pthread_attr_t attr_" << partitionSuffix << ";" << std::endl;
         //cFile << "void *res_" << *it << ";" << std::endl;
@@ -580,17 +563,23 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         cFile << "exit(1);" << std::endl;
         cFile << "}" << std::endl;
         cFile << std::endl;
-        cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
+        //Only set the thread affinity if a partition map was provided.  If none was provided, core will be -1
         int core = MultiThreadEmitterHelpers::getCore(*it, partitionMap, true);
-        cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
-        cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_" << partitionSuffix
-              << ");//Set thread CPU affinity" << std::endl;
-        cFile << "if(status != 0)" << std::endl;
-        cFile << "{" << std::endl;
-        cFile << "printf(\"Could not set thread core affinity ... exiting\");" << std::endl;
-        cFile << "exit(1);" << std::endl;
-        cFile << "}" << std::endl;
-        cFile << std::endl;
+        if(core >= 0) {
+            cFile << "//Set partition " << partitionSuffix << " to run on CPU " << core << std::endl;
+            cFile << "cpu_set_t cpuset_" << partitionSuffix << ";" << std::endl;
+            cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
+            cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
+            cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_"
+                  << partitionSuffix
+                  << ");//Set thread CPU affinity" << std::endl;
+            cFile << "if(status != 0)" << std::endl;
+            cFile << "{" << std::endl;
+            cFile << "printf(\"Could not set thread core affinity ... exiting\");" << std::endl;
+            cFile << "exit(1);" << std::endl;
+            cFile << "}" << std::endl;
+            cFile << std::endl;
+        }
     }
 
     //Start all threads except the I/O thread
@@ -769,16 +758,20 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
-                     makefileContent += "LIB=-pthread";
+                 makefileContent += "LIB=-pthread";
                                     if(includeLrt){
-                                        makefileContent += " -lrt";
+                                        makefileContent += "LIB+= -lrt\n";
                                     }
-                     makefileContent += " -lProfilerCommon -latomic";
+                 makefileContent += "LIB+= -lProfilerCommon\n";
+                 makefileContent += "#Using the technique in pcm makefile to detect MacOS\n"
+                                    "UNAME:=$(shell uname)\n"
+                                    "ifneq ($(UNAME), Darwin)\n"
+                                    "LIB+= -latomic\n"
+                                    "endif\n";
                                     if(includePAPI){
-                                        makefileContent += " -lpapi";
+                                        makefileContent += "LIB+= -lpapi\n";
                                     }
-                     makefileContent += "\n";
-                 makefileContent += "\n"
+                                    makefileContent += "\n"
                                     "DEFINES=\n"
                                     "\n"
                                     "DEPENDS=\n"
@@ -791,8 +784,6 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "INC+= -I $(DEPENDS_DIR)/pcm\n"
                                     "LIB_DIRS+= -L $(DEPENDS_DIR)/pcm\n"
                                     "#Need an additional include directory if on MacOS.\n"
-                                    "#Using the technique in pcm makefile to detect MacOS\n"
-                                    "UNAME:=$(shell uname)\n"
                                     "ifeq ($(UNAME), Darwin)\n"
                                     "INC+= -I $(DEPENDS_DIR)/pcm/MacMSRDriver\n"
                                     "LIB+= -lPCM -lPcmMsr\n"

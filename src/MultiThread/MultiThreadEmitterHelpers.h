@@ -112,6 +112,8 @@ namespace MultiThreadEmitterHelpers {
 
     /**
      * @brief Get the core number for the specified partition number
+     *
+     * If a partition map is not provided (ie. is empty), -1 is returned
      * @param parititon
      * @param partitionMap
      * @return
