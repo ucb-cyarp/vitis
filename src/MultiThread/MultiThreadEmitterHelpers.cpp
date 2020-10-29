@@ -749,10 +749,15 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
                                     if(includeLrt){
-                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon -latomic\n";
+                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon\n";
                                     }else {
-                     makefileContent += "LIB=-pthread -lProfilerCommon -latomic\n";
+                     makefileContent += "LIB=-pthread -lProfilerCommon\n";
                                     }
+                 makefileContent += "#Using the technique in pcm makefile to detect MacOS\n"
+                                    "UNAME:=$(shell uname)\n"
+                                    "ifneq ($(UNAME), Darwin)\n"
+                                    "LIB+= -latomic\n"
+                                    "endif\n";
                  makefileContent += "\n"
                                     "DEFINES=\n"
                                     "\n"
@@ -766,8 +771,6 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "INC+= -I $(DEPENDS_DIR)/pcm\n"
                                     "LIB_DIRS+= -L $(DEPENDS_DIR)/pcm\n"
                                     "#Need an additional include directory if on MacOS.\n"
-                                    "#Using the technique in pcm makefile to detect MacOS\n"
-                                    "UNAME:=$(shell uname)\n"
                                     "ifeq ($(UNAME), Darwin)\n"
                                     "INC+= -I $(DEPENDS_DIR)/pcm/MacMSRDriver\n"
                                     "LIB+= -lPCM -lPcmMsr\n"
