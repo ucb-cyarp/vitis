@@ -52,9 +52,7 @@ int main(int argc, char* argv[]) {
         std::cout << "    A comma separated array without spaces (ex. [0,1,2,3])" << std::endl;
         std::cout << "    The first element of the array corresponds to the I/O thread.  The subsequent elements" << std::endl;
         std::cout << "    correspond to partition 0, 1, 2, etc..." << std::endl;
-        std::cout << "    An empty array ([]) corresponds to the default configuration:" << std::endl;
-        std::cout << "    By default the I/O thread is placed on CPU0 and partitions are placed" << std::endl;
-        std::cout << "    on the CPU that matches their partition number (ex. partition 1 is placed on CPU1)" << std::endl;
+        std::cout << "    An empty array ([] or no argument) results in code that does not restrict threads to specific CPUs" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible MEM_ALIGNMENT (the alignment in bytes used when allocating FIFO buffers):" << std::endl;
         std::cout << "    unsigned long memAlignment <DEFAULT = 64>" << std::endl;
