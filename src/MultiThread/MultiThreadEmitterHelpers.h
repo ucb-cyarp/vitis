@@ -153,7 +153,11 @@ namespace MultiThreadEmitterHelpers {
      * @param ioBenchmarkSuffix
      * @param includeLrt if true, includes -lrt to the linker options
      */
-    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc);
+    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
+                                   std::string designName, std::set<int> partitions,
+                                   std::string ioBenchmarkSuffix, bool includeLrt,
+                                   std::vector<std::string> additionalSystemSrc,
+                                   bool enableBenchmarkSetAffinity);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)
