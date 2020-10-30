@@ -722,7 +722,6 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                                           std::vector<std::string> additionalSystemSrc,
                                                           bool includePAPI,
                                                           bool enableBenchmarkSetAffinity) {
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc, bool includePAPI){
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
