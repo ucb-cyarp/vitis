@@ -401,7 +401,7 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     }
 
     //=== Return output variable (accumulator or output var if casting needed) ===
-    return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+    return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::SCALAR_VAR);
 }
 
 std::string InnerProduct::complexConjBehaviorToString(InnerProduct::ComplexConjBehavior complexConjBehavior) {
