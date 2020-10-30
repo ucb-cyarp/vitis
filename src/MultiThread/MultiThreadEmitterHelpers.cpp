@@ -758,7 +758,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
-                 makefileContent += "LIB=-pthread";
+                 makefileContent += "LIB=-pthread\n";
                                     if(includeLrt){
                                         makefileContent += "LIB+= -lrt\n";
                                     }
