@@ -716,6 +716,12 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
+                                                          std::string designName, std::set<int> partitions,
+                                                          std::string ioBenchmarkSuffix, bool includeLrt,
+                                                          std::vector<std::string> additionalSystemSrc,
+                                                          bool includePAPI,
+                                                          bool enableBenchmarkSetAffinity) {
 void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc, bool includePAPI){
     //#### Emit Makefiles ####
 
@@ -776,8 +782,16 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "\n"
                                     "DEPENDS=\n"
                                     "DEPENDS_LIB=$(COMMON_DIR)/libProfilerCommon.a\n"
-                                    "\n"
-                                    "ifeq ($(USE_PCM), 1)\n"
+                                    "\n";
+                 if(!enableBenchmarkSetAffinity){
+                     //This controls if the benchmark code which is used as support for the radio,
+                     //sets its initial thread affinity to CPU0, this is inherited by child threads
+                     // unless overwritten which is an issue if the partition threads are not set
+                     //to particular partitions (partitionMap is empty).  Including this will allow
+                     //threads to run on any available core
+                     makefileContent += "DEFINES+= -DBENCH_NSET_AFFINITY=1\n\n";
+                 }
+                 makefileContent += "ifeq ($(USE_PCM), 1)\n"
                                     "DEFINES+= -DUSE_PCM=1\n"
                                     "DEPENDS+= $(DEPENDS_DIR)/pcm/Makefile\n"
                                     "DEPENDS_LIB+= $(DEPENDS_DIR)/pcm/libPCM.a\n"

@@ -160,7 +160,12 @@ namespace MultiThreadEmitterHelpers {
      * @param includeLrt if true, includes -lrt to the linker options
      * @param includePAPI if true, includes -lpapi to the linker options
      */
-    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc, bool includePAPI);
+    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
+                                   std::string designName, std::set<int> partitions,
+                                   std::string ioBenchmarkSuffix, bool includeLrt,
+                                   std::vector<std::string> additionalSystemSrc,
+                                   bool includePAPI,
+                                   bool enableBenchmarkSetAffinity);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)
