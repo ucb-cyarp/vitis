@@ -774,7 +774,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                      // unless overwritten which is an issue if the partition threads are not set
                      //to particular partitions (partitionMap is empty).  Including this will allow
                      //threads to run on any available core
-                     makefileContent += "DEFINES+= -DBENCH_NSET_AFFINITY=1\n\n";
+                     makefileContent += "DEFINES+= -DBENCH_NSET_AFFINITY=1 -DUSE_SCHED_FIFO=0\n\n";
                  }
                  makefileContent += "ifeq ($(USE_PCM), 1)\n"
                                     "DEFINES+= -DUSE_PCM=1\n"
