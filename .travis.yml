@@ -44,12 +44,7 @@ addons:
     - graphviz
     - doxygen
   homebrew:
-    packages:
-      - cmake
-      - xerces-c
-      - graphviz
-      - doxygen
-      - boost
+    brewfile: true
 
 script:
   - echo $CXX; echo $CC
