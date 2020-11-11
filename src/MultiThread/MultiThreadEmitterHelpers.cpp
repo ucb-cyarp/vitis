@@ -421,7 +421,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
                                                                  std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
                                                                  std::string ioBenchmarkSuffix, std::vector<int> partitionMap,
-                                                                 std::string papiHelperHeader){
+                                                                 std::string papiHelperHeader, bool useSCHEDFIFO){
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -552,11 +552,12 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile << "int status;" << std::endl;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         std::string partitionSuffix = (*it < 0 ? "N" + GeneralHelper::to_string(-*it) : GeneralHelper::to_string(*it));
+        std::string attrName = "attr_" + partitionSuffix;
         cFile << "pthread_t thread_" << partitionSuffix << ";" << std::endl;
-        cFile << "pthread_attr_t attr_" << partitionSuffix << ";" << std::endl;
+        cFile << "pthread_attr_t " << attrName << ";" << std::endl;
         //cFile << "void *res_" << *it << ";" << std::endl;
         cFile << std::endl;
-        cFile << "status = pthread_attr_init(&attr_" << partitionSuffix << ");" << std::endl;
+        cFile << "status = pthread_attr_init(&" << attrName << ");" << std::endl;
         cFile << "if(status != 0)" << std::endl;
         cFile << "{" << std::endl;
         cFile << "printf(\"Could not create pthread attributes ... exiting\");" << std::endl;
@@ -566,6 +567,38 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         //Only set the thread affinity if a partition map was provided.  If none was provided, core will be -1
         int core = MultiThreadEmitterHelpers::getCore(*it, partitionMap, true);
         if(core >= 0) {
+            if(useSCHEDFIFO){
+                //Set SCHED_FIFO with max scheduling priority for this thread
+                cFile << "//Set partition " << partitionSuffix << " to run with SCHED_FIFO RT Scheduler with Max Priority" << std::endl;
+                cFile << "//NOTE! This can lock up the computer if this thread is run on a CPU where system tasks are running." << std::endl;
+                cFile << "status = pthread_attr_setinheritsched(&" << attrName << ", PTHREAD_EXPLICIT_SCHED);" << std::endl;
+                cFile << "if(status != 0)" << std::endl;
+                cFile << "{" << std::endl;
+                cFile << "printf(\"Could not set pthread explicit schedule attribute ... exiting\n\");" << std::endl;
+                cFile << "exit(1);" << std::endl;
+                cFile << "}" << std::endl;
+                cFile << std::endl;
+
+                cFile << "status = pthread_attr_setschedpolicy(&" << attrName << ", SCHED_FIFO);" << std::endl;
+                cFile << "if(status != 0)" << std::endl;
+                cFile << "{" << std::endl;
+                cFile << "printf(\"Could not set pthread schedule policy to SCHED_FIFO ... exiting\n\");" << std::endl;
+                cFile << "exit(1);" << std::endl;
+                cFile << "}" << std::endl;
+                cFile << std::endl;
+
+                std::string threadParamsName = "threadParams_" + partitionSuffix;
+                cFile << "struct sched_param " << threadParamsName << ";" << std::endl;
+                cFile << threadParamsName << ".sched_priority = sched_get_priority_max(SCHED_FIFO);" << std::endl;
+
+                cFile << "status = pthread_attr_setschedparam(&" << attrName << ", &" << threadParamsName << ");" << std::endl;
+                cFile << "if(status != 0)" << std::endl;
+                cFile << "{" << std::endl;
+                cFile << "printf(\"Could not set pthread schedule parameter ... exiting\n\");" << std::endl;
+                cFile << "exit(1);" << std::endl;
+                cFile << "}" << std::endl;
+            }
+
             cFile << "//Set partition " << partitionSuffix << " to run on CPU " << core << std::endl;
             cFile << "cpu_set_t cpuset_" << partitionSuffix << ";" << std::endl;
             cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
@@ -656,7 +689,6 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
 
     benchDriver << "#include <map>" << std::endl;
     benchDriver << "#include <string>" << std::endl;
-    benchDriver << "#include \"intrin_bench_default_defines.h\"" << std::endl;
     benchDriver << "#include \"benchmark_throughput_test.h\"" << std::endl;
     benchDriver << "#include \"kernel_runner.h\"" << std::endl;
     benchDriver << "extern \"C\"{" << std::endl;
@@ -716,12 +748,38 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
-                                                          std::string designName, std::set<int> partitions,
-                                                          std::string ioBenchmarkSuffix, bool includeLrt,
-                                                          std::vector<std::string> additionalSystemSrc,
-                                                          bool includePAPI,
-                                                          bool enableBenchmarkSetAffinity) {
+void MultiThreadEmitterHelpers::emitMultiThreadedMain(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
+    //#### Emit Driver File ####
+    std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
+    std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    std::ofstream benchDriver;
+    benchDriver.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
+
+    benchDriver << "#include <stdio.h>" << std::endl;
+    benchDriver << "#include \"" + kernelFileName + ".h\"" << std::endl;
+
+    benchDriver << "int main(int argc, char* argv[]){" << std::endl;
+
+    //Emit name, file, and units string
+    benchDriver << "printf(\"===== Generated System: " + designName + " =====\");" << std::endl;
+
+    //Generate call to loop
+    benchDriver << "//Call the generated function" << std::endl;
+    std::string kernelFctnName = designName + "_" + ioBenchmarkSuffix + "_kernel";
+
+    benchDriver << kernelFctnName << "();" << std::endl;
+    benchDriver << "}" << std::endl;
+
+    benchDriver.close();
+}
+
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefileBenchDriver(std::string path, std::string fileNamePrefix,
+                                                                     std::string designName, std::set<int> partitions,
+                                                                     std::string ioBenchmarkSuffix, bool includeLrt,
+                                                                     std::vector<std::string> additionalSystemSrc,
+                                                                     bool includePAPI,
+                                                                     bool enableBenchmarkSetAffinity) {
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -872,6 +930,85 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "\trm -rf build/*\n"
                                     "\n"
                                     ".PHONY: clean\n";
+
+    std::cout << "Emitting Makefile: " << path << "/Makefile_" << fileNamePrefix << "_" << ioBenchmarkSuffix << ".mk" << std::endl;
+    std::ofstream makefile;
+    makefile.open(path+"/Makefile_" + fileNamePrefix + "_" + ioBenchmarkSuffix + ".mk", std::ofstream::out | std::ofstream::trunc);
+    makefile << makefileContent;
+    makefile.close();
+}
+
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(std::string path, std::string fileNamePrefix,
+                                                              std::string designName, std::set<int> partitions,
+                                                              std::string ioBenchmarkSuffix, bool includeLrt,
+                                                              std::vector<std::string> additionalSystemSrc,
+                                                              bool includePAPI,
+                                                              bool enableBenchmarkSetAffinity) {
+    //#### Emit Makefiles ####
+
+    std::string systemSrcs = "";
+
+    for(auto it = partitions.begin(); it != partitions.end(); it++){
+        if(*it != IO_PARTITION_NUM) {
+            std::string threadFileName = fileNamePrefix + "_partition" + GeneralHelper::to_string(*it) + ".c";
+            systemSrcs += threadFileName + " ";
+        }
+    }
+    std::string ioFileName = fileNamePrefix+"_"+ioBenchmarkSuffix;
+    systemSrcs += ioFileName + ".c";
+    systemSrcs += " " + std::string(VITIS_NUMA_ALLOC_HELPERS) + ".c";
+
+    std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel.c";
+    std::string driverFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver.c";
+
+    systemSrcs += " " + kernelFileName;
+    systemSrcs += " " + driverFileName;
+
+    std::string makefileContent =   "BUILD_DIR=build\n"
+                                    "\n"
+                                    "#Compiler Parameters\n"
+                                    "CFLAGS = -Ofast -c -g -std=gnu11 -march=native -masm=att\n";
+    makefileContent += "LIB=-pthread -lm\n";
+    if(includeLrt){
+        makefileContent += "LIB+= -lrt\n";
+    }
+    makefileContent += "UNAME:=$(shell uname)\n"
+                       "ifneq ($(UNAME), Darwin)\n"
+                       "LIB+= -latomic\n"
+                       "endif\n";
+    if(includePAPI){
+        makefileContent += "LIB+= -lpapi\n";
+    }
+    makefileContent += "\n"
+                       "DEFINES=\n"
+                       "DEPENDS=\n";
+
+    for(int i = 0; i<additionalSystemSrc.size(); i++){
+        systemSrcs += " " + additionalSystemSrc[i];
+    }
+    //TODO: Get the partition files which need to be compiled as we cannot rely on the cpp extension to seperate them
+
+    makefileContent += "\n"
+                       "SRCS=" + systemSrcs + "\n"
+                       "OBJS=$(patsubst %.c,$(BUILD_DIR)/%.o,$(SRCS))\n"
+                       "\n"
+                       "#Production\n"
+                       "all: benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + "\n"
+                       "\n"
+                       "benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + ": $(OBJS) \n"
+                       "\t$(CC) $(INC) -o benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + " $(OBJS) $(LIB)\n"
+                       "\n"
+                       "$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)/\n"
+                       "\t$(CC) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                       "\n"
+                       "$(BUILD_DIR)/:\n"
+                       "\tmkdir -p $@\n"
+                       "\n"
+                       "clean:\n"
+                       "\trm -f benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + "\n"
+                       "\trm -rf build/*\n"
+                       "\n"
+                       ".PHONY: clean\n";
 
     std::cout << "Emitting Makefile: " << path << "/Makefile_" << fileNamePrefix << "_" << ioBenchmarkSuffix << ".mk" << std::endl;
     std::ofstream makefile;
