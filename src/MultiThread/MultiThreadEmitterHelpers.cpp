@@ -967,7 +967,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(std::string path, 
     std::string makefileContent =   "BUILD_DIR=build\n"
                                     "\n"
                                     "#Compiler Parameters\n"
-                                    "CFLAGS = -Ofast -c -g -std=gnu11 -march=native -masm=att\n";
+                                    "CFLAGS = -Ofast -g -std=gnu11 -march=native -masm=att\n";
     makefileContent += "LIB=-pthread -lm\n";
     if(includeLrt){
         makefileContent += "LIB+= -lrt\n";
@@ -996,10 +996,10 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(std::string path, 
                        "all: benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + "\n"
                        "\n"
                        "benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + ": $(OBJS) \n"
-                       "\t$(CC) $(INC) -o benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + " $(OBJS) $(LIB)\n"
+                       "\t$(CC) $(CFLAGS) $(INC) $(DEFINES) -o benchmark_" + fileNamePrefix + "_" + ioBenchmarkSuffix + " $(OBJS) $(LIB)\n"
                        "\n"
                        "$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)/\n"
-                       "\t$(CC) $(CFLAGS) $(INC) $(DEFINES) -o $@ $<\n"
+                       "\t$(CC) $(CFLAGS) -c $(INC) $(DEFINES) -o $@ $<\n"
                        "\n"
                        "$(BUILD_DIR)/:\n"
                        "\tmkdir -p $@\n"
