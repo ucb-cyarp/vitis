@@ -574,7 +574,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
                 cFile << "status = pthread_attr_setinheritsched(&" << attrName << ", PTHREAD_EXPLICIT_SCHED);" << std::endl;
                 cFile << "if(status != 0)" << std::endl;
                 cFile << "{" << std::endl;
-                cFile << "printf(\"Could not set pthread explicit schedule attribute ... exiting\n\");" << std::endl;
+                cFile << "printf(\"Could not set pthread explicit schedule attribute ... exiting\\n\");" << std::endl;
                 cFile << "exit(1);" << std::endl;
                 cFile << "}" << std::endl;
                 cFile << std::endl;
@@ -582,7 +582,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
                 cFile << "status = pthread_attr_setschedpolicy(&" << attrName << ", SCHED_FIFO);" << std::endl;
                 cFile << "if(status != 0)" << std::endl;
                 cFile << "{" << std::endl;
-                cFile << "printf(\"Could not set pthread schedule policy to SCHED_FIFO ... exiting\n\");" << std::endl;
+                cFile << "printf(\"Could not set pthread schedule policy to SCHED_FIFO ... exiting\\n\");" << std::endl;
                 cFile << "exit(1);" << std::endl;
                 cFile << "}" << std::endl;
                 cFile << std::endl;
@@ -594,7 +594,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
                 cFile << "status = pthread_attr_setschedparam(&" << attrName << ", &" << threadParamsName << ");" << std::endl;
                 cFile << "if(status != 0)" << std::endl;
                 cFile << "{" << std::endl;
-                cFile << "printf(\"Could not set pthread schedule parameter ... exiting\n\");" << std::endl;
+                cFile << "printf(\"Could not set pthread schedule parameter ... exiting\\n\");" << std::endl;
                 cFile << "exit(1);" << std::endl;
                 cFile << "}" << std::endl;
             }
