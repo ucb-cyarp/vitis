@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
             std::string argStr = argv[i];
             try {
                 unsigned long parsedMemAlignment = std::stoul(argStr);
-                ioFifoSize = parsedMemAlignment;
+                memAlignment = parsedMemAlignment;
                 if(parsedMemAlignment<1){
                     std::cerr << "Invalid command line option type: --memAlignment must be >= 1.  Currently:  " << argv[i] << std::endl;
                     exit(1);
