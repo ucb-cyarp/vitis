@@ -108,7 +108,7 @@ public:
      * @brief Constants do not need to check for fanout.  There is is no savings to storing the constant in a temporary variable if it is used
      * more than once.  Putting the number directly in the code allows instructions with immediate operands to be used.
      */
-    std::string
+    CExpr
     emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag,
           bool checkFanout, bool forceFanout) override;
 

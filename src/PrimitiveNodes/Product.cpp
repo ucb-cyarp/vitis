@@ -244,20 +244,19 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     //Check if this is the first time this emit function has been called, if so, get the input expressions and compute the results
     if(!emittedBefore) {
         //Get the expressions for each input
-        std::vector<std::string> inputExprs_re;
-        std::vector<std::string> inputExprs_im;
+        std::vector<CExpr> inputExprs_re;
+        std::vector<CExpr> inputExprs_im;
 
         for (unsigned long i = 0; i < numInputPorts; i++) {
             std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
             int srcOutputPortNum = srcOutputPort->getPortNum();
             std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-
             inputExprs_re.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false));
             if (getInputPort(i)->getDataType().isComplex()) {
                 inputExprs_im.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true));
             } else {
-                inputExprs_im.push_back("");
+                inputExprs_im.push_back(CExpr("", inputExprs_re[inputExprs_re.size()-1].getExprType()));
             }
         }
 
@@ -297,13 +296,14 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             std::string first_expr_im = "";
 
             //Dereference here with index of for loop if a vector/matrix
-            std::string inputExprDeref_re = inputExprs_re[0] + (getInputPort(0)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+            std::vector<std::string> emptyArr;
+            std::string inputExprDeref_re = inputExprs_re[0].getExprIndexed(getInputPort(0)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
             std::string input0_re = DataType::cConvertType(inputExprDeref_re, getInputPort(0)->getDataType(),
                                                            intermediateType);
             std::string input0_im = "";
             if (getInputPort(0)->getDataType().isComplex()) {
                 //Dereference here with index of for loop if a vector/matrix
-                std::string inputExprDeref_im = inputExprs_im[0] + (getInputPort(0)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::string inputExprDeref_im = inputExprs_im[0].getExprIndexed(getInputPort(0)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
                 input0_im = DataType::cConvertType(inputExprDeref_im, getInputPort(0)->getDataType(), intermediateType);
             }
 
@@ -385,15 +385,15 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
                 }
 
                 //Dereference here with index of for loop if a vector/matrix
-                std::string inputExprDeref_re = inputExprs_re[i] + (getInputPort(i)->getDataType().isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::vector<std::string> emptyArr;
+                std::string inputExprDeref_re = inputExprs_re[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
                 std::string operand_b_expr_re = DataType::cConvertType(inputExprDeref_re, getInputPort(0)->getDataType(),
                                                                        intermediateType);
 
-                std::string operand_b_expr_im = inputExprs_im[i];
+                std::string operand_b_expr_im = "";
                 if(getInputPort(i)->getDataType().isComplex()) {
                     //Dereference here with index of for loop if a vector/matrix.  Only do this if the input port is complex.  Otherwise, leave as ""
-                    std::string inputExprDeref_im = inputExprs_im[i] + (getInputPort(i)->getDataType().isScalar() ? "" :
-                            EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                    std::string inputExprDeref_im = inputExprs_im[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
 
                     //Only do the data type conversion if the input expression is not empty (ie. if there is an imagionary component of the input)
                     //Otherwise, leave it as ""
@@ -434,7 +434,7 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
 
             emittedBefore = true;
 
-            return CExpr(outputVar.getCVarName(imag), true);
+            return CExpr(outputVar.getCVarName(imag), outputVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
 
         } else {
             //TODO: Finish
@@ -449,11 +449,11 @@ CExpr Product::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             outputVar = Variable(outputVarName, intermediateType);
         }
 
-        return CExpr(outputVar.getCVarName(imag), true);
+        return CExpr(outputVar.getCVarName(imag), outputVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
 
     }
 
-    return CExpr("", false);
+    return CExpr("", CExpr::ExprType::SCALAR_EXPR);
 }
 
 Product::Product(std::shared_ptr<SubSystem> parent, Product* orig) : PrimitiveNode(parent, orig), inputOp(orig->inputOp), emittedBefore(orig->emittedBefore){

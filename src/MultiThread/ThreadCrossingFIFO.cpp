@@ -389,8 +389,8 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
         expr = getCStateVar(outputPortNum).getCVarName(imag);
     }
 
-    //TODO: change output variable to false?
-    return CExpr(expr, true);
+    //Will output as a variable even though we index into the block.  Will assume the indexing is relatively heap.
+    return CExpr(expr, getCStateVar(outputPortNum).getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
 }
 
 void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
@@ -407,8 +407,8 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
         std::shared_ptr<Node> srcNode = srcPort->getParent();
 
         //Emit the upstream
-        std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
-        std::string inputExprIm;
+        CExpr inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
+        CExpr inputExprIm;
 
         if (inputDataType.isComplex()) {
             inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
@@ -432,14 +432,13 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
             cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
         }
 
+        std::vector<std::string> emptyArr;
         std::string stateInputDeclAssignRe =
                 ((blockSize == 1 && inputDataType.isScalar()) ? "*" : "") + //Need to dereference the state variable if the block size is 1 and the type is a scalar
                 getCStateInputVar(i).getCVarName(false) +
                 ((blockSize > 1) ? "[" + cBlockIndexVarOutputName + "]" : "") + //Index into the block
                 (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
-                " = " + inputExprRe +
-                (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
-                ";";
+                " = " + inputExprRe.getExprIndexed(inputDataType.isScalar() ? emptyArr : forLoopIndexVars, true) + ";"; //Index into the vector/matrix
         cStatementQueue.push_back(stateInputDeclAssignRe);
         if (inputDataType.isComplex()) {
             std::string stateInputDeclAssignIm =
@@ -447,9 +446,7 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
             getCStateInputVar(i).getCVarName(true) +
             ((blockSize > 1) ? "[" + cBlockIndexVarOutputName + "]" : "") + //Index into the block
             (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
-            " = " + inputExprIm +
-            (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
-            ";";
+            " = " + inputExprIm.getExprIndexed(inputDataType.isScalar() ? emptyArr : forLoopIndexVars, true) + ";"; //Index into the vector/matrix
             cStatementQueue.push_back(stateInputDeclAssignIm);
         }
 

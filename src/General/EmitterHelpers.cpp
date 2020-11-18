@@ -131,8 +131,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
+                //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
+                //desired
                 std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true,
-                                                     true);
+                                                     true).getExpr();
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for (unsigned long j = 0; j < numStatements_re; j++) {
@@ -171,8 +173,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
                 if (outputDataType.isComplex()) {
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
+                    //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
+                    //desired
                     std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true,
-                                                         true);
+                                                         true).getExpr();
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for (unsigned long j = 0; j < numStatements_im; j++) {
@@ -434,6 +438,8 @@ void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &c
 
             std::vector<std::string> cStatementsRe;
             //Emit real component (force fanout)
+            //Do not do anything with the returned expression. We will use the fanout variable if it is an expression
+            //or the returned variable if it is a variables, array, or circular buffer for dependant operations
             nodeToEmit->emitC(cStatementsRe, schedType, i, false, true,
                          true); //We actually do not use the returned expression.  Dependent nodes will get this by calling the emit function of this block again.
 
@@ -633,6 +639,212 @@ std::string EmitterHelpers::emitTelemetryHelper(std::string path, std::string fi
     cFile << "    double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
     cFile << "    return a_double;" << std::endl;
     cFile << "}" << std::endl;
+    cFile.close();
+
+    return fileName+".h";
+}
+
+std::string EmitterHelpers::emitPAPIHelper(std::string path, std::string fileNamePrefix){
+    std::string fileName = fileNamePrefix + "_papi_helpers";
+
+    //#### Emit .h file ####
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+    std::ofstream headerFile;
+    headerFile.open(path + "/" + fileName + ".h", std::ofstream::out | std::ofstream::trunc);
+
+    std::string fileNameUpper =  GeneralHelper::toUpper(fileName);
+    headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+    headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+    headerFile << std::endl;
+    headerFile << "//The following are helper functions for utilizing the PAPI libary from the\n"
+                  "//University of Tennessee.  It is availible as a package on many linux platforms and\n"
+                  "//provides relativly generic access to HW counters.  To use this tool in non-superuser\n"
+                  "//mode, the perf paranoia of the kernel needs to be reduced\n"
+                  "\n"
+                  "//The following is based on the high_levelm PAPI_ipc, PAPI_flops examples as well as the \n"
+                  "//implementation of functions in papi_hl.c including _hl_rate_calls, PAPI_start_counters, \n"
+                  "//PAPI_read_counters, PAPI_stop_counters (note that papi_hl.c was removed in 5.7.0 but\n"
+                  "//are preserved in papivi.h)\n"
+                  "\n"
+                  "//The objective of these functions is to collect the number of cycles, the number of instructions\n"
+                  "//retired, the number of floating point operations retired, and the number of floating point \n"
+                  "//instructions retired for a given code segment\n"
+                  "\n"
+                  "//Use papi_avail to determine what counters are valid for the particular CPU\n"
+                  "\n"
+                  "//NOTE: This was origionally devloped agains PAPI 5.6.0.  The high level API was later changed\n"
+                  "//and these helpers needed to be modified.  The modification was mostly based on examples of the\n"
+                  "//low level API in papi.h " << std::endl;
+    headerFile << "#include \"papi.h\"\n"
+                  "\n"
+                  "    #define VITIS_NUM_PAPI_EVENTS 5\n"
+                  "    extern int VITIS_PAPI_EVENTS[VITIS_NUM_PAPI_EVENTS];\n"
+                  "\n"
+                  "    typedef struct{\n"
+                  "        long long clock_cycles;\n"
+                  "        long long instructions_retired;\n"
+                  "        long long floating_point_operations_retired;\n"
+                  "        long long vector_instructions_retired;\n"
+                  "        long long l1_data_cache_accesses;\n"
+                  "    } performance_counter_data_t;\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Reset the performance_counter_data_t structure to 0\n"
+                  "     */\n"
+                  "    void resetPerformanceCounterData(performance_counter_data_t *data);\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Sets up PAPI to be used\n"
+                  "     */\n"
+                  "    void setupPapi();\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Sets up PAPI to be used in a given thread\n"
+                  "     * @returns an integer handle to the created eventset\n"
+                  "     */\n"
+                  "    int setupPapiThread();\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Sets up and starts PAPI counters\n"
+                  "     * @param eventSet the integer handle to the previously created eventset\n"
+                  "     */\n"
+                  "    void startPapiCounters(int eventSet);\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Reset the PAPI counters\n"
+                  "     * @param eventSet the integer handle to the previously created eventset\n"
+                  "     */\n"
+                  "    void resetPapiCounters(int eventSet);\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Reads the performance counters, then reset them\n"
+                  "     * @param eventSet the integer handle to the previously created eventset\n"
+                  "     */\n"
+                  "    void readResetPapiCounters(performance_counter_data_t *data, int eventSet);\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Reads the performance counters, do not reset them\n"
+                  "     * @param eventSet the integer handle to the previously created eventset\n"
+                  "     */\n"
+                  "    void readPapiCounters(performance_counter_data_t *data, int eventSet);\n"
+                  "\n"
+                  "    /**\n"
+                  "     * @brief Stop the PAPI counters\n"
+                  "     * @param eventSet the integer handle to the previously created eventset\n"
+                  "     */\n"
+                  "    void stopPapiCounters(int eventSet);" << std::endl;
+    headerFile << "#endif" << std::endl;
+    headerFile.close();
+
+    //#### Emit .c file ####
+    std::cout << "Emitting C File: " << path << "/" << fileName << ".c" << std::endl;
+    std::ofstream cFile;
+    cFile.open(path + "/" + fileName + ".c", std::ofstream::out | std::ofstream::trunc);
+    cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
+    cFile << "#include <stdio.h>\n"
+             "#include <stdlib.h>\n"
+             "\n"
+             "int VITIS_PAPI_EVENTS[VITIS_NUM_PAPI_EVENTS] = {PAPI_TOT_CYC, PAPI_TOT_INS, PAPI_FP_OPS, PAPI_VEC_INS, PAPI_L1_DCA};\n"
+             "\n"
+             "void resetPerformanceCounterData(performance_counter_data_t *data){\n"
+             "    data->clock_cycles = 0;\n"
+             "    data->instructions_retired = 0;\n"
+             "    data->vector_instructions_retired = 0;\n"
+             "    data->floating_point_operations_retired = 0;\n"
+             "    data->l1_data_cache_accesses = 0;\n"
+             "}\n"
+             "\n"
+             "void setupPapi(){\n"
+             "    printf(\"Setting Up PAPI\\n\");\n"
+             "\n"
+             "    //Initialize the library\n"
+             "    int status = PAPI_library_init(PAPI_VER_CURRENT);\n"
+             "    if(status != PAPI_VER_CURRENT) {\n"
+             "        printf(\"Error Initizliaing PAPI Library, possibly due to version mismatch: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    printf(\"Setup Up PAPI\\n\");\n"
+             "}\n"
+             "\n"
+             "int setupPapiThread(){\n"
+             "    //Create the PAPI EventSet\n"
+             "    int eventSet = PAPI_NULL;\n"
+             "    int status = PAPI_create_eventset(&eventSet);\n"
+             "    if(status != PAPI_OK) {\n"
+             "        printf(\"Error creating PAPI EventSet: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    status = PAPI_add_events(eventSet, VITIS_PAPI_EVENTS, VITIS_NUM_PAPI_EVENTS);\n"
+             "    if(status != PAPI_OK) {\n"
+             "        printf(\"Error adding PAPI Events: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    return eventSet;\n"
+             "}\n"
+             "\n"
+             "void startPapiCounters(int eventSet){\n"
+             "    int status = PAPI_start(eventSet);\n"
+             "    if(status != PAPI_OK){\n"
+             "        printf(\"Error Starting PAPI Counters: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "}\n"
+             "\n"
+             "void resetPapiCounters(int eventSet){\n"
+             "    int status = PAPI_reset(eventSet);\n"
+             "        if(status != PAPI_OK){\n"
+             "        printf(\"Error Resetting PAPI Counters: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "}\n"
+             "\n"
+             "void readResetPapiCounters(performance_counter_data_t *data, int eventSet){\n"
+             "    long long values[VITIS_NUM_PAPI_EVENTS];\n"
+             "    int status = PAPI_read(eventSet, values);\n"
+             "        if(status != PAPI_OK){\n"
+             "        printf(\"Error Reading PAPI Counters: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    status = PAPI_reset(eventSet);\n"
+             "    if(status != PAPI_OK){\n"
+             "        printf(\"Error Resetting PAPI Counters: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    data->clock_cycles = values[0];\n"
+             "    data->instructions_retired = values[1];\n"
+             "    data->floating_point_operations_retired = values[2];\n"
+             "    data->vector_instructions_retired = values[3];\n"
+             "    data->l1_data_cache_accesses = values[4];\n"
+             "}\n"
+             "\n"
+             "void readPapiCounters(performance_counter_data_t *data, int eventSet){\n"
+             "    long long values[VITIS_NUM_PAPI_EVENTS];\n"
+             "    int status = PAPI_read(eventSet, values);\n"
+             "        if(status != PAPI_OK){\n"
+             "        printf(\"Error Reading PAPI Counters: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "\n"
+             "    data->clock_cycles = values[0];\n"
+             "    data->instructions_retired = values[1];\n"
+             "    data->floating_point_operations_retired = values[2];\n"
+             "    data->vector_instructions_retired = values[3];\n"
+             "    data->l1_data_cache_accesses = values[4];\n"
+             "}\n"
+             "\n"
+             "void stopPapiCounters(int eventSet){\n"
+             "    long long values[VITIS_NUM_PAPI_EVENTS];\n"
+             "    int status = PAPI_stop(eventSet, values);\n"
+             "    if(status != PAPI_OK){\n"
+             "        printf(\"Error Stopping PAPI Counters: %d\\n\", status);\n"
+             "        exit(1);\n"
+             "    }\n"
+             "}" << std::endl;
     cFile.close();
 
     return fileName+".h";

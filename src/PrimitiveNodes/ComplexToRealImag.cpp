@@ -94,23 +94,24 @@ CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, Sc
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-    std::string emitStr;
+    CExpr emitExpr;
 
     bool real = outputPortNum == 0;
 
     if(real) {
         //Output Port 0 Is Real
-        emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false);
+        emitExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false);
 
     }else{ //if(outputPortNum == 1){ --Already validated the number of output ports is 2
         //Output Port 1 Is Imag
-        emitStr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true);
+        emitExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true);
     }
 
     //Already validated datatypes have the same dimensions
     DataType dataType = getOutputPort(0)->getDataType();
 
     if(!dataType.isScalar()){
+        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
         //Need to create a temporary and copy values into it in a for loop
 
         //Declare tmp array and write to file
@@ -129,19 +130,22 @@ CExpr ComplexToRealImag::emitCExpr(std::vector<std::string> &cStatementQueue, Sc
         cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
         //Assign to tmp in loop
-        std::string assignExpr = vecOutVar.getCVarName(false) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + emitStr + EmitterHelpers::generateIndexOperation(forLoopIndexVars);
+        std::string assignExpr = vecOutVar.getCVarName(false) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + emitExpr.getExprIndexed(forLoopIndexVars, true);
         cStatementQueue.push_back(assignExpr + ";");
 
         //Close for loop
         cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
-        return CExpr(vecOutVar.getCVarName(false), true);
+        return CExpr(vecOutVar.getCVarName(false), CExpr::ExprType::ARRAY);
     }else{
-        //Just return the scalar expression
-        return CExpr(emitStr, false);
+        //Create a temporary variable to avoid issue if this node is directly attached to state
+        //at the input.  The state update is placed after this node but the variable from the delay is simply
+        //passed through.  This could cause the state to be update before the result is used.
+        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+        //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+
+        return CExpr(emitExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
     }
-
-
 }
 
 ComplexToRealImag::ComplexToRealImag(std::shared_ptr<SubSystem> parent, ComplexToRealImag* orig) : PrimitiveNode(

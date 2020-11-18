@@ -115,6 +115,10 @@ public:
 
     bool hasInternalFanout(int inputPort, bool imag) override;
 
+    void propagateProperties() override;
+
+    std::vector<NumericValue> getExportableInitConds() override;
+
 };
 
 /*! @} */

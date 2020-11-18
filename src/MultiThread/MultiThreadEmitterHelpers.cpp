@@ -391,24 +391,8 @@ std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, st
 int MultiThreadEmitterHelpers::getCore(int parititon, const std::vector<int> &partitionMap, bool print){
     int core = 0;
     if(partitionMap.empty()) {
-        //Default case.  Assign I/O thread to CPU0 and each thread on the
-        if (parititon == IO_PARTITION_NUM) {
-            core = 0;
-            if(print) {
-                std::cout << "Setting I/O thread to run on CPU" << core << std::endl;
-            }
-        } else {
-            if (core < 0) {
-                throw std::runtime_error(ErrorHelpers::genErrorStr(
-                        "Partition Requested Core " + GeneralHelper::to_string(core) + " which is not valid"));
-//                    std::cerr << "Warning! Partition Requested Core " << core << " which is not valid.  Replacing with CPU0" << std::endl;
-//                    core = 0;
-            }
-
-            if(print) {
-                std::cout << "Setting Partition " << parititon << " thread to run on CPU" << core << std::endl;
-            }
-        }
+        //In this case, no thread pinning occurs
+        return -1;
     }else{
         //Use the partition map
         if (parititon == IO_PARTITION_NUM) {
@@ -436,7 +420,8 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
                                                                  std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
-                                                                 std::string ioBenchmarkSuffix, std::vector<int> partitionMap){
+                                                                 std::string ioBenchmarkSuffix, std::vector<int> partitionMap,
+                                                                 std::string papiHelperHeader){
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -480,6 +465,9 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile << "#include \"" << fileName << ".h" << "\"" << std::endl;
     cFile << "#include \"" << VITIS_PLATFORM_PARAMS_NAME << ".h\"" << std::endl;
     cFile << "#include \"" << VITIS_NUMA_ALLOC_HELPERS << ".h\"" << std::endl;
+    if(!papiHelperHeader.empty()){
+        cFile << "#include \"" << papiHelperHeader << "\"" << std::endl;
+    }
     //Include other thread headers
     for(auto it = partitions.begin(); it!=partitions.end(); it++){
         if(*it != IO_PARTITION_NUM){
@@ -512,7 +500,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         std::vector<std::string> statements;
         for(int i = 0; i<fifos.size(); i++){
 
-            fifos[i]->createSharedVariables(statements, core);
+            fifos[i]->createSharedVariables(statements, core); //Note, if the CPU is -1, which occurs if no CPU map is provided (no thresd pinning is performed), the array is allocated on the CPU running the setup code
             fifos[i]->initializeSharedVariables(statements);
         }
 
@@ -552,13 +540,18 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         }
     }
 
+    //Initialize PAPI before starting threads
+    if(!papiHelperHeader.empty()){
+        cFile << std::endl << "//Setup PAPI" << std::endl;
+        cFile << "setupPapi();" << std::endl;
+    }
+
     //Create Thread Parameters
     cFile << std::endl;
     cFile << "//Create Thread Parameters" << std::endl;
     cFile << "int status;" << std::endl;
     for(auto it = partitions.begin(); it != partitions.end(); it++){
         std::string partitionSuffix = (*it < 0 ? "N" + GeneralHelper::to_string(-*it) : GeneralHelper::to_string(*it));
-        cFile << "cpu_set_t cpuset_" << partitionSuffix << ";" << std::endl;
         cFile << "pthread_t thread_" << partitionSuffix << ";" << std::endl;
         cFile << "pthread_attr_t attr_" << partitionSuffix << ";" << std::endl;
         //cFile << "void *res_" << *it << ";" << std::endl;
@@ -570,17 +563,23 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         cFile << "exit(1);" << std::endl;
         cFile << "}" << std::endl;
         cFile << std::endl;
-        cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
+        //Only set the thread affinity if a partition map was provided.  If none was provided, core will be -1
         int core = MultiThreadEmitterHelpers::getCore(*it, partitionMap, true);
-        cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
-        cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_" << partitionSuffix
-              << ");//Set thread CPU affinity" << std::endl;
-        cFile << "if(status != 0)" << std::endl;
-        cFile << "{" << std::endl;
-        cFile << "printf(\"Could not set thread core affinity ... exiting\");" << std::endl;
-        cFile << "exit(1);" << std::endl;
-        cFile << "}" << std::endl;
-        cFile << std::endl;
+        if(core >= 0) {
+            cFile << "//Set partition " << partitionSuffix << " to run on CPU " << core << std::endl;
+            cFile << "cpu_set_t cpuset_" << partitionSuffix << ";" << std::endl;
+            cFile << "CPU_ZERO(&cpuset_" << partitionSuffix << "); //Clear cpuset" << std::endl;
+            cFile << "CPU_SET(" << core << ", &cpuset_" << partitionSuffix << "); //Add CPU to cpuset" << std::endl;
+            cFile << "status = pthread_attr_setaffinity_np(&attr_" << partitionSuffix << ", sizeof(cpu_set_t), &cpuset_"
+                  << partitionSuffix
+                  << ");//Set thread CPU affinity" << std::endl;
+            cFile << "if(status != 0)" << std::endl;
+            cFile << "{" << std::endl;
+            cFile << "printf(\"Could not set thread core affinity ... exiting\");" << std::endl;
+            cFile << "exit(1);" << std::endl;
+            cFile << "}" << std::endl;
+            cFile << std::endl;
+        }
     }
 
     //Start all threads except the I/O thread
@@ -717,7 +716,12 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix, std::string designName, std::set<int> partitions, std::string ioBenchmarkSuffix, bool includeLrt, std::vector<std::string> additionalSystemSrc){
+void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
+                                                          std::string designName, std::set<int> partitions,
+                                                          std::string ioBenchmarkSuffix, bool includeLrt,
+                                                          std::vector<std::string> additionalSystemSrc,
+                                                          bool includePAPI,
+                                                          bool enableBenchmarkSetAffinity) {
     //#### Emit Makefiles ####
 
     std::string systemSrcs = "";
@@ -759,26 +763,40 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
                                     "KERNEL_NO_OPT_CFLAGS = -O0 -c -g -std=gnu11 -march=native -masm=att\n"
                                     "INC=-I $(COMMON_DIR) -I $(SRC_DIR)\n"
                                     "LIB_DIRS=-L $(COMMON_DIR)\n";
+                 makefileContent += "LIB=-pthread\n";
                                     if(includeLrt){
-                     makefileContent += "LIB=-pthread -lrt -lProfilerCommon -latomic\n";
-                                    }else {
-                     makefileContent += "LIB=-pthread -lProfilerCommon -latomic\n";
+                                        makefileContent += "LIB+= -lrt\n";
                                     }
-                 makefileContent += "\n"
+                 makefileContent += "LIB+= -lProfilerCommon\n";
+                 makefileContent += "#Using the technique in pcm makefile to detect MacOS\n"
+                                    "UNAME:=$(shell uname)\n"
+                                    "ifneq ($(UNAME), Darwin)\n"
+                                    "LIB+= -latomic\n"
+                                    "endif\n";
+                                    if(includePAPI){
+                                        makefileContent += "LIB+= -lpapi\n";
+                                    }
+                                    makefileContent += "\n"
                                     "DEFINES=\n"
                                     "\n"
                                     "DEPENDS=\n"
                                     "DEPENDS_LIB=$(COMMON_DIR)/libProfilerCommon.a\n"
-                                    "\n"
-                                    "ifeq ($(USE_PCM), 1)\n"
+                                    "\n";
+                 if(!enableBenchmarkSetAffinity){
+                     //This controls if the benchmark code which is used as support for the radio,
+                     //sets its initial thread affinity to CPU0, this is inherited by child threads
+                     // unless overwritten which is an issue if the partition threads are not set
+                     //to particular partitions (partitionMap is empty).  Including this will allow
+                     //threads to run on any available core
+                     makefileContent += "DEFINES+= -DBENCH_NSET_AFFINITY=1 -DUSE_SCHED_FIFO=0\n\n";
+                 }
+                 makefileContent += "ifeq ($(USE_PCM), 1)\n"
                                     "DEFINES+= -DUSE_PCM=1\n"
                                     "DEPENDS+= $(DEPENDS_DIR)/pcm/Makefile\n"
                                     "DEPENDS_LIB+= $(DEPENDS_DIR)/pcm/libPCM.a\n"
                                     "INC+= -I $(DEPENDS_DIR)/pcm\n"
                                     "LIB_DIRS+= -L $(DEPENDS_DIR)/pcm\n"
                                     "#Need an additional include directory if on MacOS.\n"
-                                    "#Using the technique in pcm makefile to detect MacOS\n"
-                                    "UNAME:=$(shell uname)\n"
                                     "ifeq ($(UNAME), Darwin)\n"
                                     "INC+= -I $(DEPENDS_DIR)/pcm/MacMSRDriver\n"
                                     "LIB+= -lPCM -lPcmMsr\n"
@@ -862,7 +880,16 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
     makefile.close();
 }
 
-void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem, std::string telemDumpFilePrefix, bool telemAvg){
+void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
+                                                     std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                     std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                     std::string path, std::string fileNamePrefix,
+                                                     std::string designName, SchedParams::SchedType schedType,
+                                                     std::shared_ptr<MasterOutput> outputMaster,
+                                                     unsigned long blockSize, std::string fifoHeaderFile,
+                                                     bool threadDebugPrint, bool printTelem,
+                                                     std::string telemDumpFilePrefix, bool telemAvg,
+                                                     std::string papiHelperHeader){
     bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
 
     std::string blockIndVar = "";
@@ -1021,12 +1048,19 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
         cFile << "#endif" << std::endl;
     }
+
     if(threadDebugPrint || collectTelem) {
         includesCFile.insert("#include <stdio.h>");
     }
+
     includesCFile.insert("#include \"" + fileName + ".h\"");
+
     if(collectTelem){
         includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h" + "\"");
+    }
+
+    if(!papiHelperHeader.empty() && collectTelem){
+        includesCFile.insert("#include \"" + papiHelperHeader + "\"");
     }
 
     //Include any external include statements required by nodes in the design
@@ -1213,10 +1247,24 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "FILE* telemDumpFile = fopen(\"" << telemDumpFilePrefix << partitionNum << ".csv\", \"w\");" << std::endl;
 
             //Write Header Row
-            cFile << "fprintf(telemDumpFile, \"TimeStamp_s,TimeStamp_ns,Rate_msps,WaitingForInputFIFOs_s,ReadingInputFIFOs_s,WaitingForComputeToFinish_s,WaitingForOutputFIFOs_s,WritingOutputFIFOs_s,Telemetry_Misc_s,TotalTime_s\\n\");" << std::endl;
+            cFile << "fprintf(telemDumpFile, \"TimeStamp_s,TimeStamp_ns,Rate_msps,WaitingForInputFIFOs_s,ReadingInputFIFOs_s,WaitingForComputeToFinish_s,WaitingForOutputFIFOs_s,WritingOutputFIFOs_s,Telemetry_Misc_s,TotalTime_s";
+            if(!papiHelperHeader.empty()){
+                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
+            }
+            cFile << "\\n\");" << std::endl;
         }
         cFile << std::endl;
 
+        if(!papiHelperHeader.empty()){
+            cFile << "//Setup PAPI Event Set" << std::endl;
+            cFile << "int papiEventSet = setupPapiThread();\n"
+                     "startPapiCounters(papiEventSet);\n"
+                     "long long clock_cycles = 0;\n"
+                     "long long instructions_retired = 0;\n"
+                     "long long vector_instructions_retired = 0;\n"
+                     "long long floating_point_operations_retired = 0;\n"
+                     "long long l1_data_cache_accesses = 0;" << std::endl;
+        }
         cFile << "//Start timer" << std::endl;
         cFile << "uint64_t rxSamples = 0;" << std::endl;
         cFile << "timespec_t startTime;" << std::endl;
@@ -1280,26 +1328,48 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
             cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
             cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
+            if(!papiHelperHeader.empty()){
+                cFile << "\"\\t\\t[" << partitionNum << "] Cycles:                       %10lld\\n\"" << std::endl;
+                cFile << "\"\\t\\t[" << partitionNum << "] Instructions:                 %10lld (%4.3f)\\n\"" << std::endl;
+                cFile << "\"\\t\\t[" << partitionNum << "] Vector Instructions:          %10lld (%4.3f)\\n\"" << std::endl;
+                cFile << "\"\\t\\t[" << partitionNum << "] Floating Point Operations:    %10lld (%4.3f)\\n\"" << std::endl;
+                cFile << "\"\\t\\t[" << partitionNum << "] L1 Data Cache Accesses:       %10lld (%4.3f)\\n\"" << std::endl;
+            }
             cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
             cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
             cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", "
                   << std::endl;
-            cFile << "rateMSps, ";
-            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/durationSinceStart*100, ";
-            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/durationSinceStart*100, ";
-            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/durationSinceStart*100, ";
-            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/durationSinceStart*100, ";
-            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/durationSinceStart*100, ";
+            cFile << "rateMSps, " << std::endl;
+            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/durationSinceStart*100, " << std::endl;
+            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/durationSinceStart*100, " << std::endl;
+            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/durationSinceStart*100, " << std::endl;
+            if(!papiHelperHeader.empty()){
+                cFile << "clock_cycles," << std::endl;
+                cFile << "instructions_retired,                ((double) instructions_retired)/clock_cycles," << std::endl;
+                cFile << "vector_instructions_retired,         ((double) vector_instructions_retired)/clock_cycles," << std::endl;
+                cFile << "floating_point_operations_retired,   ((double) floating_point_operations_retired)/clock_cycles," << std::endl;
+                cFile << "l1_data_cache_accesses,              ((double) l1_data_cache_accesses)/clock_cycles," << std::endl;
+            }
+            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/durationSinceStart*100, " << std::endl;
+            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/durationSinceStart*100, " << std::endl;
             cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
         }
         if (!telemDumpFilePrefix.empty()) {
             //Write the telemetry to the file
             //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
             //The partition number is included in the filename and is not written to the file
-            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e\\n\", "
+            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e";
+            if(!papiHelperHeader.empty()) {
+                cFile << ",%lld,%lld,%lld,%lld,%lld";
+            }
+            cFile << "\\n\", "
                      "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
                      "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
-                     "durationTelemMisc, durationSinceStart);" << std::endl;
+                     "durationTelemMisc, durationSinceStart";
+            if(!papiHelperHeader.empty()) {
+                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
+            }
+            cFile << ");" << std::endl;
 
             //flush the file
             cFile << "fflush(telemDumpFile);" << std::endl;
@@ -1316,6 +1386,13 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
             cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
             cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+            if(!papiHelperHeader.empty()) {
+                cFile << "clock_cycles = 0;" << std::endl;
+                cFile << "instructions_retired = 0;" << std::endl;
+                cFile << "vector_instructions_retired = 0;" << std::endl;
+                cFile << "floating_point_operations_retired = 0;" << std::endl;
+                cFile << "l1_data_cache_accesses = 0;" << std::endl;
+            }
         }
 
         cFile << "}" << std::endl;
@@ -1391,6 +1468,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     if(collectTelem) {
         cFile << "timespec_t waitingForComputeToFinishStart;" << std::endl;
+        if(!papiHelperHeader.empty()) {
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of PAPI reset" << std::endl;
+            cFile << "resetPapiCounters(papiEventSet); //Including timer read in the performance counter segment since clock_gettime should require very few cycles but PAPI requires more.  " << std::endl;
+        }
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStart);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -1405,9 +1486,21 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStop);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        if(!papiHelperHeader.empty()) {
+            cFile << "performance_counter_data_t counterData;" << std::endl;
+            cFile << "readPapiCounters(&counterData, papiEventSet);" << std::endl;
+            cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
+        }
         cFile << "double durationWaitingForComputeToFinish = difftimespec(&waitingForComputeToFinishStop, &waitingForComputeToFinishStart);" << std::endl;
         cFile << "timeWaitingForComputeToFinish += durationWaitingForComputeToFinish;" << std::endl;
         cFile << "timeTotal += durationWaitingForComputeToFinish;" << std::endl;
+        if(!papiHelperHeader.empty()) {
+            cFile << "clock_cycles += counterData.clock_cycles;\n"
+                     "instructions_retired += counterData.instructions_retired;\n"
+                     "vector_instructions_retired += counterData.vector_instructions_retired;\n"
+                     "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
+                     "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
+        }
     }
 
     //Check output FIFOs (will spin until ready)
@@ -1482,12 +1575,23 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
         cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
         cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+        if(!papiHelperHeader.empty()) {
+            cFile << "clock_cycles = 0;\n"
+                     "instructions_retired = 0;\n"
+                     "vector_instructions_retired = 0;\n"
+                     "l1_data_cache_accesses = 0;\n"
+                     "floating_point_operations_retired = 0;" << std::endl;
+        }
         cFile << "collectTelem = true;" << std::endl;
         cFile << "}" << std::endl;
     }
 
     //Close loop
     cFile << "}" << std::endl;
+
+    if(!papiHelperHeader.empty()) {
+        cFile << "stopPapiCounters(papiEventSet);" << std::endl;
+    }
 
     if(!telemDumpFilePrefix.empty()){
         cFile << "fclose(telemDumpFile);" << std::endl;

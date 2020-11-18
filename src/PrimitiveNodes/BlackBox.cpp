@@ -296,8 +296,8 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         //Checked for in Validation
 
         //Get the expressions for each input
-        std::vector<std::string> inputExprsRe;
-        std::vector<std::string> inputExprsIm;
+        std::vector<CExpr> inputExprsRe;
+        std::vector<CExpr> inputExprsIm;
 
         unsigned long numInputPorts = inputPorts.size();
         for (unsigned long i = 0; i < numInputPorts; i++) {
@@ -310,7 +310,7 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
             if(getInputPort(i)->getDataType().isComplex()){
                 inputExprsIm.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true));
             }else{
-                inputExprsIm.push_back("");
+                inputExprsIm.push_back(CExpr("", inputExprsRe[inputExprsRe.size()-1].getExprType()));
             }
         }
 
@@ -319,10 +319,10 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         for(unsigned long i = 0; i<numInputPorts; i++){
             DataType inputDataType = getInputPort(i)->getDataType();
             if(inputMethods[i] == InputMethod::EXT){
-                cStatementQueue.push_back((inputDataType.isComplex() ? inputAccess[i]+reSuffix : inputAccess[i]) + " = " + inputExprsRe[i] + ";");
+                cStatementQueue.push_back((inputDataType.isComplex() ? inputAccess[i]+reSuffix : inputAccess[i]) + " = " + inputExprsRe[i].getExpr() + ";");
 
                 if (getInputPort(i)->getDataType().isComplex()) {
-                    cStatementQueue.push_back(inputAccess[i]+imSuffix + " = " + inputExprsIm[i] + ";");
+                    cStatementQueue.push_back(inputAccess[i]+imSuffix + " = " + inputExprsIm[i].getExpr() + ";");
                 }
             }
         }
@@ -344,10 +344,10 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                     firstArg = false;
                 }
 
-                callExpr += inputExprsRe[i];
+                callExpr += inputExprsRe[i].getExpr();
 
                 if (getInputPort(i)->getDataType().isComplex()) {
-                    callExpr += ", " + inputExprsIm[i];
+                    callExpr += ", " + inputExprsIm[i].getExpr();
                 }
             }
         }
@@ -363,16 +363,25 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
 
     DataType outputType = getOutputPort(outputPortNum)->getDataType();
 
+    //TODO: Assuming passthrough of input variable directly to output (in terms of pointer or reference not by value)
+    //      is not possible given that call is made in standard C and not C++ which allows pass by reference.
+    //      As such, will assume any passed through value is effectively copied.  This may not be true when vector support
+    //      is implemented as pointers will be passed.  This could introduce problems if the BlackBox is attached directly
+    //      to state at its input.  The state could be updated before the result of this block is used.
+    //      When StateUpdate insertion logic improved to track passthroughs, this becomes less of a problem and BlackBoxes
+    //      will need to be assumed to cary passthrough values.
+
+    //TODO: Update cExprType if vector support implemented
     if(returnMethod == BlackBox::ReturnMethod::SCALAR){
-        return CExpr(rtnVarName, true);
+        return CExpr(rtnVarName, CExpr::ExprType::SCALAR_VAR);
     }else if(returnMethod == BlackBox::ReturnMethod::SCALAR_POINTER){
-        return CExpr("*"+rtnVarName, true);
+        return CExpr("*"+rtnVarName, CExpr::ExprType::SCALAR_VAR);
     }else if(returnMethod == BlackBox::ReturnMethod::OBJECT){
-        return CExpr(rtnVarName + "." + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), true);
+        return CExpr(rtnVarName + "." + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), CExpr::ExprType::SCALAR_VAR);
     }else if(returnMethod == BlackBox::ReturnMethod::OBJECT_POINTER){
-        return CExpr(rtnVarName + "->" + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), true);
+        return CExpr(rtnVarName + "->" + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), CExpr::ExprType::SCALAR_VAR);
     }else if(returnMethod == BlackBox::ReturnMethod::EXT){
-        return CExpr(imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum]), true);
+        return CExpr(imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum]), CExpr::ExprType::SCALAR_VAR);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Error During BlackBox Emit - Unexpected Return Type", getSharedPointer()));
     }

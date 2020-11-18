@@ -133,6 +133,13 @@ namespace EmitterHelpers {
      */
     std::string emitTelemetryHelper(std::string path, std::string fileNamePrefix);
 
+    /**
+     * @brief Emits helper files for using the PAPI library for reading performance counters
+     * @param path
+     * @param filenamePrefix
+     * @returns the filename of the header file
+     */
+    std::string emitPAPIHelper(std::string path, std::string fileNamePrefix);
 
     /**
      * @brief Transfers arcs from one node to another.
@@ -257,6 +264,25 @@ namespace EmitterHelpers {
 
         for(T i : index){
             str += "[" + GeneralHelper::to_string(i) + "]";
+        }
+
+        return str;
+    }
+
+    /**
+     * @brief Generates a C/C++ style array indexing operation without the final dereferencing
+     * @param index
+     * @return a string with the index variables sandwidtched between square brackets except for the last one where the "+" operator is used
+     */
+    template<typename T>
+    std::string generateIndexOperationWODereference(const std::vector<T>& index){
+        std::string str = "";
+
+        for(int i = 0; i<(((int) index.size())-1); i++){
+            str += "[" + GeneralHelper::to_string(index[i]) + "]";
+        }
+        if(!index.empty()){
+            str += "+" + GeneralHelper::to_string(index[index.size()-1]);
         }
 
         return str;

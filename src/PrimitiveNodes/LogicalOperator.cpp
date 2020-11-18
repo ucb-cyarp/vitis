@@ -189,7 +189,7 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     }
 
     //Get the expressions for each input
-    std::vector<std::string> inputExprs;
+    std::vector<CExpr> inputExprs;
 
     unsigned long numInputPorts = inputPorts.size();
     for(unsigned long i = 0; i<numInputPorts; i++){
@@ -203,7 +203,7 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     std::string expr = "";
     if(logicalOp == LogicalOp::NOT){
         //This is a special case for a single operand
-        expr = logicalOpToCString(LogicalOp::NOT) + "(" + inputExprs[0] + ")";
+        expr = logicalOpToCString(LogicalOp::NOT) + "(" + inputExprs[0].getExpr() + ")";
     }else{
         //For multiple operands
         std::string operandStr = logicalOpToCString(logicalOp);
@@ -211,9 +211,9 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         //For XOR and NXOR, explicitly convert operands to bool
         //Emit the 1st operand
         if(logicalOp == LogicalOp::XOR || logicalOp == LogicalOp::NXOR) {
-            expr = "((bool)("+inputExprs[0]+"))";
+            expr = "((bool)("+inputExprs[0].getExpr()+"))";
         }else{
-            expr = "("+inputExprs[0]+")";
+            expr = "("+inputExprs[0].getExpr()+")";
         }
 
         //Emit the subsequent operands and operators
@@ -222,9 +222,9 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
             //For XOR and NXOR, explicitly convert operands to bool
             if(logicalOp == LogicalOp::XOR || logicalOp == LogicalOp::NXOR) {
-                expr += "((bool)("+inputExprs[i]+"))";
+                expr += "((bool)("+inputExprs[i].getExpr()+"))";
             }else{
-                expr += "("+inputExprs[i]+")";
+                expr += "("+inputExprs[i].getExpr()+")";
             }
         }
 
@@ -234,7 +234,7 @@ CExpr LogicalOperator::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         }
     }
 
-    return CExpr(expr, false);
+    return CExpr(expr, CExpr::ExprType::SCALAR_EXPR);
 }
 
 LogicalOperator::LogicalOperator(std::shared_ptr<SubSystem> parent, LogicalOperator* orig) : PrimitiveNode(parent, orig), logicalOp(orig->logicalOp){

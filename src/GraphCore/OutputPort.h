@@ -7,6 +7,7 @@
 
 #include "Port.h"
 #include "Variable.h"
+#include "CExpr.h"
 
 /**
 * \addtogroup GraphCore Graph Core
@@ -22,8 +23,8 @@ class OutputPort : public Port{
 protected:
     bool cEmittedRe; ///<Denotes if C code for the real component has already been emitted (used when fanout exists)
     bool cEmittedIm; ///<Denotes if C code for the real component has already been emitted (used when fanout exists)
-    std::string cEmitReStr; ///<Contains the variable name used for the output variable's real component (used when fanout exists)
-    std::string cEmitImStr; ///<Contains the variable name used for the output variable's imaginary component (used when fanout exists)
+    CExpr cEmitReStr; ///<Contains the variable name used for the output variable's real component (used when fanout exists)
+    CExpr cEmitImStr; ///<Contains the variable name used for the output variable's imaginary component (used when fanout exists)
 
 public:
     /**
@@ -105,10 +106,10 @@ public:
     void setCEmittedRe(bool cEmittedRe);
     bool isCEmittedIm() const;
     void setCEmittedIm(bool cEmittedIm);
-    std::string getCEmitReStr() const;
-    void setCEmitReStr(const std::string &cEmitReStr);
-    std::string getCEmitImStr() const;
-    void setCEmitImStr(const std::string &cEmitImStr);
+    CExpr getCEmitReStr() const;
+    void setCEmitReStr(const CExpr &cEmitReStr);
+    CExpr getCEmitImStr() const;
+    void setCEmitImStr(const CExpr &cEmitImStr);
 
 };
 

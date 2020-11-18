@@ -168,8 +168,8 @@ RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     }
 
     //Return the state var name as the expression
-    //Return the simple name (no index needed as it is not an array
-    return CExpr(stateVar.getCVarName(imag), true); //This is a variable name therefore inform the cEmit function
+    //Return the simple name (no index needed as it is not an array)
+    return CExpr(stateVar.getCVarName(imag), stateVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
 }
 
 std::vector<Variable> RepeatOutput::getCStateVars() {
@@ -195,8 +195,8 @@ void RepeatOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, S
     std::shared_ptr<Node> srcNode = srcPort->getParent();
 
     //Emit the upstream
-    std::string inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
-    std::string inputExprIm;
+    CExpr inputExprRe = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, false);
+    CExpr inputExprIm;
 
     if(inputDataType.isComplex()){
         inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
@@ -205,10 +205,18 @@ void RepeatOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue, S
     //TODO: Implement Vector Support
 
     //The state variable is not an array
-    cStatementQueue.push_back(stateVar.getCVarName(false) + " = " + inputExprRe + ";");
+    //TODO: Modify when vector support added
+    if(inputExprRe.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/matrices are not currently supported in RepeatOutput", getSharedPointer()));
+    }
+    cStatementQueue.push_back(stateVar.getCVarName(false) + " = " + inputExprRe.getExpr() + ";");
 
     if(stateVar.getDataType().isComplex()){
-        cStatementQueue.push_back(stateVar.getCVarName(true) + " = " + inputExprIm + ";");
+        //TODO: Modify when vector support added
+        if(inputExprRe.isArrayOrBuffer()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/matrices are not currently supported in RepeatOutput", getSharedPointer()));
+        }
+        cStatementQueue.push_back(stateVar.getCVarName(true) + " = " + inputExprIm.getExpr() + ";");
     }
 }
 

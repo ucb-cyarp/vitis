@@ -566,9 +566,12 @@ void EnabledSubSystem::emitCContextOpenFirst(std::vector<std::string> &cStatemen
 
     //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
     std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
-    std::string enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+    CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
+    if(enableDriverExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Line to Enable Subsystem is Expected to be Driven by a Scalar Expression or Variable", getSharedPointer()));
+    }
 
-    std::string cExpr = "if(" + enableDriverExpr + "){";
+    std::string cExpr = "if(" + enableDriverExpr.getExpr() + "){";
 
     cStatementQueue.push_back(cExpr);
 }

@@ -658,7 +658,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
 
         cFile << "//-- Compute Real Component --" << std::endl;
         std::vector<std::string> cStatements_re;
-        std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false);
+        CExpr expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false);
         //emit the expressions
         unsigned long numStatements_re = cStatements_re.size();
         for(unsigned long j = 0; j<numStatements_re; j++){
@@ -667,13 +667,17 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
 
         //emit the assignment
         Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+        //TODO: Emit Vector Output Support for Single Threaded Emit
+        if(!outputDataType.isScalar()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/Matrix Output Not Currently Supported For Single Threaded Generator"));
+        }
+        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re.getExpr() << ";" << std::endl;
 
         //Emit Imag if Datatype is complex
         if(outputDataType.isComplex()){
             cFile << std::endl << "//-- Compute Imag Component --" << std::endl;
             std::vector<std::string> cStatements_im;
-            std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true);
+            CExpr expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true);
             //emit the expressions
             unsigned long numStatements_im = cStatements_im.size();
             for(unsigned long j = 0; j<numStatements_im; j++){
@@ -681,7 +685,7 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
             }
 
             //emit the assignment
-            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im.getExpr() << ";" << std::endl;
         }
     }
 }
@@ -725,7 +729,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
                 cFile << "//-- Assign Real Component --" << std::endl;
                 std::vector<std::string> cStatements_re;
-                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
+                CExpr expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true, true);
                 //emit the expressions
                 unsigned long numStatements_re = cStatements_re.size();
                 for(unsigned long j = 0; j<numStatements_re; j++){
@@ -734,13 +738,17 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
                 //emit the assignment
                 Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+                //TODO: Emit Vector Output Support for Single Threaded Emit
+                if(!outputDataType.isScalar()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/Matrix Output Not Currently Supported For Single Threaded Generator"));
+                }
+                cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re.getExpr() << ";" << std::endl;
 
                 //Emit Imag if Datatype is complex
                 if(outputDataType.isComplex()){
                     cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
                     std::vector<std::string> cStatements_im;
-                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
+                    CExpr expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true, true);
                     //emit the expressions
                     unsigned long numStatements_im = cStatements_im.size();
                     for(unsigned long j = 0; j<numStatements_im; j++){
@@ -748,7 +756,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
                     }
 
                     //emit the assignment
-                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";" << std::endl;
+                    cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im.getExpr() << ";" << std::endl;
                 }
             }
         }else if((*it)->hasState()){
@@ -3229,7 +3237,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
-                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment) {
+                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment,
+                                bool emitPAPITelem) {
 
     if(!telemDumpPrefix.empty()){
         telemDumpPrefix = fileName+"_"+telemDumpPrefix;
@@ -3634,6 +3643,17 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::writePlatformParameters(path, VITIS_PLATFORM_PARAMS_NAME, memAlignment);
     MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(path, VITIS_NUMA_ALLOC_HELPERS);
 
+    //====Emit PAPI Helpers====
+    std::vector<std::string> otherCFiles;
+    std::string papiHelperHFile = "";
+    if(emitPAPITelem && (printTelem || !telemDumpPrefix.empty())){
+        papiHelperHFile = EmitterHelpers::emitPAPIHelper(path, "vitis");
+        std::string papiHelperCFile = "vitis_papi_helpers.c";
+        otherCFiles.push_back(papiHelperCFile);
+    }
+
+    //==== Emit Partitions ====
+
     //Emit partition functions (computation function and driver function)
     for(auto partitionBeingEmitted = partitions.begin(); partitionBeingEmitted != partitions.end(); partitionBeingEmitted++){
         //Emit each partition (except -2, handle specially)
@@ -3642,14 +3662,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
             MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
-                                                            threadDebugPrint, printTelem, telemDumpPrefix, false);
+                                                            threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile);
         }
     }
 
     EmitterHelpers::emitParametersHeader(path, fileName, blockSize);
 
     //====Emit Helpers====
-    std::vector<std::string> otherCFiles;
     if(printTelem || !telemDumpPrefix.empty()){
         EmitterHelpers::emitTelemetryHelper(path, fileName);
         std::string telemetryCFile = fileName + "_telemetry_helpers.c";
@@ -3660,14 +3679,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         std::map<int, int> partitionToCPU;
         for(auto it = partitions.begin(); it!=partitions.end(); it++) {
             if (partitionMap.empty()) {
-                //Default case.  Assign I/O thread to CPU0 and each thread on the
-                if (it->first == IO_PARTITION_NUM) {
-                    partitionToCPU[it->first] = 0;
-                } else {
-                    if (it->first < 0) {
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Partition Requested Core " + GeneralHelper::to_string(it->first) + " which is not valid"));
-                    }
-                }
+                //No thread affinities are set, set the CPUs to -1
+                partitionToCPU[it->first] = -1;
             } else {
                 //Use the partition map
                 if (it->first == IO_PARTITION_NUM) {
@@ -3700,13 +3713,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::string constIOSuffix = "io_const";
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap, papiHelperHFile);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles, !papiHelperHFile.empty(), !partitionMap.empty());
 
     //++++Emit Linux Pipe I/O Driver++++
     StreamIOThread::emitFileStreamHelpers(path, fileName);
@@ -3720,7 +3733,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint, printTelem);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, pipeIOSuffix, inputVars);
@@ -3729,7 +3742,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream, !papiHelperHFile.empty(), !partitionMap.empty());
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
@@ -3739,13 +3752,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         fifoHeaderName, 0, threadDebugPrint, printTelem);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap, papiHelperHFile);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream, !papiHelperHFile.empty(), !partitionMap.empty());
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
@@ -3756,7 +3769,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         fifoHeaderName, ioFifoSize, threadDebugPrint, printTelem);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);
@@ -3764,7 +3777,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Emit the benchmark makefile
     std::vector<std::string> otherCFilesSharedMem = otherCFiles;
     otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem);
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem, !papiHelperHFile.empty(), !partitionMap.empty());
 }
 
 void Design::pruneUnconnectedArcs(bool removeVisArcs) {

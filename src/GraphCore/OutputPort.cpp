@@ -8,11 +8,11 @@
 #include "Node.h"
 #include "General/GeneralHelper.h"
 
-OutputPort::OutputPort() : cEmittedRe(false), cEmittedIm(false), cEmitReStr(""), cEmitImStr("") {
+OutputPort::OutputPort() : cEmittedRe(false), cEmittedIm(false) {
 
 }
 
-OutputPort::OutputPort(Node *parent, int portNum) : Port(parent, portNum), cEmittedRe(false), cEmittedIm(false), cEmitReStr(""), cEmitImStr("") {
+OutputPort::OutputPort(Node *parent, int portNum) : Port(parent, portNum), cEmittedRe(false), cEmittedIm(false) {
 
 }
 
@@ -32,19 +32,19 @@ void OutputPort::setCEmittedIm(bool cEmittedIm) {
     OutputPort::cEmittedIm = cEmittedIm;
 }
 
-std::string OutputPort::getCEmitReStr() const {
+CExpr OutputPort::getCEmitReStr() const {
     return cEmitReStr;
 }
 
-void OutputPort::setCEmitReStr(const std::string &cEmitReStr) {
+void OutputPort::setCEmitReStr(const CExpr &cEmitReStr) {
     OutputPort::cEmitReStr = cEmitReStr;
 }
 
-std::string OutputPort::getCEmitImStr() const {
+CExpr OutputPort::getCEmitImStr() const {
     return cEmitImStr;
 }
 
-void OutputPort::setCEmitImStr(const std::string &cEmitImStr) {
+void OutputPort::setCEmitImStr(const CExpr &cEmitImStr) {
     OutputPort::cEmitImStr = cEmitImStr;
 }
 

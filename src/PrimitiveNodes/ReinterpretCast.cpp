@@ -153,7 +153,7 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-    std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
     DataType srcType = getInputPort(0)->getDataType();
 
@@ -173,7 +173,7 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
         if (tgtDataType != srcType) {
             //We actually need to do the cast
-            cStatementQueue.push_back(srcType.toString(DataType::StringStyle::C, false) + " " + beforeCastName + " = " + inputExpr + ";");
+            cStatementQueue.push_back(srcType.toString(DataType::StringStyle::C, false) + " " + beforeCastName + " = " + inputExpr.getExpr() + ";");
 
             std::string castExpr = "*((" + tgtDataType.toString(DataType::StringStyle::C, false) + "*)((void*)(&" + beforeCastName + ")))";
 
@@ -184,13 +184,21 @@ CExpr ReinterpretCast::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     //Emit the final expression
     if (tgtDataType == srcType) {
         //Just return the input expression, no conversion required.
-        return CExpr(inputExpr, false);
+
+        //Create a temporary variable to avoid issue if this node is directly attached to state
+        //at the input.  The state update is placed after this node but the variable from the delay is simply
+        //passed through.  This could cause the state to be update before the result is used.
+        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+        //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+
+        return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
     } else {
         //Perform the reinterpret cast
         //TODO: Implement Fixed Point Support
 
         //Assign input expr to var
-        return CExpr(afterCastName, true);
+        //TODO: Change if vector support implemented
+        return CExpr(afterCastName, CExpr::ExprType::SCALAR_VAR);
     }
 }
 

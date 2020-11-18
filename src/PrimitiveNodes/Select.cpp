@@ -176,13 +176,13 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     std::shared_ptr<OutputPort> inputSrcOutputPort = getInputPort(0)->getSrcOutputPort();
     int inputSrcOutputPortNum = inputSrcOutputPort->getPortNum();
     std::shared_ptr<Node> inputSrcNode = inputSrcOutputPort->getParent();
-    std::string inputExpr = inputSrcNode->emitC(cStatementQueue, schedType, inputSrcOutputPortNum, imag);
+    CExpr inputExpr = inputSrcNode->emitC(cStatementQueue, schedType, inputSrcOutputPortNum, imag);
 
     //Index
     std::shared_ptr<OutputPort> indSrcOutputPort = getInputPort(1)->getSrcOutputPort();
     int indSrcOutputPortNum = indSrcOutputPort->getPortNum();
     std::shared_ptr<Node> indSrcNode = indSrcOutputPort->getParent();
-    std::string indExpr = indSrcNode->emitC(cStatementQueue, schedType, indSrcOutputPortNum, false);
+    CExpr indExpr = indSrcNode->emitC(cStatementQueue, schedType, indSrcOutputPortNum, false);
 
     //==== Emit Output Var ====
     std::string outputVarName = name + "_n" + GeneralHelper::to_string(id) + "_out";
@@ -193,10 +193,12 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     cStatementQueue.push_back(outputVar.getCVarDecl(imag, true, false, true, false) + ";");
 
     //==== Emit Select ====
+    bool outputIsScalar = false;
     if(mode == SelectMode::INDEX_VECTOR){
         DataType indexDT = getInputPort(1)->getDataType();
 
         //For loop if index is a vector
+        outputIsScalar = !indexDT.isScalar();
         std::vector<std::string> forLoopIndexVars;
         std::vector<std::string> forLoopClose;
         if(!indexDT.isScalar()){
@@ -214,11 +216,11 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         //--- Copy Relevant Elements---
         //The index into the input comes from the input vector.  If it is indeed a vector and not a scalar, we need to index into
         //the index vector
-        std::string indTermDeref = indExpr + (indexDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+        std::string indTermDeref = indExpr.getExprIndexed(forLoopIndexVars, true);
         //Note: this currently relies on the input being a vector and not a scalar (was validated above)
         //TODO: support multidimensional
         std::vector<std::string> indTermDerefVec = {indTermDeref};
-        std::string srcTerm = inputExpr + EmitterHelpers::generateIndexOperation(indTermDerefVec);//Deref with the index term
+        std::string srcTerm = inputExpr.getExprIndexed(indTermDerefVec, true);//Deref with the index term
         std::string dstTerm = outputVar.getCVarName(imag) + (indexDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
 
         cStatementQueue.push_back(dstTerm + " = " + srcTerm + ";");
@@ -228,6 +230,7 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
             cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
         }
     }else if(mode == SelectMode::OFFSET_LENGTH){
+        outputIsScalar = outputLen == 1;
         //For loop if length is > 1
         std::vector<std::string> forLoopIndexVars;
         std::vector<std::string> forLoopClose;
@@ -247,9 +250,13 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         //--- Copy relevant elements ---
         //The index is the indexExpr + the offset from the for loop
         //TODO: support multidimensional, currently relies on input being a vector
-        std::string indTerm = indExpr + (outputLen > 1 ? " + " + forLoopIndexVars[0] : "");
+        if(indExpr.isArrayOrBuffer()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Selector in OFFSET_LENGTH mode expects a scalar expression for the index", getSharedPointer()));
+        }
+
+        std::string indTerm = indExpr.getExpr() + (outputLen > 1 ? " + " + forLoopIndexVars[0] : "");
         std::vector<std::string> indTermVec = {indTerm};
-        std::string srcTerm = inputExpr + EmitterHelpers::generateIndexOperation(indTermVec);
+        std::string srcTerm = inputExpr.getExprIndexed(indTermVec, true);
         std::string dstTerm = outputVar.getCVarName(imag) + (outputLen > 1 ? EmitterHelpers::generateIndexOperation(forLoopIndexVars) : "");
 
         cStatementQueue.push_back(dstTerm + " = " + srcTerm + ";");
@@ -262,7 +269,7 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Select Mode", getSharedPointer()));
     }
 
-    return CExpr(outputVar.getCVarName(imag), true);
+    return CExpr(outputVar.getCVarName(imag), outputIsScalar ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
 }
 
 Select::SelectMode Select::getMode() const {

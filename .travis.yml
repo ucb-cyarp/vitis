@@ -5,10 +5,6 @@ version: ~> 1.0
 # https://github.com/travis-ci/travis-ci/issues/6300
 # https://github.com/travis-ci/travis-ci/issues/7100
 
-before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update          ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink python@2; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle -v; fi
 
 before_script:
     - if [[ "$COMPILER" = "g++-5"        ]] && [[ "$TRAVIS_OS_NAME" != "osx" ]]; then export CXX="g++-5" CC="gcc-5";              fi
@@ -47,6 +43,8 @@ addons:
     - g++-5
     - graphviz
     - doxygen
+  homebrew:
+    brewfile: true
 
 script:
   - echo $CXX; echo $CC

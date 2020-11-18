@@ -83,17 +83,23 @@ CExpr EnableInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedPar
         throw std::runtime_error("C Emit Error - EnableInput Support for Vector Types has Not Yet Been Implemented");
     }
 
-    //Get the expressions for each input
-    std::string inputExpr;
-
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(outputPortNum)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+    DataType inputDT = getInputPort(outputPortNum)->getDataType();
+    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
-    inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+    //TODO: Change check after vector support implemented
+    if(inputExpr.isArrayOrBuffer()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Vector support is not currently implemented for EnableInput", getSharedPointer()));
+    }
 
-    return CExpr(inputExpr, false);
-
+    //Create a temporary variable to avoid issue if this node is directly attached to state
+    //at the input.  The state update is placed after this node but the variable from the delay is simply
+    //passed through.  This could cause the state to be update before the result is used.
+    //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+    //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+    return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
 }
 
 void EnableInput::removeKnownReferences() {

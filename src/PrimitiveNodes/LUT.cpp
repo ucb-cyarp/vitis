@@ -476,7 +476,12 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
         int srcOutputPortNum = srcOutputPort->getPortNum();
         std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
 
-        std::string inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+        //TODO: Implement vector support
+        if(!getInputPort(dimension*outputPortNum)->getDataType().isScalar()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Vector inputs are not currently supported for LUTs", getSharedPointer()));
+        }
+
+        CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
 
         //If the Input Datatype is a floating point type, calculating the index takes the form:
@@ -544,7 +549,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
 
         if(inputType.isFloatingPt()){
             //Note that the first breakpoint and breakpointStep are doubles and should force promotion (they should be outputted with .00 if an integer)
-            indexExpr = "((" + inputExpr + ") - (" + GeneralHelper::to_string(firstBreakpoint) + "))/(" + GeneralHelper::to_string(breakpointStep) + ")";
+            indexExpr = "((" + inputExpr.getExpr() + ") - (" + GeneralHelper::to_string(firstBreakpoint) + "))/(" + GeneralHelper::to_string(breakpointStep) + ")";
 
             //Round if nessisary
             if(interpMethod == InterpMethod::NEAREST){
@@ -564,7 +569,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             int numCPUBits = indexType.getCPUStorageType().getTotalBits();
             indexType.setTotalBits(numCPUBits);
 
-            indexExpr = "(" + inputExpr + ") - (" + GeneralHelper::to_string((breakpoints[0])[0].getRealInt()) + ")";
+            indexExpr = "(" + inputExpr.getExpr() + ") - (" + GeneralHelper::to_string((breakpoints[0])[0].getRealInt()) + ")";
 
             if(breakpointStep<1){
                 double breakpointStepRecip = (numBreakPoints-1.0)/range;
@@ -593,7 +598,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
 
         if(extrapMethod == ExtrapMethod::CLIP){
             //Add bounds check logic
-            std::string boundCheckStr = "if(("+inputExpr+") > ";
+            std::string boundCheckStr = "if(("+inputExpr.getExpr()+") > ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
                 boundCheckStr += GeneralHelper::to_string((breakpoints[0])[numBreakPoints-1].getComplexDouble().real());
             }else{
@@ -602,7 +607,7 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
             boundCheckStr += "){\n" + indexVariable.getCVarName(false) + " = ";
             boundCheckStr += GeneralHelper::to_string(numBreakPoints-1);
 
-            boundCheckStr += ";\n}else if(("+inputExpr+") < ";
+            boundCheckStr += ";\n}else if(("+inputExpr.getExpr()+") < ";
             if((breakpoints[0])[numBreakPoints-1].isFractional()){
                 boundCheckStr += GeneralHelper::to_string((breakpoints[0])[0].getComplexDouble().real());
             }else{
@@ -632,11 +637,12 @@ CExpr LUT::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sch
     tempDT.setComplex(getOutputPort(0)->getDataType().isComplex());
     Variable tableVar = Variable(tablePrefix, tempDT);
 
+    //Return Scalar Expr because this causes an variable to be created when this block is scheduled which protects against
     if(imag){
-        return CExpr(tableVar.getCVarName(true) + "[" + indexVariable.getCVarName(false) + "]", false);
+        return CExpr(tableVar.getCVarName(true) + "[" + indexVariable.getCVarName(false) + "]", CExpr::ExprType::SCALAR_EXPR);
     }
     else{
-        return CExpr(tableVar.getCVarName(false) + "[" + indexVariable.getCVarName(false) + "]", false);
+        return CExpr(tableVar.getCVarName(false) + "[" + indexVariable.getCVarName(false) + "]", CExpr::ExprType::SCALAR_EXPR);
     }
 }
 
