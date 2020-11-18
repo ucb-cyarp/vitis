@@ -383,29 +383,36 @@ void MultiRateHelpers::validateClockDomainRates(std::vector<std::shared_ptr<Cloc
 void MultiRateHelpers::setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs,
                                               int blockSize, bool setFIFOBlockSize) {
 
-    for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++){
+    for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++) {
         std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
 
-        //Note that clock domains need to be discovered before this is valid
-        std::shared_ptr<ClockDomain> fifoClockDomain = threadCrossingFIFO->getClockDomain();
+        //Validate Each Port separately since each can have potentially different clock domains, block sizes, and initial conditions
+        int numPorts = threadCrossingFIFO->getInputPorts().size();
 
-        std::pair<int, int> rateRelativeToBase;
+        for (int portNum = 0; portNum < numPorts; portNum++) {
 
-        if(fifoClockDomain){
-            rateRelativeToBase = fifoClockDomain->getRateRelativeToBase();
-        }else{
-            //This is at the base rate
-            rateRelativeToBase = std::pair<int, int>(1, 1);
-        }
+            //Note that clock domains need to be discovered before this is valid
+            std::shared_ptr<ClockDomain> fifoPortClockDomain = threadCrossingFIFO->getClockDomainCreateIfNot(portNum);
 
-        int blockSizeScaled = blockSize*rateRelativeToBase.first;
-        if(blockSizeScaled%rateRelativeToBase.second != 0){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Block Size for FIFO after adjustment for ClockDomain is not an integer", threadCrossingFIFO));
-        }
+            std::pair<int, int> rateRelativeToBase;
 
-        if(setFIFOBlockSize){
-            blockSizeScaled /= rateRelativeToBase.second;
-            threadCrossingFIFO->setBlockSize(blockSizeScaled);
+            if (fifoPortClockDomain) {
+                rateRelativeToBase = fifoPortClockDomain->getRateRelativeToBase();
+            } else {
+                //This is at the base rate
+                rateRelativeToBase = std::pair<int, int>(1, 1);
+            }
+
+            int blockSizeScaled = blockSize * rateRelativeToBase.first;
+            if (blockSizeScaled % rateRelativeToBase.second != 0) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Block Size for FIFO after adjustment for ClockDomain is not an integer", threadCrossingFIFO));
+            }
+
+            if (setFIFOBlockSize) {
+                blockSizeScaled /= rateRelativeToBase.second;
+                threadCrossingFIFO->setBlockSize(portNum, blockSizeScaled);
+            }
         }
     }
 }
@@ -424,9 +431,14 @@ void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCro
     //if it is connected to an EnableOutput or RateChangeOutput in which case it is in one context above).  It will be
     //the rate will be checked against the rate of the output ports
 
-
     for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++) {
         std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
+
+        //TODO: For now, we will restrict clock domain assignment to be when there is a single input and output port.
+        //      Do FIFO bundling/merging after this
+        if(threadCrossingFIFO->getInputPorts().size() != 1 || threadCrossingFIFO->getOutputPorts().size() != 1){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, clock domain assignment is only implemented for FIFOs that have a single input and output port" , threadCrossingFIFO));
+        }
 
         //Check if the FIFOs are connected to IO masters
         std::set<std::shared_ptr<Arc>> inputMasterConnections = EmitterHelpers::getConnectionsToMasterInputNode(
@@ -458,17 +470,17 @@ void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCro
 
             //Set based on input port
             std::shared_ptr<ClockDomain> clkDomain = masterInput->getPortClkDomain(srcPort);
-            threadCrossingFIFO->setClockDomain(clkDomain);
+            threadCrossingFIFO->setClockDomain(0, clkDomain);
         }else{
             //Set the clock domain based on context
             std::shared_ptr<ClockDomain> clkDomain = findClockDomain(threadCrossingFIFO);
-            threadCrossingFIFO->setClockDomain(clkDomain);
+            threadCrossingFIFO->setClockDomain(0, clkDomain);
         }
 
         std::pair<int, int> clockDomainRate = std::pair<int, int>(1, 1);
 
         if(!outputMasterConnections.empty()){
-            std::shared_ptr<ClockDomain> clockDomain = threadCrossingFIFO->getClockDomain();
+            std::shared_ptr<ClockDomain> clockDomain = threadCrossingFIFO->getClockDomainCreateIfNot(0);
             if(clockDomain) {
                 clockDomainRate = clockDomain->getRateRelativeToBase();
             }else{

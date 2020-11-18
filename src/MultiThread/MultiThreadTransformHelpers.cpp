@@ -86,7 +86,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
     //Check if FIFO full
     //Note: The dimensions of the input must be taken into account
     int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
-    if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSize()*(fifo->getFifoLength() - 1)) {
+    if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSizeCreateIfNot(0)*(fifo->getFifoLength() - 1)) {
         //There is still room
 
         std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPortCreateIfNot(0)->getArcs();
@@ -135,7 +135,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
                     int numberInitCondsInSrc = srcDelay->getDelayValue() * elementsPerInput;
 
-                    if (numberInitCondsInSrc + fifoInitConds.size() <= fifo->getBlockSize() * elementsPerInput * (fifo->getFifoLength() - 1)) {
+                    if (numberInitCondsInSrc + fifoInitConds.size() <= fifo->getBlockSizeCreateIfNot(0) * elementsPerInput * (fifo->getFifoLength() - 1)) {
                         //Can absorb complete delay
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.begin() + numberInitCondsInSrc);  //Because this is at the input to the FIFO, the initial conditions are appended.
@@ -173,7 +173,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                         //Partial absorption (due to size)
                         //We already checked that there is room
 
-                        int numToAbsorb = fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+                        int numToAbsorb = fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
 
                         if(numToAbsorb % elementsPerInput != 0){
                             throw std::runtime_error(ErrorHelpers::genErrorStr("Error absorbing delay into FIFO, the number of initial conditions to absorb is not a multiple of the number of elements per input", fifo));
@@ -223,7 +223,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
     int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
     //Check if FIFO full
-    if (fifo->getInitConditions().size() < fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1)) {
+    if (fifo->getInitConditions().size() < fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1)) {
         //There is still room in the FIFO
 
         //Check if the FIFO has order constraint outputs
@@ -285,7 +285,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
                 //Find how many can be absorbed into the FIFO
                 std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
-                int roomInFifo = fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+                int roomInFifo = fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
                 //Note that the number to absorb must be a multiple of elementsPerInput
                 //Remove any remainder
@@ -386,7 +386,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::
     //TODO: will need to be specialized for each port
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
     int numberElementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
-    int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSize()*numberElementsPerInput);
+    int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSizeCreateIfNot(0)*numberElementsPerInput);
 
     if(numPrimitiveElementsToMove % numberElementsPerInput != 0){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO size.  The number of initial condition primitive elements to move is not a multiple of the number of primitive elements per input", fifo));

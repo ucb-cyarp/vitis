@@ -171,6 +171,14 @@ namespace MultiRateHelpers {
      */
     void validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 
+    /**
+     * @brief Sets the clock domain of a thread crossing FIFOs either based on their context it is in or the master I/O
+     * they are connected to
+     *
+     * @warning Is currently only implemented for FIFOs with a single input and output port
+     *
+     * @param threadCrossingFIFOs
+     */
     void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
 
     /**
@@ -188,6 +196,7 @@ namespace MultiRateHelpers {
      *
      * Note that since the IO thread communicates with the compute threads via FIFOs, this sets
      *
+     * @warning Clock Domains should be set for each FIFO port before calling this function.
      *
      * @param threadCrossingFIFOs
      * @param blockSize

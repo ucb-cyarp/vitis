@@ -244,10 +244,9 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
         std::string structType = fifos[i]->getFIFOStructTypeName();
         exprs.push_back(structType + " " + tmpName + ";");
 
-        //Gets block size from FIFO directly so no changes are required to support multiple clock domains
-        int blockSize = fifos[i]->getBlockSize();
-
         for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
+            //Gets block size from FIFO directly so no changes are required to support multiple clock domains
+            int blockSize = fifos[i]->getBlockSizeCreateIfNot(portNum);
 
             //Note that the datatype when we use getCStateVar does not include
             //the block size. However, the structure that is generated for the FIFO
@@ -911,26 +910,30 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //Set the index variable in the input FIFOs
     for(int i = 0; i<inputFIFOs.size(); i++){
-        //Create the index variable name based on the base
-        std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomain();
-        std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-        inputFIFOs[i]->setCBlockIndexVarInputName(blockIndVarStr);
-        if(clkDomain){
-            fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-        }else {
-            fifoClockDomainRates.emplace(1, 1);
+        for(int portNum = 0; portNum<inputFIFOs[i]->getOutputPorts().size(); portNum++) {
+            //Create the index variable name based on the base
+            std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomainCreateIfNot(portNum);
+            std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+            inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVarStr);
+            if (clkDomain) {
+                fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+            } else {
+                fifoClockDomainRates.emplace(1, 1);
+            }
         }
     }
 
     //Also need to set the index variable of the output FIFOs
     for(int i = 0; i<outputFIFOs.size(); i++){
-        std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomain();
-        std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-        outputFIFOs[i]->setCBlockIndexVarOutputName(blockIndVarStr);
-        if(clkDomain){
-            fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-        }else {
-            fifoClockDomainRates.emplace(1, 1);
+        for(int portNum = 0; portNum<outputFIFOs[i]->getInputPorts().size(); portNum++) {
+            std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomainCreateIfNot(portNum);
+            std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+            outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVarStr);
+            if (clkDomain) {
+                fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+            } else {
+                fifoClockDomainRates.emplace(1, 1);
+            }
         }
     }
 
@@ -1614,9 +1617,9 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
             Variable var = inputFIFOs[i]->getCStateVar(j);
 
             //Expand the variable based on the block size of the FIFO
-            if(inputFIFOs[i]->getBlockSize()>1){
+            if(inputFIFOs[i]->getBlockSizeCreateIfNot(j)>1){
                 DataType dt = var.getDataType();
-                dt = dt.expandForBlock(inputFIFOs[i]->getBlockSize());
+                dt = dt.expandForBlock(inputFIFOs[i]->getBlockSizeCreateIfNot(j));
                 var.setDataType(dt);
             }
 
@@ -1649,9 +1652,9 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
             Variable var = outputFIFOs[i]->getCStateInputVar(j);
 
             //Expand the variable based on the block size of the FIFO
-            if(outputFIFOs[i]->getBlockSize()>1){
+            if(outputFIFOs[i]->getBlockSizeCreateIfNot(j)>1){
                 DataType dt = var.getDataType();
-                dt = dt.expandForBlock(outputFIFOs[i]->getBlockSize());
+                dt = dt.expandForBlock(outputFIFOs[i]->getBlockSizeCreateIfNot(j));
                 var.setDataType(dt);
             }
 

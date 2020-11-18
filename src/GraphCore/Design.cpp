@@ -1933,10 +1933,10 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
         if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodeCopies[i]) != nullptr){
             std::shared_ptr<ThreadCrossingFIFO> copyNodeAsThreadCrossingFIFO = std::static_pointer_cast<ThreadCrossingFIFO>(nodeCopies[i]);
             std::shared_ptr<ThreadCrossingFIFO> origNodeAsThreadCrossingFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(copyToOrigNode[copyNodeAsThreadCrossingFIFO]);
-            std::shared_ptr<ClockDomain> origClockDomain = origNodeAsThreadCrossingFIFO->getClockDomain();
-            if(origClockDomain) {
-                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomain]);
-                copyNodeAsThreadCrossingFIFO->setClockDomain(cloneClockDomain);
+            std::vector<std::shared_ptr<ClockDomain>> origClockDomains = origNodeAsThreadCrossingFIFO->getClockDomains();
+            for(int j = 0; j<origClockDomains.size(); j++) {
+                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomains[j]]);
+                copyNodeAsThreadCrossingFIFO->setClockDomain(j, cloneClockDomain);
             }
         }
     }
@@ -3488,12 +3488,26 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs();
     assignArcIDs();
 
+    //TODO: Assign clock domains to ports of FIFOs, this will be used when FIFOs are merged below
+
+    //TODO: Add FIFO merge here (so long as on demand / lazy eval FIFOs in conditional execution regions are not considered)
+    //      All ports need the same number of initial conditions.  May need to resize initial conditions
+    //      Doing this after delay absorption because it currently is only implemnted for a single set of input ports
+    //      Note that there was a comment I left in the delay absorption code stating that I expected FIFO bundling /
+    //      merging to occur after delay absorption
+    //
+    //      Involves moving arcs to ports, moving block size, moving initial conditions, and moving clock domain
+    //      Remove other FIFOs.  Place new FIFO outside contexts.  Note: if on demend / lazy eval fifod implemented later
+    //      the merge should not happen between FIFOs in different contexts and new FIFO should be placed inside context.
+    //      To make this easier to work with with, insert the FIFO into the context of all the inputs if they are all the same
+    //      otherwise, put it outside the contexts
+
     std::cout << std::endl;
     std::cout << "========== FIFO Report ==========" << std::endl;
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements() << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getBlockSizeCreateIfNot(0) << std::endl;
         }
     }
     std::cout << std::endl;
@@ -4141,21 +4155,29 @@ std::map<int, std::set<std::pair<int, int>>> Design::findPartitionClockDomainRat
 
         //Do not include clock domains themselves in this
         if(GeneralHelper::isType<Node, ClockDomain>(nodes[i]) == nullptr) {
-            std::shared_ptr<ClockDomain> clkDomain;
-
             //Note that FIFOs report their clock domain differently in order to handle the case when they are connected directly to the InputMaster
+            //Each input/output port pair can also have a different clock domain
             if (GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i])) {
                 std::shared_ptr<ThreadCrossingFIFO> fifo = std::dynamic_pointer_cast<ThreadCrossingFIFO>(nodes[i]);
-                clkDomain = fifo->getClockDomain();
-            } else {
-                clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
-            }
+                for(int portNum = 0; portNum<fifo->getInputPorts().size(); portNum++) {
+                    std::shared_ptr<ClockDomain> clkDomain = fifo->getClockDomainCreateIfNot(portNum);
 
-            if (clkDomain == nullptr) {
-                clockDomains[partition].emplace(1, 1);
+                    if (clkDomain == nullptr) {
+                        clockDomains[partition].emplace(1, 1);
+                    } else {
+                        std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                        clockDomains[partition].insert(rate);
+                    }
+                }
             } else {
-                std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
-                clockDomains[partition].insert(rate);
+                std::shared_ptr<ClockDomain> clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
+
+                if (clkDomain == nullptr) {
+                    clockDomains[partition].emplace(1, 1);
+                } else {
+                    std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                    clockDomains[partition].insert(rate);
+                }
             }
         }
     }

@@ -447,10 +447,13 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
 
     //It should be validated at this point that all ports have the same number of initial conditions
     for(int i = 0; i<getInitConditionsCreateIfNot(0).size(); i++){
-        int blockInd = i/blockSize;
-        int elementInd = i%blockSize;
-
         for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
+            int blockSize = getBlockSizeCreateIfNot(portNum);
+
+            int blockInd = i/blockSize;
+            int elementInd = i%blockSize;
+
+
             if(getInitConditionsCreateIfNot(portNum).size() > fifoLength*blockSize != 0){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
             }
@@ -494,9 +497,9 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     cStatementQueue.push_back("}");
 
     //Write pointer initialized to (init.size()+1)%arrayLength = (init.size()+1)%(fifoLength+1)
-    //Should be validated at this point that all ports have the same number of init conditions
+    //Should be validated at this point that all ports have the same number of init conditions (blocks)
     int arrayLength=fifoLength+1;
-    int writeInd = (getInitConditionsCreateIfNot(0).size()/blockSize+1)%arrayLength;
+    int writeInd = (getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)+1)%arrayLength; //This index is in terms of blocks.  All ports should have same number of initial conditions (blocks)
     cStatementQueue.push_back("atomic_init(" + getCWriteOffsetPtr().getCVarName(false) + ", " + GeneralHelper::to_string(writeInd) + ");");
     cStatementQueue.push_back("if(!atomic_is_lock_free(" + getCWriteOffsetPtr().getCVarName(false) + ")){");
     cStatementQueue.push_back("printf(\"Warning: An atomic FIFO offset (" + getCWriteOffsetPtr().getCVarName(false) + ") was expected to be lock free but is not\\n\");");
