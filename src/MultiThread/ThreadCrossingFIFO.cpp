@@ -335,20 +335,20 @@ void ThreadCrossingFIFO::validate() {
             }
         }
 
-        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength * getBlockSizeCreateIfNot(portNum) - getBlockSizeCreateIfNot(portNum))) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
+        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength * getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements() - getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements())) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - ThreadCrossingFIFO - The number of initial conditions cannot be larger than the FIFO - 1 block",
                     getSharedPointer()));
         }
 
-        if (getInitConditionsCreateIfNot(portNum).size() % getBlockSizeCreateIfNot(portNum) != 0) {
+        if (getInitConditionsCreateIfNot(portNum).size() % (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()) != 0) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - ThreadCrossingFIFO - Initial Conditions for Port " + GeneralHelper::to_string(portNum) + " must be a multiple of its block size (" + GeneralHelper::to_string(getBlockSizeCreateIfNot(portNum)) + ")",
                     getSharedPointer()));
         }
 
         if(portNum != 0){
-            if(getInitConditionsCreateIfNot(portNum).size() != getInitConditionsCreateIfNot(0).size()){
+            if(getInitConditionsCreateIfNot(portNum).size()/getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements() != getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()){
                 throw std::runtime_error(ErrorHelpers::genErrorStr(
                         "Validation Failed - ThreadCrossingFIFO - All ports must have the same number of initial conditions",
                         getSharedPointer()));
