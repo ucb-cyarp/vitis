@@ -304,6 +304,34 @@ std::shared_ptr<SubSystem> Node::getParent() {
     return parent;
 }
 
+void Node::setParentUpdateNewUpdatePrev(std::shared_ptr<SubSystem> newParent){
+    if(parent != nullptr){
+        parent->removeChild(getSharedPointer());
+    }
+
+    parent = newParent;
+
+    if(newParent != nullptr){
+        newParent->addChild(getSharedPointer());
+    }
+}
+
+void Node::setContextUpdateNewUpdatePrev(std::vector<Context> newContext){
+    if(!context.empty()){
+        //Should be in lowest level context
+        std::shared_ptr<ContextRoot> oldContextRoot = context[context.size()-1].getContextRoot();
+        int oldSubcontext = context[context.size()-1].getSubContext();
+        oldContextRoot->removeSubContextNode(oldSubcontext, getSharedPointer());
+
+        context = newContext;
+        if(!newContext.empty()){
+            std::shared_ptr<ContextRoot> newContextRoot = newContext[newContext.size()-1].getContextRoot();
+            int newSubcontext = newContext[newContext.size()-1].getSubContext();
+            newContextRoot->addSubContextNode(newSubcontext, getSharedPointer());
+        }
+    }
+}
+
 void Node::removeKnownReferences(){
     //Remove from parent
     if(parent != nullptr){

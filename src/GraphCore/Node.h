@@ -625,6 +625,24 @@ public:
     virtual void removeKnownReferences();
 
     /**
+     * @brief Removes the node from its previous parent (if not nullptr), sets the new parent, and adds it as a child
+     * of the new parent if not nullptr
+     *
+     * @warning Will not add to top level nodes list in design
+     *
+     * @param newParent
+     */
+    void setParentUpdateNewUpdatePrev(std::shared_ptr<SubSystem> newParent);
+
+    /**
+     * @brief Removes the node from its current context (if it exists), sets the new context, and adds itself to the new
+     * context (if applicable)
+     *
+     * @param newContext
+     */
+    void setContextUpdateNewUpdatePrev(std::vector<Context> newContext);
+
+    /**
      * @brief Get the fully qualified human readable name of the node
      *
      * A typical fully qualified name would be "subsysName/nodeName"

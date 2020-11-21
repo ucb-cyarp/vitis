@@ -3488,19 +3488,36 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs();
     assignArcIDs();
 
-    //TODO: Assign clock domains to ports of FIFOs, this will be used when FIFOs are merged below
+    //Clock domain was already set for each FIFO above and will be used in the FIFO merge
 
-    //TODO: Add FIFO merge here (so long as on demand / lazy eval FIFOs in conditional execution regions are not considered)
+    //      Add FIFO merge here (so long as on demand / lazy eval FIFOs in conditional execution regions are not considered)
     //      All ports need the same number of initial conditions.  May need to resize initial conditions
-    //      Doing this after delay absorption because it currently is only implemnted for a single set of input ports
+    //      Doing this after delay absorption because it currently is only implemented for a single set of input ports
     //      Note that there was a comment I left in the delay absorption code stating that I expected FIFO bundling /
     //      merging to occur after delay absorption
-    //
+    //      *
     //      Involves moving arcs to ports, moving block size, moving initial conditions, and moving clock domain
-    //      Remove other FIFOs.  Place new FIFO outside contexts.  Note: if on demend / lazy eval fifod implemented later
+    //      Remove other FIFOs.  Place new FIFO outside contexts.  Note: if on-demand / lazy eval fifo implemented later
     //      the merge should not happen between FIFOs in different contexts and new FIFO should be placed inside context.
     //      To make this easier to work with with, insert the FIFO into the context of all the inputs if they are all the same
     //      otherwise, put it outside the contexts
+
+    //TODO: There is currently a problem when ignoring contexts due to scheduling nodes connected to the FIFOs
+    {
+        std::vector<std::shared_ptr<Node>> new_nodes;
+        std::vector<std::shared_ptr<Node>> deleted_nodes;
+        std::vector<std::shared_ptr<Arc>> new_arcs;
+        std::vector<std::shared_ptr<Arc>> deleted_arcs;
+        std::vector<std::shared_ptr<Node>> add_to_top_lvl;
+
+        MultiThreadTransformHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, add_to_top_lvl, false, true);
+        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        for(auto topLvlNode : add_to_top_lvl){
+            topLevelNodes.push_back(topLvlNode);
+        }
+    }
+    assignNodeIDs();
+    assignArcIDs();
 
     std::cout << std::endl;
     std::cout << "========== FIFO Report ==========" << std::endl;

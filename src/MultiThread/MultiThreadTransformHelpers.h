@@ -283,8 +283,8 @@ namespace MultiThreadTransformHelpers {
                                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                          bool printActions = true);
 
-    void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                   int targetSize,
+    void reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                   int targetSizeBlocks,
                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -311,25 +311,6 @@ namespace MultiThreadTransformHelpers {
                                              std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
     /**
-     * @brief Merge FIFOs between a pair of partitions into a single FIFO
-     * @param fifos
-     * @param new_nodes
-     * @param deleted_nodes
-     * @param new_arcs
-     * @param deleted_arcs
-     * @param printActions
-     * @return
-     */
-    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
-    mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
-    std::vector<std::shared_ptr<Node>> &new_nodes,
-            std::vector<std::shared_ptr<Node>> &deleted_nodes,
-    std::vector<std::shared_ptr<Arc>> &new_arcs,
-            std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-    bool printActions = true);
-
-
-    /**
      * @brief Propgagates partition to nodes and propagates down.  Subsystems can specify a partition for their decendents
      *
      * To specify a partition, the partition of the subsystem cannot be -1;
@@ -338,6 +319,31 @@ namespace MultiThreadTransformHelpers {
      * @param partition
      */
     void propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition);
+
+    /**
+     * @brief Merges FIFOs going between a pair of partitions together.  This helps amortize overheads associated with
+     *        FIFOs including performing empty/full checks.
+     *
+     *        Either all of the arcs from one partition to another are merged together (ignoreContexts=true) or
+     *        only arcs from one partition to another where the contexts match (ignoreContexts=false).  Which one is
+     *        selected depends if on-demand/lazy evaluation of FIFOs in contexts is being used.  If so, FIFOs to/from
+     *        contexts need to be treated differently.  However, arcs contained within the contexts can be combined.
+     *
+     *        @note Clock domains are a special case type of context and are not considered, even when
+     *              ignoreContexts=false.  This is because different clock domains can be accommodated by a single FIFO
+     *              by adjusting relative block sizes of the ports.
+     *
+     *        @param fifoMap: A map of FIFOs going between a given pair of partitions (unidirectional).  Will be modified after merging
+     *        @param ignoreContexts if true, merge all FIFOs from one partition to another.  If false, only merge FIFOs when their contexts match
+     *        @param verbose if true, print information about FIFO merging
+     */
+    void mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> &fifoMap,
+                    std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                    std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                    std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                    std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                    std::vector<std::shared_ptr<Node>> &addToTopLevel,
+                    bool ignoreContexts, bool verbose);
 };
 
 /*! @} */
