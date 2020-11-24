@@ -168,7 +168,7 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     ioThread << "}" << std::endl;
 
     //Check input FIFOs
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, false, true); //pthread_testcancel check here
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, false, false); //pthread_testcancel check here
     ioThread << "if(inputFIFOsReady){" << std::endl;
     //Read input FIFOs
     std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
