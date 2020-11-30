@@ -113,6 +113,18 @@ public:
     void setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions);
 
     /**
+     * @brief Returns true if threads operation on this FIFO use the data in the FIFO in place or copy to/from a local
+     * buffer.  If used in place, checks need to be made to both input and output FIFOs before use.  State is only updated
+     * after uses.
+     *
+     * For FIFOs not used in place, only the checks on the input FIFOs need to be conducted before computation.
+     * The state of the FIFOs can be updated immediatly after the FIFO is read.  The output FIFOs only need to be checked
+     * after computation and are updated after the write
+     * @return
+     */
+    virtual bool isInPlace() = 0;
+
+    /**
      * @brief
      * @param port
      * @return
@@ -312,30 +324,42 @@ public:
     virtual std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role role) = 0;
 
     /**
-     * @brief Emits C statements which write data into the FIFO.
+     * @brief Emits C statements which write data into the FIFO (if not in place)
+     *
+     * If FIFO operates in place this function returns a pointer to the block to be written to.
+     * If the FIFO operates not in place, nothing is returned
      *
      * Cached values will be used unless the role is specified as NONE
      *
      * @param cStatementQueue The C statements are written into this queue
-     * @param src The src for data to be written into the FIFO
+     * @param src The src for data to be written into the FIFO (for non-in-place FIFOs) or the name of the ptr to the location to write into [created by this function] (for in-place FIFOs)
      * @param numBlocks The number of blocks of data to write into the FIFO
      * @param role the role of the actor calling this function
      * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
+     * @param forceNotInPlace if true, forces the FIFO to copy to/from local buffers even if it is designed to work in place.  This is used primarily for I/O where non-blocking access to the FIFOs is used along with multiple local buffers.
+     *
+     * @returns pointer to block in buffer to be written to (in-place FIFO only)
      */
-    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter = true) = 0;
+    virtual std::string emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter = true, bool forceNotInPlace = false) = 0;
 
     /**
-     * @brief Emits C statements which read data from the FIFO
+     * @brief Emits C statements which read data from the FIFO (if not in place)
      *
      * Cached values will be used unless the role is specified as NONE
      *
+     * If FIFO operates in place this function returns a pointer to the block to be read from.
+     * If the FIFO operates not in place, nothing is returned
+     *
      * @param cStatementQueue The C statements are written into this queue
-     * @param dst The destination for data which will be read from the FIFO
-     * @param numBlocks The number of blocks to read
+     * @param dst The destination for data which will be read from the FIFO (for non-in-place FIFOs) or the name of the ptr to the location to read from [created by this function] (for in-place FIFOs)
+     * @param numBlocks The number of blocks to read (used by both in place and out of place FIFOs to determine the state to push to the FIFO next)
      * @param role the role of the actor calling this function
      * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
+     * @param forceNotInPlace if true, forces the FIFO to copy to/from local buffers even if it is designed to work in place.  This is used primarily for I/O where non-blocking access to the FIFOs is used along with multiple local buffers.
+     *
+     * @returns pointer to block in buffer to be read from (in place FIFO only)
      */
-    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter) = 0;
+    virtual std::string emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter, bool forceNotInPlace = false) = 0;
 
     /**
      * @brief Get a list of shared variables for the given FIFO.  These variables should be passed to the threads which

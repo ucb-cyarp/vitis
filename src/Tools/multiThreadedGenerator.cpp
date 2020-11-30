@@ -34,7 +34,8 @@ int main(int argc, char* argv[]) {
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible FIFO_TYPE:" << std::endl;
-        std::cout << "    lockeless_x86 <DEFAULT> = Lockless single producer, single consumer, FIFOs suitable for x86 based systems" << std::endl;
+        std::cout << "    lockeless_x86 = Lockless single producer, single consumer, FIFOs suitable for x86 based systems (coping to/from local buffers)" << std::endl;
+        std::cout << "    lockeless_inplace_x86 <DEFAULT> = Lockless single producer, single consumer, FIFOs suitable for x86 based systems (using in place operations)" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible SCHED_HEUR:" << std::endl;
         std::cout << "    bfs <DEFAULT> = Breadth First Search Style" << std::endl;
@@ -67,7 +68,7 @@ int main(int argc, char* argv[]) {
     }
 
     PartitionParams::PartitionType partitioner = PartitionParams::PartitionType::MANUAL;
-    ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType = ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86;
+    ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType = ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_INPLACE_X86;
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;//This is the only supported scheduler for multi-threaded emit
     TopologicalSortParameters::Heuristic heuristic = TopologicalSortParameters::Heuristic::BFS;
     unsigned long randSeed = 4;

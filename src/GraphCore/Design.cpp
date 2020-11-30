@@ -34,6 +34,7 @@
 
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
+#include "MultiThread/LocklessInPlaceThreadCrossingFIFO.h"
 #include "MultiThread/ConstIOThread.h"
 #include "MultiThread/StreamIOThread.h"
 #include "MultiThread/MultiThreadEmitterHelpers.h"
@@ -3431,6 +3432,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
             case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_X86:
                 //Note that FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChangeOutput in which case they are placed one level up).
                 fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+                break;
+            case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_INPLACE_X86:
+                fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessInPlaceThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
                 break;
             default:
                 throw std::runtime_error(

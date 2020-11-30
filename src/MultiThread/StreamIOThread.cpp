@@ -735,6 +735,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     ioThread << std::endl;
 
+    //NOTE: Because access to FIFOs is non-blocking and buffering is handled differently in I/O, we will force
+    //TODO: Inspect if this becomes the bottleneck
+
     //Fill write temps with data from stream if there is room in the buffer and data is availible
     for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
         std::string linuxInputTmpName = "linuxInputTmp_bundle_"+GeneralHelper::to_string(it->first);
@@ -824,7 +827,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Write FIFOs
     ioThread << "//Write FIFOs to compute" << std::endl;
-    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
+    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs, false, true, true);
     for (int i = 0; i < writeFIFOExprs.size(); i++) {
         ioThread << writeFIFOExprs[i] << std::endl;
     }
@@ -923,7 +926,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
-    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, true, true);
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
     }

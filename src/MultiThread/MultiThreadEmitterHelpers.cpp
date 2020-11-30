@@ -22,6 +22,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <stdexcept>
 
 void MultiThreadEmitterHelpers::findPartitionInputAndOutputFIFOs(
         std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum,
@@ -288,7 +289,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter) {
+std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter, bool forceNotInPlace) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -297,13 +298,24 @@ std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector
         //The fifo reads in terms of blocks with the components stored in a structure
         //When calling the function, the relavent component of the structure is passed as an argument
 
-        fifos[i]->emitCReadFromFIFO(exprs, tmpName, 1, forcePull ? ThreadCrossingFIFO::Role::NONE : ThreadCrossingFIFO::Role::CONSUMER, pushAfter);
+        fifos[i]->emitCReadFromFIFO(exprs, tmpName, 1, forcePull ? ThreadCrossingFIFO::Role::NONE : ThreadCrossingFIFO::Role::CONSUMER, pushAfter, forceNotInPlace);
     }
 
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter) {
+std::vector<std::string> MultiThreadEmitterHelpers::pushReadFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+    std::vector<std::string> exprs;
+
+    exprs.push_back("//Pushing status for input FIFOs");
+    for(int i = 0; i<fifos.size(); i++){
+        fifos[i]->pushLocalVars(exprs, ThreadCrossingFIFO::Role::CONSUMER);
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter, bool forceNotInPlace) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -312,7 +324,18 @@ std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vec
         //The fifo reads in terms of blocks with the components stored in a structure
         //When calling the function, the relavent component of the structure is passed as an argument
 
-        fifos[i]->emitCWriteToFIFO(exprs, tmpName, 1, forcePull ? ThreadCrossingFIFO::Role::NONE : ThreadCrossingFIFO::Role::PRODUCER, pushAfter);
+        fifos[i]->emitCWriteToFIFO(exprs, tmpName, 1, forcePull ? ThreadCrossingFIFO::Role::NONE : ThreadCrossingFIFO::Role::PRODUCER, pushAfter, forceNotInPlace);
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::pushWriteFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+    std::vector<std::string> exprs;
+
+    exprs.push_back("//Pushing status for output FIFOs");
+    for(int i = 0; i<fifos.size(); i++){
+        fifos[i]->pushLocalVars(exprs, ThreadCrossingFIFO::Role::PRODUCER);
     }
 
     return exprs;
@@ -909,6 +932,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     std::set<std::pair<int, int>> fifoClockDomainRates;
 
     //Set the index variable in the input FIFOs
+    bool fifoInPlace = false;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int portNum = 0; portNum<inputFIFOs[i]->getOutputPorts().size(); portNum++) {
             //Create the index variable name based on the base
@@ -920,6 +944,13 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             } else {
                 fifoClockDomainRates.emplace(1, 1);
             }
+        }
+
+        //TODO: Support mix of in place and non-in-place FIFOs
+        if(i == 0){
+            fifoInPlace = inputFIFOs[i]->isInPlace();
+        }else if(fifoInPlace != inputFIFOs[i]->isInPlace()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, all FIFOs must be either in place or not", inputFIFOs[i]));
         }
     }
 
@@ -934,6 +965,13 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             } else {
                 fifoClockDomainRates.emplace(1, 1);
             }
+        }
+
+        //TODO: Support mix of in place and non-in-place FIFOs
+        if(i == 0 && inputFIFOs.empty()){
+            fifoInPlace = outputFIFOs[i]->isInPlace();
+        }else if(fifoInPlace != outputFIFOs[i]->isInPlace()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, all FIFOs must be either in place or not", outputFIFOs[i]));
         }
     }
 
@@ -1231,6 +1269,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << std::endl;
 
     //Emit thread function
+    //TODO: Modify for in place FIFOs
     cFile << threadFctnDecl << "{" << std::endl;
     //Copy ptrs from struct argument
     cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
@@ -1302,9 +1341,11 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Create temp entries for outputs
-    std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
-    for(int i = 0; i<tmpWriteDecls.size(); i++){
-        cFile << tmpWriteDecls[i] << std::endl;
+    if(!fifoInPlace) {
+        std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
+        for (int i = 0; i < tmpWriteDecls.size(); i++) {
+            cFile << tmpWriteDecls[i] << std::endl;
+        }
     }
 
     //Create Loop
@@ -1406,6 +1447,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
               << std::endl;
     }
 
+    //=== Check Input FIFOs ===
     if(collectTelem) {
         cFile << "timespec_t waitingForInputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -1430,39 +1472,83 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "timeTotal += durationWaitingForInputFIFOs;" << std::endl;
     }
 
-    if(collectTelem){
-        //Now, time how long it takes to read the FIFO
-        cFile << "timespec_t readingInputFIFOsStart;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStart);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    //=== Check Write FIFO (for in-place)
+    if(fifoInPlace){
+        //Check output FIFOs (will spin until ready)
+        if(threadDebugPrint) {
+            cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) +
+                     " waiting for room in output FIFOs ...\\n\");" << std::endl;
+        }
+
+        if(collectTelem) {
+            cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        }
+
+        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Include pthread_testcancel check
+
+        if(collectTelem) {
+            cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "double durationWaitingForOutputFIFOs = difftimespec(&waitingForOutputFIFOsStop, &waitingForOutputFIFOsStart);" << std::endl;
+            cFile << "timeWaitingForOutputFIFOs += durationWaitingForOutputFIFOs;" << std::endl;
+            cFile << "timeTotal += durationWaitingForOutputFIFOs;" << std::endl;
+        }
     }
 
-    //Create temp entries for FIFO inputs
-    std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
-    for(int i = 0; i<tmpReadDecls.size(); i++){
-        cFile << tmpReadDecls[i] << std::endl;
-    }
+    //=== Read FIFOs (and write for in-place) ===
+    if(fifoInPlace){
+        //Need to do both FIFO read (get read ptr) and FIFO write
+        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, false, false);
+        for (int i = 0; i < readFIFOExprs.size(); i++) {
+            cFile << readFIFOExprs[i] << std::endl;
+        }
+        std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs, false, false, false);
+        for (int i = 0; i < writeFIFOExprs.size(); i++) {
+            cFile << writeFIFOExprs[i] << std::endl;
+        }
+    }else {
+        if(collectTelem){
+            //Now, time how long it takes to read the FIFO
+            cFile << "timespec_t readingInputFIFOsStart;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStart);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        }
 
-    //Read input FIFOs
-    if(threadDebugPrint) {
-        cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " reading inputs ...\\n\");"
-              << std::endl;
-    }
-    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
-    for(int i = 0; i<readFIFOExprs.size(); i++){
-        cFile << readFIFOExprs[i] << std::endl;
-    }
+        if(!fifoInPlace) {
+            //Create temp entries for FIFO inputs
+            std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
+            for (int i = 0; i < tmpReadDecls.size(); i++) {
+                cFile << tmpReadDecls[i] << std::endl;
+            }
+        }
 
-    if(collectTelem) {
-        cFile << "timespec_t readingInputFIFOsStop;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStop);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
-        cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
-        cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
-        cFile << "rxSamples += " << blockSize << ";" << std::endl;
+        //Read input FIFOs
+        if(threadDebugPrint) {
+            cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " reading inputs ...\\n\");"
+                  << std::endl;
+        }
+
+        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, true, false);
+        for (int i = 0; i < readFIFOExprs.size(); i++) {
+            cFile << readFIFOExprs[i] << std::endl;
+        }
+
+        if(collectTelem) {
+            cFile << "timespec_t readingInputFIFOsStop;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStop);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
+            cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
+            cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
+            cFile << "rxSamples += " << blockSize << ";" << std::endl;
+        }
     }
 
     if(threadDebugPrint) {
@@ -1481,7 +1567,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Call compute function (recall that the compute function is declared with outputs as references)
-    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize);
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize, fifoInPlace);
     cFile << call << std::endl;
 
     if(collectTelem) {
@@ -1506,62 +1592,82 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
     }
 
-    //Check output FIFOs (will spin until ready)
-    if(threadDebugPrint) {
-        cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) +
-                 " waiting for room in output FIFOs ...\\n\");" << std::endl;
+
+    //Only do FIFO output check here if not in-place (done before compute if in place)
+    if(!fifoInPlace){
+        //Check output FIFOs (will spin until ready)
+        if(threadDebugPrint) {
+            cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) +
+                     " waiting for room in output FIFOs ...\\n\");" << std::endl;
+        }
+
+        if(collectTelem) {
+            cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        }
+
+        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Include pthread_testcancel check
+
+        if(collectTelem) {
+            cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "double durationWaitingForOutputFIFOs = difftimespec(&waitingForOutputFIFOsStop, &waitingForOutputFIFOsStart);" << std::endl;
+            cFile << "timeWaitingForOutputFIFOs += durationWaitingForOutputFIFOs;" << std::endl;
+            cFile << "timeTotal += durationWaitingForOutputFIFOs;" << std::endl;
+        }
+
+        //Write result to FIFOs
+        if(threadDebugPrint) {
+            cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " writing outputs ...\\n\");"
+                  << std::endl;
+        }
+
+        //If the FIFOs are not in place
+        if (collectTelem) {
+            cFile << "timespec_t writingOutputFIFOsStart;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStart);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        }
+
+        std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs, false, true, false);
+        for (int i = 0; i < writeFIFOExprs.size(); i++) {
+            cFile << writeFIFOExprs[i] << std::endl;
+        }
+
+        if (collectTelem) {
+            cFile << "timespec_t writingOutputFIFOsStop;" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStop);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+            cFile
+                    << "double durationWritingOutputFIFOs = difftimespec(&writingOutputFIFOsStop, &writingOutputFIFOsStart);"
+                    << std::endl;
+            cFile << "timeWritingOutputFIFOs += durationWritingOutputFIFOs;" << std::endl;
+            cFile << "timeTotal += durationWritingOutputFIFOs;" << std::endl;
+        }
+
+        if(threadDebugPrint) {
+            cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " done writing outputs ...\\n\");"
+                  << std::endl;
+        }
     }
 
-    if(collectTelem) {
-        cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-    }
+    //==== If in-place, push the updates to the FIFOs here ====
+    if(fifoInPlace){
+        std::vector<std::string> readStatePush = pushReadFIFOsStatus(inputFIFOs);
+        for (int i = 0; i < readStatePush.size(); i++) {
+            cFile << readStatePush[i] << std::endl;
+        }
 
-    cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Include pthread_testcancel check
-
-    if(collectTelem) {
-        cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "double durationWaitingForOutputFIFOs = difftimespec(&waitingForOutputFIFOsStop, &waitingForOutputFIFOsStart);" << std::endl;
-        cFile << "timeWaitingForOutputFIFOs += durationWaitingForOutputFIFOs;" << std::endl;
-        cFile << "timeTotal += durationWaitingForOutputFIFOs;" << std::endl;
-    }
-
-    //Write result to FIFOs
-    if(threadDebugPrint) {
-        cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " writing outputs ...\\n\");"
-              << std::endl;
-    }
-
-    if(collectTelem) {
-        cFile << "timespec_t writingOutputFIFOsStart;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStart);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-    }
-
-    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
-    for(int i = 0; i<writeFIFOExprs.size(); i++){
-        cFile << writeFIFOExprs[i] << std::endl;
-    }
-
-    if(collectTelem) {
-        cFile << "timespec_t writingOutputFIFOsStop;" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStop);" << std::endl;
-        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "double durationWritingOutputFIFOs = difftimespec(&writingOutputFIFOsStop, &writingOutputFIFOsStart);" << std::endl;
-        cFile << "timeWritingOutputFIFOs += durationWritingOutputFIFOs;" << std::endl;
-        cFile << "timeTotal += durationWritingOutputFIFOs;" << std::endl;
-    }
-
-    if(threadDebugPrint) {
-        cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " done writing outputs ...\\n\");"
-              << std::endl;
+        std::vector<std::string> writeStatePush = pushWriteFIFOsStatus(outputFIFOs);
+        for (int i = 0; i < writeStatePush.size(); i++) {
+            cFile << writeStatePush[i] << std::endl;
+        }
     }
 
     if(collectTelem) {
@@ -1700,7 +1806,7 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     return prototype;
 }
 
-std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
+std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, bool argsPtr){
     std::string call = computeFctnName + "(";
 
     int foundInputVar = false;
@@ -1713,13 +1819,13 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
             if (foundInputVar) {
                 call += ", ";
             }
-            call += tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real";
+            call += tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_real";
 
             foundInputVar = true;
 
             //Check if complex
             if (var.getDataType().isComplex()) {
-                call += ", " + tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag";
+                call += ", " + tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
             }
         }
     }
@@ -1753,11 +1859,11 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
 
             foundOutputVar = true;
 
-            call += tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real";
+            call += tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_real";
 
             //Check if complex
             if (var.getDataType().isComplex()) {
-                call += ", " + tmpName + ".port" + GeneralHelper::to_string(portNum) + "_imag";
+                call += ", " + tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
             }
         }
     }

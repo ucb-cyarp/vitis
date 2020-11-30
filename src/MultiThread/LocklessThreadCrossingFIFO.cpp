@@ -240,8 +240,8 @@ std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite(std::vector<s
     return "((" + getCReadOffsetCached().getCVarName(false) + " < " + getCWriteOffsetCached().getCVarName(false) + ") ? " + GeneralHelper::to_string(arrayLength) + " - " + getCWriteOffsetCached().getCVarName(false) + " + " + getCReadOffsetCached().getCVarName(false) + " : " + getCReadOffsetCached().getCVarName(false) + " - " + getCWriteOffsetCached().getCVarName(false) + ")";
 }
 
-void
-LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter) {
+std::string
+LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter, bool forceNotInPlace) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -308,10 +308,12 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         //If not, a release will occur when the value is written
         cStatementQueue.push_back("}//End Scope for " + name + " FIFO Write");
     }
+
+    return "";
 }
 
-void
-LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter) {
+std::string
+LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter, bool forceNotInPlace) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -383,6 +385,8 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         //If not, a release will occur when the value is written
         cStatementQueue.push_back("}//End Scope for " + name + " FIFO Read");
     }
+
+    return "";
 }
 
 std::vector<std::pair<Variable, std::string>> LocklessThreadCrossingFIFO::getFIFOSharedVariables() {
@@ -560,4 +564,8 @@ std::set<std::string> LocklessThreadCrossingFIFO::getExternalIncludes() {
     includes.insert("#include <stdatomic.h>");
     includes.insert("#include <stdio.h>");
     return includes;
+}
+
+bool LocklessThreadCrossingFIFO::isInPlace() {
+    return false;
 }

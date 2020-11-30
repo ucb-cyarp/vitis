@@ -76,9 +76,19 @@ namespace MultiThreadEmitterHelpers {
     //Outer vector is for each fifo, the inner vector is for each port within the specified FIFO
     std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
 
-    std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true);
+    void writeLiteralsToFIFO(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> literals);
 
-    std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true);
+    std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true, bool forceNotInPlace = false);
+
+    //Used for in-place operations where the FIFO status push needs to occur after compute (where the blocks in the shared buffer
+    //are actively being used/written to)
+    std::vector<std::string> pushReadFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true, bool forceNotInPlace = false);
+
+    //Used for in-place operations where the FIFO status push needs to occur after compute (where the blocks in the shared buffer
+    //are actively being used/written to)
+    std::vector<std::string> pushWriteFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     /**
      * @brief Get the structure definition for a particular partition's thread
@@ -226,9 +236,10 @@ namespace MultiThreadEmitterHelpers {
      * @param computeFctnName
      * @param inputFIFOs
      * @param outputFIFOs
+     * @param argsPtr if true, args are pointers and need to be dereferenced
      * @return
      */
-    std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+    std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, bool argsPtr);
 
     /**
      * @brief Emits a given set operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
