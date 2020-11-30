@@ -1511,6 +1511,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         for (int i = 0; i < writeFIFOExprs.size(); i++) {
             cFile << writeFIFOExprs[i] << std::endl;
         }
+
+        if(collectTelem){
+            cFile << "rxSamples += " << blockSize << ";" << std::endl;
+        }
     }else {
         if(collectTelem){
             //Now, time how long it takes to read the FIFO
