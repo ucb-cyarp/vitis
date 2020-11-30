@@ -1883,11 +1883,11 @@ std::vector<std::string> MultiThreadEmitterHelpers::prefetchInputs(std::vector<s
         //Note that we want the temporal versions of the prefetch instructons which actually prefetch data into the
         //cache and not the non-temporal ones
 
-        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_T0);");
+        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_T1);");
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_T0);");
+            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_T1);");
         }
     }
 
@@ -1939,11 +1939,11 @@ std::vector<std::string> MultiThreadEmitterHelpers::prefetchOutputs(std::vector<
         //cache and not the non-temporal ones
 
         //Force a pointer for scalar values
-        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_ET0);");
+        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_ET1);");
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_ET0);");
+            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_ET1);");
         }
     }
 
