@@ -231,6 +231,10 @@ namespace MultiThreadEmitterHelpers {
      */
     std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
 
+    std::vector<std::string> prefetchInputs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::string index);
+
+    std::vector<std::string> prefetchOutputs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string index);
+
     /**
      * @brief Gets the statement calling the partition compute function
      * @param computeFctnName

@@ -1104,6 +1104,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         includesCFile.insert("#include \"" + papiHelperHeader + "\"");
     }
 
+    includesCFile.insert("#include <x86intrin.h>");
+
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<nodesToEmit.size(); i++){
         std::set<std::string> nodeIncludes = nodesToEmit[i]->getExternalIncludes();
@@ -1161,6 +1163,18 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << computeFctnProto << "{" << std::endl;
 
+    //Prefetch inputs and outputs for 1st cycle (request exclusive for outputs)
+    if(blockSize>1){
+        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, "0");
+        for(std::string expr : prefetchInputExprs){
+            cFile << expr << std::endl;
+        }
+        std::vector<std::string> prefetchOutputExprs = prefetchOutputs(outputFIFOs, "0");
+        for(std::string expr : prefetchOutputExprs){
+            cFile << expr << std::endl;
+        }
+    }
+
     //Create and init clock domain indexes
     for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
         std::pair<int, int> clkDomainRate = *clkDomainRateIt;
@@ -1187,6 +1201,14 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     if(blockSize > 1) {
         //TODO: Set the other index variables to 0 here
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
+
+        //Prefetch inputs for next cycle (request non-exclusive)
+        cFile << "if(" + blockIndVar + "<" + GeneralHelper::to_string(blockSize-1) + "){" << std::endl;
+        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, blockIndVar+"+1");
+        for(std::string expr : prefetchInputExprs){
+            cFile << expr << std::endl;
+        }
+        cFile << "}" << std::endl;
     }
 
     //Emit operators
@@ -1217,6 +1239,15 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 }
             }
         }
+
+        //TODO: Prefetch next outputs (request exclusive)
+        //Prefetch inputs for next cycle (request non-exclusive)
+        cFile << "if(" + blockIndVar + "<" + GeneralHelper::to_string(blockSize-1) + "){" << std::endl;
+        std::vector<std::string> prefetchInputExprs = prefetchOutputs(outputFIFOs, blockIndVar+"+1");
+        for(std::string expr : prefetchInputExprs){
+            cFile << expr << std::endl;
+        }
+        cFile << "}" << std::endl;
 
         cFile << "}" << std::endl;
     }
@@ -1808,6 +1839,115 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     }
 
     return prototype;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::prefetchInputs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::string index){
+    std::vector<std::string> statements;
+
+    std::vector<Variable> inputVars;
+    for(int i = 0; i<inputFIFOs.size(); i++){
+        for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
+            Variable var = inputFIFOs[i]->getCStateVar(j);
+
+            //Expand the variable based on the block size of the FIFO
+            if(inputFIFOs[i]->getBlockSizeCreateIfNot(j)>1){
+                DataType dt = var.getDataType();
+                dt = dt.expandForBlock(inputFIFOs[i]->getBlockSizeCreateIfNot(j));
+                var.setDataType(dt);
+            }
+
+            inputVars.push_back(var);
+        }
+    }
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+    for(unsigned long i = 0; i<inputVars.size(); i++){
+        Variable var = inputVars[i];
+
+        var.setAtomicVar(false);
+
+        //TODO: This only works for x86, update for other ISAs
+        //TODO: If not aligned with cache lines, it is possible that a value will straddle cache lines
+        //      Currently, only the first cache line will be prefetched.  This is to avoid swamping the
+        //      memory units with too many requests, putting the compute we are trying to overlap with
+        //      at a disadvantage.  If this becomes a problem, consider prefetching each byte of the
+        //
+
+        //For discussions of the various intrinsics (and underlying assembly), see
+        //https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=prefetch&expand=4391,4392,4393,4392
+        //https://stackoverflow.com/questions/46521694/what-are-mm-prefetch-locality-hints
+        //https://docs.microsoft.com/en-us/cpp/intrinsics/x64-amd64-intrinsics-list?view=msvc-160
+        //Intel Instruction Set Reference: PREFETCHh, PREFETCHW
+        //https://clang.llvm.org/doxygen/xmmintrin_8h_source.html
+        https://software.intel.com/content/www/us/en/develop/documentation/cpp-compiler-developer-guide-and-reference/top/compiler-reference/intrinsics/intrinsics-for-intel-streaming-simd-extensions-intel-sse/cacheability-support-intrinsics-1.html
+        //Note that we want the temporal versions of the prefetch instructons which actually prefetch data into the
+        //cache and not the non-temporal ones
+
+        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_T0);");
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_T0);");
+        }
+    }
+
+    return statements;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::prefetchOutputs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string index){
+    std::vector<std::string> statements;
+
+    std::vector<Variable> outputVars;
+    for(int i = 0; i<outputFIFOs.size(); i++){
+        for(int j = 0; j<outputFIFOs[i]->getInputPorts().size(); j++){
+            Variable var = outputFIFOs[i]->getCStateInputVar(j);
+
+            //Expand the variable based on the block size of the FIFO
+            if(outputFIFOs[i]->getBlockSizeCreateIfNot(j)>1){
+                DataType dt = var.getDataType();
+                dt = dt.expandForBlock(outputFIFOs[i]->getBlockSizeCreateIfNot(j));
+                var.setDataType(dt);
+            }
+
+            outputVars.push_back(var);
+        }
+    }
+
+    //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
+
+    for(unsigned long i = 0; i<outputVars.size(); i++){
+        Variable var = outputVars[i];
+
+        //Pass as not volatile
+        var.setAtomicVar(false);
+
+        //TODO: This only works for x86, update for other ISAs
+        //TODO: If not aligned with cache lines, it is possible that a value will straddle cache lines
+        //      Currently, only the first cache line will be prefetched.  This is to avoid swamping the
+        //      memory units with too many requests, putting the compute we are trying to overlap with
+        //      at a disadvantage.  If this becomes a problem, consider prefetching each byte of the
+        //
+
+        //For discussions of the various intrinsics (and underlying assembly), see
+        //https://software.intel.com/sites/landingpage/IntrinsicsGuide/#text=prefetch&expand=4391,4392,4393,4392
+        //https://stackoverflow.com/questions/46521694/what-are-mm-prefetch-locality-hints
+        //https://docs.microsoft.com/en-us/cpp/intrinsics/x64-amd64-intrinsics-list?view=msvc-160
+        //Intel Instruction Set Reference: PREFETCHh, PREFETCHW
+        //https://clang.llvm.org/doxygen/xmmintrin_8h_source.html
+        https://software.intel.com/content/www/us/en/develop/documentation/cpp-compiler-developer-guide-and-reference/top/compiler-reference/intrinsics/intrinsics-for-intel-streaming-simd-extensions-intel-sse/cacheability-support-intrinsics-1.html
+        //Note that we want the temporal versions of the prefetch instructons which actually prefetch data into the
+        //cache and not the non-temporal ones
+
+        //Force a pointer for scalar values
+        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_ET0);");
+
+        //Check if complex
+        if(var.getDataType().isComplex()){
+            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_ET0);");
+        }
+    }
+
+    return statements;
 }
 
 std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, bool argsPtr){
