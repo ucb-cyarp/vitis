@@ -1164,16 +1164,19 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << computeFctnProto << "{" << std::endl;
 
     //Prefetch inputs and outputs for 1st cycle (request exclusive for outputs)
-//    if(blockSize>1){
-//        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, "0");
-//        for(std::string expr : prefetchInputExprs){
-//            cFile << expr << std::endl;
-//        }
-//        std::vector<std::string> prefetchOutputExprs = prefetchOutputs(outputFIFOs, "0");
-//        for(std::string expr : prefetchOutputExprs){
-//            cFile << expr << std::endl;
-//        }
-//    }
+    if(blockSize>1){
+        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, "0");
+        for(std::string expr : prefetchInputExprs){
+            cFile << expr << std::endl;
+        }
+        std::vector<std::string> prefetchOutputExprs = prefetchOutputs(outputFIFOs, "0");
+        for(std::string expr : prefetchOutputExprs){
+            cFile << expr << std::endl;
+        }
+    }
+
+    int prefetchEveryN = 2;
+    int prefetchAhead = prefetchEveryN;
 
     //Create and init clock domain indexes
     for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
@@ -1203,8 +1206,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
 
         //Prefetch inputs for next cycle (request non-exclusive)
-        cFile << "if(" + blockIndVar + "<" + GeneralHelper::to_string(blockSize-1) + "){" << std::endl;
-        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, blockIndVar+"+1");
+        cFile << "if(" + blockIndVar + "<" + GeneralHelper::to_string(blockSize-prefetchAhead) + " && (" + blockIndVar + "+" + GeneralHelper::to_string(prefetchAhead) + ")%" + GeneralHelper::to_string(prefetchEveryN) + "==0){" << std::endl;
+        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, blockIndVar+"+"+GeneralHelper::to_string(prefetchAhead));
         for(std::string expr : prefetchInputExprs){
             cFile << expr << std::endl;
         }
@@ -1242,8 +1245,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
         //TODO: Prefetch next outputs (request exclusive)
         //Prefetch inputs for next cycle (request non-exclusive)
-        cFile << "if(" + blockIndVar + "<" + GeneralHelper::to_string(blockSize-1) + "){" << std::endl;
-        std::vector<std::string> prefetchInputExprs = prefetchOutputs(outputFIFOs, blockIndVar+"+1");
+        cFile << "if(" + blockIndVar + "<" + GeneralHelper::to_string(blockSize-prefetchAhead) + " && (" + blockIndVar + "+" + GeneralHelper::to_string(prefetchAhead) + ")%" + GeneralHelper::to_string(prefetchEveryN) + "==0){" << std::endl;
+        std::vector<std::string> prefetchInputExprs = prefetchOutputs(outputFIFOs, blockIndVar+"+"+GeneralHelper::to_string(prefetchAhead));
         for(std::string expr : prefetchInputExprs){
             cFile << expr << std::endl;
         }
