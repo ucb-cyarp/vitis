@@ -1164,16 +1164,16 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << computeFctnProto << "{" << std::endl;
 
     //Prefetch inputs and outputs for 1st cycle (request exclusive for outputs)
-    if(blockSize>1){
-        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, "0");
-        for(std::string expr : prefetchInputExprs){
-            cFile << expr << std::endl;
-        }
-        std::vector<std::string> prefetchOutputExprs = prefetchOutputs(outputFIFOs, "0");
-        for(std::string expr : prefetchOutputExprs){
-            cFile << expr << std::endl;
-        }
-    }
+//    if(blockSize>1){
+//        std::vector<std::string> prefetchInputExprs = prefetchInputs(inputFIFOs, "0");
+//        for(std::string expr : prefetchInputExprs){
+//            cFile << expr << std::endl;
+//        }
+//        std::vector<std::string> prefetchOutputExprs = prefetchOutputs(outputFIFOs, "0");
+//        for(std::string expr : prefetchOutputExprs){
+//            cFile << expr << std::endl;
+//        }
+//    }
 
     //Create and init clock domain indexes
     for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
@@ -1883,11 +1883,11 @@ std::vector<std::string> MultiThreadEmitterHelpers::prefetchInputs(std::vector<s
         //Note that we want the temporal versions of the prefetch instructons which actually prefetch data into the
         //cache and not the non-temporal ones
 
-        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_T1);");
+        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_T0);");
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_T1);");
+            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_T0);");
         }
     }
 
@@ -1939,11 +1939,11 @@ std::vector<std::string> MultiThreadEmitterHelpers::prefetchOutputs(std::vector<
         //cache and not the non-temporal ones
 
         //Force a pointer for scalar values
-        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_ET1);");
+        statements.push_back( "_mm_prefetch(" + var.getCVarName(false) + "+" + index + ", _MM_HINT_ET0);");
 
         //Check if complex
         if(var.getDataType().isComplex()){
-            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_ET1);");
+            statements.push_back( "_mm_prefetch(" + var.getCVarName(true) + "+" + index + ", _MM_HINT_ET0);");
         }
     }
 
