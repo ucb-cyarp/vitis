@@ -96,7 +96,8 @@ public:
         NONE, //No defined role (does not use cached values)
         PRODUCER, //Uses cached producer state
         CONSUMER, //Uses cached consumer state
-        FULL_CACHED, //For applicable functions, uses cached producer and consumer state
+        PRODUCER_FULLCACHE, //Uses cached producer state, use cashed consumer state when possible
+        CONSUMER_FULLCACHE //Uses cached consumer state, use cached producer state when possible
     };
 
     //====Getters/Setters====

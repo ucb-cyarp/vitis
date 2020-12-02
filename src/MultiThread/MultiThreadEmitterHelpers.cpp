@@ -121,7 +121,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
     for(int i = 0; i<fifos.size(); i++) {
         //Note: do not need to check if complex since complex values come via the same FIFO as a struct
         std::vector<std::string> statementQueue;
-        std::string checkStmt = checkVarName + " &= " + (producer ? fifos[i]->emitCIsNotFull(statementQueue, ThreadCrossingFIFO::Role::PRODUCER) : fifos[i]->emitCIsNotEmpty(statementQueue, ThreadCrossingFIFO::Role::CONSUMER)) + ";";
+        std::string checkStmt = checkVarName + " &= " + (producer ? fifos[i]->emitCIsNotFull(statementQueue, ThreadCrossingFIFO::Role::PRODUCER_FULLCACHE) : fifos[i]->emitCIsNotEmpty(statementQueue, ThreadCrossingFIFO::Role::CONSUMER_FULLCACHE)) + ";";
         check += "{\n";
         for(unsigned int i = 0; i<statementQueue.size(); i++){
             check += statementQueue[i] + "\n";
