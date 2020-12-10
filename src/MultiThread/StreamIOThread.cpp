@@ -206,7 +206,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(printTelem){
         includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h\"");
     }
-    includesCFile.insert("#include \"intrin_bench_default_defines.h\"");
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<inputFIFOs.size(); i++){

@@ -79,7 +79,6 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
 
     std::set<std::string> includesCFile;
     includesCFile.insert("#include \"" + fileName + ".h" + "\"");
-    includesCFile.insert("#include \"intrin_bench_default_defines.h\"");
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<inputFIFOs.size(); i++){

@@ -131,7 +131,8 @@ namespace MultiThreadEmitterHelpers {
                                           std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap,
                                           std::set<int> partitions, std::string path, std::string fileNamePrefix,
                                           std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix,
-                                          std::vector<int> partitionMap, std::string papiHelperHeader);
+                                          std::vector<int> partitionMap, std::string papiHelperHeader,
+                                          bool useSCHED_FIFO);
 
     //The following 2 functions can be reused for different I/O drivers
 
@@ -150,6 +151,40 @@ namespace MultiThreadEmitterHelpers {
     void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
 
     /**
+     * @brief Emits the main function for multithreaded emits.
+     *
+     * It is an alternative to emitMultiThreadedDriver which is designed to be used with benchmarking skeleton code
+     *
+     * @note This can be used with different types of I/O handlers
+     *
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param blockSize
+     * @param ioBenchmarkSuffix
+     * @param inputVars
+     */
+    void emitMultiThreadedMain(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
+
+    /**
+     * @brief Emits a makefile for benchmarking multithreaded emits (when using the benchmark skeleton code)
+     *
+     * @note This can be used with different types of I/O handlers
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param ioBenchmarkSuffix
+     * @param includeLrt if true, includes -lrt to the linker options
+     * @param includePAPI if true, includes -lpapi to the linker options
+     */
+    void emitMultiThreadedMakefileBenchDriver(std::string path, std::string fileNamePrefix,
+                                              std::string designName, std::set<int> partitions,
+                                              std::string ioBenchmarkSuffix, bool includeLrt,
+                                              std::vector<std::string> additionalSystemSrc,
+                                              bool includePAPI,
+                                              bool enableBenchmarkSetAffinity);
+
+    /**
      * @brief Emits a makefile for benchmarking multithreaded emits
      *
      * @note This can be used with different types of I/O handlers
@@ -160,12 +195,12 @@ namespace MultiThreadEmitterHelpers {
      * @param includeLrt if true, includes -lrt to the linker options
      * @param includePAPI if true, includes -lpapi to the linker options
      */
-    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
-                                   std::string designName, std::set<int> partitions,
-                                   std::string ioBenchmarkSuffix, bool includeLrt,
-                                   std::vector<std::string> additionalSystemSrc,
-                                   bool includePAPI,
-                                   bool enableBenchmarkSetAffinity);
+    void emitMultiThreadedMakefileMain(std::string path, std::string fileNamePrefix,
+                                       std::string designName, std::set<int> partitions,
+                                       std::string ioBenchmarkSuffix, bool includeLrt,
+                                       std::vector<std::string> additionalSystemSrc,
+                                       bool includePAPI,
+                                       bool enableBenchmarkSetAffinity);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)

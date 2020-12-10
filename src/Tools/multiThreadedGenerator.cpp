@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
         std::cout << "                           --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> " << std::endl;
         std::cout << "                           <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> " << std::endl;
         std::cout << "                           --memAlignment <MEM_ALIGNMENT> <--emitPAPITelem>" << std::endl;
+        std::cout << "                           <--useSCHED_FIFO>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -82,6 +83,7 @@ int main(int argc, char* argv[]) {
     bool threadDebugPrint = false;
     bool printTelem = false;
     bool emitPapiTelem = false;
+    bool useSCHEDFIFO = false;
     std::string telemDumpPrefix = "";
 
     //Check for command line parameters
@@ -218,6 +220,8 @@ int main(int argc, char* argv[]) {
             printTelem = true;
         }else if(strcmp(argv[i],  "--emitPAPITelem") == 0){
             emitPapiTelem = true;
+        }else if(strcmp(argv[i],  "--useSCHED_FIFO") == 0){
+            useSCHEDFIFO = true;
         }else{
             std::cerr << "Unknown command line option: " << argv[i] << std::endl;
             exit(1);
@@ -280,7 +284,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;
