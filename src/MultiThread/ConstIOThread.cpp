@@ -144,14 +144,7 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
         ioThread << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
-    ioThread << "int readCount = 0;" << std::endl;
-
-    if(blockSize > 1){
-        ioThread << "int iterLimit = STIM_LEN/" << blockSize << ";" << std::endl;
-    }else{
-        ioThread << "int iterLimit = STIM_LEN;" << std::endl;
-    }
-    ioThread << "for(int i = 0; i<iterLimit; ){" << std::endl;
+    ioThread << "while(1){" << std::endl;
     //Check Output FIFOs
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, false, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
     ioThread << "if(outputFIFOsReady){" << std::endl;
@@ -160,7 +153,6 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         ioThread << writeFIFOExprs[i] << std::endl;
     }
-    ioThread << "i++;" << std::endl;
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Sent\\n\");" << std::endl;
     }
@@ -174,29 +166,12 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
     }
-    ioThread << "readCount++;" << std::endl;
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Received\\n\");" << std::endl;
     }
     ioThread << "}" << std::endl; //Close if
 
     ioThread << "}" << std::endl; //Close for
-
-    //Wait for reading to finish
-    ioThread << "while(readCount<iterLimit){" << std::endl;
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here (is blocking)
-    ioThread << "if(inputFIFOsReady){" << std::endl;
-    //Read input FIFOs
-    std::vector<std::string> readFIFOExprsCleanup = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
-    for(int i = 0; i<readFIFOExprsCleanup.size(); i++){
-        ioThread << readFIFOExprsCleanup[i] << std::endl;
-    }
-    ioThread << "readCount++;" << std::endl;
-    if(threadDebugPrint) {
-        ioThread << "printf(\"I/O Received\\n\");" << std::endl;
-    }
-    ioThread << "}" << std::endl; //end if
-    ioThread << "}" << std::endl; //end while
 
     //Done reading
     ioThread << "return NULL;" << std::endl;
