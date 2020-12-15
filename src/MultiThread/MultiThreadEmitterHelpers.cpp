@@ -238,6 +238,102 @@ std::vector<std::string> MultiThreadEmitterHelpers::createFIFOWriteTemps(std::ve
     return exprs;
 }
 
+std::vector<std::string> MultiThreadEmitterHelpers::createFIFODoubleBufferReadVars(
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
+    std::vector<std::string> exprs;
+
+    if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT) {
+        for (int i = 0; i < fifos.size(); i++) {
+            std::string structType = fifos[i]->getFIFOStructTypeName();
+
+            std::string tmpNameA = fifos[i]->getName() + "_bufferA";
+            std::string tmpNameB = fifos[i]->getName() + "_bufferB";
+            exprs.push_back(structType + " " + tmpNameA + ";");
+            exprs.push_back(structType + " " + tmpNameB + ";");
+
+            std::string currentName = fifos[i]->getName() + "_current";
+            std::string nextName = fifos[i]->getName() + "_next";
+
+            exprs.push_back(structType + " *" + currentName + " = &" + tmpNameA + ";");
+            exprs.push_back(structType + " *" + nextName + " = &" + tmpNameB + ";");
+        }
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::createFIFODoubleBufferWriteVars(
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
+    std::vector<std::string> exprs;
+
+    if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT) {
+        for (int i = 0; i < fifos.size(); i++) {
+            std::string structType = fifos[i]->getFIFOStructTypeName();
+
+            std::string tmpNameA = fifos[i]->getName() + "_bufferA";
+            std::string tmpNameB = fifos[i]->getName() + "_bufferB";
+            exprs.push_back(structType + " " + tmpNameA + ";");
+            exprs.push_back(structType + " " + tmpNameB + ";");
+
+            std::string currentName = fifos[i]->getName() + "_current";
+            std::string prevName = fifos[i]->getName() + "_prev";
+
+            exprs.push_back(structType + " *" + currentName + " = &" + tmpNameA + ";");
+            exprs.push_back(structType + " *" + prevName + " = &" + tmpNameB + ";");
+        }
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::swapReadDoubleBufferPtrs(
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
+    std::vector<std::string> exprs;
+
+    if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT) {
+        for (int i = 0; i < fifos.size(); i++) {
+            std::string structType = fifos[i]->getFIFOStructTypeName();
+
+            std::string currentName = fifos[i]->getName() + "_current";
+            std::string nextName = fifos[i]->getName() + "_next";
+            std::string tmpName = fifos[i]->getName() + "_tmp";
+
+            //Will open a block scope for the temporary var
+            exprs.push_back("{");
+            exprs.push_back(structType + " *" + tmpName + " = " + currentName + ";");
+            exprs.push_back(currentName + " = " + nextName + ";");
+            exprs.push_back(nextName + " = " + tmpName + ";");
+            exprs.push_back("}");
+        }
+    }
+
+    return exprs;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::swapWriteDoubleBufferPtrs(
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
+    std::vector<std::string> exprs;
+
+    if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT) {
+        for (int i = 0; i < fifos.size(); i++) {
+            std::string structType = fifos[i]->getFIFOStructTypeName();
+
+            std::string currentName = fifos[i]->getName() + "_current";
+            std::string prevName = fifos[i]->getName() + "_prev";
+            std::string tmpName = fifos[i]->getName() + "_tmp";
+
+            //Will open a block scope for the temporary var
+            exprs.push_back("{");
+            exprs.push_back(structType + " *" + tmpName + " = " + prevName + ";");
+            exprs.push_back(prevName + " = " + currentName + ";");
+            exprs.push_back(currentName + " = " + tmpName + ";");
+            exprs.push_back("}");
+        }
+    }
+
+    return exprs;
+}
+
 std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
@@ -911,7 +1007,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      unsigned long blockSize, std::string fifoHeaderFile,
                                                      bool threadDebugPrint, bool printTelem,
                                                      std::string telemDumpFilePrefix, bool telemAvg,
-                                                     std::string papiHelperHeader){
+                                                     std::string papiHelperHeader,
+                                                     ComputeIODoubleBufferType doubleBuffer){
     bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
 
     std::string blockIndVar = "";
@@ -975,12 +1072,18 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
     }
 
+    if(doubleBuffer != ComputeIODoubleBufferType::NONE && !fifoInPlace){
+        //TODO: Possibly provide double buffer implementation without in-place FIFOs
+        //      ie. by implementing the double buffering outside of the compute function
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Double Buffering Requires In-Place FIFOs"));
+    }
+
     //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
     //types are allowed since multiple values are being passed
 
     //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
 
-    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize);
+    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize, doubleBuffer);
     std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
     std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
 
@@ -1185,7 +1288,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //emit inner loop
     DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, {1});
     if(blockSize > 1) {
-        //TODO: Set the other index variables to 0 here
         cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
     }
 
@@ -1196,28 +1298,46 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         throw std::runtime_error("Only TOPOLOGICAL_CONTEXT scheduler varient is supported for multi-threaded emit");
     }
 
-    if(blockSize > 1) {
-        //Increment the counter variables or wrap them around.  Increment the index variables on wraparound
-        for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
-            std::pair<int, int> clkDomainRate = *clkDomainRateIt;
-            if(clkDomainRate != std::pair<int, int>(1, 1)) {
+    //Run through the clock domains and emit the double buffering copies (if applicable)
+    //Also increment the clock domain indexes if block size > 1
+    for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
+        std::pair<int, int> clkDomainRate = *clkDomainRateIt;
+        //Emit the double buffer copies before the counters/indexes are incremented
+        std::vector<std::string> dblBufferExprs = computeIODoubleBufferEmit(inputFIFOs, outputFIFOs, clkDomainRate,
+                                  getClkDomainIndVarName(clkDomainRate, true),
+                                  getClkDomainIndVarName(clkDomainRate, false), doubleBuffer);
+        for(int i = 0; i<dblBufferExprs.size(); i++){
+            cFile << dblBufferExprs[i] << std::endl;
+        }
+
+        if(blockSize > 1) {
+            //Increment the counter variables or wrap them around.  Increment the index variables on wraparound
+            if (clkDomainRate != std::pair<int, int>(1, 1)) {
                 std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
                 if (clkDomainRate.second == 1) {
+                    //This is an upsample domain relative to the base and is incremented by more than 1
+
                     //Just increment the index
                     cFile << indVarStr << " += " << clkDomainRate.first << std::endl;
                 } else {
+                    //This is a rational resampled domain relative to the base rate
+
                     //Increment the counter and conditionaly wrap and increment the index
                     std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
-                    cFile << "if(" << indVarCounterStr << " < " << (clkDomainRate.second-1) << "){" << std::endl;
+                    cFile << "if(" << indVarCounterStr << " < " << (clkDomainRate.second - 1) << "){" << std::endl;
                     cFile << indVarCounterStr << "++;" << std::endl;
                     cFile << "}else{" << std::endl;
                     cFile << indVarCounterStr << " = 0;" << std::endl;
                     cFile << indVarStr << " += " << clkDomainRate.first << ";" << std::endl;
                     cFile << "}" << std::endl;
                 }
-            }
+            }//else
+            //This is occurring at the base rate
         }
+    }
 
+    //close the block for loop (if applicable)
+    if(blockSize > 1){
         cFile << "}" << std::endl;
     }
 
@@ -1269,7 +1389,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << std::endl;
 
     //Emit thread function
-    //TODO: Modify for in place FIFOs
     cFile << threadFctnDecl << "{" << std::endl;
     //Copy ptrs from struct argument
     cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
@@ -1340,6 +1459,14 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
+    //Create temp entries for FIFO inputs
+    if(!fifoInPlace) {
+        std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
+        for (int i = 0; i < tmpReadDecls.size(); i++) {
+            cFile << tmpReadDecls[i] << std::endl;
+        }
+    }
+
     //Create temp entries for outputs
     if(!fifoInPlace) {
         std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
@@ -1348,7 +1475,106 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
     }
 
+    //Create input double buffer entries (if applicable)
+    std::vector<std::string> inputDoubleBufferEntries = createFIFODoubleBufferReadVars(inputFIFOs, doubleBuffer);
+    for (int i = 0; i < inputDoubleBufferEntries.size(); i++) {
+        cFile << inputDoubleBufferEntries[i] << std::endl;
+    }
+
+    //Create output double buffer entries (if applicable)
+    std::vector<std::string> outputDoubleBufferEntries = createFIFODoubleBufferWriteVars(outputFIFOs, doubleBuffer);
+    for (int i = 0; i < outputDoubleBufferEntries.size(); i++) {
+        cFile << outputDoubleBufferEntries[i] << std::endl;
+    }
+
+    //TODO: For double buffer, handle the initial load and store
+    if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT) {
+        cFile << std::endl;
+        cFile << "{" << std::endl; //Open a scope for this
+        cFile << "//Priming Double Buffer Input" << std::endl;
+
+        //Need to initially read from the input FIFO without running compute
+        //First, wait for input FIFOs
+        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true,false); //Include pthread_testcancel check
+
+        //TODO: currently assumes inPlace FIFOs is true, modify if this changes in the future
+        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, false, false);
+        for (int i = 0; i < readFIFOExprs.size(); i++) {
+            cFile << readFIFOExprs[i] << std::endl;
+        }
+
+        //Copy the values from the input FIFO _readTmp ptrs to the _current buffers
+        for(auto inputFIFO : inputFIFOs){
+            std::string sharedPtr = inputFIFO->getName() + "_readTmp";
+            std::string currentPtr = inputFIFO->getName() + "_current";
+
+            //Emit the copy
+            cFile << "*" << currentPtr << "=*" << sharedPtr << ";" << std::endl;
+        }
+
+        //Need to update FIFOs with the read
+        std::vector<std::string> readStatePush = pushReadFIFOsStatus(inputFIFOs);
+        for (int i = 0; i < readStatePush.size(); i++) {
+            cFile << readStatePush[i] << std::endl;
+        }
+        cFile << "}" << std::endl; //Close scope
+    }
+
+    if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT) {
+        cFile << std::endl;
+        cFile << "{" << std::endl; //Open a scope for this
+        cFile << "//Priming Double Buffer Output" << std::endl;
+
+        //Need to run an initial run of the compute function to get an output which can be written in the next itteration
+        //To do this, will pass _prev as both the prev ptr ans the shared ptr.  This will cause prev to be written into itself instead of _prev being written to the FIFO
+        //The _prev value will be discarded in any case and will become the buffer where the next itteration's compute output will be written
+
+        //First, wait for input FIFOs
+        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false); //Include pthread_testcancel check
+
+        //Do not need to wait for output FIFOs since we are not actually writing into them
+
+        //TODO: currently assumes inPlace FIFOs is true, modify if this changes in the future
+        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, false, false);
+        for (int i = 0; i < readFIFOExprs.size(); i++) {
+            cFile << readFIFOExprs[i] << std::endl;
+        }
+
+        //Run compute
+        std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize,
+                                                            fifoInPlace, doubleBuffer,
+                                                            "_readTmp",
+                                                            "_prev", //this is normally "_writeTmp" but we do not actually want to write
+                                                            "_next",
+                                                            "_current",
+                                                            "_current",
+                                                            "_prev");
+        cFile << "//Calling compute function to collect outputs in local buffer.  Not writing to output FIFOs since the current local buffer state for outputs is garbage" << std::endl;
+        cFile << call << std::endl;
+
+        //Update the input FIFOs but not the output FIFOs as we did not actually write
+        std::vector<std::string> readStatePush = pushReadFIFOsStatus(inputFIFOs);
+        for (int i = 0; i < readStatePush.size(); i++) {
+            cFile << readStatePush[i] << std::endl;
+        }
+
+        cFile << "//Swapping double buffer ptrs" << std::endl;
+        //Need to swap the buffers for reading and writing before going into the main loop
+        std::vector<std::string> swapInputDoubleBufferPtrs = swapReadDoubleBufferPtrs(inputFIFOs, doubleBuffer);
+        for (int i = 0; i < swapInputDoubleBufferPtrs.size(); i++) {
+            cFile << swapInputDoubleBufferPtrs[i] << std::endl;
+        }
+        std::vector<std::string> swapOutputDoubleBufferPtrs = swapWriteDoubleBufferPtrs(outputFIFOs, doubleBuffer);
+        for (int i = 0; i < swapOutputDoubleBufferPtrs.size(); i++) {
+            cFile << swapOutputDoubleBufferPtrs[i] << std::endl;
+        }
+
+        cFile << "}" << std::endl; //Close scope
+    }
+
+
     //Create Loop
+    cFile << "//Begin Core Loop" << std::endl;
     cFile << "while(1){" << std::endl;
 
     //Move telemetry reporting to start of loop for more consistent telemetry reporting (no longer inside a single transaction)
@@ -1524,14 +1750,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
-        if(!fifoInPlace) {
-            //Create temp entries for FIFO inputs
-            std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
-            for (int i = 0; i < tmpReadDecls.size(); i++) {
-                cFile << tmpReadDecls[i] << std::endl;
-            }
-        }
-
         //Read input FIFOs
         if(threadDebugPrint) {
             cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " reading inputs ...\\n\");"
@@ -1571,7 +1789,14 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Call compute function (recall that the compute function is declared with outputs as references)
-    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize, fifoInPlace);
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize,
+                                                        fifoInPlace, doubleBuffer,
+                                                        "_readTmp",
+                                                        "_writeTmp",
+                                                        "_next",
+                                                        "_current",
+                                                        "_current",
+                                                        "_prev");
     cFile << call << std::endl;
 
     if(collectTelem) {
@@ -1674,6 +1899,19 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
     }
 
+    //Swap double buffer arrays here
+    if(doubleBuffer != ComputeIODoubleBufferType::NONE){
+        cFile << "//Swap Double Buffer Ptrs" << std::endl;
+    }
+    std::vector<std::string> swapInputDoubleBufferPtrs = swapReadDoubleBufferPtrs(inputFIFOs, doubleBuffer);
+    for (int i = 0; i < swapInputDoubleBufferPtrs.size(); i++) {
+        cFile << swapInputDoubleBufferPtrs[i] << std::endl;
+    }
+    std::vector<std::string> swapOutputDoubleBufferPtrs = swapWriteDoubleBufferPtrs(outputFIFOs, doubleBuffer);
+    for (int i = 0; i < swapOutputDoubleBufferPtrs.size(); i++) {
+        cFile << swapOutputDoubleBufferPtrs[i] << std::endl;
+    }
+
     if(collectTelem) {
         cFile << "if(!collectTelem){" << std::endl;
         cFile << "//Reset timer after processing first samples.  Removes startup time from telemetry" << std::endl;
@@ -1718,21 +1956,15 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile.close();
 }
 
-std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
+std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, ComputeIODoubleBufferType doubleBuffer){
     std::string prototype = "";
 
     std::vector<Variable> inputVars;
+    std::vector<bool> inputIsScalar;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
-            Variable var = inputFIFOs[i]->getCStateVar(j);
-
-            //Expand the variable based on the block size of the FIFO
-            if(inputFIFOs[i]->getBlockSizeCreateIfNot(j)>1){
-                DataType dt = var.getDataType();
-                dt = dt.expandForBlock(inputFIFOs[i]->getBlockSizeCreateIfNot(j));
-                var.setDataType(dt);
-            }
-
+            inputIsScalar.push_back(inputFIFOs[i]->getCStateVar(j).getDataType().isScalar());
+            Variable var = inputFIFOs[i]->getCStateVarExpandedForBlockSize(j);
             inputVars.push_back(var);
         }
     }
@@ -1747,11 +1979,51 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         if(i > 0){
             prototype += ", ";
         }
-        prototype += "const " + var.getCVarDecl(false, true, false, true);
 
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            prototype += ", const " + var.getCVarDecl(true, true, false, true);
+        if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT){
+            //Create vars for the sharedPtr (const)
+            //                the currentBuffer (const)
+            //            and the nextBuffer (not const)
+
+            Variable sharedPtr = var;
+            sharedPtr.setName(sharedPtr.getName()+"_shared");
+            Variable currentPtr = var; //Since we are computing out of the "current" array, the name will be unchanged to avoid needing changes to the underlying FIFO node emit
+            Variable nextPtr = var;
+            nextPtr.setName(nextPtr.getName()+"_next");
+
+            if(inputIsScalar[i]) { //force to be a ptr
+                prototype += "const " + sharedPtr.getCPtrDecl(false);
+            }else{
+                prototype += "const " + sharedPtr.getCVarDecl(false, true, false, true);
+            }
+            prototype += ", const " + currentPtr.getCVarDecl(false, true, false, true); //It allowed to be a scalar
+            if(inputIsScalar[i]) { //force to be a ptr
+                prototype += ", " + nextPtr.getCPtrDecl(false);
+            }else{
+                prototype += ", " + nextPtr.getCVarDecl(false, true, false, true);
+            }
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                if(inputIsScalar[i]) { //force to be a ptr
+                    prototype += ", const " + sharedPtr.getCPtrDecl(true);
+                }else {
+                    prototype += ", const " + sharedPtr.getCVarDecl(true, true, false, true);
+                }
+                prototype += ", const " + currentPtr.getCVarDecl(true, true, false, true); //It allowd to be a scalar
+                if(inputIsScalar[i]) { //force to be a ptr
+                    prototype += ", " + nextPtr.getCPtrDecl(true);
+                }else {
+                    prototype += ", " + nextPtr.getCVarDecl(true, true, false, true);
+                }
+            }
+        }else {
+            prototype += "const " + var.getCVarDecl(false, true, false, true);
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                prototype += ", const " + var.getCVarDecl(true, true, false, true);
+            }
         }
     }
 
@@ -1759,15 +2031,7 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     std::vector<Variable> outputVars;
     for(int i = 0; i<outputFIFOs.size(); i++){
         for(int j = 0; j<outputFIFOs[i]->getInputPorts().size(); j++){
-            Variable var = outputFIFOs[i]->getCStateInputVar(j);
-
-            //Expand the variable based on the block size of the FIFO
-            if(outputFIFOs[i]->getBlockSizeCreateIfNot(j)>1){
-                DataType dt = var.getDataType();
-                dt = dt.expandForBlock(outputFIFOs[i]->getBlockSizeCreateIfNot(j));
-                var.setDataType(dt);
-            }
-
+            Variable var = outputFIFOs[i]->getCStateInputVarExpandedForBlockSize(j);
             outputVars.push_back(var);
         }
     }
@@ -1787,22 +2051,60 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         if(i > 0) {
             prototype += ", ";
         }
-        //The output variables are always pointers
-        if(var.getDataType().isScalar()) {
-            //Force a pointer for scalar values
-            prototype += var.getCPtrDecl(false);
-        }else{
-            prototype += var.getCVarDecl(false, true, false, true);
 
-        }
+        if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT){
+            //Create vars for the sharedPtr (not const)
+            //                the currentBuffer (not const)
+            //            and the prevBuffer (const)
 
-        //Check if complex
-        if(var.getDataType().isComplex()){
-            prototype += ", ";
+            Variable sharedPtr = var;
+            sharedPtr.setName(sharedPtr.getName()+"_shared");
+            Variable currentPtr = var; //Since we are computing into the "current" array, the name will be unchanged to avoid needing changes to the underlying FIFO node emit
+            Variable prevPtr = var;
+            prevPtr.setName(prevPtr.getName()+"_prev");
+
+            //The output variables are always pointers
             if(var.getDataType().isScalar()) {
-                prototype += var.getCPtrDecl(true);
-            }else {
-                prototype += var.getCVarDecl(true, true, false, true);
+                //Force a pointer for scalar values
+                prototype += sharedPtr.getCPtrDecl(false);
+                prototype += ", " + currentPtr.getCPtrDecl(false);
+                prototype += ", const " + prevPtr.getCPtrDecl(false);
+            }else{
+                prototype += sharedPtr.getCVarDecl(false, true, false, true);
+                prototype += ", " + currentPtr.getCVarDecl(false, true, false, true);
+                prototype += ", const " + prevPtr.getCVarDecl(false, true, false, true);
+            }
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                prototype += ", ";
+                if(var.getDataType().isScalar()) {
+                    prototype += sharedPtr.getCPtrDecl(true);
+                    prototype += ", " + currentPtr.getCPtrDecl(true);
+                    prototype += ", const " + prevPtr.getCPtrDecl(true);
+                }else {
+                    prototype += sharedPtr.getCVarDecl(true, true, false, true);
+                    prototype += ", " + currentPtr.getCVarDecl(true, true, false, true);
+                    prototype += ", const " + prevPtr.getCVarDecl(true, true, false, true);
+                }
+            }
+        }else{
+            //The output variables are always pointers
+            if(var.getDataType().isScalar()) {
+                //Force a pointer for scalar values
+                prototype += var.getCPtrDecl(false);
+            }else{
+                prototype += var.getCVarDecl(false, true, false, true);
+            }
+
+            //Check if complex
+            if(var.getDataType().isComplex()){
+                prototype += ", ";
+                if(var.getDataType().isScalar()) {
+                    prototype += var.getCPtrDecl(true);
+                }else {
+                    prototype += var.getCVarDecl(true, true, false, true);
+                }
             }
         }
     }
@@ -1810,26 +2112,54 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     return prototype;
 }
 
-std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, bool argsPtr){
+std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName,
+                                                                        std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                                        std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                                        int blockSize, bool fifoInPlace,
+                                                                        ComputeIODoubleBufferType doubleBuffer,
+                                                                        std::string inputFIFOSuffix, //"_readTmp"
+                                                                        std::string outputFIFOSuffix, //"_writeTmp"
+                                                                        std::string doubleBufferInputNextSuffix,
+                                                                        std::string doubleBufferInputCurrentSuffix,
+                                                                        std::string doubleBufferOutputCurrentSuffix,
+                                                                        std::string doubleBufferOutputPrevSuffix){
     std::string call = computeFctnName + "(";
+
+    //TODO: Update for double buffer
 
     int foundInputVar = false;
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<inputFIFOs.size(); i++) {
         for (unsigned long portNum = 0; portNum < inputFIFOs[i]->getInputPorts().size(); portNum++) {
-            Variable var = inputFIFOs[i]->getCStateVar(portNum);
-            std::string tmpName = inputFIFOs[i]->getName() + "_readTmp";
+            Variable var = inputFIFOs[i]->getCStateVarExpandedForBlockSize(portNum);
+            std::string tmpName = inputFIFOs[i]->getName() + inputFIFOSuffix;
 
             if (foundInputVar) {
                 call += ", ";
             }
-            call += tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_real";
+            call += tmpName + (fifoInPlace ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_real";
+
+            //if using double buffer, the order of operands is, shared (readTmp), current, next, shared (imag), current (imag), next (imag)
+            //Note that scalar next operand need to be passed as ptr so a '&' may be required
+            //The recepy for the names are fifo_name + suffix
+            std::string currentName = inputFIFOs[i]->getName() + doubleBufferInputCurrentSuffix;
+            std::string nextName = inputFIFOs[i]->getName() + doubleBufferInputNextSuffix;
+
+            if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT){
+                call += ", " + currentName + "->port" + GeneralHelper::to_string(portNum) + "_real"; //Allowed to be a scaler
+                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + nextName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+            }
 
             foundInputVar = true;
 
             //Check if complex
             if (var.getDataType().isComplex()) {
-                call += ", " + tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
+                call += ", " + tmpName + (fifoInPlace ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
+
+                if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT){
+                    call += ", " + currentName + "->port" + GeneralHelper::to_string(portNum) + "_imag"; //Allowed to be a scaler
+                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + nextName + "->port" + GeneralHelper::to_string(portNum) + "_imag";
+                }
             }
         }
     }
@@ -1845,7 +2175,7 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
 
     for(unsigned long i = 0; i<outputFIFOs.size(); i++) {
         for (unsigned long portNum = 0; portNum < outputFIFOs[i]->getInputPorts().size(); portNum++) {
-            Variable var = outputFIFOs[i]->getCStateInputVar(portNum);
+            Variable var = outputFIFOs[i]->getCStateVarExpandedForBlockSize(portNum);
 
             //Note that the FIFO state variable does not include the expansion for
             //block size, do it here.
@@ -1855,7 +2185,7 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
             if (varDatatypeExpanded.numberOfElements() == 1) {
                 tmpName += "&";
             }
-            tmpName += outputFIFOs[i]->getName() + "_writeTmp";
+            tmpName += outputFIFOs[i]->getName() + outputFIFOSuffix;
 
             if (foundOutputVar) {
                 call += ", ";
@@ -1863,11 +2193,26 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
 
             foundOutputVar = true;
 
-            call += tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_real";
+            call += tmpName + (fifoInPlace ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_real";
+
+            //if using double buffer, the order of operands is, shared (readTmp), current, prev, shared (imag), current (imag), prev (imag)
+            //Note that all of these values need to be ptrs
+            std::string currentName = outputFIFOs[i]->getName() + doubleBufferOutputCurrentSuffix;
+            std::string prevName = outputFIFOs[i]->getName() + doubleBufferOutputPrevSuffix;
+
+            if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT){
+                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string(""))+  currentName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + prevName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+            }
 
             //Check if complex
             if (var.getDataType().isComplex()) {
-                call += ", " + tmpName + (argsPtr ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
+                call += ", " + tmpName + (fifoInPlace ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
+
+                if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT){
+                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string(""))+  currentName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + prevName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+                }
             }
         }
     }
@@ -1875,6 +2220,228 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
     call += ");\n";
 
     return call;
+}
+std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmitHelper(
+                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos,
+                                                         std::pair<int, int> filterRate,
+                                                         std::string counterVarName,
+                                                         std::string indexVarName,
+                                                         ComputeIODoubleBufferType doubleBuffer,
+                                                         bool &openedCounterCheck,
+                                                         bool input){
+    std::vector<std::string> statements;
+
+    bool doubleBufferEmit;
+    if(input){
+        doubleBufferEmit = doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::INPUT;
+    }else{
+        doubleBufferEmit = doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT;
+    }
+
+    if(doubleBufferEmit){
+        //Scan through input FIFOs
+        for(auto fifo : fifos){
+            std::vector<std::shared_ptr<ClockDomain>> clkDomains = fifo->getClockDomains();
+            //Scan through the different ports
+            for(int i = 0; i<clkDomains.size(); i++){
+                std::pair<int, int> rate = std::pair<int, int>(1, 1); //Handles the case when no clock domain is returned
+                if(clkDomains[i]){
+                    rate = clkDomains[i]->getRateRelativeToBase();
+                }
+
+                if(rate == filterRate){
+                    //Copy from shared to next
+                    bool isScalar = fifo->getCStateVar(i).getDataType().isScalar();
+                    Variable var;
+                    if(input) {
+                        var = fifo->getCStateVarExpandedForBlockSize(i);
+                    }else{
+                        var = fifo->getCStateInputVarExpandedForBlockSize(i);
+                    }
+                    Variable fromBuffer = var;
+                    Variable toBuffer = var;
+
+                    if(input) {
+                        fromBuffer.setName(fromBuffer.getName() + "_shared");
+                        toBuffer.setName(toBuffer.getName() + "_next");
+                    }else{
+                        fromBuffer.setName(fromBuffer.getName() + "_prev");
+                        toBuffer.setName(toBuffer.getName() + "_shared");
+                    }
+
+                    if(filterRate.second != 1 && !openedCounterCheck){
+                        //This is either a downsample or rational resample (with downsample component) domain, the counter needs to be checked
+                        //before performing the copy
+                        statements.push_back("if(" + counterVarName + " == 0){");
+                        openedCounterCheck = true;
+                    }
+
+                    if(filterRate.first != 1){
+                        //This is an upsample or rational resample (with upsample component) domain
+                        //Will need to copy multiple elements in a for loop
+                        //On top of that, each element may be a vecotr/matrix requiring a for loop
+
+                        //The block dimension should be the first so that will be what needs to be offset by the given
+                        //index and have the dimension set to the amount to copy
+
+                        //In this case, the block size needs to be >1
+                        //TODO: remove sanity check
+                        if(fifo->getBlockSizeCreateIfNot(i) <= 1){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Clock domains with an upsample component must have a block size > 1"));
+                        }
+
+                        int elementsToCopy = filterRate.first;
+
+                        //Adjust the first dimension (block dimension) of the dimensions expanded for the block size
+                        std::vector<int> dimensions = var.getDataType().getDimensions();
+                        dimensions[0]=elementsToCopy;
+
+                        //Create nested loops
+                        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                                EmitterHelpers::generateVectorMatrixForLoops(dimensions);
+
+                        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+                        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+                        //Emit the for loop opening
+                        statements.insert(statements.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+                        //Emit the copy
+                        //Add the offset to the first for loop index
+                        forLoopIndexVars[0] = indexVarName + "+" + forLoopIndexVars[0];
+                        statements.push_back(toBuffer.getCVarName(false) +
+                                             EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +
+                                             fromBuffer.getCVarName(false) +
+                                             EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";");
+
+                        if(var.getDataType().isComplex()){
+                            statements.push_back(toBuffer.getCVarName(true) +
+                                                 EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +
+                                                 fromBuffer.getCVarName(true) +
+                                                 EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";");
+                        }
+
+                        //Emit the for loop closing
+                        statements.insert(statements.end(), forLoopClose.begin(), forLoopClose.end());
+                    }else {
+                        //In this case, there is not an upsample component to this domain and only one element is copied
+                        //at a time
+
+                        //If the element is a scalar, it is a straight copy of the single element with no for loop required
+
+                        //Note, the shared buffer and next buffer are guaranteed to be arrays or ptrs (regardless if these are inputs or outputs)
+                        if(isScalar){
+                            //If the block size is 1, this is a simple copy between dereferenced ptrs
+                            if(fifo->getBlockSizeCreateIfNot(i) == 1) {
+                                //If the block size is >1, this is a indexed operation
+                                statements.push_back("*" + toBuffer.getCVarName(false) + " = " +
+                                                     "*" + fromBuffer.getCVarName(false) + ";");
+
+                                if(var.getDataType().isComplex()){
+                                    statements.push_back("*" + toBuffer.getCVarName(true) + " = " +
+                                                         "*" + fromBuffer.getCVarName(true) + ";");
+                                }
+                            }else{
+                                std::vector<std::string> indExpr = {indexVarName};
+                                statements.push_back(toBuffer.getCVarName(false) +
+                                                     EmitterHelpers::generateIndexOperation(indExpr) + " = " +
+                                                     fromBuffer.getCVarName(false) +
+                                                     EmitterHelpers::generateIndexOperation(indExpr) + ";");
+                                if(var.getDataType().isComplex()){
+                                    statements.push_back(toBuffer.getCVarName(true) +
+                                                         EmitterHelpers::generateIndexOperation(indExpr) + " = " +
+                                                         fromBuffer.getCVarName(true) +
+                                                         EmitterHelpers::generateIndexOperation(indExpr) + ";");
+                                }
+                            }
+                        }else{
+                            //Otherwise, we need a for loop to copy the single element
+                            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                                    EmitterHelpers::generateVectorMatrixForLoops(var.getDataType().getDimensions());
+
+                            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                            std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+                            std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+                            //Emit the for loop opening
+                            statements.insert(statements.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+                            //If the block size is 1, we do not modify the 1st dimension expression with the provided index
+                            //    The dimension will not have been expanded
+                            //If the block size is >1, the dimension will have been expanded and the first indexing op needs
+                            //to be augmented with the index var
+                            if(fifo->getBlockSizeCreateIfNot(i) > 1){
+                                forLoopIndexVars[0] = indexVarName + "+" + forLoopIndexVars[0];
+                            }
+
+                            //Emit the copy
+                            statements.push_back(toBuffer.getCVarName(false) +
+                                                 EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +
+                                                 fromBuffer.getCVarName(false) +
+                                                 EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";");
+                            if(var.getDataType().isComplex()){
+                                statements.push_back(toBuffer.getCVarName(true) +
+                                                     EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +
+                                                     fromBuffer.getCVarName(true) +
+                                                     EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";");
+                            }
+
+                            //Emit the for loop closing
+                            statements.insert(statements.end(), forLoopClose.begin(), forLoopClose.end());
+                        }
+                    }
+
+                    //This is now handled outside since input and output FIFOs may both be in the same clock domain.
+                    //Avoid needing to emit a redundant if statement.
+//                    if(filterRate.second != 1){
+//                        //close the if
+//                        statements.push_back("}");
+//                    }
+                }
+            }
+        }
+    }
+
+    return statements;
+}
+
+std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmit(
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+        std::pair<int, int> filterRate,
+        std::string counterVarName,
+        std::string indexVarName,
+        ComputeIODoubleBufferType doubleBuffer){
+
+    std::vector<std::string> statements;
+
+    if(doubleBuffer != ComputeIODoubleBufferType::NONE){
+        statements.push_back("");
+        statements.push_back("//Handle Double Buffer Copies");
+    }
+
+    bool openedCounterCheck = false;
+    //---- Input FIFOs ----
+    std::vector<std::string> inputFIFOStatements = computeIODoubleBufferEmitHelper(inputFIFOs, filterRate,
+                                                                                   counterVarName, indexVarName,
+                                                                                   doubleBuffer, openedCounterCheck,
+                                                                                   true);
+    statements.insert(statements.end(), inputFIFOStatements.begin(), inputFIFOStatements.end());
+
+    //---- Output FIFOs ----
+    std::vector<std::string> outputFIFOStatements = computeIODoubleBufferEmitHelper(outputFIFOs, filterRate,
+                                                                                   counterVarName, indexVarName,
+                                                                                   doubleBuffer, openedCounterCheck,
+                                                                                   false);
+    statements.insert(statements.end(), outputFIFOStatements.begin(), outputFIFOStatements.end());
+
+    //---- Close Counter Check (if applicable) ----
+    if(openedCounterCheck){
+        statements.push_back("}");
+    }
+
+    return statements;
 }
 
 //NOTE: if scheduling the output master is desired, it must be included in the nodes to emit
