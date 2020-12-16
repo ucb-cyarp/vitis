@@ -688,6 +688,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         cFile << "}" << std::endl;
 
         cFile << "printf(\"Thread %3s Stack Base (Lowest Addr): %p, Size: %zu, Stack End Addr (Inclusive): %p\\n\", \"" << partitionSuffix << "\", " << stackBase << ", " << stackSize << ", " << stackBase<< "+" << stackSize << "-1);" << std::endl;
+        cFile << "fprintf(stackInfo, \"Thread %3s Stack Base (Lowest Addr): %p, Size: %zu, Stack End Addr (Inclusive): %p\\n\", \"" << partitionSuffix << "\", " << stackBase << ", " << stackSize << ", " << stackBase<< "+" << stackSize << "-1);" << std::endl;
     }
 
     cFile << "fclose(stackInfo);" << std::endl;
