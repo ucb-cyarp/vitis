@@ -645,6 +645,63 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile << "exit(1);" << std::endl;
     cFile << "}" << std::endl;
 
+    //Get the stack information
+    cFile << std::endl;
+    cFile << "//Get/report stack information" << std::endl;
+    cFile << "FILE* stackInfo = fopen(\"" << designName << "_stack_info.txt\", \"w\");" << std::endl;
+
+    for(auto it = partitions.begin(); it != partitions.end(); it++) {
+        std::string partitionSuffix = (*it < 0 ? "N" + GeneralHelper::to_string(-*it) : GeneralHelper::to_string(*it));
+        std::string threadName = "thread_" + partitionSuffix;
+        std::string createdThreadAttr = "attr_created_" + partitionSuffix;
+        std::string stackGuard = "stack_guard_" + partitionSuffix;
+        std::string stackBase = "stack_base_" + partitionSuffix;
+        std::string stackSize = "stack_size_" + partitionSuffix;
+
+        cFile << "pthread_attr_t " << createdThreadAttr << ";" << std::endl;
+        cFile << "status = pthread_getattr_np(" << threadName << ", &" << createdThreadAttr << ");" << std::endl;
+        cFile << "if(status != 0)" << std::endl;
+        cFile << "{" << std::endl;
+        cFile << "printf(\"Could not get thread attributes from created thread ... exiting\");" << std::endl;
+        cFile << "errno = status;" << std::endl;
+        cFile << "perror(NULL);" << std::endl;
+        cFile << "exit(1);" << std::endl;
+        cFile << "}" << std::endl;
+
+        cFile << "size_t " << stackGuard << ";" << std::endl;
+        cFile << "status = pthread_attr_getguardsize(&" << createdThreadAttr << ", &" << stackGuard << ");" << std::endl;
+        cFile << "if(status != 0)" << std::endl;
+        cFile << "{" << std::endl;
+        cFile << "printf(\"Could not get thread stack guard ... exiting\");" << std::endl;
+        cFile << "errno = status;" << std::endl;
+        cFile << "perror(NULL);" << std::endl;
+        cFile << "exit(1);" << std::endl;
+        cFile << "}" << std::endl;
+
+        cFile << "void* " << stackBase << ";" << std::endl;
+        cFile << "size_t " << stackSize << ";" << std::endl;
+        cFile << "status = pthread_attr_getstack(&" << createdThreadAttr << ", &" << stackBase << ", &" << stackSize << ");" << std::endl;
+        cFile << "if(status != 0)" << std::endl;
+        cFile << "{" << std::endl;
+        cFile << "printf(\"Could not get thread stack addr ... exiting\");" << std::endl;
+        cFile << "errno = status;" << std::endl;
+        cFile << "perror(NULL);" << std::endl;
+        cFile << "exit(1);" << std::endl;
+        cFile << "}" << std::endl;
+
+        cFile << "printf(\"Thread %3s Guard: %lu\\n\", \"" << partitionSuffix << "\", " << stackGuard << ");" << std::endl;
+        cFile << "fprintf(stackInfo, \"Thread %3s Guard: %lu\\n\", \"" << partitionSuffix << "\", " << stackGuard << ");" << std::endl;
+
+        cFile << "if(" << stackGuard << " < VITIS_MEM_ALIGNMENT){" << std::endl;
+        cFile << "fprintf(stderr, \"Warning, Thread %s Stack Guard (%zu) Is Less than Cache Line Size (%d), Cache Polution / Unexpected Communication Between Cores May Occur!\\n\", \"" << partitionSuffix << "\", " << stackGuard << ", VITIS_MEM_ALIGNMENT);" << std::endl;
+        cFile << "fprintf(stackInfo, \"Warning, Thread %s Stack Guard (%zu) Is Less than Cache Line Size (%d), Cache Polution / Unexpected Communication Between Cores May Occur!\\n\", \"" << partitionSuffix << "\", " << stackGuard << ", VITIS_MEM_ALIGNMENT);" << std::endl;
+        cFile << "}" << std::endl;
+
+        cFile << "printf(\"Thread %3s Stack Base (Lowest Addr): %p, Size: %zu, Stack End Addr (Inclusive): %p\\n\", \"" << partitionSuffix << "\", " << stackBase << ", " << stackSize << ", " << stackBase<< "+" << stackSize << "-1);" << std::endl;
+    }
+
+    cFile << "fclose(stackInfo);" << std::endl;
+
     //Join on the I/O thread
     cFile << std::endl;
     cFile << "//Wait for I/O Thread to Finish" << std::endl;
