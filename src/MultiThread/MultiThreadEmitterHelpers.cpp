@@ -1096,6 +1096,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     includesCFile.insert("#include \"" + fileName + ".h\"");
 
+    includesCFile.insert("#include \"vitisPlatformParams.h\""); //Used for cache size
+
     if(collectTelem){
         includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h" + "\"");
     }
@@ -1124,10 +1126,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         unsigned long numStateVars = stateVars.size();
         for(unsigned long j = 0; j<numStateVars; j++){
             //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            cFile << stateVars[j].getCVarDecl(false, true, true, true) << ";" << std::endl;
+            cFile << stateVars[j].getCVarDecl(false, true, true, true, false, true, "VITIS_MEM_ALIGNMENT") << ";" << std::endl;
 
             if(stateVars[j].getDataType().isComplex()){
-                cFile << stateVars[j].getCVarDecl(true, true, true, true) << ";" << std::endl;
+                cFile << stateVars[j].getCVarDecl(true, true, true, true, false, true, "VITIS_MEM_ALIGNMENT") << ";" << std::endl;
             }
         }
     }

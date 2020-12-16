@@ -64,7 +64,7 @@ public:
      * @param includeRef if true, includes the & after the type declaration
      * @return a C variable declaration statement
      */
-    std::string getCVarDecl(bool imag = false, bool includeDimensions = false, bool includeInit = false, bool includeArray = false, bool includeRef = false);
+    std::string getCVarDecl(bool imag = false, bool includeDimensions = false, bool includeInit = false, bool includeArray = false, bool includeRef = false, bool alignTo = false, std::string alignment = "VITIS_MEM_ALIGNMENT");
 
     std::string getCPtrDecl(bool imag = false);
 

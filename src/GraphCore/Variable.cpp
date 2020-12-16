@@ -49,13 +49,18 @@ std::string Variable::getCVarName(bool imag) {
     return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
-std::string Variable::getCVarDecl(bool imag, bool includeDimensions, bool includeInit, bool includeArray, bool includeRef) {
+std::string Variable::getCVarDecl(bool imag, bool includeDimensions, bool includeInit, bool includeArray, bool includeRef,
+                                  bool alignTo, std::string alignment) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
     std::string decl = (atomicVar ? "_Atomic " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
 
     if(!dataType.isScalar() && includeArray){
         decl += dataType.dimensionsToString(includeDimensions);
+    }
+
+    if(alignTo){
+        decl += " __attribute__ ((aligned (" + alignment + ")))";
     }
 
     if(includeInit){
