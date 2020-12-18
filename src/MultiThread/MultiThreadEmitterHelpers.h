@@ -211,6 +211,18 @@ namespace MultiThreadEmitterHelpers {
                               std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader);
 
     /**
+     * @brief Defines the structure containing the state for a particular partition
+     *
+     * @note The structure definition does not contain initialized values.  Setting initial values should be done
+     * in the reset function which should be called by the thread function before performing any computation
+     *
+     * @param partitionStateVars the state variables in the partition
+     * @param partitionNum the partition number
+     * @return
+     */
+    std::vector<std::string> getPartitionStateStructTypeDef(std::vector<Variable> partitionStateVars, int partitionNum);
+
+    /**
      * @brief Get the argument portion of the C function prototype for the partition compute function
      *
      * For partition compute functions, there is no returned output. Outputs are passed as references (scalar) or pointers (arrays) to the function.
@@ -227,9 +239,13 @@ namespace MultiThreadEmitterHelpers {
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
+     * @param stateTypeName the name of the state structure type for this partition (if it has state), if blank - will be omitted from the arg list
+     *
      * @return argument portion of the C function prototype for this partition's compute function
      */
-    std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+    std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                         int blockSize, std::string stateTypeName);
 
     /**
      * @brief Gets the statement calling the partition compute function
@@ -237,9 +253,13 @@ namespace MultiThreadEmitterHelpers {
      * @param inputFIFOs
      * @param outputFIFOs
      * @param argsPtr if true, args are pointers and need to be dereferenced
+     * @param stateStructParam if not blank, this function has state and the structure has to be passed.  stateStructParam will be the first argument.
      * @return
      */
-    std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, bool argsPtr);
+    std::string getCallPartitionComputeCFunction(std::string computeFctnName,
+                                                 std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                 std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                 int blockSize, bool argsPtr, std::string stateStructParam);
 
     /**
      * @brief Emits a given set operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates

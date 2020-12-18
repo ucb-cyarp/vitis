@@ -188,7 +188,7 @@ std::vector<Variable> UpsampleOutput::getCStateVars() {
     //TODO: Extend to support vectors (must declare 2D array for state)
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-    Variable var = Variable(varName, stateType, initCond);
+    Variable var = Variable(varName, stateType, initCond, false, true);
     stateVar = var;
 
     vars.push_back(var);

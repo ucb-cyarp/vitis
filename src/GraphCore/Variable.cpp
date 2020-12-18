@@ -10,23 +10,27 @@
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
 
-Variable::Variable() : name("") {
+Variable::Variable() : name(""), atomicVar(false), inStateStructure(false), overrideType(""){
 
 }
 
-Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType), atomicVar(false) {
+Variable::Variable(std::string name, DataType dataType) : name(name), dataType(dataType), atomicVar(false), inStateStructure(false), overrideType("") {
 
 }
 
-Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue), atomicVar(false){
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue) : name(name), dataType(dataType), initValue(initValue), atomicVar(false), inStateStructure(false), overrideType(""){
 
 }
 
-Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar) : name(name), dataType(dataType), initValue(initValue), atomicVar(volatileVar){
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar) : name(name), dataType(dataType), initValue(initValue), atomicVar(volatileVar), inStateStructure(false), overrideType(""){
 
 }
 
-std::string Variable::getCVarName(bool imag) {
+Variable::Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar, bool inStateStructure) : name(name), dataType(dataType), initValue(initValue), atomicVar(volatileVar), inStateStructure(inStateStructure), overrideType(""){
+
+}
+
+std::string Variable::getCVarName(bool imag, bool includeStateStructureDeref, bool stateStructureIsPtr) {
     if(imag && !dataType.isComplex()){
         throw std::runtime_error("Trying to generate imaginary component declaration for DataType that is not complex");
     }
@@ -46,16 +50,30 @@ std::string Variable::getCVarName(bool imag) {
     std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), '\n', '_');
     std::replace(nameReplaceSpace.begin(), nameReplaceSpace.end(), '-', '_');
 
-    return nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
+    std::string structAccess = "";
+    if(includeStateStructureDeref && inStateStructure){
+        structAccess = VITIS_STATE_STRUCT_NAME + (stateStructureIsPtr ? std::string("->") : std::string("."));
+    }
+
+    return structAccess + nameReplaceSpace + (imag ? VITIS_C_VAR_NAME_IM_SUFFIX : VITIS_C_VAR_NAME_RE_SUFFIX);
 }
 
 std::string Variable::getCVarDecl(bool imag, bool includeDimensions, bool includeInit, bool includeArray, bool includeRef,
                                   bool alignTo, std::string alignment) {
 
     DataType cpuStorageType = dataType.getCPUStorageType();
-    std::string decl = (atomicVar ? "_Atomic " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + (includeRef ? " &" : " ") + getCVarName(imag);
+    std::string typeName;
+    if(overrideType.empty()){
+        //Use the standard datatype obj
+        typeName = cpuStorageType.toString(DataType::StringStyle::C, false, false);
+    }else{
+        typeName = overrideType;
+    }
 
-    if(!dataType.isScalar() && includeArray){
+    //Do not include a structure name when declaring as, if a variable is part of the state structure, its declaration will be inside the structure defn
+    std::string decl = (atomicVar ? "_Atomic " : "") + typeName + (includeRef ? " &" : " ") + getCVarName(imag, false, false);
+
+    if(!dataType.isScalar() && includeArray && overrideType.empty()){
         decl += dataType.dimensionsToString(includeDimensions);
     }
 
@@ -142,5 +160,13 @@ bool Variable::operator==(const Variable &rhs) const {
 
 bool Variable::operator!=(const Variable &rhs) const {
     return !(rhs == *this);
+}
+
+const std::string Variable::getOverrideType() const {
+    return overrideType;
+}
+
+void Variable::setOverrideType(const std::string &overrideType) {
+    Variable::overrideType = overrideType;
 }
 

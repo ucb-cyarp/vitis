@@ -244,7 +244,7 @@ std::vector<Variable> EnableOutput::getCStateVars() {
     DataType stateType = getInputPort(0)->getDataType();
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-    Variable var = Variable(varName, stateType, initCondition);
+    Variable var = Variable(varName, stateType, initCondition, false, true);
     stateVar = var;
 
     vars.push_back(var);

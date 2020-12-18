@@ -504,12 +504,8 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile << std::endl;
     cFile << fctnDecl << "{" << std::endl;
 
-    cFile << "//Reset" << std::endl;
-    for(auto it = partitions.begin(); it != partitions.end(); it++){
-        if(*it != IO_PARTITION_NUM){
-            cFile << designName + "_partition" << *it << "_reset();" << std::endl;
-        }
-    }
+    cFile << "//Note: Each partition's thread function inits/resets that partition's design state before processing samples" << std::endl;
+    cFile << std::endl;
 
     cFile << "//Allocate and Initialize FIFO Shared Variables" << std::endl;
 
@@ -960,6 +956,27 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefile(std::string path, std:
     makefile.close();
 }
 
+std::vector<std::string> MultiThreadEmitterHelpers::getPartitionStateStructTypeDef(std::vector<Variable> partitionStateVars, int partitionNum){
+    std::vector<std::string> structDef;
+
+    structDef.push_back("typedef struct{");
+
+    for(unsigned long j = 0; j<partitionStateVars.size(); j++){
+        //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
+        structDef.push_back(partitionStateVars[j].getCVarDecl(false, true, false, true, false, false) + ";");
+
+        if(partitionStateVars[j].getDataType().isComplex()){
+            structDef.push_back(partitionStateVars[j].getCVarDecl(true, true, false, true, false, false) + ";");
+        }
+    }
+
+    std::string typeName = "Partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum))+"_state_t";
+
+    structDef.push_back("} " + typeName + ";");
+
+    return structDef;
+}
+
 void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
                                                      std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                      std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
@@ -1038,10 +1055,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
 
-    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize);
-    std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
-    std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
-
     std::string fileName = fileNamePrefix+"_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum));
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -1074,8 +1087,58 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
+    //Find nodes with state & global decls
+    std::vector<std::shared_ptr<Node>> nodesWithState = EmitterHelpers::findNodesWithState(nodesToEmit);
+    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = EmitterHelpers::findNodesWithGlobalDecl(nodesToEmit);
+    unsigned long numNodes = nodesToEmit.size();
+
+    headerFile << "//==== State Definition ====" << std::endl;
+
+    std::vector<Variable> stateVars;
+    unsigned long nodesWithStateCount = nodesWithState.size();
+    for(unsigned long i = 0; i<nodesWithStateCount; i++){
+        std::vector<Variable> nodeStateVars = nodesWithState[i]->getCStateVars();
+        stateVars.insert(stateVars.end(), nodeStateVars.begin(), nodeStateVars.end());
+    }
+    bool partitionHasState = !stateVars.empty();
+
+    std::string stateStructTypeName = "";
+    if(partitionHasState) {
+        //Emit State Structure Definition
+        std::vector<std::string> structDefn = getPartitionStateStructTypeDef(stateVars, partitionNum);
+        for (int i = 0; i < structDefn.size(); i++) {
+            headerFile << structDefn[i] << std::endl;
+        }
+
+        stateStructTypeName = "Partition" + (partitionNum >= 0 ? GeneralHelper::to_string(partitionNum) : "N" + GeneralHelper::to_string(-partitionNum)) + "_state_t";
+    }
+
+    headerFile << std::endl;
+
+
     //Output the Function Definition
+    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize, stateStructTypeName);
+    std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
+    std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
+
     headerFile << computeFctnProto << ";" << std::endl;
+
+    //Output the thread function definition
+    std::string threadFctnDecl = "void* " + designName + "_partition" + (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_thread(void *args)";
+    headerFile << threadFctnDecl << ";" << std::endl;
+
+    //Output the reset function definition
+    std::string resetFunctionName = designName + "_partition" +
+                                    (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) +
+                                    "_reset";
+    std::string resetFunctionPrototype = "void " + resetFunctionName + "(";
+    if(partitionHasState){
+        resetFunctionPrototype += stateStructTypeName + " *" + VITIS_STATE_STRUCT_NAME;
+    }
+    resetFunctionPrototype += ")";
+    headerFile << resetFunctionPrototype << ";" << std::endl;
+
+    headerFile << "void " << designName + "_partition" << partitionNum << "_reset(" << (partitionHasState ? stateStructTypeName + " *" + VITIS_STATE_STRUCT_NAME : "") << ");" << std::endl;
     headerFile << std::endl;
 
     //Create the threadFunction argument structure
@@ -1083,40 +1146,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     std::string threadArgStruct = threadArgStructAndTypeName.first;
     std::string threadArgTypeName = threadArgStructAndTypeName.second;
     headerFile << threadArgStruct << std::endl;
-    headerFile << std::endl;
-
-    //Output the thread function definition
-    std::string threadFctnDecl = "void* " + designName + "_partition" + (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_thread(void *args)";
-    headerFile << threadFctnDecl << ";" << std::endl;
-
-    //Output the reset function definition
-    headerFile << "void " << designName + "_partition" << partitionNum << "_reset();" << std::endl;
-    headerFile << std::endl;
-
-    //Find nodes with state & global decls
-    std::vector<std::shared_ptr<Node>> nodesWithState = EmitterHelpers::findNodesWithState(nodesToEmit);
-    std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = EmitterHelpers::findNodesWithGlobalDecl(nodesToEmit);
-    unsigned long numNodes = nodesToEmit.size();
-
-    headerFile << "//==== State Variable Definitions ====" << std::endl;
-    //We also need to declare the state variables here as extern;
-
-    //Emit Definition
-    unsigned long nodesWithStateCount = nodesWithState.size();
-    for(unsigned long i = 0; i<nodesWithStateCount; i++){
-        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
-        //Emit State Vars
-        unsigned long numStateVars = stateVars.size();
-        for(unsigned long j = 0; j<numStateVars; j++){
-            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            headerFile << "extern " << stateVars[j].getCVarDecl(false, true, false, true) << ";" << std::endl;
-
-            if(stateVars[j].getDataType().isComplex()){
-                headerFile << "extern " << stateVars[j].getCVarDecl(true, true, false, true) << ";" << std::endl;
-            }
-        }
-    }
-
     headerFile << std::endl;
 
     //Insert BlackBox Headers
@@ -1172,24 +1201,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     for(auto it = includesCFile.begin(); it != includesCFile.end(); it++){
         cFile << *it << std::endl;
-    }
-
-    cFile << std::endl;
-
-    //Find nodes with state & Emit state variable declarations
-    cFile << "//==== Init State Vars ====" << std::endl;
-    for(unsigned long i = 0; i<nodesWithStateCount; i++){
-        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
-        //Emit State Vars
-        unsigned long numStateVars = stateVars.size();
-        for(unsigned long j = 0; j<numStateVars; j++){
-            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            cFile << stateVars[j].getCVarDecl(false, true, true, true, false, true, "VITIS_MEM_ALIGNMENT") << ";" << std::endl;
-
-            if(stateVars[j].getDataType().isComplex()){
-                cFile << stateVars[j].getCVarDecl(true, true, true, true, false, true, "VITIS_MEM_ALIGNMENT") << ";" << std::endl;
-            }
-        }
     }
 
     cFile << std::endl;
@@ -1285,7 +1296,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << std::endl;
 
-    cFile << "void " << designName + "_partition" << partitionNum << "_reset(){" << std::endl;
+    cFile << resetFunctionPrototype << "{" << std::endl;
     cFile << "//==== Reset State Vars ====" << std::endl;
     for(unsigned long i = 0; i<nodesWithStateCount; i++){
         std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
@@ -1333,6 +1344,24 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << threadFctnDecl << "{" << std::endl;
     //Copy ptrs from struct argument
     cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
+
+    //Allocate state
+    //Will allocate on this thread's stack.  A check should have occured to indicate if multiple stacks could possibly share a cache line.
+    if(partitionHasState){
+        cFile << std::endl;
+        cFile << "//Allocate state" << std::endl;
+        cFile << stateStructTypeName << " " << VITIS_STATE_STRUCT_NAME << ";" << std::endl;
+        cFile << std::endl;
+    }
+
+    //Call reset function to initialize state and black boxes
+    cFile << "//Reset/init state"<< std::endl;
+    cFile << resetFunctionName << "(";
+    if(partitionHasState){
+        cFile << "&" << VITIS_STATE_STRUCT_NAME;
+    }
+    cFile << ");" << std::endl;
+    cFile << std::endl;
 
     //Insert timer init code
     double printDuration = 1; //TODO: Add option for this
@@ -1631,7 +1660,11 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Call compute function (recall that the compute function is declared with outputs as references)
-    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize, fifoInPlace);
+    std::string stateArg = "";
+    if(partitionHasState){
+        stateArg = std::string("&") + VITIS_STATE_STRUCT_NAME;
+    }
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize, fifoInPlace, stateArg);
     cFile << call << std::endl;
 
     if(collectTelem) {
@@ -1778,8 +1811,16 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile.close();
 }
 
-std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize){
+std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+        int blockSize, std::string stateTypeName){
     std::string prototype = "";
+
+    if(!stateTypeName.empty()){
+        //The first argument will be a pointer to the partition state structure
+        prototype += stateTypeName + " *" + VITIS_STATE_STRUCT_NAME;
+    }
 
     std::vector<Variable> inputVars;
     for(int i = 0; i<inputFIFOs.size(); i++){
@@ -1804,7 +1845,7 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         //Pass as not volatile
         var.setAtomicVar(false);
 
-        if(i > 0){
+        if(i > 0 || !stateTypeName.empty()){
             prototype += ", ";
         }
         prototype += "const " + var.getCVarDecl(false, true, false, true);
@@ -1832,10 +1873,6 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         }
     }
 
-    if(inputVars.size()>0){
-        prototype += ", ";
-    }
-
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
 
     for(unsigned long i = 0; i<outputVars.size(); i++){
@@ -1844,7 +1881,7 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
         //Pass as not volatile
         var.setAtomicVar(false);
 
-        if(i > 0) {
+        if(i > 0 || inputVars.size()>0 || !stateTypeName.empty()) {
             prototype += ", ";
         }
         //The output variables are always pointers
@@ -1870,10 +1907,18 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     return prototype;
 }
 
-std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize, bool argsPtr){
+std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName,
+                                                                        std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                                        std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                                        int blockSize, bool argsPtr,
+                                                                        std::string stateStructParam){
     std::string call = computeFctnName + "(";
 
-    int foundInputVar = false;
+    if(!stateStructParam.empty()){
+        call += stateStructParam;
+    }
+
+    bool foundInputVar = !stateStructParam.empty();
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<inputFIFOs.size(); i++) {
         for (unsigned long portNum = 0; portNum < inputFIFOs[i]->getInputPorts().size(); portNum++) {
@@ -1895,7 +1940,7 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
     }
 
     //Add output
-    if(foundInputVar>0){
+    if(foundInputVar){
         call += ", ";
     }
 
