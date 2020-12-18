@@ -97,7 +97,7 @@ std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shar
     return statements;
 }
 
-std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck){
+std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
     //Began work on version which replicates context check below.  Requires context check to be replicated
     //This version simply checks
 
@@ -117,11 +117,23 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
         check += "pthread_testcancel();\n";
     }
 
+    ThreadCrossingFIFO::Role producerRoll = ThreadCrossingFIFO::Role::PRODUCER;
+    ThreadCrossingFIFO::Role consumerRoll = ThreadCrossingFIFO::Role::CONSUMER;
+
+    if(fifoIndexCachingBehavior == PartitionParams::FIFOIndexCachingBehavior::PRODUCER_CONSUMER_CACHE ||
+    fifoIndexCachingBehavior == PartitionParams::FIFOIndexCachingBehavior::PRODUCER_CACHE){
+        producerRoll = ThreadCrossingFIFO::Role::PRODUCER_FULLCACHE;
+    }
+    if(fifoIndexCachingBehavior == PartitionParams::FIFOIndexCachingBehavior::PRODUCER_CONSUMER_CACHE ||
+       fifoIndexCachingBehavior == PartitionParams::FIFOIndexCachingBehavior::CONSUMER_CACHE){
+        consumerRoll = ThreadCrossingFIFO::Role::CONSUMER_FULLCACHE;
+    }
+
     //Emit the actual FIFO checks
     for(int i = 0; i<fifos.size(); i++) {
         //Note: do not need to check if complex since complex values come via the same FIFO as a struct
         std::vector<std::string> statementQueue;
-        std::string checkStmt = checkVarName + " &= " + (producer ? fifos[i]->emitCIsNotFull(statementQueue, ThreadCrossingFIFO::Role::PRODUCER_FULLCACHE) : fifos[i]->emitCIsNotEmpty(statementQueue, ThreadCrossingFIFO::Role::CONSUMER)) + ";";
+        std::string checkStmt = checkVarName + " &= " + (producer ? fifos[i]->emitCIsNotFull(statementQueue, producerRoll) : fifos[i]->emitCIsNotEmpty(statementQueue, consumerRoll)) + ";";
         check += "{\n";
         for(unsigned int i = 0; i<statementQueue.size(); i++){
             check += statementQueue[i] + "\n";
@@ -986,7 +998,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      unsigned long blockSize, std::string fifoHeaderFile,
                                                      bool threadDebugPrint, bool printTelem,
                                                      std::string telemDumpFilePrefix, bool telemAvg,
-                                                     std::string papiHelperHeader){
+                                                     std::string papiHelperHeader,
+                                                     PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
     bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
 
     std::string blockIndVar = "";
@@ -1545,7 +1558,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Check FIFO input FIFOs (will spin until ready)
-    cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false); //Include pthread_testcancel check
+    cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
     //each metric has undergone the same number of cycles
@@ -1576,7 +1589,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
-        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Include pthread_testcancel check
+        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
         if(collectTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
@@ -1705,7 +1718,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
-        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false); //Include pthread_testcancel check
+        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
         if(collectTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
