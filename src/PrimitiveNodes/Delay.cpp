@@ -278,7 +278,7 @@ std::vector<Variable> Delay::getCStateVars() {
             DataType offsetDT = DataType(false, false, false, (int) ceil(log2(arrayLen)), 0,
                                          {1}).getCPUStorageType();
             std::string offsetVarName = name+"_n"+GeneralHelper::to_string(id)+"_circBufHeadInd";
-            Variable offsetVar = Variable(offsetVarName, offsetDT, {offsetInitVal});
+            Variable offsetVar = Variable(offsetVarName, offsetDT, {offsetInitVal}, false, true);
             circularBufferOffsetVar = offsetVar;
             vars.push_back(offsetVar);
         }
@@ -293,7 +293,7 @@ std::vector<Variable> Delay::getCStateVars() {
         }
 
         std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-        Variable var = Variable(varName, stateType, initCondition); //The initial condition was reversed from the input if earliestFirst is selected
+        Variable var = Variable(varName, stateType, initCondition, false, true); //The initial condition was reversed from the input if earliestFirst is selected
         cStateVar = var;
         //Complex variable will be made if needed by the design code based on the data type
         vars.push_back(var);

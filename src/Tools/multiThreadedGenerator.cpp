@@ -29,13 +29,15 @@ int main(int argc, char* argv[]) {
         std::cout << "                           --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> " << std::endl;
         std::cout << "                           <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> " << std::endl;
         std::cout << "                           --memAlignment <MEM_ALIGNMENT> <--emitPAPITelem>" << std::endl;
-        std::cout << "                           <--useSCHED_FIFO>" << std::endl;
+        std::cout << "                           --fifoCachedIndexes <INDEX_CACHE_BEHAVIOR>" << std::endl;
+		std::cout << "                           <--useSCHED_FIFO>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible FIFO_TYPE:" << std::endl;
-        std::cout << "    lockeless_x86 <DEFAULT> = Lockless single producer, single consumer, FIFOs suitable for x86 based systems" << std::endl;
+        std::cout << "    lockeless_x86 = Lockless single producer, single consumer, FIFOs suitable for x86 based systems (coping to/from local buffers)" << std::endl;
+        std::cout << "    lockeless_inplace_x86 <DEFAULT> = Lockless single producer, single consumer, FIFOs suitable for x86 based systems (using in place operations)" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible SCHED_HEUR:" << std::endl;
         std::cout << "    bfs <DEFAULT> = Breadth First Search Style" << std::endl;
@@ -63,6 +65,12 @@ int main(int argc, char* argv[]) {
         std::cout << "Possible MEM_ALIGNMENT (the alignment in bytes used when allocating FIFO buffers):" << std::endl;
         std::cout << "    unsigned long memAlignment <DEFAULT = 64>" << std::endl;
         std::cout << std::endl;
+        std::cout << "Possible INDEX_CACHE_BEHAVIOR (FIFO index bahavior):" << std::endl;
+        std::cout << "    none <Default>          = the FIFO indexes are fetched for each block" << std::endl;
+        std::cout << "    producer_consumer_cache = the producer and consumer do not fetch indexes unless it cannot be determined if the FIFO is available based on prior information" << std::endl;
+        std::cout << "    producer_cache          = only the producer does not fetch indexes unless it cannot be determined if the FIFO is available based on prior information" << std::endl;
+        std::cout << "    consumer_cache          = only the consumer does not fetch indexes unless it cannot be determined if the FIFO is available based on prior information" << std::endl;
+        std::cout << std::endl;
 
         return 1;
     }
@@ -85,6 +93,7 @@ int main(int argc, char* argv[]) {
     bool emitPapiTelem = false;
     bool useSCHEDFIFO = false;
     std::string telemDumpPrefix = "";
+    PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior = PartitionParams::FIFOIndexCachingBehavior::NONE;
 
     //Check for command line parameters
     for(unsigned long i = 4; i<argc; i++){
@@ -207,6 +216,15 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Invalid command line option type: --partitionMap " << argv[i] << std::endl;
                 exit(1);
             }
+        }else if(strcmp(argv[i], "--fifoCachedIndexes") == 0){
+            i++; //Get the actual argument
+            try{
+                PartitionParams::FIFOIndexCachingBehavior parsedFIFOIndexCacheBehavior = PartitionParams::parseFIFOIndexCachingBehavior(argv[i]);
+                 fifoIndexCachingBehavior = parsedFIFOIndexCacheBehavior;
+            }catch(std::runtime_error e){
+                std::cerr << "Unknown command line option selection: --fifoCachedIndexes " << argv[i] << std::endl;
+                exit(1);
+            }
         }else if(strcmp(argv[i], "--telemDumpPrefix") == 0) {
             i++;
             telemDumpPrefix = argv[i];
@@ -264,6 +282,7 @@ int main(int argc, char* argv[]) {
     //Print Partitioner and Scheduler
     std::cout << "PARTITIONER: " << PartitionParams::partitionTypeToString(partitioner) << std::endl;
     std::cout << "FIFO_TYPE: " << ThreadCrossingFIFOParameters::threadCrossingFIFOTypeToString(fifoType) << std::endl;
+    std::cout << "FIFO_INDEX_CACHE_BEHAVIOR: " << PartitionParams::fifoIndexCachingBehaviorToString(fifoIndexCachingBehavior) << std::endl;
     std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
     if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT || sched == SchedParams::SchedType::TOPOLOGICAL){
         std::cout << "SCHED_HEUR: " << TopologicalSortParameters::heuristicToString(topoParams.getHeuristic()) << std::endl;
@@ -284,7 +303,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO, fifoIndexCachingBehavior);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

@@ -181,6 +181,8 @@ protected:
 
     //====Getters/Setters====
 public:
+    bool isInPlace() override;
+
     /**
      * @brief Gets the cWriteOffsetPtr for this FIFO.  If it has not yet been initialized, it will be initialized at this point
      *
@@ -256,9 +258,9 @@ public:
 
     std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role roll) override;
 
-    void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role roll, bool pushStateAfter) override;
+    std::string emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role roll, bool pushStateAfter, bool forceNotInPlace) override;
 
-    void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role roll, bool pushStateAfter) override;
+    std::string emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role roll, bool pushStateAfter, bool forceNotInPlace) override;
 
     std::vector<std::pair<Variable, std::string>> getFIFOSharedVariables() override;
 

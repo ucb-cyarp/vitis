@@ -270,7 +270,13 @@ set(COMMON_SRCS
         src/Estimators/ComputationEstimator.cpp
         src/Estimators/ComputationEstimator.h
         src/Estimators/CommunicationEstimator.cpp
-        src/Estimators/CommunicationEstimator.h src/Estimators/PartitionNode.cpp src/Estimators/PartitionNode.h src/Estimators/PartitionCrossing.cpp src/Estimators/PartitionCrossing.h)
+        src/Estimators/CommunicationEstimator.h
+        src/Estimators/PartitionNode.cpp
+        src/Estimators/PartitionNode.h
+        src/Estimators/PartitionCrossing.cpp
+        src/Estimators/PartitionCrossing.h
+        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.cpp
+        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

@@ -427,18 +427,20 @@ std::string LUT::getGlobalDecl(){
 
     //get the datatype from the output arc of the LUT
     DataType tableType = getOutputPort(0)->getDataType();
+    std::vector<int> dim = {(int) tableData.size()};
+    tableType.setDimensions(dim);
 
     //Get the variable name
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_table";
 
     Variable tableVar = Variable(varName, tableType);
 
-    std::string tableDecl = "const " + tableVar.getCVarDecl(false, false, false, false) + "[" + GeneralHelper::to_string(tableData.size()) + "] = " +
+    std::string tableDecl = "const " + tableVar.getCVarDecl(false, true, false, true, false, true) + " = " +
                             NumericValue::toStringComponent(false, tableType, tableData, "{\n", "\n}", ",\n") + ";";
 
     //Emit an imagionary vector if the table is complex
     if(tableType.isComplex()){
-         tableDecl += "const " + tableVar.getCVarDecl(true, false, false, false) + "[" + GeneralHelper::to_string(tableData.size()) + "] = " +
+         tableDecl += "const " + tableVar.getCVarDecl(true, true, false, true, false, true) + " = " +
                       NumericValue::toStringComponent(true, tableType, tableData, "{\n", "\n}", ",\n") + ";";
     }
 

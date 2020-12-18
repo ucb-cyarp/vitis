@@ -16,6 +16,7 @@
 #include "Variable.h"
 #include "SchedParams.h"
 #include "MultiThread/ThreadCrossingFIFOParameters.h"
+#include "MultiThread/PartitionParams.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -448,7 +449,6 @@ public:
      * @param telemDumpPrefix if not empty, specifies a file prefix into which telemetry from each compute thread is dumped
      * @param memAlignment the aligment (in bytes) used for FIFO buffer allocation\
      * @param emitPAPITelem if true, emits code for reading CPU performance counters using the PAPI library (and the underling kernel perf system).  Note that this will adversely affect performance.
-     * @param useSCHEDFIFO if true, emits code for compute threads to be scheduled with the Real Time scheduler SCHED_FIFO.  Otherwise, threads run under the inherited scheduler
      */
     void emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
                             SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
@@ -456,7 +456,7 @@ public:
                             bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize,
                             bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap,
                             bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
-                            unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO);
+                            unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
