@@ -154,7 +154,7 @@ std::vector<Variable> WrappingCounter::getCStateVars() {
 
     NumericValue initCond((long int) initCondition);
 
-    Variable var = Variable(varName, stateType, {initCond});
+    Variable var = Variable(varName, stateType, {initCond}, false, true);
     cStateVar = var;
     vars.push_back(var);
 
