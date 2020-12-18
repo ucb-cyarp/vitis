@@ -18,7 +18,8 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          std::string path, std::string fileNamePrefix, std::string designName,
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
                                          int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
-                                         bool threadDebugPrint, bool printTelem) {
+                                         bool threadDebugPrint, bool printTelem,
+                                         PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior) {
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports
@@ -804,7 +805,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     ioThread << "//Check if room in FIFOs to compute" << std::endl;
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, false, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, false, false, fifoIndexCachingBehavior); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
 
     if (printTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
@@ -903,7 +904,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     ioThread << "//Check data available from compute" << std::endl;
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, false, false); //pthread_testcancel check here
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, false, false, fifoIndexCachingBehavior); //pthread_testcancel check here
 
     if(printTelem) {
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;

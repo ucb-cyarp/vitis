@@ -37,6 +37,16 @@ public:
      * @return string representation of the SchedType
      */
     static std::string partitionTypeToString(PartitionType partitionType);
+
+    enum class FIFOIndexCachingBehavior{
+        NONE, ///<the FIFO indexes are fetched for each block
+        PRODUCER_CONSUMER_CACHE, ///<The producer and consumer do not fetch indexes unless it cannot be determined if the FIFO is available based on prior information
+        PRODUCER_CACHE, ///<The producer does not fetch indexes unless it cannot be determined if the FIFO is available based on prior information, the consumer fetches the index information for each block
+        CONSUMER_CACHE ///The consumer does not fetch indexes unless it cannot be determined if the FIFO is available based on prior information, the producer fetches the index information for each block
+    };
+
+    static FIFOIndexCachingBehavior parseFIFOIndexCachingBehavior(std::string str);
+    static std::string fifoIndexCachingBehaviorToString(FIFOIndexCachingBehavior fifoIndexCachingBehavior);
 };
 
 /*! @} */

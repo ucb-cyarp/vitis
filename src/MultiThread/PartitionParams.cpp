@@ -20,3 +20,32 @@ std::string PartitionParams::partitionTypeToString(PartitionParams::PartitionTyp
         throw std::runtime_error("Unknown partitioner");
     }
 }
+
+PartitionParams::FIFOIndexCachingBehavior PartitionParams::parseFIFOIndexCachingBehavior(std::string str) {
+    if(str == "NONE" || str == "none") {
+        return FIFOIndexCachingBehavior::NONE;
+    }else if (str == "PRODUCER_CONSUMER_CACHE" || str == "producer_consumer_cache"){
+        return FIFOIndexCachingBehavior::PRODUCER_CONSUMER_CACHE;
+    }else if(str == "PRODUCER_CACHE" || str == "producer_cache"){
+        return FIFOIndexCachingBehavior::PRODUCER_CACHE;
+    }else if(str == "CONSUMER_CACHE" || str == "consumer_cache"){
+        return FIFOIndexCachingBehavior::CONSUMER_CACHE;
+    }else{
+        throw std::runtime_error("Unknown FIFO Index Caching Behavior");
+    }
+}
+
+std::string
+PartitionParams::fifoIndexCachingBehaviorToString(PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior) {
+    if(fifoIndexCachingBehavior == FIFOIndexCachingBehavior::NONE){
+        return "NONE";
+    }else if(fifoIndexCachingBehavior == FIFOIndexCachingBehavior::PRODUCER_CONSUMER_CACHE){
+        return "PRODUCER_CONSUMER_CACHE";
+    }else if(fifoIndexCachingBehavior == FIFOIndexCachingBehavior::PRODUCER_CACHE){
+        return "PRODUCER_CACHE";
+    }else if(fifoIndexCachingBehavior == FIFOIndexCachingBehavior::CONSUMER_CACHE){
+        return "CONSUMER_CACHE";
+    }else{
+        throw std::runtime_error("Unknown FIFO Index Caching Behavior");
+    }
+}

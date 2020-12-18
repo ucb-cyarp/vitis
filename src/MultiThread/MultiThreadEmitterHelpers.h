@@ -10,6 +10,7 @@
 #include "GraphCore/NumericValue.h"
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
+#include "PartitionParams.h"
 #include <set>
 #include <map>
 #include <vector>
@@ -63,9 +64,10 @@ namespace MultiThreadEmitterHelpers {
      * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false, all FIFOs are checked
      * @param blocking if true, the FIFO check will repeat until all are ready.  If false, the FIFO check will not block the execution of the code proceeding it
      * @param includeThreadCancelCheck if true, includes a call to pthread_testcancel durring the FIFO check (to determine if the thread should exit)
+     * @param fifoIndexCachingBehavior defines the FIFO index caching behavior for the check
      * @return
      */
-    std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+    std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
 
     std::vector<std::string> createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
@@ -201,6 +203,7 @@ namespace MultiThreadEmitterHelpers {
      * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
      * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
      * @param papiHelperHeader if not empty, collects performance counter information from the PAPI library.  Note that this will have an adverse effect on performance.  printTelem || !telemDumpFilePrefix.empty() must be true for this to be collected
+     * @param fifoIndexCachingBehavior selects the FIFO index caching behavior
      */
     void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
@@ -208,7 +211,8 @@ namespace MultiThreadEmitterHelpers {
                               std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
                               std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
                               std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem,
-                              std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader);
+                              std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
+                              PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
 
     /**
      * @brief Get the argument portion of the C function prototype for the partition compute function
