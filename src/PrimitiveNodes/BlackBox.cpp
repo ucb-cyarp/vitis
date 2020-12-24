@@ -20,6 +20,8 @@ BlackBox::ReturnMethod BlackBox::parseReturnMethodStr(std::string str) {
         return BlackBox::ReturnMethod::OBJECT_POINTER;
     }else if(str == "EXT" || str == "ext"){
         return BlackBox::ReturnMethod::EXT;
+    }else if(str == "PTR_ARG" || str == "ptr_arg"){
+        return BlackBox::ReturnMethod::PTR_ARG;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to parse ReturnMethod: " + str));
     }
@@ -33,6 +35,7 @@ std::string BlackBox::returnMethodToStr(BlackBox::ReturnMethod returnMethod) {
         case BlackBox::ReturnMethod::SCALAR_POINTER : return "SCALAR_POINTER";
         case BlackBox::ReturnMethod::OBJECT_POINTER : return "OBJECT_POINTER";
         case BlackBox::ReturnMethod::EXT : return "EXT";
+        case BlackBox::ReturnMethod::PTR_ARG : return "PTR_ARG";
         default : throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ReturnMethod"));
     }
 }
@@ -47,10 +50,14 @@ BlackBox::BlackBox(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), s
 
 BlackBox::BlackBox(std::shared_ptr<SubSystem> parent, BlackBox *orig) : PrimitiveNode(parent, orig),
     exeCombinationalName(orig->exeCombinationalName), exeCombinationalRtnType(orig->exeCombinationalRtnType),
-    stateUpdateName(orig->stateUpdateName), resetName(orig->resetName), cppHeaderContent(orig->cppHeaderContent),
-    cppBodyContent(orig->cppBodyContent), stateful(orig->stateful), reSuffix(orig->reSuffix), imSuffix(orig->imSuffix),
-    inputMethods(orig->inputMethods), inputAccess(orig->inputAccess), registeredOutputPorts(orig->registeredOutputPorts),
-    returnMethod(orig->returnMethod), outputAccess(orig->outputAccess), previouslyEmitted(orig->previouslyEmitted)
+    stateUpdateName(orig->stateUpdateName), resetName(orig->resetName),
+    cppHeaderContent(orig->cppHeaderContent), cppBodyContent(orig->cppBodyContent), stateful(orig->stateful),
+    reSuffix(orig->reSuffix), imSuffix(orig->imSuffix), inputMethods(orig->inputMethods),
+    inputAccess(orig->inputAccess), registeredOutputPorts(orig->registeredOutputPorts),
+    returnMethod(orig->returnMethod), outputAccess(orig->outputAccess), previouslyEmitted(orig->previouslyEmitted),
+    additionalArgsComboFctn(orig->additionalArgsComboFctn),
+    additionalArgsStateUpdateFctn(orig->additionalArgsStateUpdateFctn),
+    additionalArgsResetFctn(orig->additionalArgsResetFctn), outputTypes(orig->outputTypes)
     {
 }
 
@@ -266,6 +273,8 @@ void BlackBox::emitGraphMLCommon(xercesc::DOMDocument *doc, xercesc::DOMElement 
     GraphMLHelper::addDataNode(doc, graphNode, "CppBodyContent", cppBodyContent);
     GraphMLHelper::addDataNode(doc, graphNode, "Stateful", GeneralHelper::to_string(stateful));
     GraphMLHelper::addDataNode(doc, graphNode, "RegisteredOutputPorts", GeneralHelper::vectorToString(registeredOutputPorts));
+
+    //TODO: Add more parameters when more than just the Simulink FSM uses the black box interface.  Need to go through all the args
 }
 
 xercesc::DOMElement *
@@ -299,6 +308,8 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         std::vector<CExpr> inputExprsRe;
         std::vector<CExpr> inputExprsIm;
 
+        int expectedInputArgs = 0;
+
         unsigned long numInputPorts = inputPorts.size();
         for (unsigned long i = 0; i < numInputPorts; i++) {
             std::shared_ptr<OutputPort> srcOutputPort = getInputPort(i)->getSrcOutputPort();
@@ -311,6 +322,31 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                 inputExprsIm.push_back(srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, true));
             }else{
                 inputExprsIm.push_back(CExpr("", inputExprsRe[inputExprsRe.size()-1].getExprType()));
+            }
+
+            if(inputMethods[i] != InputMethod::EXT){
+                expectedInputArgs++;
+            }
+        }
+
+        //==== Check if the output type is ARG_PTR and declare temporary outputs which will be passed to the black box
+        int expectedOutputArgs = 0;
+        if(returnMethod == ReturnMethod::PTR_ARG){
+            unsigned long numOutputPorts = outputPorts.size();
+            for(unsigned long i = 0; i<numOutputPorts; i++){
+                std::shared_ptr<OutputPort> outputPort = getOutputPort(i);
+                DataType dt = outputTypes[i];
+
+                //Will use the rtnVarName + the output port number
+                Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+
+                cStatementQueue.push_back(outputTmp.getCVarDecl(false, true, false, true, false) + ";");
+
+                if(dt.isComplex()){
+                    cStatementQueue.push_back(outputTmp.getCVarDecl(true, true, false, true, false) + ";");
+                }
+
+                expectedOutputArgs++;
             }
         }
 
@@ -327,28 +363,79 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
             }
         }
 
+        //Sort additional args
+        std::vector<std::pair<std::string, int>> sortedAdditionalArgs  = additionalArgsComboFctn;
+        std::sort(sortedAdditionalArgs.begin(),sortedAdditionalArgs.end(),
+                  [](std::pair<std::string, int> a, std::pair<std::string, int> b) -> bool {
+                      return a.second < b.second;
+                  });
+
         std::string callExpr = "";
 
-        if(returnMethod != BlackBox::ReturnMethod::NONE && returnMethod != BlackBox::ReturnMethod::EXT){
+        if(returnMethod != BlackBox::ReturnMethod::NONE && returnMethod != BlackBox::ReturnMethod::EXT &&
+           returnMethod != BlackBox::ReturnMethod::PTR_ARG){
             callExpr = exeCombinationalRtnType + " " + rtnVarName + " = ";
         }
 
         callExpr += exeCombinationalName + "(";
 
-        bool firstArg = true;
-        for(unsigned long i = 0; i < numInputPorts; i++){
-            if(inputMethods[i] == InputMethod::FUNCTION_ARG) {
-                if (!firstArg) {
-                    callExpr += ", ";
-                } else {
-                    firstArg = false;
+
+        int inputArgCount = 0;
+        int inputArgIdx = 0; //Need a seperate counter because inputs are allowed to be split between args and ext
+        int outputArgCount = 0;
+        int additionalArgCount = 0;
+
+        while(inputArgCount<expectedInputArgs || outputArgCount<expectedOutputArgs || additionalArgCount<sortedAdditionalArgs.size()){
+            int idx = inputArgCount+outputArgCount+additionalArgCount;
+
+            if(idx != 0){
+                callExpr += ", ";
+            }
+
+            if(additionalArgCount < sortedAdditionalArgs.size()){
+                //Check if the additional arg should be inserted into the current index
+                if(sortedAdditionalArgs[additionalArgCount].second == idx){
+                    //Yes, this is the place for the additional argument
+                    callExpr += sortedAdditionalArgs[additionalArgCount].first;
+                    additionalArgCount++;
+                }else if(inputArgCount>=expectedInputArgs && outputArgCount>=expectedOutputArgs){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Blackbox combinational additional argument has an index > than the index after all preceding arguments (input, output, and additional) have been emitted.", getSharedPointer()));
+                }
+            }else if(inputArgCount<expectedInputArgs) {
+                //Emit input args first.  We are still emitting input args
+                if (inputMethods[inputArgIdx] == InputMethod::FUNCTION_ARG) {
+
+                    callExpr += inputExprsRe[inputArgIdx].getExpr();
+
+                    if (getInputPort(inputArgIdx)->getDataType().isComplex()) {
+                        callExpr += ", " + inputExprsIm[inputArgIdx].getExpr();
+                    }
+
+                    inputArgCount++;
+                }
+                inputArgIdx++;
+            }else if(outputArgCount<expectedOutputArgs){
+                //Done emitting input args, Emitting output args
+
+                //Note, it should not be possible to get here unless returnMethod == ReturnMethod::PTR_ARG
+                //Also, we can use the outputArgCount as the index
+
+                std::shared_ptr<OutputPort> outputPort = getOutputPort(outputArgCount);
+                DataType dt = outputTypes[outputArgCount];
+
+                //Will use the rtnVarName + the output port number
+                Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+
+                callExpr += (dt.isScalar() ? "&" : "") + outputTmp.getCVarName(false);
+
+                if(dt.isComplex()){
+                    callExpr += std::string(", ") + (dt.isScalar() ? "&" : "") + outputTmp.getCVarName(true);
                 }
 
-                callExpr += inputExprsRe[i].getExpr();
-
-                if (getInputPort(i)->getDataType().isComplex()) {
-                    callExpr += ", " + inputExprsIm[i].getExpr();
-                }
+                outputArgCount++;
+            }else{
+                //Something has gone horribly wrong because the loop still ran but we already included all the expected input, output, and additional args
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Something went wrong when creating the blackbox combinational function call", getSharedPointer()));
             }
         }
 
@@ -380,8 +467,16 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         return CExpr(rtnVarName + "." + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), CExpr::ExprType::SCALAR_VAR);
     }else if(returnMethod == BlackBox::ReturnMethod::OBJECT_POINTER){
         return CExpr(rtnVarName + "->" + (imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum])), CExpr::ExprType::SCALAR_VAR);
-    }else if(returnMethod == BlackBox::ReturnMethod::EXT){
-        return CExpr(imag ? outputAccess[outputPortNum]+imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum]+reSuffix : outputAccess[outputPortNum]), CExpr::ExprType::SCALAR_VAR);
+    }else if(returnMethod == BlackBox::ReturnMethod::EXT) {
+        return CExpr(imag ? outputAccess[outputPortNum] + imSuffix : (outputType.isComplex() ? outputAccess[outputPortNum] + reSuffix : outputAccess[outputPortNum]),CExpr::ExprType::SCALAR_VAR);
+    }else if(returnMethod == BlackBox::ReturnMethod::PTR_ARG){
+        std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
+        DataType dt = outputPort->getDataType();
+
+        //Will use the rtnVarName + the output port number
+        Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+
+        return CExpr(outputTmp.getCVarName(imag), dt.isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Error During BlackBox Emit - Unexpected Return Type", getSharedPointer()));
     }
@@ -418,7 +513,31 @@ void BlackBox::emitCExprNextState(std::vector<std::string> &cStatementQueue, Sch
 void BlackBox::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
     //If this node is stateful, emit the state update
     if(stateful) {
-        cStatementQueue.push_back(stateUpdateName+"();");
+
+        //Sort additional args
+        std::vector<std::pair<std::string, int>> sortedAdditionalArgs  = additionalArgsStateUpdateFctn;
+        std::sort(sortedAdditionalArgs.begin(),sortedAdditionalArgs.end(),
+                  [](std::pair<std::string, int> a, std::pair<std::string, int> b) -> bool {
+                      return a.second < b.second;
+                  });
+
+        std::string call = stateUpdateName + "(";
+
+        //The additional arguments should not have any discontinuity in their index numbers
+        for(int i = 0; i<sortedAdditionalArgs.size(); i++){
+            if (sortedAdditionalArgs[i].second != i){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("State update args must not have any discontinuity in index", getSharedPointer()));
+            }
+
+            if(i>0){
+                call += ", ";
+            }
+
+            call += sortedAdditionalArgs[i].first;
+        }
+
+        call += ");";
+        cStatementQueue.push_back(call);
     }
 }
 
@@ -469,6 +588,98 @@ void BlackBox::setImSuffix(const std::string &imSuffix) {
 
 bool BlackBox::hasCombinationalPath() {
     return registeredOutputPorts.size() != outputPorts.size();
+}
+
+std::vector<std::pair<std::string, int>> BlackBox::getAdditionalArgsComboFctn() const {
+    return additionalArgsComboFctn;
+}
+
+void BlackBox::setAdditionalArgsComboFctn(const std::vector<std::pair<std::string, int>> &additionalArgsComboFctn) {
+    BlackBox::additionalArgsComboFctn = additionalArgsComboFctn;
+}
+
+std::vector<std::pair<std::string, int>> BlackBox::getAdditionalArgsStateUpdateFctn() const {
+    return additionalArgsStateUpdateFctn;
+}
+
+void BlackBox::setAdditionalArgsStateUpdateFctn(
+        const std::vector<std::pair<std::string, int>> &additionalArgsStateUpdateFctn) {
+    BlackBox::additionalArgsStateUpdateFctn = additionalArgsStateUpdateFctn;
+}
+
+std::vector<std::pair<std::string, int>> BlackBox::getAdditionalArgsResetFctn() const {
+    return additionalArgsResetFctn;
+}
+
+void BlackBox::setAdditionalArgsResetFctn(const std::vector<std::pair<std::string, int>> &additionalArgsResetFctn) {
+    BlackBox::additionalArgsResetFctn = additionalArgsResetFctn;
+}
+
+std::vector<Variable> BlackBox::getStateVars() const {
+    return stateVars;
+}
+
+void BlackBox::setStateVars(const std::vector<Variable> &stateVars) {
+    BlackBox::stateVars = stateVars;
+}
+
+std::vector<Variable> BlackBox::getCStateVars() {
+    return stateVars;
+}
+
+std::string BlackBox::getResetFunctionCall() {
+    //Sort additional args
+    std::vector<std::pair<std::string, int>> sortedAdditionalArgs  = additionalArgsResetFctn;
+    std::sort(sortedAdditionalArgs.begin(),sortedAdditionalArgs.end(),
+              [](std::pair<std::string, int> a, std::pair<std::string, int> b) -> bool {
+                  return a.second < b.second;
+              });
+
+    std::string call = resetName + "(";
+
+    //The additional arguments should not have any discontinuity in their index numbers
+    for(int i = 0; i<sortedAdditionalArgs.size(); i++){
+        if (sortedAdditionalArgs[i].second != i){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Reset args must not have any discontinuity in index", getSharedPointer()));
+        }
+
+        if(i>0){
+            call += ", ";
+        }
+
+        call += sortedAdditionalArgs[i].first;
+    }
+
+    call += ")";
+
+    return call;
+}
+
+std::vector<DataType> BlackBox::getOutputTypes() const {
+    return outputTypes;
+}
+
+void BlackBox::setOutputTypes(const std::vector<DataType> &outputTypes) {
+    BlackBox::outputTypes = outputTypes;
+}
+
+void BlackBox::propagateProperties() {
+    Node::propagateProperties();
+
+    std::vector<DataType> outputTypeLocal;
+
+    for(int i = 0; i<outputPorts.size(); i++){
+        //TODO: assumes no discontinuity in ports and are in sorted order
+        DataType dt = outputPorts[i]->getDataType();
+        int portNum = outputPorts[i]->getPortNum();
+        if(portNum != i){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected port numbering "));
+        }
+
+        outputTypeLocal.push_back(dt);
+    }
+
+    setOutputTypes(outputTypeLocal);
 }
 
 

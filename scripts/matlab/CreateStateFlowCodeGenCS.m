@@ -93,7 +93,7 @@ codegen_cs.set_param('CustomUserTokenString', '');   % Custom token text
 codegen_cs.set_param('TargetLangStandard', 'C99 (ISO)');   % Standard math library
 codegen_cs.set_param('CodeReplacementLibrary', 'None');   % Code replacement library
 codegen_cs.set_param('UtilityFuncGeneration', 'Auto');   % Shared code placement
-codegen_cs.set_param('CodeInterfacePackaging', 'Nonreusable function');   % Code interface packaging
+codegen_cs.set_param('CodeInterfacePackaging', 'Reusable function');   % Code interface packaging
 codegen_cs.set_param('GRTInterface', 'off');   % Classic call interface
 codegen_cs.set_param('PurelyIntegerCode', 'off');   % Support floating-point numbers
 codegen_cs.set_param('SupportNonFinite', 'off');   % Support non-finite numbers

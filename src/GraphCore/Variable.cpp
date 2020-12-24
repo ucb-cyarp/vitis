@@ -116,7 +116,16 @@ std::string Variable::getCVarDecl(bool imag, bool includeDimensions, bool includ
 
 std::string Variable::getCPtrDecl(bool imag) {
     DataType cpuStorageType = dataType.getCPUStorageType();
-    return (atomicVar ? "_Atomic " : "") + cpuStorageType.toString(DataType::StringStyle::C, false, false) + " *" + getCVarName(imag);
+
+    std::string typeName;
+    if(overrideType.empty()){
+        //Use the standard datatype obj
+        typeName = cpuStorageType.toString(DataType::StringStyle::C, false, false);
+    }else{
+        typeName = overrideType;
+    }
+
+    return (atomicVar ? "_Atomic " : "") + typeName + " *" + getCVarName(imag, false, false);
 }
 
 std::string Variable::getName() const {
