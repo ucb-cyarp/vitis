@@ -451,7 +451,7 @@ std::string SimulinkCoderFSM::getResetFunctionPrototype() const{
     Variable fsmRTModelVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_rtModel", DataType(), {}, false, true);
     fsmRTModelVar.setOverrideType(getRtModelStructType());
 
-    std::string proto = rstName + "(";
+    std::string proto = "void " + rstName + "(";
 
     //Pass pointers to RT model structure and FSM state structure
     proto += fsmRTModelVar.getCPtrDecl(false) + ", " + fsmStateVar.getCPtrDecl(false);
