@@ -15,6 +15,10 @@ jobs:
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-18.04
+    
+    strategy:
+      matrix:
+        compiler: [clang, gcc] #Try with both GCC and clang
 
     steps:
     - uses: actions/checkout@v2
@@ -23,9 +27,15 @@ jobs:
       shell: bash
       run: sudo apt install cmake libboost-all-dev libxerces-c-dev clang gcc g++ graphviz doxygen
 
+    - name: Set Compiler
+      shell: bash
+      # Using method in https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
+      # to conditionally set the output variable based on the matrix compiler value
+      run: if [[ ${compiler} == "clang" ]]; then echo "CC=clang" >> $GITHUB_ENV; echo "CXX=clang++" >> $GITHUB_ENV; elif [[ ${compiler} == "clang" ]]; then echo "CC=gcc" >> $GITHUB_ENV; echo "CXX=g++" >> $GITHUB_ENV; fi 
+
     - name: Report Compiler Versions
       shell: bash
-      run: echo ${CXX}; echo ${CC}
+      run: echo ${CXX}; echo ${CC}; ${CXX} --version; ${CC} --version
 
     - name: Create Build Environment
       # Some projects don't allow in-source building, so create a separate build directory
