@@ -16,22 +16,24 @@ jobs:
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-18.04
     
+    #Try with both GCC and clang
+    #See https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstrategymatrix
     strategy:
       matrix:
-        compiler: [clang, gcc] #Try with both GCC and clang
+        compiler: [clang, gcc] 
 
     steps:
     - uses: actions/checkout@v2
       
     - name: Install Dependencies
       shell: bash
-      run: sudo apt install cmake libboost-all-dev libxerces-c-dev clang gcc g++ graphviz doxygen
+      run: if [[ ${{ matrix.compiler }} == "clang" ]]; then sudo apt install clang; elif [[ ${ matrix.compiler } == "gcc" ]]; then sudo apt install gcc g++; fi; sudo apt install cmake libboost-all-dev libxerces-c-dev graphviz doxygen
 
     - name: Set Compiler
       shell: bash
       # Using method in https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
       # to conditionally set the output variable based on the matrix compiler value
-      run: if [[ ${compiler} == "clang" ]]; then echo "CC=clang" >> $GITHUB_ENV; echo "CXX=clang++" >> $GITHUB_ENV; elif [[ ${compiler} == "clang" ]]; then echo "CC=gcc" >> $GITHUB_ENV; echo "CXX=g++" >> $GITHUB_ENV; fi 
+      run: if [[ ${{ matrix.compiler }} == "clang" ]]; then echo "CC=clang" >> $GITHUB_ENV; echo "CXX=clang++" >> $GITHUB_ENV; elif [[ ${ matrix.compiler } == "gcc" ]]; then echo "CC=gcc" >> $GITHUB_ENV; echo "CXX=g++" >> $GITHUB_ENV; fi 
 
     - name: Report Compiler Versions
       shell: bash
