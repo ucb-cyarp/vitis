@@ -1073,7 +1073,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         cFile << "//==== Reset BlackBoxes ====" << std::endl;
 
         for(unsigned long i = 0; i<blackBoxes.size(); i++){
-            cFile << blackBoxes[i]->getResetName() << "();" << std::endl;
+            cFile << blackBoxes[i]->getResetFunctionCall() << ";" << std::endl;
         }
     }
 

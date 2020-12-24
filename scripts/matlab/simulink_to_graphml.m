@@ -316,9 +316,16 @@ for i = 1:length(stateflow_nodes)
     special_node.dialogProperties('init_function') = [special_node.name '_initialize_FSM' num2str(special_node.nodeId)];
     special_node.dialogProperties('output_function') = [special_node.name '_output_FSM' num2str(special_node.nodeId)];
     special_node.dialogProperties('state_update_function') = [special_node.name '_update_FSM' num2str(special_node.nodeId)];
+    %Note, when exporting reusable functions the inputs_struct_name and
+    %outputs_struct_name are the prefixes for port names used in the
+    %function calls.  The convention is StructName_PortName
     special_node.dialogProperties('inputs_struct_name') = [special_node.name '_U_FSM' num2str(special_node.nodeId)];
     special_node.dialogProperties('outputs_struct_name') = [special_node.name '_Y_FSM' num2str(special_node.nodeId)];
     special_node.dialogProperties('state_struct_name') = [special_node.name '_DW_FSM' num2str(special_node.nodeId)];
+    special_node.dialogProperties('exported_reusable_fctns') = 'yes';
+    special_node.dialogProperties('rtModelType') = ['RT_MODEL_' special_node.name '_FSM' num2str(special_node.nodeId) '_T'];
+    special_node.dialogProperties('stateStructType') = ['DW_' special_node.name '_FSM' num2str(special_node.nodeId) '_T'];
+    special_node.dialogProperties('rtStateMemberPtrName') = 'dwork';
     
     %Remove the temporary new FunctionTemplate
     CleanupFunctionTemplate(simulink_file, origDataDictionaryName, dictionaryTmpName, dataDictionary);
