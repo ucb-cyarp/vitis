@@ -1237,6 +1237,20 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //headerFile << "#include <thread.h>" << std::endl;
     headerFile << std::endl;
 
+    //Need to emit blackbox headers first in case a blackbox type is referred to in the state structure
+    //Insert BlackBox Headers
+    std::vector<std::shared_ptr<BlackBox>> blackBoxes = EmitterHelpers::findBlackBoxes(nodesToEmit);
+    if(blackBoxes.size() > 0) {
+        headerFile << "//==== BlackBox Headers ====" << std::endl;
+
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            headerFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
+            headerFile << blackBoxes[i]->getCppHeaderContent() << std::endl;
+            headerFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
+        }
+    }
+    headerFile << std::endl;
+
     //Find nodes with state & global decls
     std::vector<std::shared_ptr<Node>> nodesWithState = EmitterHelpers::findNodesWithState(nodesToEmit);
     std::vector<std::shared_ptr<Node>> nodesWithGlobalDecl = EmitterHelpers::findNodesWithGlobalDecl(nodesToEmit);
@@ -1297,18 +1311,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     std::string threadArgTypeName = threadArgStructAndTypeName.second;
     headerFile << threadArgStruct << std::endl;
     headerFile << std::endl;
-
-    //Insert BlackBox Headers
-    std::vector<std::shared_ptr<BlackBox>> blackBoxes = EmitterHelpers::findBlackBoxes(nodesToEmit);
-    if(blackBoxes.size() > 0) {
-        headerFile << "//==== BlackBox Headers ====" << std::endl;
-
-        for(unsigned long i = 0; i<blackBoxes.size(); i++){
-            headerFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
-            headerFile << blackBoxes[i]->getCppHeaderContent() << std::endl;
-            headerFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Header ****" << std::endl;
-        }
-    }
 
     headerFile << "#endif" << std::endl;
 
