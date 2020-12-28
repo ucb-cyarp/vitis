@@ -330,6 +330,7 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         }
 
         //==== Check if the output type is ARG_PTR and declare temporary outputs which will be passed to the black box
+        //  Only do this if outputAccess is not provided
         int expectedOutputArgs = 0;
         if(returnMethod == ReturnMethod::PTR_ARG){
             unsigned long numOutputPorts = outputPorts.size();
@@ -337,19 +338,23 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                 std::shared_ptr<OutputPort> outputPort = getOutputPort(i);
                 DataType dt = outputTypes[i];
 
-                //Will use the rtnVarName + outputAccess+ the output port number
-                std::string descr = "";
+                //Will use the rtnVarName + the output port number
+                std::string outputAccessName = "";
                 if(outputAccess.size() > i){
                     if(!outputAccess[i].empty()){
-                        descr = "_" + outputAccess[i];
+                        outputAccessName = outputAccess[i];
                     }
                 }
-                Variable outputTmp = Variable(rtnVarName+descr+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
-                cStatementQueue.push_back(outputTmp.getCVarDecl(false, true, false, true, false) + ";");
+                if(outputAccessName.empty()) {
+                    Variable outputTmp = Variable(
+                            rtnVarName + "_port" + GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
-                if(dt.isComplex()){
-                    cStatementQueue.push_back(outputTmp.getCVarDecl(true, true, false, true, false) + ";");
+                    cStatementQueue.push_back(outputTmp.getCVarDecl(false, true, false, true, false) + ";");
+
+                    if (dt.isComplex()) {
+                        cStatementQueue.push_back(outputTmp.getCVarDecl(true, true, false, true, false) + ";");
+                    }
                 }
 
                 expectedOutputArgs++;
@@ -429,19 +434,21 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                 std::shared_ptr<OutputPort> outputPort = getOutputPort(outputArgCount);
                 DataType dt = outputTypes[outputArgCount];
 
-                //Will use the rtnVarName + outputAccess+ the output port number
-                std::string descr = "";
+                //Will use the rtnVarName + outputAccess + the output port number
+                std::string outputAccessName = "";
                 if(outputAccess.size() > outputArgCount){
                     if(!outputAccess[outputArgCount].empty()){
-                        descr = "_" + outputAccess[outputArgCount];
+                        outputAccessName = outputAccess[outputArgCount];
                     }
                 }
-                Variable outputTmp = Variable(rtnVarName+descr+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
-                callExpr += (dt.isScalar() ? "&" : "") + outputTmp.getCVarName(false);
+                //If output access is provided, it will be used instead of the temporary output varibles.
+                Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+
+                callExpr += (dt.isScalar() ? "&" : "") + (outputAccessName.empty() ? outputTmp.getCVarName(false) : outputAccessName+reSuffix);
 
                 if(dt.isComplex()){
-                    callExpr += std::string(", ") + (dt.isScalar() ? "&" : "") + outputTmp.getCVarName(true);
+                    callExpr += std::string(", ") + (dt.isScalar() ? "&" : "") + (outputAccessName.empty() ? outputTmp.getCVarName(true) : outputAccessName+imSuffix);
                 }
 
                 outputArgCount++;
@@ -486,15 +493,17 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         DataType dt = outputPort->getDataType();
 
         //Will use the rtnVarName + outputAccess+ the output port number
-        std::string descr = "";
+        std::string outputAccessName = "";
         if(outputAccess.size() > outputPortNum){
             if(!outputAccess[outputPortNum].empty()){
-                descr = "_" + outputAccess[outputPortNum];
+                outputAccessName = outputAccess[outputPortNum];
             }
         }
-        Variable outputTmp = Variable(rtnVarName+descr+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+        Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
-        return CExpr(outputTmp.getCVarName(imag), dt.isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
+        std::string outExpr = outputAccessName.empty() ? outputTmp.getCVarName(imag) : outputAccessName + (imag ? imSuffix : reSuffix);
+
+        return CExpr(outExpr, dt.isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Error During BlackBox Emit - Unexpected Return Type", getSharedPointer()));
     }

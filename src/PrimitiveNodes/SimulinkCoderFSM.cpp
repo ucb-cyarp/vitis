@@ -173,15 +173,32 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
 
     //Output ports are external for the non-reusable style of Simulink Code Generation
     //Output ports are pointer arguments for the reusable style of Simulink Code Generation
+    //   HOWEVER! Output ports can also be part of the state for stateflow charts!
+    //            If a state variable is declared as an output, it (at least with the settings used
+    //            in the current incarnation of the Simulink export script) will not be included
+    //            in the external state structure.  The output is passed as a pointer but it is
+    //            expected by stateflow/simulink that the value is preserved between calls.
     if(reusableFctn){
+        std::string imSuffix = "_im";
+        std::string reSuffix = "_re";
+        newNode->setImSuffix(imSuffix);
+        newNode->setReSuffix(reSuffix);
+
         //Output access used for description
         std::vector<std::shared_ptr<OutputPort>> outputPorts = newNode->getOutputPorts();
         std::vector<std::string> outputAccess;
         for (unsigned long i = 0; i < outputPorts.size(); i++) {
-            outputAccess.push_back(newNode->getOutputPort(i)->getName());
-        }
-        newNode->setOutputAccess(outputAccess);
+            std::shared_ptr<OutputPort> outputPort = outputPorts[i];
+            std::string descr = outputPort->getName();
+            if(!descr.empty()){
+                descr = "_" + descr;
+            }
 
+            outputAccess.push_back(std::string(VITIS_STATE_STRUCT_NAME) + "->blackbox" + GeneralHelper::to_string(outputPort->getParent()->getId()) + "_out" +
+                                   descr + "_port" + GeneralHelper::to_string(i));
+        }
+
+        newNode->setOutputAccess(outputAccess);
         newNode->setReturnMethod(BlackBox::ReturnMethod::PTR_ARG);
     }else {
         std::vector<std::shared_ptr<OutputPort>> outputPorts = newNode->getOutputPorts();
@@ -207,6 +224,12 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
         fsmRTModelVar.setOverrideType(newNode->getRtModelStructType());
 
         std::vector<Variable> stateVars = {fsmStateVar, fsmRTModelVar};
+
+        //Need to include outputs as state variables as well
+        //However, we need to know their types which we learn in the
+        //propogateProperties step
+        //defer adding these until the propragateProperties step.
+
         newNode->setStateVars(stateVars);
 
         //Add additional args to functions (for passing state)
@@ -218,8 +241,7 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
         newNode->setAdditionalArgsStateUpdateFctn(additionalArgsComboStateUpdate);
 
         std::vector<std::pair<std::string, int>> additionalArgsRst =
-                {std::pair<std::string, int> ("(&(" + fsmRTModelVar.getCVarName(false, true, true) + "))", 0),
-                 std::pair<std::string, int> ("(&(" + fsmStateVar.getCVarName(false, true, true) + "))", 1)};
+                {std::pair<std::string, int> (VITIS_STATE_STRUCT_NAME, 0)};
         newNode->setAdditionalArgsResetFctn(additionalArgsRst);
     }
 
@@ -358,16 +380,16 @@ std::string SimulinkCoderFSM::getCppBodyContent() const {
 
     if(isSimulinkExportReusableFunction()){
         std::string rstName = "node"+GeneralHelper::to_string(id)+"_rst";
-        Variable fsmStateVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_state", DataType());
+        Variable fsmStateVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_state", DataType(), {}, false, true);
         fsmStateVar.setOverrideType(getStateStructType());
-        Variable fsmRTModelVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_rtModel", DataType());
+        Variable fsmRTModelVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_rtModel", DataType(), {}, false, true);
         fsmRTModelVar.setOverrideType(getRtModelStructType());
 
         cppBody += getResetFunctionPrototype() + "{\n";
 
         //Set the ptr in rtModel
         cppBody += "\t" + fsmRTModelVar.getCVarName(false) +
-                "->" + rtModelStatePtrName + " = " + fsmStateVar.getCVarName(false) + ";\n"; //Note that these vars were passed as ptrs
+                "." + rtModelStatePtrName + " = &(" + fsmStateVar.getCVarName(false) + ");\n"; //Note that these vars were passed as ptrs
 
         //Call the init function provided by the exported FSM, passing the RT model ptr and dummy variables for the inputs and outputs
         std::vector<Variable> dummyVars;
@@ -392,23 +414,27 @@ std::string SimulinkCoderFSM::getCppBodyContent() const {
 
         std::vector<DataType> outputTypes = getOutputTypes();
 
-        for(int i = 0; i<outputPorts.size(); i++){
-            //TODO: assumes no discontinuity in ports and are in sorted order
-            DataType dt = outputTypes[i];
-            int portNum = outputPorts[i]->getPortNum();
-            if(portNum != i){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected port numbering "));
+        //Only declare dummy output vars if output access is not provided
+        std::vector<std::string> outputAccess = getOutputAccess();
+        if(outputAccess.empty()) {
+            for (int i = 0; i < outputPorts.size(); i++) {
+                //TODO: assumes no discontinuity in ports and are in sorted order
+                DataType dt = outputTypes[i];
+                int portNum = outputPorts[i]->getPortNum();
+                if (portNum != i) {
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected port numbering "));
+                }
+
+                Variable dummyOutVar = Variable("dummyOut" + GeneralHelper::to_string(i), dt);
+
+                dummyOutVar.getCVarDecl(false, true, false, true, false, false);
+
+                if (dt.isComplex()) {
+                    dummyOutVar.getCVarDecl(true, true, false, true, false, false);
+                }
+
+                dummyVars.push_back(dummyOutVar);
             }
-
-            Variable dummyInVar = Variable("dummyOut" + GeneralHelper::to_string(i), dt);
-
-            dummyInVar.getCVarDecl(false, true, false, true, false, false);
-
-            if(dt.isComplex()){
-                dummyInVar.getCVarDecl(true, true, false, true, false, false);
-            }
-
-            dummyVars.push_back(dummyInVar);
         }
 
         for(int i = 0; i<dummyVars.size(); i++){
@@ -421,7 +447,7 @@ std::string SimulinkCoderFSM::getCppBodyContent() const {
 
         cppBody += "\t" + getGeneratedReset() + "(";
 
-        cppBody += fsmRTModelVar.getCVarName(false); //Pass the FSM state
+        cppBody += "&(" + fsmRTModelVar.getCVarName(false) + ")"; //Pass the FSM state
 
         //Pass the dummy vars
         for(int i = 0; i<dummyVars.size(); i++){
@@ -429,6 +455,17 @@ std::string SimulinkCoderFSM::getCppBodyContent() const {
 
             if(dummyVars[i].getDataType().isComplex()){
                 cppBody += ", &" + dummyVars[i].getCVarName(true);
+            }
+        }
+
+        //If output access was provided, emit that
+        if(!outputAccess.empty()){
+            for(int i = 0; i<outputTypes.size(); i++){
+                cppBody += ", &(" + outputAccess[i] + getReSuffix() + ")";
+
+                if(outputTypes[i].isComplex()){
+                    cppBody += ", &(" + outputAccess[i] + getImSuffix() + ")";
+                }
             }
         }
 
@@ -454,15 +491,12 @@ std::string SimulinkCoderFSM::getResetFunctionCall() {
 std::string SimulinkCoderFSM::getResetFunctionPrototype() const{
     //Need the ID to be set before doing this
     std::string rstName = "node"+GeneralHelper::to_string(id)+"_rst";
-    Variable fsmStateVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_state", DataType(), {}, false, true);
-    fsmStateVar.setOverrideType(getStateStructType());
-    Variable fsmRTModelVar = Variable(name+"_n"+GeneralHelper::to_string(id)+"_rtModel", DataType(), {}, false, true);
-    fsmRTModelVar.setOverrideType(getRtModelStructType());
+    std::string typeName = "Partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum))+"_state_t";
 
     std::string proto = "void " + rstName + "(";
 
     //Pass pointers to RT model structure and FSM state structure
-    proto += fsmRTModelVar.getCPtrDecl(false) + ", " + fsmStateVar.getCPtrDecl(false);
+    proto += typeName + " *" + VITIS_STATE_STRUCT_NAME;
 
     proto += ")";
 
@@ -475,4 +509,28 @@ std::string SimulinkCoderFSM::getGeneratedReset() const {
 
 void SimulinkCoderFSM::setGeneratedReset(const std::string &generatedReset) {
     SimulinkCoderFSM::generatedReset = generatedReset;
+}
+
+void SimulinkCoderFSM::propagateProperties() {
+    BlackBox::propagateProperties(); //Get the datatypes of the output ports
+
+    if(isSimulinkExportReusableFunction()){
+        //Need to add output variables to the state array
+
+        std::vector<Variable> stateVars = getStateVars();
+        std::vector<DataType> outputTypes = getOutputTypes();
+
+        int outputPortCount = outputPorts.size();
+        for(int i = 0; i<outputPortCount; i++){
+            std::shared_ptr<OutputPort> outputPort = getOutputPort(i);
+            std::string descr = outputPort->getName();
+            if(!descr.empty()){
+                descr = "_" + descr;
+            }
+            stateVars.push_back(Variable("blackbox" + GeneralHelper::to_string(outputPort->getParent()->getId()) + "_out" +
+                                descr + "_port" + GeneralHelper::to_string(i), outputTypes[i]));
+        }
+
+        setStateVars(stateVars);
+    }
 }

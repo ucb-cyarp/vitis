@@ -140,6 +140,8 @@ public:
 
     std::string typeNameStr() override;
 
+    void propagateProperties() override;
+
 };
 
 /*! @} */
