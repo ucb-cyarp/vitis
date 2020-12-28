@@ -176,6 +176,12 @@ public:
     std::vector<Variable> getStateVars() const;
     void setStateVars(const std::vector<Variable> &stateVars);
 
+    /**
+     * @brief Returns any declarations which need to be declared after the state structure has been declared
+     * @return
+     */
+    virtual std::string getDeclAfterState();
+
     //====Factories====
     /**
      * @brief Creates a BlackBox node from a GraphML Description

@@ -91,11 +91,7 @@ public:
 
     //Overridden so that the reset function can be added to each after a node ID has been defined.  Also avoids
     //writing the reset function addition to
-    /**
-     * @brief Gets the C/C++ header with the reset function added
-     * @return
-     */
-    std::string getCppHeaderContent() const override;
+    std::string getDeclAfterState() override;
 
     /**
      * @brief Gets the C/C++ header with the reset function added

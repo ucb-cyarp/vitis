@@ -1142,6 +1142,23 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     headerFile << std::endl;
 
+    if(blackBoxes.size() > 0) {
+        headerFile << std::endl << "//==== BlackBox Post State Decls ====" << std::endl;
+        for(unsigned long i = 0; i<blackBoxes.size(); i++){
+            std::string decl = blackBoxes[i]->getDeclAfterState();
+
+            if(!decl.empty()) {
+                headerFile << "//**** BEGIN BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Post State Decls ****"
+                           << std::endl;
+                headerFile << decl;
+                headerFile << "//**** END BlackBox " << blackBoxes[i]->getFullyQualifiedName() << " Post State Decls ****"
+                           << std::endl;
+            }
+        }
+
+        headerFile << std::endl;
+    }
+
 
     //Output the Function Definition
     std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize, stateStructTypeName);

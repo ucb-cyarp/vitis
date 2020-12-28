@@ -709,4 +709,7 @@ void BlackBox::propagateProperties() {
     setOutputTypes(outputTypeLocal);
 }
 
+std::string BlackBox::getDeclAfterState() {
+    return "";
+}
 
