@@ -174,6 +174,14 @@ SimulinkCoderFSM::createFromGraphML(int id, std::string name, std::map<std::stri
     //Output ports are external for the non-reusable style of Simulink Code Generation
     //Output ports are pointer arguments for the reusable style of Simulink Code Generation
     if(reusableFctn){
+        //Output access used for description
+        std::vector<std::shared_ptr<OutputPort>> outputPorts = newNode->getOutputPorts();
+        std::vector<std::string> outputAccess;
+        for (unsigned long i = 0; i < outputPorts.size(); i++) {
+            outputAccess.push_back(newNode->getOutputPort(i)->getName());
+        }
+        newNode->setOutputAccess(outputAccess);
+
         newNode->setReturnMethod(BlackBox::ReturnMethod::PTR_ARG);
     }else {
         std::vector<std::shared_ptr<OutputPort>> outputPorts = newNode->getOutputPorts();
