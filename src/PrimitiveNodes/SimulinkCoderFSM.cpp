@@ -359,22 +359,6 @@ void SimulinkCoderFSM::setStateStructType(const std::string &stateStructType) {
     SimulinkCoderFSM::stateStructType = stateStructType;
 }
 
-std::string SimulinkCoderFSM::getCppHeaderContent() const {
-    std::string cppHeader = BlackBox::getCppHeaderContent();
-
-    if(isSimulinkExportReusableFunction()){
-        //Add the prototype for the reset function
-        cppHeader += "\n#ifndef _H_NODE"+GeneralHelper::to_string(id)+"\n";
-        cppHeader += "#define _H_NODE"+GeneralHelper::to_string(id)+"\n";
-
-        cppHeader += getResetFunctionPrototype() + ";\n";
-
-        cppHeader += "#endif\n";
-    }
-
-    return cppHeader;
-}
-
 std::string SimulinkCoderFSM::getCppBodyContent() const {
     std::string cppBody = BlackBox::getCppBodyContent();
 
@@ -533,4 +517,17 @@ void SimulinkCoderFSM::propagateProperties() {
 
         setStateVars(stateVars);
     }
+}
+
+std::string SimulinkCoderFSM::getDeclAfterState() {
+    //Declare reset function after the structure defn
+
+    if(isSimulinkExportReusableFunction()){
+        return "#ifndef _H_NODE"+GeneralHelper::to_string(id)+"\n" +
+               "#define _H_NODE"+GeneralHelper::to_string(id)+"\n" +
+               getResetFunctionPrototype() + ";\n" +
+               "#endif\n";
+    }
+
+    return "";
 }
