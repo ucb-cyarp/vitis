@@ -74,7 +74,7 @@ private:
     std::vector<std::pair<std::string, int>> additionalArgsStateUpdateFctn;  ///<Additional arguments for the state update function.  Specifies the value to be placed into the function as an argument along with the position (starting from 0)
     std::vector<std::pair<std::string, int>> additionalArgsResetFctn;  ///<Additional arguments for the reset function.  Specifies the value to be placed into the function as an argument along with the position (starting from 0)
     ReturnMethod returnMethod; ///< The method by which the outputs of the BlackBox function calls are retrieved
-    std::vector<std::string> outputAccess; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, specifies the name for each output in the returned data structure (if in an object) or ext variable name (real component)
+    std::vector<std::string> outputAccess; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, or PTR_ARG specifies the name for each output in the returned data structure (if in an object) or ext variable name (real component)
     std::vector<Variable> stateVars; ///<State variables used by this black box
     bool previouslyEmitted; ///<Used to check if the node has already been emitted before
     std::vector<DataType> outputTypes; ///<Used to store output port types in case one of the output ports is disconnected due to pruning.
