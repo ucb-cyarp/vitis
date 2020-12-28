@@ -337,8 +337,14 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                 std::shared_ptr<OutputPort> outputPort = getOutputPort(i);
                 DataType dt = outputTypes[i];
 
-                //Will use the rtnVarName + the output port number
-                Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+                //Will use the rtnVarName + outputAccess+ the output port number
+                std::string descr = "";
+                if(outputAccess.size() > i){
+                    if(!outputAccess[i].empty()){
+                        descr = "_" + outputAccess[i];
+                    }
+                }
+                Variable outputTmp = Variable(rtnVarName+descr+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
                 cStatementQueue.push_back(outputTmp.getCVarDecl(false, true, false, true, false) + ";");
 
@@ -423,8 +429,14 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
                 std::shared_ptr<OutputPort> outputPort = getOutputPort(outputArgCount);
                 DataType dt = outputTypes[outputArgCount];
 
-                //Will use the rtnVarName + the output port number
-                Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+                //Will use the rtnVarName + outputAccess+ the output port number
+                std::string descr = "";
+                if(outputAccess.size() > outputArgCount){
+                    if(!outputAccess[outputArgCount].empty()){
+                        descr = "_" + outputAccess[outputArgCount];
+                    }
+                }
+                Variable outputTmp = Variable(rtnVarName+descr+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
                 callExpr += (dt.isScalar() ? "&" : "") + outputTmp.getCVarName(false);
 
@@ -473,8 +485,14 @@ BlackBox::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::Sche
         std::shared_ptr<OutputPort> outputPort = getOutputPort(outputPortNum);
         DataType dt = outputPort->getDataType();
 
-        //Will use the rtnVarName + the output port number
-        Variable outputTmp = Variable(rtnVarName+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
+        //Will use the rtnVarName + outputAccess+ the output port number
+        std::string descr = "";
+        if(outputAccess.size() > outputPortNum){
+            if(!outputAccess[outputPortNum].empty()){
+                descr = "_" + outputAccess[outputPortNum];
+            }
+        }
+        Variable outputTmp = Variable(rtnVarName+descr+"_port"+GeneralHelper::to_string(outputPort->getPortNum()), dt);
 
         return CExpr(outputTmp.getCVarName(imag), dt.isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
     }else{
