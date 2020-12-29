@@ -148,9 +148,21 @@ public:
     /**
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
      * @return the initialized cStateVar for this FIFO
+     *
+     * @warning The returned state variable is not expanded for the block size.  To expand the varible for the block
+     * size of the port, call getCStateVarExpandedForBlockSize
      */
     Variable getCStateVar(int port);
     void setCStateVar(int port, const Variable &cStateVar);
+
+    /**
+     * @brief Gets the cStateVar for this FIFO and expands it by the block size of the port.
+     * If it has not yet been initialized, it will be initialized at this point
+     *
+     * @param port the port to get the cStateVar for
+     * @return
+     */
+    Variable getCStateVarExpandedForBlockSize(int port);
 
     /**
      * @brief Gets the cStateInputVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
@@ -158,6 +170,8 @@ public:
      */
     Variable getCStateInputVar(int port);
     void setCStateInputVar(int port, const Variable &cStateInputVar);
+
+    Variable getCStateInputVarExpandedForBlockSize(int port);
 
     std::vector<int> getBlockSizes() const;
     int getBlockSizeCreateIfNot(int portNum);

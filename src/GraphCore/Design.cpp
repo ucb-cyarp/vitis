@@ -3698,7 +3698,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
                                                             threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile,
-                                                            fifoIndexCachingBehavior);
+                                                            fifoIndexCachingBehavior, MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE);
         }
     }
 
