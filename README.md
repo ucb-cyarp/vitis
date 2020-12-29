@@ -2,7 +2,7 @@
 An Optimizing DSP Compiler for Data Flow Graphs
 
 ## Status:
-CI Status (master Branch): [![Build Status](https://travis-ci.com/ucb-cyarp/vitis.svg?token=3DFsVQ6rTxi6J46pKtZ6&branch=master)](https://travis-ci.com/ucb-cyarp/vitis)
+CI Status (master Branch): ![CMake CI](https://github.com/ucb-cyarp/vitis/workflows/CMake%20CI/badge.svg)
 
 ## Dependencies:
 - [CMake](https://cmake.org): Build Tool
