@@ -5,6 +5,7 @@
 #include "LocklessThreadCrossingFIFO.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 LocklessThreadCrossingFIFO::LocklessThreadCrossingFIFO() : cWriteOffsetPtrInitialized(false), cReadOffsetPtrInitialized(false),
 cArrayPtrInitialized(false), cReadOffsetCachedInitialized(false), cWriteOffsetCachedInitialized(false) {
@@ -172,17 +173,62 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotEmpty(std::vector<std::string>
     int arrayLength = (fifoLength+1);
     int checkPoint = -(arrayLength-1);
 
-    if(role == Role::CONSUMER || role == Role::NONE){
+    std::string emptyCheck = "((" + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " == 1) || (" + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " == " + GeneralHelper::to_string(checkPoint) + "))";
+    std::string notEmptyCheck = "(!" + emptyCheck + ")";
+
+    if(role == Role::NONE){
+        //Unconditional check indexes
+
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCWriteOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
-    }
 
-    if(role == Role::PRODUCER || role == Role:: NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCReadOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        return notEmptyCheck;
     }
 
-    return "(!((" + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " == 1) || (" + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " == " + GeneralHelper::to_string(checkPoint) + ")))";
+    //If the roll is the producer, to check if the FIFO is empty, we need to pull the read offset because, since the time we last checked, the consumer may have emptied the FIFO
+    if(role == Role::PRODUCER){
+        //Fetch the current read offset
+        cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCReadOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        return notEmptyCheck;
+    }
+
+    if(role == Role::CONSUMER){
+        //Fetch the current write offset
+        cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCWriteOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        return notEmptyCheck;
+    }
+
+    if(role == Role::CONSUMER_FULLCACHE) {
+        //If this is the consumer, this thread knows how far it has read.  Only the consumer can empty the FIFO,  We only need to check the write pointer
+        //if we have emptied the FIFO according to the last time we checked the write index.  There may have been more items written into the FIFO by the
+        //producer since then which is why we then need to load the write index.
+        std::string notEmptyCheckTmpName = name + "_notEmpty";
+        Variable notEmptyCheckTmp = Variable(notEmptyCheckTmpName, DataType(false, false, false, 1, 0, {1}));
+
+        cStatementQueue.push_back(notEmptyCheckTmp.getCVarDecl(false, false, false, false, false) + " = " + notEmptyCheck + ";");
+
+        cStatementQueue.push_back("if(!(" + notEmptyCheckTmp.getCVarName(false) + ")){");
+        //Need to check the write pointer since the cached values showed the FIFO was empty
+
+        //Fetch the current write offset
+        cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = atomic_load_explicit(" +
+                                  getCWriteOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        //Need to re-check if empty
+        cStatementQueue.push_back(notEmptyCheckTmp.getCVarName(false) + " = " + notEmptyCheck + ";");
+
+        cStatementQueue.push_back("}");
+
+        return notEmptyCheckTmp.getCVarName(false);
+    }
+
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown FIFO Role", getSharedPointer()));
+
     //return "(!((" + getCWriteOffsetCached().getCVarName(false) + " - " + getCReadOffsetCached().getCVarName(false) + " == 1) || (" + getCWriteOffsetCached().getCVarName(false) + " == 0 && " + getCReadOffsetCached().getCVarName(false) + " == " + GeneralHelper::to_string(arrayLength-1) + ")))";
 }
 
@@ -190,17 +236,63 @@ std::string LocklessThreadCrossingFIFO::emitCIsNotFull(std::vector<std::string> 
     //Full = (readOffset == writeOffset)
     //Note: This is !Full
 
-    if(role == Role::CONSUMER || role == Role::NONE){
+    std::string notFullCheck = "(" + getCReadOffsetCached().getCVarName(false) + " != " + getCWriteOffsetCached().getCVarName(false) + ")";
+
+    if(role == Role::NONE){
+        //Unconditional check indexes
+
         //Fetch the current write offset
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCWriteOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
-    }
 
-    if(role == Role::PRODUCER || role == Role:: NONE){
         //Fetch the current read offset
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCReadOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        return notFullCheck;
     }
 
-    return "(" + getCReadOffsetCached().getCVarName(false) + " != " + getCWriteOffsetCached().getCVarName(false) + ")";
+    if(role == Role::CONSUMER){
+        //To determine if full when the consumer, need to check the write pointer because, in the time since the last check, the FIFO may have been filled
+        //by the producer
+
+        //Fetch the current write offset
+        cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCWriteOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        return notFullCheck;
+    }
+
+    if(role == Role::PRODUCER){
+        //Fetch the current read offset
+        cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = atomic_load_explicit(" + getCReadOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        return notFullCheck;
+    }
+
+    if(role == Role::PRODUCER_FULLCACHE){
+        //If this is the producer, this thread knows how far it has written.  Only the producer can fill the FIFO,  We only need to check the read pointer
+        //if we have filled the FIFO according to the last time we checked the read index.  There may have been more items read from the FIFO by the
+        //consumer since then which is why we then need to load the read index.
+
+        std::string notFullCheckTmpName = name + "_notFull";
+        Variable notFullCheckTmp = Variable(notFullCheckTmpName, DataType(false, false, false, 1, 0, {1}));
+
+        cStatementQueue.push_back(notFullCheckTmp.getCVarDecl(false, false, false, false, false) + " = " + notFullCheck + ";");
+
+        cStatementQueue.push_back("if(!(" + notFullCheckTmp.getCVarName(false) + ")){");
+        //Need to check the read pointer since the cached values showed the FIFO was full
+
+        //Fetch the current read offset
+        cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = atomic_load_explicit(" +
+                                  getCReadOffsetPtr().getCVarName(false) + ", memory_order_acquire);");
+
+        //Need to re-check if full
+        cStatementQueue.push_back(notFullCheckTmp.getCVarName(false) + " = " + notFullCheck + ";");
+
+        cStatementQueue.push_back("}");
+
+        return notFullCheckTmp.getCVarName(false);
+    }
+
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown FIFO Role", getSharedPointer()));
 }
 
 std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToRead(std::vector<std::string> &cStatementQueue, Role role) {
@@ -239,8 +331,8 @@ std::string LocklessThreadCrossingFIFO::emitCNumBlocksAvailToWrite(std::vector<s
     return "((" + getCReadOffsetCached().getCVarName(false) + " < " + getCWriteOffsetCached().getCVarName(false) + ") ? " + GeneralHelper::to_string(arrayLength) + " - " + getCWriteOffsetCached().getCVarName(false) + " + " + getCReadOffsetCached().getCVarName(false) + " : " + getCReadOffsetCached().getCVarName(false) + " - " + getCWriteOffsetCached().getCVarName(false) + ")";
 }
 
-void
-LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter) {
+std::string
+LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter, bool forceNotInPlace) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -307,10 +399,12 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         //If not, a release will occur when the value is written
         cStatementQueue.push_back("}//End Scope for " + name + " FIFO Write");
     }
+
+    return "";
 }
 
-void
-LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter) {
+std::string
+LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter, bool forceNotInPlace) {
     //TODO: Consider optimizing if this becomes the bottleneck
     //It appears that memcpy drops the volatile designations which is an issue for this use case
 
@@ -382,6 +476,8 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         //If not, a release will occur when the value is written
         cStatementQueue.push_back("}//End Scope for " + name + " FIFO Read");
     }
+
+    return "";
 }
 
 std::vector<std::pair<Variable, std::string>> LocklessThreadCrossingFIFO::getFIFOSharedVariables() {
@@ -446,42 +542,60 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     DataType arrayNumericType = getCArrayPtr().getDataType().getCPUStorageType();
 
     //It should be validated at this point that all ports have the same number of initial conditions
-    for(int i = 0; i<getInitConditionsCreateIfNot(0).size(); i++){
-        int blockInd = i/blockSize;
-        int elementInd = i%blockSize;
+    for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
+        int blockSize = getBlockSizeCreateIfNot(portNum);
+        int subElementsPer = getInputPort(portNum)->getDataType().numberOfElements();
+        std::vector<int> dimensions = getInputPort(portNum)->getDataType().getDimensions();
+        std::vector<NumericValue> initConds = getInitConditionsCreateIfNot(portNum);
 
-        for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
-            if(getInitConditionsCreateIfNot(portNum).size() > fifoLength*blockSize != 0){
+        for(int i = 0; i<initConds.size(); i+=subElementsPer){
+            int blockInd = i/(blockSize * subElementsPer);
+            int elementInd = (i/subElementsPer)%blockSize;
+
+            if(initConds.size() > fifoLength * blockSize * subElementsPer != 0){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
             }
 
-            if(getInitConditionsCreateIfNot(portNum).size() % blockSize != 0){
+            if(initConds.size() % (blockSize * subElementsPer) != 0){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must be a multiple of its block size", getSharedPointer()));
             }
 
-            //Note, the block index starts at 1 for initialization
-            if (blockSize == 1) {
-                cStatementQueue.push_back(
-                        getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) + "].port" + GeneralHelper::to_string(portNum) + "_real = " +
-                        GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(false, arrayNumericType)) + ";");
-                if (arrayNumericType.isComplex()) {
-                    cStatementQueue.push_back(
-                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
-                            "].port" + GeneralHelper::to_string(portNum) + "_imag = " +
-                            GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(true, arrayNumericType)) +
-                            ";");
+            for(int j = 0; j < subElementsPer; j++) {
+                //Note, the block index starts at 1 for initialization
+                std::string subElementIdx = ""; //This is the indexing for non-scalar types
+                if(subElementsPer != 1) {
+                    std::vector<int> internalIdxs = EmitterHelpers::memIdx2ArrayIdx(j, dimensions);
+                    subElementIdx = EmitterHelpers::generateIndexOperation(internalIdxs);
                 }
-            } else {
-                cStatementQueue.push_back(
-                        getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) + "].port" + GeneralHelper::to_string(portNum) + "_real[" +
-                        GeneralHelper::to_string(elementInd) + "] = " +
-                        GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(false, arrayNumericType)) + ";");
-                if (arrayNumericType.isComplex()) {
+
+                if (blockSize == 1) {
                     cStatementQueue.push_back(
                             getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
-                            "].port" + GeneralHelper::to_string(portNum) + "_imag[" + GeneralHelper::to_string(elementInd) + "] = " +
-                            GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum)[i].toStringComponent(true, arrayNumericType)) +
+                            "].port" + GeneralHelper::to_string(portNum) + "_real" + subElementIdx + " = " +
+                            GeneralHelper::to_string(initConds[i+j].toStringComponent(false, arrayNumericType)) +
                             ";");
+                    if (arrayNumericType.isComplex()) {
+                        cStatementQueue.push_back(
+                                getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
+                                "].port" + GeneralHelper::to_string(portNum) + "_imag" + subElementIdx + " = " +
+                                GeneralHelper::to_string(initConds[i+j].toStringComponent(true, arrayNumericType)) +
+                                ";");
+                    }
+                } else {
+                    cStatementQueue.push_back(
+                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
+                            "].port" + GeneralHelper::to_string(portNum) + "_real[" +
+                            GeneralHelper::to_string(elementInd) + "]" + subElementIdx + " = " +
+                            GeneralHelper::to_string(initConds[i+j].toStringComponent(false, arrayNumericType)) +
+                            ";");
+                    if (arrayNumericType.isComplex()) {
+                        cStatementQueue.push_back(
+                                getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
+                                "].port" + GeneralHelper::to_string(portNum) + "_imag[" +
+                                GeneralHelper::to_string(elementInd) + "]" + subElementIdx + " = " +
+                                GeneralHelper::to_string(initConds[i+j].toStringComponent(true, arrayNumericType)) +
+                                ";");
+                    }
                 }
             }
         }
@@ -494,9 +608,9 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     cStatementQueue.push_back("}");
 
     //Write pointer initialized to (init.size()+1)%arrayLength = (init.size()+1)%(fifoLength+1)
-    //Should be validated at this point that all ports have the same number of init conditions
+    //Should be validated at this point that all ports have the same number of init conditions (blocks)
     int arrayLength=fifoLength+1;
-    int writeInd = (getInitConditionsCreateIfNot(0).size()/blockSize+1)%arrayLength;
+    int writeInd = (getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()+1)%arrayLength; //This index is in terms of blocks.  All ports should have same number of initial conditions (blocks)
     cStatementQueue.push_back("atomic_init(" + getCWriteOffsetPtr().getCVarName(false) + ", " + GeneralHelper::to_string(writeInd) + ");");
     cStatementQueue.push_back("if(!atomic_is_lock_free(" + getCWriteOffsetPtr().getCVarName(false) + ")){");
     cStatementQueue.push_back("printf(\"Warning: An atomic FIFO offset (" + getCWriteOffsetPtr().getCVarName(false) + ") was expected to be lock free but is not\\n\");");
@@ -541,4 +655,8 @@ std::set<std::string> LocklessThreadCrossingFIFO::getExternalIncludes() {
     includes.insert("#include <stdatomic.h>");
     includes.insert("#include <stdio.h>");
     return includes;
+}
+
+bool LocklessThreadCrossingFIFO::isInPlace() {
+    return false;
 }

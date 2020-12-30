@@ -39,19 +39,19 @@ class ThreadCrossingFIFO : public Node {
 protected:
     int fifoLength; ///<The length of this FIFO (in blocks)
     std::vector<std::vector<NumericValue>> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size.  The outer vector is across input/output port pairs.  The inner vector contains the initial conditions for the given port pair.
-    int blockSize; ///<The block size (in elements) of transactions to/from FIFO
+    std::vector<int> blockSizes; ///<The block sizes (in elements) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to the
     std::vector<Variable> cStateVars; ///<The C variables from which values are read.  There is one per input/output port pair
     std::vector<Variable> cStateInputVars; ///<the C temporary variables holding data to be writen.  There is one per input/output pair
 
     //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
     //Special casing may be preferrable for now
-    std::string cBlockIndexVarInputName; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
-    std::string cBlockIndexVarOutputName; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
+    std::vector<std::string> cBlockIndexVarInputNames; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
+    std::vector<std::string> cBlockIndexVarOutputNames; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
 
     std::vector<bool> cStateVarsInitialized;
     std::vector<bool> cStateInputVarsInitialized;
 
-    std::shared_ptr<ClockDomain> clockDomain; ///<The clock domain that this FIFO is associated with.  Because the FIFO exists in the context of the source, FIFOs connected to the MasterInput will not be in the context of the clock domain they belong to
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains; ///<The clock domains that this FIFO is associated with.  Each port can be in a different clock domain.  Because the FIFO exists in the context of the source, FIFOs connected to the MasterInput will not be in the context of the clock domain they belong to
 
     //==== Constructors ====
     /**
@@ -96,18 +96,34 @@ public:
         NONE, //No defined role (does not use cached values)
         PRODUCER, //Uses cached producer state
         CONSUMER, //Uses cached consumer state
-        FULL_CACHED, //For applicable functions, uses cached producer and consumer state
+        PRODUCER_FULLCACHE, //Uses cached producer state, use cashed consumer state when possible
+        CONSUMER_FULLCACHE //Uses cached consumer state, use cached producer state when possible
     };
 
     //====Getters/Setters====
     int getFifoLength() const;
     void setFifoLength(int fifoLength);
 
-    std::shared_ptr<ClockDomain> getClockDomain() const;
-    void setClockDomain(const std::shared_ptr<ClockDomain> &clockDomain);
+    std::vector<std::shared_ptr<ClockDomain>> getClockDomains() const;
+    void setClockDomains(const std::vector<std::shared_ptr<ClockDomain>> &clockDomain);
+
+    std::shared_ptr<ClockDomain> getClockDomainCreateIfNot(int portNum);
+    void setClockDomain(int portNum, std::shared_ptr<ClockDomain> clockDomain);
 
     std::vector<std::vector<NumericValue>> getInitConditions() const;
     void setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions);
+
+    /**
+     * @brief Returns true if threads operation on this FIFO use the data in the FIFO in place or copy to/from a local
+     * buffer.  If used in place, checks need to be made to both input and output FIFOs before use.  State is only updated
+     * after uses.
+     *
+     * For FIFOs not used in place, only the checks on the input FIFOs need to be conducted before computation.
+     * The state of the FIFOs can be updated immediatly after the FIFO is read.  The output FIFOs only need to be checked
+     * after computation and are updated after the write
+     * @return
+     */
+    virtual bool isInPlace() = 0;
 
     /**
      * @brief
@@ -119,11 +135,15 @@ public:
     std::vector<NumericValue> getInitConditionsCreateIfNot(int port);
     void setInitConditionsCreateIfNot(int port, const std::vector<NumericValue> &initConditions);
 
-    std::string getCBlockIndexVarInputName() const;
-    void setCBlockIndexVarInputName(const std::string &cBlockIndexVarName);
+    std::vector<std::string> getCBlockIndexVarInputNames() const;
+    void setCBlockIndexVarInputNames(const std::vector<std::string> &cBlockIndexVarInputNames);
+    std::string getCBlockIndexVarInputNameCreateIfNot(int portNum);
+    void setCBlockIndexVarInputName(int portNum, const std::string &cBlockIndexVarName);
 
-    std::string getCBlockIndexVarOutputName() const;
-    void setCBlockIndexVarOutputName(const std::string &cBlockIndexVarName);
+    std::vector<std::string> getCBlockIndexVarOutputNames() const;
+    void setCBlockIndexVarOutputNames(const std::vector<std::string> &cBlockIndexVarOutputName);
+    std::string getCBlockIndexVarOutputNameCreateIfNot(int portNum);
+    void setCBlockIndexVarOutputName(int portNum, const std::string &cBlockIndexVarName);
 
     /**
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
@@ -139,8 +159,15 @@ public:
     Variable getCStateInputVar(int port);
     void setCStateInputVar(int port, const Variable &cStateInputVar);
 
-    int getBlockSize() const;
-    void setBlockSize(int blockSize);
+    std::vector<int> getBlockSizes() const;
+    int getBlockSizeCreateIfNot(int portNum);
+    /**
+     * @brief Gets the number of elements in a block across all ports
+     * @return
+     */
+    int getTotalBlockSizeAllPorts();
+    void setBlockSizes(const std::vector<int> &blockSizes);
+    void setBlockSize(int portNum, int blockSize);
 
     //====Factories====
     //createFromGraphML needs to be implemented in non-abstract decendents of this class
@@ -298,30 +325,42 @@ public:
     virtual std::string emitCNumBlocksAvailToWrite(std::vector<std::string> &cStatementQueue, Role role) = 0;
 
     /**
-     * @brief Emits C statements which write data into the FIFO.
+     * @brief Emits C statements which write data into the FIFO (if not in place)
+     *
+     * If FIFO operates in place this function returns a pointer to the block to be written to.
+     * If the FIFO operates not in place, nothing is returned
      *
      * Cached values will be used unless the role is specified as NONE
      *
      * @param cStatementQueue The C statements are written into this queue
-     * @param src The src for data to be written into the FIFO
+     * @param src The src for data to be written into the FIFO (for non-in-place FIFOs) or the name of the ptr to the location to write into [created by this function] (for in-place FIFOs)
      * @param numBlocks The number of blocks of data to write into the FIFO
      * @param role the role of the actor calling this function
      * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
+     * @param forceNotInPlace if true, forces the FIFO to copy to/from local buffers even if it is designed to work in place.  This is used primarily for I/O where non-blocking access to the FIFOs is used along with multiple local buffers.
+     *
+     * @returns pointer to block in buffer to be written to (in-place FIFO only)
      */
-    virtual void emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter = true) = 0;
+    virtual std::string emitCWriteToFIFO(std::vector<std::string> &cStatementQueue, std::string src, int numBlocks, Role role, bool pushStateAfter = true, bool forceNotInPlace = false) = 0;
 
     /**
-     * @brief Emits C statements which read data from the FIFO
+     * @brief Emits C statements which read data from the FIFO (if not in place)
      *
      * Cached values will be used unless the role is specified as NONE
      *
+     * If FIFO operates in place this function returns a pointer to the block to be read from.
+     * If the FIFO operates not in place, nothing is returned
+     *
      * @param cStatementQueue The C statements are written into this queue
-     * @param dst The destination for data which will be read from the FIFO
-     * @param numBlocks The number of blocks to read
+     * @param dst The destination for data which will be read from the FIFO (for non-in-place FIFOs) or the name of the ptr to the location to read from [created by this function] (for in-place FIFOs)
+     * @param numBlocks The number of blocks to read (used by both in place and out of place FIFOs to determine the state to push to the FIFO next)
      * @param role the role of the actor calling this function
      * @param pushStateAfter if true, the changes to the producer or consumer state are pushed immediately after the write operation
+     * @param forceNotInPlace if true, forces the FIFO to copy to/from local buffers even if it is designed to work in place.  This is used primarily for I/O where non-blocking access to the FIFOs is used along with multiple local buffers.
+     *
+     * @returns pointer to block in buffer to be read from (in place FIFO only)
      */
-    virtual void emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter) = 0;
+    virtual std::string emitCReadFromFIFO(std::vector<std::string> &cStatementQueue, std::string dst, int numBlocks, Role role, bool pushStateAfter, bool forceNotInPlace = false) = 0;
 
     /**
      * @brief Get a list of shared variables for the given FIFO.  These variables should be passed to the threads which

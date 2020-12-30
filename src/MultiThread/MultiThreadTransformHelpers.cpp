@@ -6,6 +6,7 @@
 
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/TappedDelay.h"
+#include "General/GraphAlgs.h"
 #include <iostream>
 
 void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
@@ -86,7 +87,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
     //Check if FIFO full
     //Note: The dimensions of the input must be taken into account
     int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
-    if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSize()*(fifo->getFifoLength() - 1)) {
+    if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSizeCreateIfNot(0)*(fifo->getFifoLength() - 1)) {
         //There is still room
 
         std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPortCreateIfNot(0)->getArcs();
@@ -135,7 +136,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
                     int numberInitCondsInSrc = srcDelay->getDelayValue() * elementsPerInput;
 
-                    if (numberInitCondsInSrc + fifoInitConds.size() <= fifo->getBlockSize() * elementsPerInput * (fifo->getFifoLength() - 1)) {
+                    if (numberInitCondsInSrc + fifoInitConds.size() <= fifo->getBlockSizeCreateIfNot(0) * elementsPerInput * (fifo->getFifoLength() - 1)) {
                         //Can absorb complete delay
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.begin() + numberInitCondsInSrc);  //Because this is at the input to the FIFO, the initial conditions are appended.
@@ -173,7 +174,7 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
                         //Partial absorption (due to size)
                         //We already checked that there is room
 
-                        int numToAbsorb = fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+                        int numToAbsorb = fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
 
                         if(numToAbsorb % elementsPerInput != 0){
                             throw std::runtime_error(ErrorHelpers::genErrorStr("Error absorbing delay into FIFO, the number of initial conditions to absorb is not a multiple of the number of elements per input", fifo));
@@ -223,7 +224,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
     int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
     //Check if FIFO full
-    if (fifo->getInitConditions().size() < fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1)) {
+    if (fifo->getInitConditions().size() < fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1)) {
         //There is still room in the FIFO
 
         //Check if the FIFO has order constraint outputs
@@ -285,7 +286,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
 
                 //Find how many can be absorbed into the FIFO
                 std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
-                int roomInFifo = fifo->getBlockSize()*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+                int roomInFifo = fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
                 //Note that the number to absorb must be a multiple of elementsPerInput
                 //Remove any remainder
@@ -386,7 +387,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::
     //TODO: will need to be specialized for each port
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
     int numberElementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
-    int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSize()*numberElementsPerInput);
+    int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSizeCreateIfNot(0)*numberElementsPerInput);
 
     if(numPrimitiveElementsToMove % numberElementsPerInput != 0){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO size.  The number of initial condition primitive elements to move is not a multiple of the number of primitive elements per input", fifo));
@@ -403,8 +404,8 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::
     }
 }
 
-void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                                   int tgtSize,
+void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                                   int tgtSizeBlocks,
                                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -417,12 +418,14 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSize(std::shared
     }
 
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
+    int elementsPer = fifo->getInputPort(0)->getDataType().numberOfElements();
+    int blkSize = fifo->getBlockSizeCreateIfNot(0);
 
-    if(tgtSize > fifoInitialConditions.size()){
+    if(tgtSizeBlocks > fifoInitialConditions.size()/elementsPer/blkSize){
         throw std::runtime_error(ErrorHelpers::genErrorStr("For Initial Condition reshaping, target initial condition size must be <= the current initial condition size" , fifo));
     }
 
-    int numElementsToMove = fifoInitialConditions.size() - tgtSize;
+    int numElementsToMove = fifoInitialConditions.size() - tgtSizeBlocks*elementsPer*blkSize;
 
     if(numElementsToMove > 0){
         MultiThreadTransformHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
@@ -576,96 +579,6 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
     }
 }
 
-std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>>
-MultiThreadTransformHelpers::mergeFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
-                                      std::vector<std::shared_ptr<Node>> &new_nodes,
-                                      std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                      std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                      std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                      bool printActions){
-
-    std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> newMap;
-
-    for(auto it = fifos.begin(); it != fifos.end(); it++){
-        std::pair<int, int> crossing = it->first;
-        std::vector<std::shared_ptr<ThreadCrossingFIFO>> partitionCrossingFIFOs = it->second;
-
-        if(partitionCrossingFIFOs.size()>1){
-            //Only merge if > 1 FIFO crossing a given partition crossing
-
-            //Find the minimum number of initial conditions present for each FIFO in this set
-            int minInitConds = partitionCrossingFIFOs[0]->getInitConditionsCreateIfNot(0).size(); //Guarenteed to have at least port 0
-            for(int i = 0; i<partitionCrossingFIFOs.size(); i++){
-                for(int portNum = 0; portNum<partitionCrossingFIFOs[i]->getInputPorts().size(); portNum++){
-                    minInitConds = std::min(minInitConds, (int) partitionCrossingFIFOs[i]->getInitConditionsCreateIfNot(portNum).size());
-                }
-            }
-
-            //Reshape FIFO0 to the correct number of initial conditions
-            reshapeFIFOInitialConditionsToSize(partitionCrossingFIFOs[0], minInitConds, new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
-
-            //std::cout << partitionCrossingFIFOs[0]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[0]->getId() << "] " << " Port 0 Output Arcs: " << partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(0)->getArcs().size() << " Dst: " << (*partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(0)->getArcs().begin())->getDstPort()->getParent()->getName() << std::endl;
-
-            //Absorb FIFOs into FIFO0
-            for(int i = 1; i<partitionCrossingFIFOs.size(); i++){
-                //Trim FIFO initial conditions to minimum of set
-                reshapeFIFOInitialConditionsToSize(partitionCrossingFIFOs[i], minInitConds, new_nodes, deleted_nodes, new_arcs, deleted_arcs, printActions);
-
-                //Rewire the input and output ports (which come in pairs)
-                for(int portNum = 0; portNum<partitionCrossingFIFOs[i]->getInputPorts().size(); portNum++){
-                    int newPortNum = partitionCrossingFIFOs[0]->getInputPorts().size(); //Since goes from 0 to size-1, size is the next port number
-
-                    //Transfer initial conditions
-                    partitionCrossingFIFOs[0]->setInitConditionsCreateIfNot(newPortNum, partitionCrossingFIFOs[i]->getInitConditionsCreateIfNot(portNum));
-
-                    //Rewire inputs
-                    std::shared_ptr<InputPort> newInputPort = partitionCrossingFIFOs[0]->getInputPortCreateIfNot(newPortNum);
-                    std::set<std::shared_ptr<Arc>> inputArcs = partitionCrossingFIFOs[i]->getInputPort(portNum)->getArcs();
-                    for(auto arcIt = inputArcs.begin(); arcIt != inputArcs.end(); arcIt++){
-                        (*arcIt)->setDstPortUpdateNewUpdatePrev(newInputPort);
-                    }
-
-                    //Rewire outputs
-                    std::shared_ptr<OutputPort> newOutputPort = partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(newPortNum);
-                    std::set<std::shared_ptr<Arc>> outputArcs = partitionCrossingFIFOs[i]->getOutputPort(portNum)->getArcs();
-                    for(auto arcIt = outputArcs.begin(); arcIt != outputArcs.end(); arcIt++){
-                        (*arcIt)->setSrcPortUpdateNewUpdatePrev(newOutputPort);
-                    }
-                }
-
-                //Rewire Order Constraint Inputs
-                std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = partitionCrossingFIFOs[i]->getOrderConstraintInputArcs();
-                for(auto arcIt = orderConstraintInputArcs.begin(); arcIt != orderConstraintInputArcs.end(); arcIt++){
-                    (*arcIt)->setDstPortUpdateNewUpdatePrev(partitionCrossingFIFOs[0]->getOrderConstraintInputPortCreateIfNot());
-                }
-
-                //Rewire Order Constraint Outputs
-                std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = partitionCrossingFIFOs[i]->getOrderConstraintOutputArcs();
-                for(auto arcIt = orderConstraintOutputArcs.begin(); arcIt != orderConstraintOutputArcs.end(); arcIt++){
-                    (*arcIt)->setSrcPortUpdateNewUpdatePrev(partitionCrossingFIFOs[0]->getOrderConstraintOutputPortCreateIfNot());
-                }
-
-                if(printActions){
-                    std::cout << "FIFO Merged: " << partitionCrossingFIFOs[i]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[i]->getId() << "]"
-                              << " into " << partitionCrossingFIFOs[0]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[0]->getId() << "]" << std::endl;
-                }
-
-                //Mark FIFO for deletion
-                deleted_nodes.push_back(partitionCrossingFIFOs[i]);
-            }
-
-            //std::cout << partitionCrossingFIFOs[0]->getFullyQualifiedName() << " [ID:" << partitionCrossingFIFOs[0]->getId() << "] " << " Port 0 Output Arcs: " << partitionCrossingFIFOs[0]->getOutputPortCreateIfNot(0)->getArcs().size() << std::endl;
-
-            //Only FIFO0 is left
-            newMap[crossing] = {partitionCrossingFIFOs[0]};
-        }else{
-            //Nothing changed, return the unchanged result
-            newMap[crossing] = partitionCrossingFIFOs;
-        }
-    }
-    return newMap;
-}
-
 void MultiThreadTransformHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition){
     for(auto it = nodes.begin(); it != nodes.end(); it++){
         //Do this first since expanded nodes are also subsystems
@@ -696,6 +609,204 @@ void MultiThreadTransformHelpers::propagatePartitionsFromSubsystemsToChildren(st
                     (*it)->setPartitionNum(partition);
                 }
             }
+        }
+    }
+}
+
+void MultiThreadTransformHelpers::mergeFIFOs(
+        std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> &fifoMap,
+        std::vector<std::shared_ptr<Node>> &nodesToAdd,
+        std::vector<std::shared_ptr<Node>> &nodesToRemove,
+        std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+        std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+        std::vector<std::shared_ptr<Node>> &addToTopLevel,
+        bool ignoreContexts, bool verbose){
+
+    if(verbose){
+        std::cout << "*** FIFO Merge ***" << std::endl;
+    }
+
+    //Run through the lists of FIFOs between partitions
+    //Getting the key set first and using that since we will be modifying the map
+    std::set<std::pair<int, int>> partitonCrossings;
+    for(auto partCrossingFIFOEntry : fifoMap){
+        partitonCrossings.insert(partCrossingFIFOEntry.first);
+    }
+
+    for(auto partitionCrossing : partitonCrossings){
+        std::vector<std::shared_ptr<ThreadCrossingFIFO>> partitionCrossingFIFOs = fifoMap[partitionCrossing];
+
+        if(partitionCrossingFIFOs.size()>1){
+            //Need to at least check if merging is possible
+
+            //Need to get what FIFOs to merge
+            std::vector<std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoSetToMerge;
+
+            if(ignoreContexts){
+                fifoSetToMerge.push_back(partitionCrossingFIFOs); //Merge all of them
+            }else{
+                //Need to check contexts
+                //Should be able to use context vector as a key to the map since it has the comparison operators which check the contents
+                std::map<std::vector<Context>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> contextFIFOs;
+
+                for(std::shared_ptr<ThreadCrossingFIFO> fifo : partitionCrossingFIFOs){
+                    std::vector<Context> contextStack = fifo->getContext();
+
+                    //Remove clock domains from the context tree since different clock domains can be handled in a single
+                    //FIFO by adjusting block sizing
+                    for(int i = 0; i<contextStack.size(); ){
+                        if(GeneralHelper::isType<ContextRoot, ClockDomain>(contextStack[i].getContextRoot())){
+                            //Need to remove this entry from the context stack
+                            contextStack.erase(contextStack.begin()+i);
+                            //Do not increment i since entries will shift down
+                        }else{
+                            i++;
+                        }
+                    }
+
+                    contextFIFOs[contextStack].push_back(fifo);
+                }
+
+                //Convert to vector of vectors
+                for(auto fifoBundle : contextFIFOs){
+                    fifoSetToMerge.push_back(fifoBundle.second);
+                }
+            }
+
+            std::vector<std::shared_ptr<ThreadCrossingFIFO>> newCrossingFIFOs;
+
+            //Merge each set within this partition crossing
+            for(auto fifosToMerge : fifoSetToMerge) {
+
+                //Find the minimum number of initial conditions across the FIFOs in the group
+                int minInitialConditionsBlocks = -1;
+                for(auto fifo : fifosToMerge){
+                    for(int portNum = 0; portNum<fifo->getInputPorts().size(); portNum++) {
+                        if (fifo->getInputPorts().size() > 1) {
+                            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                    "FIFOs with multiple input/output ports are not yet supported by FIFO merge",
+                                    fifo));
+                        }
+
+                        int initialConditionBlocks = fifo->getInitConditionsCreateIfNot(portNum).size() /
+                                                     fifo->getInputPort(portNum)->getDataType().numberOfElements() /
+                                                     fifo->getBlockSizeCreateIfNot(portNum);
+
+                        if (minInitialConditionsBlocks < 0) {
+                            //Initialize
+                            minInitialConditionsBlocks = initialConditionBlocks;
+                        } else {
+                            if (initialConditionBlocks < minInitialConditionsBlocks) {
+                                minInitialConditionsBlocks = initialConditionBlocks;
+                            }
+                        }
+                    }
+                }
+
+                //Reshape the FIFOs
+                for(auto fifo : fifosToMerge){
+                    MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSizeBlocks(fifo, minInitialConditionsBlocks, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+                }
+
+                //Actually Merge the FIFOs in this set
+                //The 0th FIFO will remain and the other ports will be added to it
+                std::shared_ptr<ThreadCrossingFIFO> fifoToMergeInto = fifosToMerge[0];
+                std::shared_ptr<SubSystem> commonAncestor = fifoToMergeInto->getParent();
+                std::vector<Context> commonContext = fifoToMergeInto->getContext();
+                for(int fifoInd = 1; fifoInd<fifosToMerge.size(); fifoInd++){
+                    std::shared_ptr<ThreadCrossingFIFO> fifoToMergeFrom = fifosToMerge[fifoInd];
+
+                    std::vector<std::shared_ptr<InputPort>> oldInputPorts = fifoToMergeFrom->getInputPorts();
+                    std::vector<std::shared_ptr<OutputPort>> oldOutputPorts = fifoToMergeFrom->getOutputPorts();
+
+                    //Merge each port pair
+                    for(int oldPortNum = 0; oldPortNum<oldInputPorts.size(); oldPortNum++) {
+                        int newPortNum = fifoToMergeInto->getInputPorts().size();
+                        //Transfer Input Arcs
+                        std::set<std::shared_ptr<Arc>> inputArcs = oldInputPorts[oldPortNum]->getArcs();
+                        for(auto arc : inputArcs){
+                            arc->setDstPortUpdateNewUpdatePrev(fifoToMergeInto->getInputPortCreateIfNot(newPortNum));
+                        }
+
+                        //Transfer Output Arcs
+                        std::set<std::shared_ptr<Arc>> outputArcs = oldOutputPorts[oldPortNum]->getArcs();
+                        for(auto arc : outputArcs){
+                            arc->setSrcPortUpdateNewUpdatePrev(fifoToMergeInto->getOutputPortCreateIfNot(newPortNum));
+                        }
+
+                        //Transfer Init Condition
+                        fifoToMergeInto->setInitConditionsCreateIfNot(newPortNum, fifoToMergeFrom->getInitConditionsCreateIfNot(oldPortNum));
+
+                        //Transfer Block Size
+                        fifoToMergeInto->setBlockSize(newPortNum, fifoToMergeFrom->getBlockSizeCreateIfNot(oldPortNum));
+
+                        //Transfer Clock Domain
+                        fifoToMergeInto->setClockDomain(newPortNum, fifoToMergeFrom->getClockDomainCreateIfNot(oldPortNum));
+                    }
+
+                    //Merge the other properties of this FIFO
+
+                    //Transfer Order Constraint Input Arcs
+                    std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = fifoToMergeFrom->getOrderConstraintInputArcs();
+                    for(auto arc : orderConstraintInputArcs){
+                        arc->setDstPortUpdateNewUpdatePrev(fifoToMergeInto->getOrderConstraintInputPort());
+                    }
+
+                    //Transfer Order Constraint Output Arcs
+                    std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = fifoToMergeFrom->getOrderConstraintOutputArcs();
+                    for(auto arc : orderConstraintOutputArcs){
+                        arc->setSrcPortUpdateNewUpdatePrev(fifoToMergeInto->getOrderConstraintOutputPort());
+                    }
+
+                    //Get common ancestor
+                    commonAncestor = GraphAlgs::findMostSpecificCommonAncestorParent(commonAncestor, fifoToMergeFrom);
+
+                    //Get common context
+                    std::vector<Context> fifoToMergeFromContext = fifoToMergeFrom->getContext();
+                    int commonContextInd = Context::findMostSpecificCommonContext(commonContext, fifoToMergeFromContext);
+                    while(commonContext.size() > commonContextInd+1){ //+1 Since common contextInd is the index at which they are common which starts from 0
+                        commonContext.pop_back();
+                    }
+
+                    if(verbose){
+                        std::cout << "FIFO Merged: " << fifoToMergeFrom->getFullyQualifiedName() << " [ID:" << fifoToMergeFrom->getId() << "]"
+                                  << " into " << fifoToMergeInto->getFullyQualifiedName() << " [ID:" << fifoToMergeInto->getId() << "]" << std::endl;
+                    }
+
+                    //Delete the old FIFO
+                    nodesToRemove.push_back(fifoToMergeFrom);
+                }
+
+                //Relocate the 0th FIFO to common ancestor (if different from orig)
+                //Add to topLvl if common ancestor is nullptr
+                if(commonAncestor != fifoToMergeInto->getParent()){
+                    std::string oldLocation = fifoToMergeInto->getFullyQualifiedName();
+
+                    fifoToMergeInto->setParentUpdateNewUpdatePrev(commonAncestor);
+                    if(commonAncestor == nullptr){
+                        addToTopLevel.push_back(fifoToMergeInto);
+                    }
+
+                    if(verbose){
+                        std::cout << "Moving " << oldLocation
+                                  << " [ID: " << fifoToMergeInto->getId() << "]"
+                                  << " to " << fifoToMergeInto->getFullyQualifiedName() << std::endl;
+                    }
+                }
+
+                //Update context of 0th FIFO (if different from orig)
+                if(commonContext != fifoToMergeInto->getContext()){
+                    std::cout << "Setting new Context for " << fifoToMergeInto->getFullyQualifiedName()
+                              << " [ID: " << fifoToMergeInto->getId() << "]" << std::endl;
+                    fifoToMergeInto->setContextUpdateNewUpdatePrev(commonContext);
+                }
+
+                //Add the merged to the updated list
+                newCrossingFIFOs.push_back(fifoToMergeInto);
+            }
+
+            //Update fifo map for this partition crossing
+            fifoMap[partitionCrossing] = newCrossingFIFOs;
         }
     }
 }

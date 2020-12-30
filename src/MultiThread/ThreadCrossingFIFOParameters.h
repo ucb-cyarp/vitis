@@ -21,7 +21,8 @@ public:
      * @brief An enum for describing the underlying implementation of the thread crossing FIFO
      */
     enum class ThreadCrossingFIFOType{
-        LOCKLESS_X86 ///< A lockeless FIFO that relies on the memory semantics of x86 processors (atomic write and write order preservation from single core)
+        LOCKLESS_X86, ///< A lockeless FIFO that relies on the memory semantics of x86 processors (atomic write and write order preservation from single core)
+        LOCKLESS_INPLACE_X86 ///< A lockeless FIFO that relies on the memory semantics of x86 processors (atomic write and write order preservation from single core).  Operations occure in place instead of copying to/from local buffers
     };
 
     static ThreadCrossingFIFOType parseThreadCrossingFIFOType(std::string str);

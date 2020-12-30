@@ -39,9 +39,6 @@ CommunicationEstimator::reportCommunicationWorkload(
         std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap) {
     std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> workload;
 
-    int blockSize = 0;
-    bool foundBlockSize = false;
-    bool foundConflictingBlockSize = false;
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         int bytesPerSample = 0;
         int bytesPerTransaction = 0;
@@ -50,25 +47,13 @@ CommunicationEstimator::reportCommunicationWorkload(
         for(int i = 0; i<it->second.size(); i++){
             std::vector<std::shared_ptr<InputPort>> ports = it->second[i]->getInputPorts();
 
-            if(!foundBlockSize){
-                blockSize = it->second[i]->getBlockSize();
-                foundBlockSize = true;
-            }else{
-                if(!foundConflictingBlockSize){//Only report once
-                    if(it->second[i]->getBlockSize() != blockSize) {
-                        std::cerr << "A conflicting FIFO block size has been found.  Communication Load Estimations for Transaction Size may be inaccurate." << std::endl;
-                        foundConflictingBlockSize = true;
-                    }
-                }
-            }
-
             for(int j = 0; j<ports.size(); j++){
                 DataType portDT = ports[j]->getDataType();
                 int bits = getCommunicationBitsForType(portDT);
 
                 int bytes = bits/8;
                 bytesPerSample += bytes;
-                bytesPerTransaction += bytes*it->second[i]->getBlockSize();
+                bytesPerTransaction += bytes*it->second[i]->getBlockSizeCreateIfNot(j);
             }
         }
 
@@ -190,12 +175,12 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
         for(int i = 0; i<fifo->getInputPorts().size(); i++){
             int portTotalBytesPerSample = getCommunicationBitsForType(fifo->getOutputPort(i)->getDataType())/8;
             fifoTotalBytesPerSample += portTotalBytesPerSample;
-            fifoTotalBytesPerBlock += portTotalBytesPerSample*fifo->getBlockSize();
+            fifoTotalBytesPerBlock += portTotalBytesPerSample*fifo->getBlockSizeCreateIfNot(i);
 
             //Note, the initial conditions are stored as an array of scalar numbers, need to know the number of elements at the port per sample (ie. the number of elements in an input/output vector to the port or 1 if scalar)
             //To get the number of cycles of initial condition in the FIFO, take the length of the scalar array and divide by the length of the
             int initialConditionElements = fifo->getInitConditions().empty() ? 0 : (fifo->getInitConditions()[i].size()/fifo->getOutputPort(i)->getDataType().numberOfElements());
-            int initialStateBlocks = initialConditionElements/fifo->getBlockSize();
+            int initialStateBlocks = initialConditionElements/fifo->getBlockSizeCreateIfNot(i);
             if(i==0){
                 minInitialStateBlocks = initialStateBlocks;
             }else{

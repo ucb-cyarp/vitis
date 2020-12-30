@@ -8,10 +8,11 @@
 #include <fstream>
 #include "GraphCore/Design.h"
 #include "General/GeneralHelper.h"
+#include "General/ErrorHelpers.h"
 #include "MultiThreadEmitterHelpers.h"
 #include "General/EmitterHelpers.h"
 
-void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint){
+void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports
@@ -79,7 +80,6 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
 
     std::set<std::string> includesCFile;
     includesCFile.insert("#include \"" + fileName + ".h" + "\"");
-    includesCFile.insert("#include \"intrin_bench_default_defines.h\"");
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<inputFIFOs.size(); i++){
@@ -145,59 +145,37 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
         ioThread << cachedVarDeclsOutputFIFOs[i] << std::endl;
     }
 
-    ioThread << "int readCount = 0;" << std::endl;
+    ioThread << "while(1){" << std::endl;
+    //NOTE: Because access to FIFOs is non-blocking and buffering is handled differently in I/O, we will force
+    //TODO: Inspect if this becomes the bottleneck
 
-    if(blockSize > 1){
-        ioThread << "int iterLimit = STIM_LEN/" << blockSize << ";" << std::endl;
-    }else{
-        ioThread << "int iterLimit = STIM_LEN;" << std::endl;
-    }
-    ioThread << "for(int i = 0; i<iterLimit; ){" << std::endl;
     //Check Output FIFOs
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", true, false, false); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, false, false, fifoIndexCachingBehavior); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
     ioThread << "if(outputFIFOsReady){" << std::endl;
     //Write FIFOs
-    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs);
+    std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs, false, true, true);
     for(int i = 0; i<writeFIFOExprs.size(); i++){
         ioThread << writeFIFOExprs[i] << std::endl;
     }
-    ioThread << "i++;" << std::endl;
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Sent\\n\");" << std::endl;
     }
     ioThread << "}" << std::endl;
 
     //Check input FIFOs
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here
+    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, false, false, fifoIndexCachingBehavior); //pthread_testcancel check here
     ioThread << "if(inputFIFOsReady){" << std::endl;
     //Read input FIFOs
-    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
+    std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, true, true);
     for(int i = 0; i<readFIFOExprs.size(); i++){
         ioThread << readFIFOExprs[i] << std::endl;
     }
-    ioThread << "readCount++;" << std::endl;
     if(threadDebugPrint) {
         ioThread << "printf(\"I/O Received\\n\");" << std::endl;
     }
     ioThread << "}" << std::endl; //Close if
 
     ioThread << "}" << std::endl; //Close for
-
-    //Wait for reading to finish
-    ioThread << "while(readCount<iterLimit){" << std::endl;
-    ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", true, false, true); //pthread_testcancel check here (is blocking)
-    ioThread << "if(inputFIFOsReady){" << std::endl;
-    //Read input FIFOs
-    std::vector<std::string> readFIFOExprsCleanup = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs);
-    for(int i = 0; i<readFIFOExprsCleanup.size(); i++){
-        ioThread << readFIFOExprsCleanup[i] << std::endl;
-    }
-    ioThread << "readCount++;" << std::endl;
-    if(threadDebugPrint) {
-        ioThread << "printf(\"I/O Received\\n\");" << std::endl;
-    }
-    ioThread << "}" << std::endl; //end if
-    ioThread << "}" << std::endl; //end while
 
     //Done reading
     ioThread << "return NULL;" << std::endl;

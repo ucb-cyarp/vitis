@@ -34,6 +34,7 @@
 
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include "MultiThread/LocklessThreadCrossingFIFO.h"
+#include "MultiThread/LocklessInPlaceThreadCrossingFIFO.h"
 #include "MultiThread/ConstIOThread.h"
 #include "MultiThread/StreamIOThread.h"
 #include "MultiThread/MultiThreadEmitterHelpers.h"
@@ -1072,7 +1073,7 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         cFile << "//==== Reset BlackBoxes ====" << std::endl;
 
         for(unsigned long i = 0; i<blackBoxes.size(); i++){
-            cFile << blackBoxes[i]->getResetName() << "();" << std::endl;
+            cFile << blackBoxes[i]->getResetFunctionCall() << ";" << std::endl;
         }
     }
 
@@ -1933,10 +1934,10 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
         if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodeCopies[i]) != nullptr){
             std::shared_ptr<ThreadCrossingFIFO> copyNodeAsThreadCrossingFIFO = std::static_pointer_cast<ThreadCrossingFIFO>(nodeCopies[i]);
             std::shared_ptr<ThreadCrossingFIFO> origNodeAsThreadCrossingFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(copyToOrigNode[copyNodeAsThreadCrossingFIFO]);
-            std::shared_ptr<ClockDomain> origClockDomain = origNodeAsThreadCrossingFIFO->getClockDomain();
-            if(origClockDomain) {
-                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomain]);
-                copyNodeAsThreadCrossingFIFO->setClockDomain(cloneClockDomain);
+            std::vector<std::shared_ptr<ClockDomain>> origClockDomains = origNodeAsThreadCrossingFIFO->getClockDomains();
+            for(int j = 0; j<origClockDomains.size(); j++) {
+                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomains[j]]);
+                copyNodeAsThreadCrossingFIFO->setClockDomain(j, cloneClockDomain);
             }
         }
     }
@@ -3238,7 +3239,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
                                 int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment,
-                                bool emitPAPITelem) {
+                                bool emitPAPITelem, bool useSCHEDFIFO, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior) {
 
     if(!telemDumpPrefix.empty()){
         telemDumpPrefix = fileName+"_"+telemDumpPrefix;
@@ -3432,6 +3433,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                 //Note that FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChangeOutput in which case they are placed one level up).
                 fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
                 break;
+            case ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_INPLACE_X86:
+                fifoMap = MultiThreadTransformHelpers::insertPartitionCrossingFIFOs<LocklessInPlaceThreadCrossingFIFO>(partitionCrossings, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+                break;
             default:
                 throw std::runtime_error(
                         ErrorHelpers::genErrorStr("Unsupported Thread Crossing FIFO Type for Multithreaded Emit"));
@@ -3488,12 +3492,43 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs();
     assignArcIDs();
 
+    //Clock domain was already set for each FIFO above and will be used in the FIFO merge
+
+    //      Add FIFO merge here (so long as on demand / lazy eval FIFOs in conditional execution regions are not considered)
+    //      All ports need the same number of initial conditions.  May need to resize initial conditions
+    //      Doing this after delay absorption because it currently is only implemented for a single set of input ports
+    //      Note that there was a comment I left in the delay absorption code stating that I expected FIFO bundling /
+    //      merging to occur after delay absorption
+    //      *
+    //      Involves moving arcs to ports, moving block size, moving initial conditions, and moving clock domain
+    //      Remove other FIFOs.  Place new FIFO outside contexts.  Note: if on-demand / lazy eval fifo implemented later
+    //      the merge should not happen between FIFOs in different contexts and new FIFO should be placed inside context.
+    //      To make this easier to work with with, insert the FIFO into the context of all the inputs if they are all the same
+    //      otherwise, put it outside the contexts
+
+    //TODO: There is currently a problem when ignoring contexts due to scheduling nodes connected to the FIFOs
+    {
+        std::vector<std::shared_ptr<Node>> new_nodes;
+        std::vector<std::shared_ptr<Node>> deleted_nodes;
+        std::vector<std::shared_ptr<Arc>> new_arcs;
+        std::vector<std::shared_ptr<Arc>> deleted_arcs;
+        std::vector<std::shared_ptr<Node>> add_to_top_lvl;
+
+        MultiThreadTransformHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, add_to_top_lvl, false, true);
+        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        for(auto topLvlNode : add_to_top_lvl){
+            topLevelNodes.push_back(topLvlNode);
+        }
+    }
+    assignNodeIDs();
+    assignArcIDs();
+
     std::cout << std::endl;
     std::cout << "========== FIFO Report ==========" << std::endl;
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements() << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getBlockSizeCreateIfNot(0) << std::endl;
         }
     }
     std::cout << std::endl;
@@ -3662,7 +3697,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
             MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
-                                                            threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile);
+                                                            threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile,
+                                                            fifoIndexCachingBehavior);
         }
     }
 
@@ -3709,17 +3745,19 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::vector<Variable> inputVars = inputVarRatePair.first;
 
     //++++Emit Const I/O Driver++++
-    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint);
+    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint, fifoIndexCachingBehavior);
     std::string constIOSuffix = "io_const";
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap, papiHelperHFile);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, constIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, constIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, constIOSuffix, false, otherCFiles, !papiHelperHFile.empty(), !partitionMap.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(path, fileName, designName, partitionSet,
+                                                                    constIOSuffix, false, otherCFiles,
+                                                                    !papiHelperHFile.empty(), !partitionMap.empty());
 
     //++++Emit Linux Pipe I/O Driver++++
     StreamIOThread::emitFileStreamHelpers(path, fileName);
@@ -3730,35 +3768,41 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::string pipeIOSuffix = "io_linux_pipe";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
-                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint, printTelem);
+                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint, printTelem,
+                                        fifoIndexCachingBehavior);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, pipeIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, pipeIOSuffix, inputVars);
 
     //Emit the client handlers
     StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, pipeIOSuffix, false, otherCFilesFileStream, !papiHelperHFile.empty(), !partitionMap.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(path, fileName, designName, partitionSet,
+                                                                    pipeIOSuffix, false, otherCFilesFileStream,
+                                                                    !papiHelperHFile.empty(), !partitionMap.empty());
 
     //++++Emit Socket Pipe I/O Driver++++
     std::string socketIOSuffix = "io_network_socket";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
-                                        fifoHeaderName, 0, threadDebugPrint, printTelem);
+                                        fifoHeaderName, 0, threadDebugPrint, printTelem,
+                                        fifoIndexCachingBehavior);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap, papiHelperHFile);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, socketIOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, socketIOSuffix, inputVars);
 
     //Emit the benchmark makefile
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, socketIOSuffix, false, otherCFilesFileStream, !papiHelperHFile.empty(), !partitionMap.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(path, fileName, designName, partitionSet,
+                                                                    socketIOSuffix, false, otherCFilesFileStream,
+                                                                    !papiHelperHFile.empty(), !partitionMap.empty());
 
     //++++Emit POSIX Shared Memory FIFO Driver++++
     std::string sharedMemoryFIFOSuffix = "io_posix_shared_mem";
@@ -3766,18 +3810,21 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
-                                        fifoHeaderName, ioFifoSize, threadDebugPrint, printTelem);
+                                        fifoHeaderName, ioFifoSize, threadDebugPrint, printTelem,
+                                        fifoIndexCachingBehavior);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
-    MultiThreadEmitterHelpers::emitMultiThreadedDriver(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);
+    MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);
 
     //Emit the benchmark makefile
     std::vector<std::string> otherCFilesSharedMem = otherCFiles;
     otherCFilesSharedMem.push_back(sharedMemoryFIFOCFileName);
-    MultiThreadEmitterHelpers::emitMultiThreadedMakefile(path, fileName, designName, partitionSet, sharedMemoryFIFOSuffix, true, otherCFilesSharedMem, !papiHelperHFile.empty(), !partitionMap.empty());
+    MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(path, fileName, designName, partitionSet,
+                                                                    sharedMemoryFIFOSuffix, true, otherCFilesSharedMem,
+                                                                    !papiHelperHFile.empty(), !partitionMap.empty());
 }
 
 void Design::pruneUnconnectedArcs(bool removeVisArcs) {
@@ -4141,21 +4188,29 @@ std::map<int, std::set<std::pair<int, int>>> Design::findPartitionClockDomainRat
 
         //Do not include clock domains themselves in this
         if(GeneralHelper::isType<Node, ClockDomain>(nodes[i]) == nullptr) {
-            std::shared_ptr<ClockDomain> clkDomain;
-
             //Note that FIFOs report their clock domain differently in order to handle the case when they are connected directly to the InputMaster
+            //Each input/output port pair can also have a different clock domain
             if (GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i])) {
                 std::shared_ptr<ThreadCrossingFIFO> fifo = std::dynamic_pointer_cast<ThreadCrossingFIFO>(nodes[i]);
-                clkDomain = fifo->getClockDomain();
-            } else {
-                clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
-            }
+                for(int portNum = 0; portNum<fifo->getInputPorts().size(); portNum++) {
+                    std::shared_ptr<ClockDomain> clkDomain = fifo->getClockDomainCreateIfNot(portNum);
 
-            if (clkDomain == nullptr) {
-                clockDomains[partition].emplace(1, 1);
+                    if (clkDomain == nullptr) {
+                        clockDomains[partition].emplace(1, 1);
+                    } else {
+                        std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                        clockDomains[partition].insert(rate);
+                    }
+                }
             } else {
-                std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
-                clockDomains[partition].insert(rate);
+                std::shared_ptr<ClockDomain> clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
+
+                if (clkDomain == nullptr) {
+                    clockDomains[partition].emplace(1, 1);
+                } else {
+                    std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                    clockDomains[partition].insert(rate);
+                }
             }
         }
     }

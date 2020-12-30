@@ -180,7 +180,7 @@ std::vector<Variable> RepeatOutput::getCStateVars() {
     //TODO: Extend to support vectors (must declare 2D array for state)
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-    Variable var = Variable(varName, stateType, initCondition);
+    Variable var = Variable(varName, stateType, initCondition, false, true);
     stateVar = var;
 
     vars.push_back(var);

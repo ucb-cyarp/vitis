@@ -612,3 +612,65 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
 
     return true;
 }
+
+std::shared_ptr<SubSystem> GraphAlgs::findMostSpecificCommonAncestor(std::shared_ptr<Node> a, std::shared_ptr<Node> b){
+    //Create Hierarchy Vectors
+
+    std::vector<std::shared_ptr<SubSystem>> hierarchyA, hierarchyB;
+
+    for(std::shared_ptr<SubSystem> ptr = a->getParent(); ptr != nullptr; ptr = ptr->getParent()){
+        hierarchyA.insert(hierarchyA.begin(), ptr);
+    }
+
+    for(std::shared_ptr<SubSystem> ptr = b->getParent(); ptr != nullptr; ptr = ptr->getParent()){
+        hierarchyB.insert(hierarchyB.begin(), ptr);
+    }
+
+    int maxDepth = std::min(hierarchyA.size(), hierarchyB.size());
+    int common = -1;
+
+    for(int i = 0; i<maxDepth; i++){
+        if(hierarchyA[i] == hierarchyB[i]){
+            common = i;
+        }else{
+            break;
+        }
+    }
+
+    if(common<0){
+        return nullptr;
+    }else{
+        return hierarchyA[common];
+    }
+}
+
+std::shared_ptr<SubSystem> GraphAlgs::findMostSpecificCommonAncestorParent(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> b){
+    //Create Hierarchy Vectors
+
+    std::vector<std::shared_ptr<SubSystem>> hierarchyA, hierarchyB;
+
+    for(std::shared_ptr<SubSystem> ptr = parent; ptr != nullptr; ptr = ptr->getParent()){
+        hierarchyA.insert(hierarchyA.begin(), ptr);
+    }
+
+    for(std::shared_ptr<SubSystem> ptr = b->getParent(); ptr != nullptr; ptr = ptr->getParent()){
+        hierarchyB.insert(hierarchyB.begin(), ptr);
+    }
+
+    int maxDepth = std::min(hierarchyA.size(), hierarchyB.size());
+    int common = -1;
+
+    for(int i = 0; i<maxDepth; i++){
+        if(hierarchyA[i] == hierarchyB[i]){
+            common = i;
+        }else{
+            break;
+        }
+    }
+
+    if(common<0){
+        return nullptr;
+    }else{
+        return hierarchyA[common];
+    }
+}

@@ -177,11 +177,11 @@ std::string Constant::getGlobalDecl() {
         Variable constVar = Variable(constVarName, outputStorageType);
 
         std::vector<int> outputDimensions = outputType.getDimensions();
-        std::string expr = "const " + constVar.getCVarDecl(false, true, false, true, false) +
+        std::string expr = "const " + constVar.getCVarDecl(false, true, false, true, false, true) +
                 " = " +  EmitterHelpers::arrayLiteral(outputDimensions, value, false, outputType, outputStorageType) + ";";
 
         if(outputType.isComplex()){
-            expr += "\nconst " + constVar.getCVarDecl(true, true, false, true, false) +
+            expr += "\nconst " + constVar.getCVarDecl(true, true, false, true, false, true) +
                    " = " +  EmitterHelpers::arrayLiteral(outputDimensions, value, true, outputType, outputStorageType) + ";";
         }
 

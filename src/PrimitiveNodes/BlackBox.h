@@ -19,9 +19,9 @@
  *
  * The C/C++ function is allowed to have state.  If the function does include state, then the corresponding instance
  * varible in this class should be set to true.  For statefull black boxes, 3 functions should be supplied:
- *   * exeCombonational (arguments are input port expressions in order).  Input ports covered by external (global variables) are also OK and will be removed from the argument list for the function
- *   * stateUpdate (no arguments)
- *   * reset (no arguments)
+ *   * exeCombonational (arguments are input port expressions in order followed by outputs in order if the return type is PTR_ARG).  Input ports covered by external (global variables) are also OK and will be removed from the argument list for the function
+ *   * stateUpdate (no arguments except for provided additional arguments)
+ *   * reset (no arguments except for provided additional arguments)
  * exeCombonational is called when the BlackBox is scheduled.  The order of operands should match the input port numbering.
  * If an input port is complex, it must be split into 2 arguments with the real component coming first, followed by the
  * imagionary component. stateUpdate is called once all dependent nodes have been scheduled (similar to delay state
@@ -29,6 +29,9 @@
  * the state of the BlackBox.
  *
  * A list of outputs that are directly from state can be specified.  Output arcs from these ports are disconnected for scheduling.
+ *
+ * Note that, if a variable in the partition state structure is required, the access expression should be included
+ * as an additionalArg (additionalArgsComboFctn, additionalArgsStateUpdateFctn, or additionalArgsResetFctn)
  */
 class BlackBox : public PrimitiveNode {
     friend NodeFactory;
@@ -40,7 +43,8 @@ public:
         OBJECT, ///< The function returns an object
         SCALAR_POINTER, ///< The function returns a pointer to a single scalar value (output 0)
         OBJECT_POINTER, ///< The function returns a pointer to an object
-        EXT ///< The function modifies external variables (or globals)
+        EXT, ///< The function modifies external variables (or globals)
+        PTR_ARG ///< The function returns output via pointer arguments
     };
 
     enum class InputMethod{
@@ -66,9 +70,16 @@ private:
     std::vector<InputMethod> inputMethods; ///<Denotes the method used to pass a given input to the function
     std::vector<std::string> inputAccess; ///<If InputMethod is EXT, specifies the name of the input port's external variable.  An entry in this array must be specified for each port if any port has an InputMethod of EXT
     std::vector<int> registeredOutputPorts; ///<If this node is stateful, identifies which outputs are registered
+    std::vector<std::pair<std::string, int>> additionalArgsComboFctn;  ///<Additional arguments for the combinational logic function.  Specifies the value to be placed into the function as an argument along with the position (starting from 0)
+    std::vector<std::pair<std::string, int>> additionalArgsStateUpdateFctn;  ///<Additional arguments for the state update function.  Specifies the value to be placed into the function as an argument along with the position (starting from 0)
+    std::vector<std::pair<std::string, int>> additionalArgsResetFctn;  ///<Additional arguments for the reset function.  Specifies the value to be placed into the function as an argument along with the position (starting from 0)
     ReturnMethod returnMethod; ///< The method by which the outputs of the BlackBox function calls are retrieved
-    std::vector<std::string> outputAccess; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, specifies the name for each output in the returned data structure (if in an object) or ext variable name (real component)
+    std::vector<std::string> outputAccess; ///<If RetrunMethod is OBJECT, OBJECT_POINTER, or EXT, or PTR_ARG specifies the name for each output in the returned data structure (if in an object) or ext variable name (real component)
+    std::vector<Variable> stateVars; ///<State variables used by this black box
     bool previouslyEmitted; ///<Used to check if the node has already been emitted before
+    std::vector<DataType> outputTypes; ///<Used to store output port types in case one of the output ports is disconnected due to pruning.
+
+    //TODO: Implement additional Args emit
 
     //==== Constructors ====
 protected:
@@ -102,8 +113,12 @@ protected:
      */
     BlackBox(std::shared_ptr<SubSystem> parent, BlackBox* orig);
 
+    void setOutputTypes(const std::vector<DataType> &outputTypes);
+
 public:
     //====Getters/Setters====
+    std::vector<DataType> getOutputTypes() const;
+
     std::string getExeCombinationalName() const;
     void setExeCombinationalName(const std::string &exeCombinationalName);
 
@@ -116,10 +131,10 @@ public:
     std::string getResetName() const;
     void setResetName(const std::string &resetName);
 
-    std::string getCppHeaderContent() const;
+    virtual std::string getCppHeaderContent() const;
     void setCppHeaderContent(const std::string &cppHeaderContent);
 
-    std::string getCppBodyContent() const;
+    virtual std::string getCppBodyContent() const;
     void setCppBodyContent(const std::string &cppBodyContent);
 
     bool isStateful() const;
@@ -148,6 +163,24 @@ public:
 
     std::string getImSuffix() const;
     void setImSuffix(const std::string &imSuffix);
+
+    std::vector<std::pair<std::string, int>> getAdditionalArgsComboFctn() const;
+    void setAdditionalArgsComboFctn(const std::vector<std::pair<std::string, int>> &additionalArgsComboFctn);
+
+    std::vector<std::pair<std::string, int>> getAdditionalArgsStateUpdateFctn() const;
+    void setAdditionalArgsStateUpdateFctn(const std::vector<std::pair<std::string, int>> &additionalArgsStateUpdateFctn);
+
+    std::vector<std::pair<std::string, int>> getAdditionalArgsResetFctn() const;
+    void setAdditionalArgsResetFctn(const std::vector<std::pair<std::string, int>> &additionalArgsResetFctn);
+
+    std::vector<Variable> getStateVars() const;
+    void setStateVars(const std::vector<Variable> &stateVars);
+
+    /**
+     * @brief Returns any declarations which need to be declared after the state structure has been declared
+     * @return
+     */
+    virtual std::string getDeclAfterState();
 
     //====Factories====
     /**
@@ -216,6 +249,9 @@ public:
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag = false) override;
 
+    virtual std::string getResetFunctionCall();
+
+    std::vector<Variable> getCStateVars() override;
 
     //State update
 
@@ -241,6 +277,8 @@ public:
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                bool includeContext) override;
+
+    void propagateProperties() override;
 
     //TOOD: State Update
 

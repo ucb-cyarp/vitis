@@ -17,6 +17,8 @@
 #define VITIS_C_VAR_NAME_RE_SUFFIX "_re" ///<The suffix for the real component of C var names
 #define VITIS_C_VAR_NAME_IM_SUFFIX "_im" ///<The suffix for the imag component of C var names
 
+#define VITIS_STATE_STRUCT_NAME "stateStruct"
+
 /**
  * @brief A class used to contain information about program variables including their name and DataType
  *
@@ -28,6 +30,8 @@ protected:
     DataType dataType; ///<The DataType of the variable
     std::vector<NumericValue> initValue; ///<The Initial value of the variable.  Stored in C/C++ memory order
     bool atomicVar; ///< Indicates if the variable is a stdatomic type
+    bool inStateStructure; ///< Indicates if the variable is part of a state structure
+    std::string overrideType; ///< Indicates the type to use which overrides the given dataType.  Useful for structure types being passed as state variables.
 
 public:
     Variable();
@@ -38,15 +42,20 @@ public:
 
     Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar);
 
+    Variable(std::string name, DataType dataType, std::vector<NumericValue> initValue, bool volatileVar, bool inStateStructure);
+
     /**
      * @brief Get the C variable name for the real or imag component of the variable
      *
      * @note If imag is true but the @ref Variable::dataType is not complex, an exception will be thrown
      *
      * @param imag imag if true, generates the imaginary component's name.  if false, generate the real component's name
+     * @param includeStateStructureDeref if true and the variable is a component of a state structure variable, the dereference/index from the structure variable is included
+     * @param stateStructureIsPtr if includeStateStructureDeref is true, this denotes whether a ptr dereference of the structure (->) or the alternative (.) should be used
+     *
      * @return C variable name
      */
-    std::string getCVarName(bool imag = false);
+    std::string getCVarName(bool imag = false, bool includeStateStructureDeref = true, bool stateStructureIsPtr = true);
 
     /**
      * @brief Get a C variable declaration statement
@@ -64,7 +73,7 @@ public:
      * @param includeRef if true, includes the & after the type declaration
      * @return a C variable declaration statement
      */
-    std::string getCVarDecl(bool imag = false, bool includeDimensions = false, bool includeInit = false, bool includeArray = false, bool includeRef = false);
+    std::string getCVarDecl(bool imag = false, bool includeDimensions = false, bool includeInit = false, bool includeArray = false, bool includeRef = false, bool alignTo = false, std::string alignment = "VITIS_MEM_ALIGNMENT");
 
     std::string getCPtrDecl(bool imag = false);
 
@@ -76,6 +85,18 @@ public:
     void setInitValue(const std::vector<NumericValue> &initValue);
     bool isAtomicVar() const;
     void setAtomicVar(bool volatileVar);
+
+    const std::string getOverrideType() const;
+    /**
+     * @brief Sets the overrideType which can be used to override the type in dataType with one which is not a simple numeric type.
+     *
+     * Useful for declaring state variables that are structures
+     *
+     * @warning This should only be used for the very specific case where a non-numeric type is needed.  Otherwise, leave this blank ""
+     *
+     * @param overrideType
+     */
+    void setOverrideType(const std::string &overrideType);
 
     bool operator==(const Variable &rhs) const;
 

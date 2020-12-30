@@ -10,6 +10,7 @@
 #include "GraphCore/NumericValue.h"
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
+#include "PartitionParams.h"
 #include <set>
 #include <map>
 #include <vector>
@@ -63,9 +64,10 @@ namespace MultiThreadEmitterHelpers {
      * @param shortCircuit if true, as soon as a FIFO is not ready the check loop repeats.  If false, all FIFOs are checked
      * @param blocking if true, the FIFO check will repeat until all are ready.  If false, the FIFO check will not block the execution of the code proceeding it
      * @param includeThreadCancelCheck if true, includes a call to pthread_testcancel durring the FIFO check (to determine if the thread should exit)
+     * @param fifoIndexCachingBehavior defines the FIFO index caching behavior for the check
      * @return
      */
-    std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck);
+    std::string emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
 
     std::vector<std::string> createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
@@ -76,9 +78,19 @@ namespace MultiThreadEmitterHelpers {
     //Outer vector is for each fifo, the inner vector is for each port within the specified FIFO
     std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
 
-    std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true);
+    void writeLiteralsToFIFO(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> literals);
 
-    std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true);
+    std::vector<std::string> readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool pushAfter = true, bool forceNotInPlace = false);
+
+    //Used for in-place operations where the FIFO status push needs to occur after compute (where the blocks in the shared buffer
+    //are actively being used/written to)
+    std::vector<std::string> pushReadFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    std::vector<std::string> writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull = false, bool updateAfter = true, bool forceNotInPlace = false);
+
+    //Used for in-place operations where the FIFO status push needs to occur after compute (where the blocks in the shared buffer
+    //are actively being used/written to)
+    std::vector<std::string> pushWriteFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     /**
      * @brief Get the structure definition for a particular partition's thread
@@ -131,7 +143,8 @@ namespace MultiThreadEmitterHelpers {
                                           std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap,
                                           std::set<int> partitions, std::string path, std::string fileNamePrefix,
                                           std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix,
-                                          std::vector<int> partitionMap, std::string papiHelperHeader);
+                                          std::vector<int> partitionMap, std::string papiHelperHeader,
+                                          bool useSCHED_FIFO);
 
     //The following 2 functions can be reused for different I/O drivers
 
@@ -150,6 +163,40 @@ namespace MultiThreadEmitterHelpers {
     void emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
 
     /**
+     * @brief Emits the main function for multithreaded emits.
+     *
+     * It is an alternative to emitMultiThreadedDriver which is designed to be used with benchmarking skeleton code
+     *
+     * @note This can be used with different types of I/O handlers
+     *
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param blockSize
+     * @param ioBenchmarkSuffix
+     * @param inputVars
+     */
+    void emitMultiThreadedMain(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars);
+
+    /**
+     * @brief Emits a makefile for benchmarking multithreaded emits (when using the benchmark skeleton code)
+     *
+     * @note This can be used with different types of I/O handlers
+     * @param path
+     * @param fileNamePrefix
+     * @param designName
+     * @param ioBenchmarkSuffix
+     * @param includeLrt if true, includes -lrt to the linker options
+     * @param includePAPI if true, includes -lpapi to the linker options
+     */
+    void emitMultiThreadedMakefileBenchDriver(std::string path, std::string fileNamePrefix,
+                                              std::string designName, std::set<int> partitions,
+                                              std::string ioBenchmarkSuffix, bool includeLrt,
+                                              std::vector<std::string> additionalSystemSrc,
+                                              bool includePAPI,
+                                              bool enableBenchmarkSetAffinity);
+
+    /**
      * @brief Emits a makefile for benchmarking multithreaded emits
      *
      * @note This can be used with different types of I/O handlers
@@ -160,12 +207,12 @@ namespace MultiThreadEmitterHelpers {
      * @param includeLrt if true, includes -lrt to the linker options
      * @param includePAPI if true, includes -lpapi to the linker options
      */
-    void emitMultiThreadedMakefile(std::string path, std::string fileNamePrefix,
-                                   std::string designName, std::set<int> partitions,
-                                   std::string ioBenchmarkSuffix, bool includeLrt,
-                                   std::vector<std::string> additionalSystemSrc,
-                                   bool includePAPI,
-                                   bool enableBenchmarkSetAffinity);
+    void emitMultiThreadedMakefileMain(std::string path, std::string fileNamePrefix,
+                                       std::string designName, std::set<int> partitions,
+                                       std::string ioBenchmarkSuffix, bool includeLrt,
+                                       std::vector<std::string> additionalSystemSrc,
+                                       bool includePAPI,
+                                       bool enableBenchmarkSetAffinity);
 
     /**
      * @brief Emits the C code for a thread for the a given partition (except the I/O thread which is handled seperatly)
@@ -191,6 +238,7 @@ namespace MultiThreadEmitterHelpers {
      * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
      * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
      * @param papiHelperHeader if not empty, collects performance counter information from the PAPI library.  Note that this will have an adverse effect on performance.  printTelem || !telemDumpFilePrefix.empty() must be true for this to be collected
+     * @param fifoIndexCachingBehavior selects the FIFO index caching behavior
      */
     void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
@@ -198,7 +246,20 @@ namespace MultiThreadEmitterHelpers {
                               std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
                               std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
                               std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem,
-                              std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader);
+                              std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
+                              PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
+
+    /**
+     * @brief Defines the structure containing the state for a particular partition
+     *
+     * @note The structure definition does not contain initialized values.  Setting initial values should be done
+     * in the reset function which should be called by the thread function before performing any computation
+     *
+     * @param partitionStateVars the state variables in the partition
+     * @param partitionNum the partition number
+     * @return
+     */
+    std::vector<std::string> getPartitionStateStructTypeDef(std::vector<Variable> partitionStateVars, int partitionNum);
 
     /**
      * @brief Get the argument portion of the C function prototype for the partition compute function
@@ -217,18 +278,27 @@ namespace MultiThreadEmitterHelpers {
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
+     * @param stateTypeName the name of the state structure type for this partition (if it has state), if blank - will be omitted from the arg list
+     *
      * @return argument portion of the C function prototype for this partition's compute function
      */
-    std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+    std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                         int blockSize, std::string stateTypeName);
 
     /**
      * @brief Gets the statement calling the partition compute function
      * @param computeFctnName
      * @param inputFIFOs
      * @param outputFIFOs
+     * @param argsPtr if true, args are pointers and need to be dereferenced
+     * @param stateStructParam if not blank, this function has state and the structure has to be passed.  stateStructParam will be the first argument.
      * @return
      */
-    std::string getCallPartitionComputeCFunction(std::string computeFctnName, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, int blockSize);
+    std::string getCallPartitionComputeCFunction(std::string computeFctnName,
+                                                 std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                 std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                 int blockSize, bool argsPtr, std::string stateStructParam);
 
     /**
      * @brief Emits a given set operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
