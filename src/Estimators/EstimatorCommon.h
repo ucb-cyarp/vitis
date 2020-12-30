@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <typeindex>
+#include <string>
 
 /**
  * \addtogroup Estimators Estimators
