@@ -1,0 +1,69 @@
+name: CMake CI
+
+on: [push, pull_request]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  CXX: clang++
+  CC: clang
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally
+    # well on Windows or Mac.  You can convert this to a matrix build if you need
+    # cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-18.04
+    
+    #Try with both GCC and clang
+    #See https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstrategymatrix
+    strategy:
+      fail-fast: false #See https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
+      matrix:
+        compiler: [clang, gcc] 
+
+    steps:
+    - uses: actions/checkout@v2
+      
+    - name: Install Dependencies
+      shell: bash
+      run: if [[ ${{ matrix.compiler }} == "clang" ]]; then sudo apt install clang; elif [[ ${{ matrix.compiler }} == "gcc" ]]; then sudo apt install gcc g++; fi; sudo apt install cmake libboost-all-dev libxerces-c-dev graphviz doxygen
+
+    - name: Set Compiler
+      shell: bash
+      # Using method in https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
+      # to conditionally set the output variable based on the matrix compiler value
+      run: if [[ ${{ matrix.compiler }} == "clang" ]]; then echo "CC=clang" >> $GITHUB_ENV; echo "CXX=clang++" >> $GITHUB_ENV; elif [[ ${{ matrix.compiler }} == "gcc" ]]; then echo "CC=gcc" >> $GITHUB_ENV; echo "CXX=g++" >> $GITHUB_ENV; fi 
+
+    - name: Report Compiler Versions
+      shell: bash
+      run: echo ${CXX}; echo ${CC}; ${CXX} --version; ${CC} --version
+
+    - name: Create Build Environment
+      # Some projects don't allow in-source building, so create a separate build directory
+      # We'll use this as our working directory for all subsequent commands
+      run: cmake -E make_directory ${{runner.workspace}}/build
+
+    - name: Configure CMake
+      # Use a bash shell so we can use the same syntax for environment variable
+      # access regardless of the host operating system
+      shell: bash
+      working-directory: ${{runner.workspace}}/build
+      # Note the current convention is to use the -S and -B options here to specify source 
+      # and build directories, but this is only available with CMake 3.13 and higher.  
+      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+
+    - name: Build
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      # Execute the build.  You can specify a specific target with "--target <NAME>"
+      run: cmake --build . --config $BUILD_TYPE
+
+    - name: Test
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      # Execute tests defined by the CMake configuration.  
+      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+      run: ctest -C $BUILD_TYPE --verbose
