@@ -58,6 +58,20 @@ void ThreadCrossingFIFO::setCStateVar(int port, const Variable &cStateVar) {
     cStateVarsInitialized[port] = true;
 }
 
+Variable ThreadCrossingFIFO::getCStateVarExpandedForBlockSize(int port){
+    Variable var = getCStateVar(port);
+
+    //Expand the variable based on the block size of the FIFO
+    //Note that this does not propagate outside of this function
+    if(getBlockSizeCreateIfNot(port)>1){
+        DataType dt = var.getDataType();
+        dt = dt.expandForBlock(getBlockSizeCreateIfNot(port));
+        var.setDataType(dt);
+    }
+
+    return var;
+}
+
 Variable ThreadCrossingFIFO::getCStateInputVar(int port) {
     while(port >= cStateInputVars.size()){
         cStateInputVars.push_back(Variable());
@@ -67,6 +81,20 @@ Variable ThreadCrossingFIFO::getCStateInputVar(int port) {
     ThreadCrossingFIFO::initializeVarIfNotAlready(getSharedPointer(), cStateInputVars, cStateInputVarsInitialized, port, "dst");
 
     return cStateInputVars[port];
+}
+
+Variable ThreadCrossingFIFO::getCStateInputVarExpandedForBlockSize(int port){
+    Variable var = getCStateInputVar(port);
+
+    //Expand the variable based on the block size of the FIFO
+    //Note that this does not propagate outside of this function
+    if(getBlockSizeCreateIfNot(port)>1){
+        DataType dt = var.getDataType();
+        dt = dt.expandForBlock(getBlockSizeCreateIfNot(port));
+        var.setDataType(dt);
+    }
+
+    return var;
 }
 
 void ThreadCrossingFIFO::setCStateInputVar(int port, const Variable &cStateInputVar) {
