@@ -214,6 +214,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("arc_dst_port_type", "string", false));
     parameters.insert(GraphMLParameter("arc_disp_label", "string", false));
     parameters.insert(GraphMLParameter("arc_datatype", "string", false));
+    parameters.insert(GraphMLParameter("arc_dimension", "string", false));
     parameters.insert(GraphMLParameter("arc_complex", "string", false));
     parameters.insert(GraphMLParameter("arc_width", "string", false));
     parameters.insert(GraphMLParameter("arc_id", "int", true));
