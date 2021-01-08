@@ -2476,8 +2476,8 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
             std::string prevName = outputFIFOs[i]->getName() + doubleBufferOutputPrevSuffix;
 
             if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT){
-                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string(""))+  currentName + "->port" + GeneralHelper::to_string(portNum) + "_real";
-                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + prevName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + currentName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+                call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + prevName    + "->port" + GeneralHelper::to_string(portNum) + "_real";
             }
 
             //Check if complex
@@ -2485,8 +2485,8 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
                 call += ", " + tmpName + (fifoInPlace ? "->" : ".") + "port" + GeneralHelper::to_string(portNum) + "_imag";
 
                 if(doubleBuffer == ComputeIODoubleBufferType::INPUT_AND_OUTPUT || doubleBuffer == ComputeIODoubleBufferType::OUTPUT){
-                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string(""))+  currentName + "->port" + GeneralHelper::to_string(portNum) + "_real";
-                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + prevName + "->port" + GeneralHelper::to_string(portNum) + "_real";
+                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + currentName + "->port" + GeneralHelper::to_string(portNum) + "_imag";
+                    call += ", " + (var.getDataType().isScalar() ? std::string("&") : std::string("")) + prevName    + "->port" + GeneralHelper::to_string(portNum) + "_imag";
                 }
             }
         }
