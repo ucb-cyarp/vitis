@@ -38,6 +38,20 @@ class ClockDomain;
  */
 namespace MultiThreadEmitterHelpers {
     /**
+     * @brief Determines the type of double buffering scheme used for
+     */
+    enum class ComputeIODoubleBufferType{
+        NONE, ///<Do not use double buffering in compute function for I/O
+        INPUT_AND_OUTPUT, ///<Use double buffering for both the input and output
+        INPUT, ///<Use double buffering for input only
+        OUTPUT ///<Use double buffering for output only
+    };
+
+    std::string computeIODoubleBufferTypeToString(ComputeIODoubleBufferType computeIODoubleBufferType);
+
+    ComputeIODoubleBufferType parseComputeIODoubleBufferType(std::string computeIODoubleBufferType);
+
+    /**
      * @brief Finds the input and output FIFOs for a partition given a partition crossing to FIFO map
      * @param fifoMap
      * @param partitionNum
@@ -74,6 +88,32 @@ namespace MultiThreadEmitterHelpers {
     std::vector<std::string> createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     std::vector<std::string> createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
+
+    /**
+     * @brief Creates the buffer entries for double buffering along with pointers
+     *
+     * Also assigns pointers to point to buffers
+     *
+     * @param fifos input FIFOs
+     * @param doubleBuffer
+     * @return
+     */
+    std::vector<std::string> createFIFODoubleBufferReadVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer);
+
+    /**
+     * @brief Creates the buffer entries for double buffering along with pointers
+     *
+     * Also assigns pointers to point to buffers
+     *
+     * @param fifos output FIFOs
+     * @param doubleBuffer
+     * @return
+     */
+    std::vector<std::string> createFIFODoubleBufferWriteVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer);
+
+    std::vector<std::string> swapReadDoubleBufferPtrs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer);
+
+    std::vector<std::string> swapWriteDoubleBufferPtrs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer);
 
     //Outer vector is for each fifo, the inner vector is for each port within the specified FIFO
     std::vector<std::string> createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal);
@@ -239,6 +279,7 @@ namespace MultiThreadEmitterHelpers {
      * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
      * @param papiHelperHeader if not empty, collects performance counter information from the PAPI library.  Note that this will have an adverse effect on performance.  printTelem || !telemDumpFilePrefix.empty() must be true for this to be collected
      * @param fifoIndexCachingBehavior selects the FIFO index caching behavior
+     * @param doubleBuffer specifies the double buffering behavior of FIFOs
      */
     void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
@@ -247,7 +288,8 @@ namespace MultiThreadEmitterHelpers {
                               std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
                               std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem,
                               std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
-                              PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
+                              PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
+                              ComputeIODoubleBufferType doubleBuffer);
 
     /**
      * @brief Defines the structure containing the state for a particular partition
@@ -284,21 +326,56 @@ namespace MultiThreadEmitterHelpers {
      */
     std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                         int blockSize, std::string stateTypeName);
+                                                         int blockSize, std::string stateTypeName,
+                                                         ComputeIODoubleBufferType doubleBuffer);
 
     /**
      * @brief Gets the statement calling the partition compute function
      * @param computeFctnName
      * @param inputFIFOs
      * @param outputFIFOs
-     * @param argsPtr if true, args are pointers and need to be dereferenced
+     * @param fifoInPlace if true, in-place FIFOs are being used which means args are pointers that need to be dereferenced
      * @param stateStructParam if not blank, this function has state and the structure has to be passed.  stateStructParam will be the first argument.
      * @return
      */
     std::string getCallPartitionComputeCFunction(std::string computeFctnName,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                 int blockSize, bool argsPtr, std::string stateStructParam);
+                                                 int blockSize, bool fifoInPlace, std::string stateStructParam,
+                                                 ComputeIODoubleBufferType doubleBuffer,
+                                                 std::string inputFIFOSuffix,
+                                                 std::string outputFIFOSuffix,
+                                                 std::string doubleBufferInputNextSuffix,
+                                                 std::string doubleBufferInputCurrentSuffix,
+                                                 std::string doubleBufferOutputCurrentSuffix,
+                                                 std::string doubleBufferOutputPrevSuffix);
+
+
+    /**
+     * @brief Emits the double buffer copy code which occurs inside the compute function.  Depending on the value of doubleBuffer, copies to/from the shared array are made from/to local buffers.
+     * @param inputFIFOs
+     * @param outputFIFOs
+     * @param filterRate
+     * @param counterVarName
+     * @param indexVarName
+     * @param doubleBuffer
+     * @return
+     */
+    std::vector<std::string> computeIODoubleBufferEmit(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                                       std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                       std::pair<int, int> filterRate,
+                                                       std::string counterVarName,
+                                                       std::string indexVarName,
+                                                       ComputeIODoubleBufferType doubleBuffer);
+
+
+    std::vector<std::string> computeIODoubleBufferEmitHelper(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos,
+                                                             std::pair<int, int> filterRate,
+                                                             std::string counterVarName,
+                                                             std::string indexVarName,
+                                                             ComputeIODoubleBufferType doubleBuffer,
+                                                             bool &openedCounterCheck, //This variable is modified inside the function.  It is also read.  It denotes if the downsample check had been previously emitted.  If it is emitted in this function, it will be set to true
+                                                             bool input);
 
     /**
      * @brief Emits a given set operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates

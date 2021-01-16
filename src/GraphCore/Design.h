@@ -17,6 +17,7 @@
 #include "SchedParams.h"
 #include "MultiThread/ThreadCrossingFIFOParameters.h"
 #include "MultiThread/PartitionParams.h"
+#include "MultiThread/MultiThreadEmitterHelpers.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -456,7 +457,9 @@ public:
                             bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize,
                             bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap,
                             bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
-                            unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
+                            unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO,
+                            PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
+                            MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
