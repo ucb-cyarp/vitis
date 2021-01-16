@@ -47,6 +47,10 @@ namespace MultiThreadEmitterHelpers {
         OUTPUT ///<Use double buffering for output only
     };
 
+    std::string computeIODoubleBufferTypeToString(ComputeIODoubleBufferType computeIODoubleBufferType);
+
+    ComputeIODoubleBufferType parseComputeIODoubleBufferType(std::string computeIODoubleBufferType);
+
     /**
      * @brief Finds the input and output FIFOs for a partition given a partition crossing to FIFO map
      * @param fifoMap

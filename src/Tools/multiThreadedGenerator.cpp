@@ -11,6 +11,7 @@
 #include "GraphCore/Design.h"
 #include "GraphMLTools/GraphMLDialect.h"
 #include "MultiThread/PartitionParams.h"
+#include "MultiThread/MultiThreadEmitterHelpers.h"
 #include "General/ErrorHelpers.h"
 #include "General/FileIOHelpers.h"
 
@@ -30,6 +31,7 @@ int main(int argc, char* argv[]) {
         std::cout << "                           <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> " << std::endl;
         std::cout << "                           --memAlignment <MEM_ALIGNMENT> <--emitPAPITelem>" << std::endl;
         std::cout << "                           --fifoCachedIndexes <INDEX_CACHE_BEHAVIOR>" << std::endl;
+        std::cout << "                           --fifoDoubleBuffering <FIFO_DOUBLE_BUFFERING>" << std::endl;
 		std::cout << "                           <--useSCHED_FIFO>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
@@ -65,11 +67,17 @@ int main(int argc, char* argv[]) {
         std::cout << "Possible MEM_ALIGNMENT (the alignment in bytes used when allocating FIFO buffers):" << std::endl;
         std::cout << "    unsigned long memAlignment <DEFAULT = 64>" << std::endl;
         std::cout << std::endl;
-        std::cout << "Possible INDEX_CACHE_BEHAVIOR (FIFO index bahavior):" << std::endl;
+        std::cout << "Possible INDEX_CACHE_BEHAVIOR (FIFO index behavior):" << std::endl;
         std::cout << "    none <Default>          = the FIFO indexes are fetched for each block" << std::endl;
         std::cout << "    producer_consumer_cache = the producer and consumer do not fetch indexes unless it cannot be determined if the FIFO is available based on prior information" << std::endl;
         std::cout << "    producer_cache          = only the producer does not fetch indexes unless it cannot be determined if the FIFO is available based on prior information" << std::endl;
         std::cout << "    consumer_cache          = only the consumer does not fetch indexes unless it cannot be determined if the FIFO is available based on prior information" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Possible FIFO_DOUBLE_BUFFERING (FIFO double buffering behavior - required in-place FIFO):" << std::endl;
+        std::cout << "    none <Default>   = No double buffering" << std::endl;
+        std::cout << "    input_and_output = Double buffering on both inputs and outputs" << std::endl;
+        std::cout << "    input            = Double buffering on inputs only" << std::endl;
+        std::cout << "    output           = Double buffering on outputs only" << std::endl;
         std::cout << std::endl;
 
         return 1;
@@ -94,6 +102,7 @@ int main(int argc, char* argv[]) {
     bool useSCHEDFIFO = false;
     std::string telemDumpPrefix = "";
     PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior = PartitionParams::FIFOIndexCachingBehavior::NONE;
+    MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer = MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE;
 
     //Check for command line parameters
     for(unsigned long i = 4; i<argc; i++){
@@ -225,6 +234,15 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Unknown command line option selection: --fifoCachedIndexes " << argv[i] << std::endl;
                 exit(1);
             }
+        }else if(strcmp(argv[i], "--fifoDoubleBuffering") == 0){
+            i++; //Get the actual argument
+            try{
+                MultiThreadEmitterHelpers::ComputeIODoubleBufferType parsedFifoDoubleBuffer = MultiThreadEmitterHelpers::parseComputeIODoubleBufferType(argv[i]);
+                fifoDoubleBuffer = parsedFifoDoubleBuffer;
+            }catch(std::runtime_error e){
+                std::cerr << "Unknown command line option selection: --fifoDoubleBuffering " << argv[i] << std::endl;
+                exit(1);
+            }
         }else if(strcmp(argv[i], "--telemDumpPrefix") == 0) {
             i++;
             telemDumpPrefix = argv[i];
@@ -244,6 +262,13 @@ int main(int argc, char* argv[]) {
             std::cerr << "Unknown command line option: " << argv[i] << std::endl;
             exit(1);
         }
+    }
+
+    //Double Buffer can only be used with in-place FIFOs
+    if(fifoDoubleBuffer != MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE &&
+       fifoType != ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_INPLACE_X86){
+        std::cerr << "Double Buffering Requires in-place FIFOs" << std::endl;
+        return 1;
     }
 
     TopologicalSortParameters topoParams = TopologicalSortParameters(heuristic, randSeed);
@@ -282,6 +307,7 @@ int main(int argc, char* argv[]) {
     //Print Partitioner and Scheduler
     std::cout << "PARTITIONER: " << PartitionParams::partitionTypeToString(partitioner) << std::endl;
     std::cout << "FIFO_TYPE: " << ThreadCrossingFIFOParameters::threadCrossingFIFOTypeToString(fifoType) << std::endl;
+    std::cout << "FIFO_DOUBLE_BUFFERING: " << MultiThreadEmitterHelpers::computeIODoubleBufferTypeToString(fifoDoubleBuffer) << std::endl;
     std::cout << "FIFO_INDEX_CACHE_BEHAVIOR: " << PartitionParams::fifoIndexCachingBehaviorToString(fifoIndexCachingBehavior) << std::endl;
     std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
     if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT || sched == SchedParams::SchedType::TOPOLOGICAL){
@@ -303,7 +329,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO, fifoIndexCachingBehavior);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

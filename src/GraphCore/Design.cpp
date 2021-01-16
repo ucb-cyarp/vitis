@@ -3240,7 +3240,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
                                 int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment,
-                                bool emitPAPITelem, bool useSCHEDFIFO, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior) {
+                                bool emitPAPITelem, bool useSCHEDFIFO,
+                                PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
+                                MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer) {
 
     if(!telemDumpPrefix.empty()){
         telemDumpPrefix = fileName+"_"+telemDumpPrefix;
@@ -3699,8 +3701,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
                                                             threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile,
-                                                            fifoIndexCachingBehavior,
-                                                            MultiThreadEmitterHelpers::ComputeIODoubleBufferType::INPUT_AND_OUTPUT);
+                                                            fifoIndexCachingBehavior, fifoDoubleBuffer);
         }
     }
 

@@ -3126,3 +3126,32 @@ std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::shared_ptr<Cl
 
     return getClkDomainIndVarName(rate, counter);
 }
+
+std::string MultiThreadEmitterHelpers::computeIODoubleBufferTypeToString(ComputeIODoubleBufferType computeIODoubleBufferType){
+    switch(computeIODoubleBufferType){
+        case ComputeIODoubleBufferType::NONE:
+            return "NONE";
+        case ComputeIODoubleBufferType::INPUT_AND_OUTPUT:
+            return "INPUT_AND_OUTPUT";
+        case ComputeIODoubleBufferType::INPUT:
+            return "INPUT";
+        case ComputeIODoubleBufferType::OUTPUT:
+            return "OUTPUT";
+        default:
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown MultiThreadEmitterHelpers"));
+    }
+}
+
+MultiThreadEmitterHelpers::ComputeIODoubleBufferType MultiThreadEmitterHelpers::parseComputeIODoubleBufferType(std::string computeIODoubleBufferType){
+    if(computeIODoubleBufferType == "NONE" || computeIODoubleBufferType == "none"){
+        return ComputeIODoubleBufferType::NONE;
+    }else if(computeIODoubleBufferType == "INPUT_AND_OUTPUT" || computeIODoubleBufferType == "input_and_output"){
+        return ComputeIODoubleBufferType::INPUT_AND_OUTPUT;
+    }else if(computeIODoubleBufferType == "INPUT" || computeIODoubleBufferType == "input"){
+        return ComputeIODoubleBufferType::INPUT;
+    }else if(computeIODoubleBufferType == "OUTPUT" || computeIODoubleBufferType == "output"){
+        return ComputeIODoubleBufferType::OUTPUT;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ComputeIODoubleBufferType: " + computeIODoubleBufferType));
+    }
+}
