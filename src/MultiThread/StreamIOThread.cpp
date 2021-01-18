@@ -19,7 +19,8 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
                                          int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
                                          bool threadDebugPrint, bool printTelem,
-                                         PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior) {
+                                         PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
+                                         std::string streamNameSuffix) {
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports
@@ -257,7 +258,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Create Linux Pipes
 
         for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++){
-            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+streamNameSuffix+".pipe";
             ioThread << "status = mkfifo(\"" + inputPipeFileName + "\", S_IRUSR | S_IWUSR);" << std::endl;
             ioThread << "if(status != 0){" << std::endl;
             ioThread << "printf(\"Unable to create input pipe ... exiting\\n\");" << std::endl;
@@ -268,7 +269,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         }
 
         for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
-            std::string outputPipeFileName = "output_bundle_" + GeneralHelper::to_string(it->first) + ".pipe";
+            std::string outputPipeFileName = "output_bundle_" + GeneralHelper::to_string(it->first) + streamNameSuffix + ".pipe";
             ioThread << "status = mkfifo(\"" + outputPipeFileName + "\", S_IRUSR | S_IWUSR);" << std::endl;
             ioThread << "if(status != 0){" << std::endl;
             ioThread << "printf(\"Unable to create output pipe ... exiting\\n\");" << std::endl;
@@ -280,7 +281,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
         //Open Linux pipes
         for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
-            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            std::string inputPipeFileName = "input_bundle_"+GeneralHelper::to_string(it->first)+streamNameSuffix+".pipe";
             std::string inputPipeHandleName = "inputPipe_bundle_"+GeneralHelper::to_string(it->first);
             ioThread << "FILE *" + inputPipeHandleName + " = fopen(\"" + inputPipeFileName + "\", \"rb\");" << std::endl;
             ioThread << "if(" + inputPipeHandleName + " == NULL){" << std::endl;
@@ -292,7 +293,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         }
 
         for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
-            std::string outputPipeFileName = "output_bundle_"+GeneralHelper::to_string(it->first)+".pipe";
+            std::string outputPipeFileName = "output_bundle_"+GeneralHelper::to_string(it->first)+streamNameSuffix+".pipe";
             std::string outputPipeHandleName = "outputPipe_bundle_"+GeneralHelper::to_string(it->first);
             ioThread << "FILE *" + outputPipeHandleName + " = fopen(\"" + outputPipeFileName + "\", \"wb\");" << std::endl;
             ioThread << "if(" + outputPipeHandleName + " == NULL){" << std::endl;
@@ -466,7 +467,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //Producers should be initialized first - therefore, we start with outputs
         //Open Output FIFOs
         for(auto it = masterOutputBundles.begin(); it != masterOutputBundles.end(); it++) {
-            std::string outputSharedName = designName+"_output_bundle_"+GeneralHelper::to_string(it->first);
+            std::string outputSharedName = designName+"_output_bundle_"+GeneralHelper::to_string(it->first)+streamNameSuffix;
             std::string outputFifoHandleName = "outputFIFO_bundle_"+GeneralHelper::to_string(it->first);
             std::string outputFIFOSizeName = outputFifoHandleName+"_fifoSize";
             std::string outputStructTypeName = designName+"_outputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";
@@ -478,7 +479,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
         //Open Input FIFOs
         for(auto it = masterInputBundles.begin(); it != masterInputBundles.end(); it++) {
-            std::string inputSharedName = designName+"_input_bundle_"+GeneralHelper::to_string(it->first);
+            std::string inputSharedName = designName+"_input_bundle_"+GeneralHelper::to_string(it->first)+streamNameSuffix;
             std::string inputFifoHandleName = "inputFIFO_bundle_"+GeneralHelper::to_string(it->first);
             std::string inputFIFOSizeName = inputFifoHandleName+"_fifoSize";
             std::string inputStructTypeName = designName+"_inputs_bundle_"+GeneralHelper::to_string(it->first)+"_t";

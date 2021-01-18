@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
         std::cout << "                           --memAlignment <MEM_ALIGNMENT> <--emitPAPITelem>" << std::endl;
         std::cout << "                           --fifoCachedIndexes <INDEX_CACHE_BEHAVIOR>" << std::endl;
         std::cout << "                           --fifoDoubleBuffering <FIFO_DOUBLE_BUFFERING>" << std::endl;
-		std::cout << "                           <--useSCHED_FIFO>" << std::endl;
+		std::cout << "                           <--useSCHED_FIFO> --pipeNameSuffix <PIPE_NAME_SUFFIX>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -101,6 +101,7 @@ int main(int argc, char* argv[]) {
     bool emitPapiTelem = false;
     bool useSCHEDFIFO = false;
     std::string telemDumpPrefix = "";
+    std::string pipeNameSuffix = "";
     PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior = PartitionParams::FIFOIndexCachingBehavior::NONE;
     MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer = MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE;
 
@@ -246,6 +247,9 @@ int main(int argc, char* argv[]) {
         }else if(strcmp(argv[i], "--telemDumpPrefix") == 0) {
             i++;
             telemDumpPrefix = argv[i];
+        }else if(strcmp(argv[i], "--pipeNameSuffix") == 0) {
+            i++;
+            pipeNameSuffix = argv[i];
         }else if(strcmp(argv[i],  "--emitGraphMLSched") == 0){
             emitGraphMLSched = true;
         }else if(strcmp(argv[i],  "--printSched") == 0){
@@ -329,7 +333,7 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer, pipeNameSuffix);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;
