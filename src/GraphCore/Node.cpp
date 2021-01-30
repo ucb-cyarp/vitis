@@ -390,6 +390,18 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
             fanout = false;
         }else{
             //Check for fanout.  Either through more than 1 output arc or the single output arc having internal fanout
+
+            //Will also force fanout on nodes with state since they can be scheduled after their dependent nodes
+            //since they break the dependency chain.  This is a workaround for forceFanout not being passed through
+            //to emitC calls in individual node's emitCExpr functions.  This force characteristic is used when nodes
+            //are scheduled so that their outputs are saved to a variable.  The default behavior (to preserve the old
+            //bottom-up emitter was to make this default to false).
+            //Fortunatly, for previous versions of Laminar without this fix, the error condition was caught that
+            //the node had been emitted but the fanout logic to save the cExpr had not been executed.  This resulted
+            //in an empty string being returned on the second time the node was emitted which was caught.  Previous
+            //outputs that did not throw this error should not have an error because of this issue.
+            //TODO: Can remove fanout for state nodes if the forceFanout parameter is properly passsed to emitC from
+            //      node emitCExpr function.  This requires re-factoring
             int numOutArcs = outputPort->getArcs().size();
             if(numOutArcs == 0){
                 throw std::runtime_error("Tried to emit C for output port that is unconnected");
@@ -400,6 +412,7 @@ Node::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedType sc
                 //Single arc, check for internal fanout
                 std::shared_ptr<InputPort> dstInput = (*outputPort->getArcs().begin())->getDstPort();
                 fanout = dstInput->hasInternalFanout(imag);
+                fanout |= hasState();
             }
 
         }

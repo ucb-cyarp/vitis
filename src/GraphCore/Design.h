@@ -450,6 +450,10 @@ public:
      * @param telemDumpPrefix if not empty, specifies a file prefix into which telemetry from each compute thread is dumped
      * @param memAlignment the aligment (in bytes) used for FIFO buffer allocation\
      * @param emitPAPITelem if true, emits code for reading CPU performance counters using the PAPI library (and the underling kernel perf system).  Note that this will adversely affect performance.
+     * @param useSCHEDFIFO if true, pthreads are created which will request to be run with the max RT priority under the linux SCHED_FIFO scheduler
+     * @param fifoIndexCachingBehavior indicates when FIFOs check the head/tail pointers and when they rely on a priori information first
+     * @param fifoDoubleBuffer indicates what FIFO double buffering behavior to use
+     * @param pipeNameSuffix defines as a suffix to be appended to the names of POSIX Pipes or Shared Memory streams
      */
     void emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
                             SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
@@ -459,7 +463,8 @@ public:
                             bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
                             unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO,
                             PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                            MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer);
+                            MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer,
+                            std::string pipeNameSuffix);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
