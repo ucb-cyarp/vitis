@@ -92,3 +92,7 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 bool DownsampleInput::isSpecialized() {
     return true;
 }
+
+bool DownsampleInput::isInput() {
+    return true;
+}
