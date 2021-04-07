@@ -323,3 +323,7 @@ void DownsampleClockDomain::emitCContextCloseLast(std::vector<std::string> &cSta
                                                   int partitionNum) {
     DownsampleClockDomain::emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber, partitionNum);
 }
+
+bool DownsampleClockDomain::allowFIFOAbsorption() {
+    return true;
+}

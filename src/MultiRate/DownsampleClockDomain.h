@@ -102,6 +102,8 @@ public:
 
     bool shouldReplicateContextDriver() override;
 
+    bool allowFIFOAbsorption() override;
+
     //Also need to modify GraphAlgs::topologicalSortDestructive to handle this type of ContextRoot
 };
 

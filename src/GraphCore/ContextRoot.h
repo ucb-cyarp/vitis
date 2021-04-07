@@ -224,6 +224,11 @@ public:
      */
     virtual void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) = 0;
 
+    /**
+     * @brief Signals if FIFO absorptions in this context are legal
+     * @return
+     */
+    virtual bool allowFIFOAbsorption();
 };
 
 /*! @} */
