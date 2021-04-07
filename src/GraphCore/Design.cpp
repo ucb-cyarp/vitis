@@ -3532,7 +3532,21 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getBlockSizeCreateIfNot(0) << std::endl;
+            std::vector<std::shared_ptr<ClockDomain>> clockDomains = fifoVec[i]->getClockDomains();
+            std::string clkDomainDescr = "[";
+            for(int i = 0; i<clockDomains.size(); i++){
+                if(i>0){
+                    clkDomainDescr += ", ";
+                }
+                std::pair<int, int> rate = std::pair<int, int>(1, 1);
+                if(clockDomains[i] != nullptr){ //Clock domain can be null which signifies the base case
+                    rate = clockDomains[i]->getRateRelativeToBase();
+                }
+                clkDomainDescr += GeneralHelper::to_string(rate.first) + "/" + GeneralHelper::to_string(rate.second);
+            }
+            clkDomainDescr += "]";
+
+            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getBlockSizeCreateIfNot(0) << ", Clock Domain(s): " << clkDomainDescr << std::endl;
         }
     }
     std::cout << std::endl;
