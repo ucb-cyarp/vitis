@@ -289,7 +289,7 @@ std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> Mux::disco
         std::shared_ptr<InputPort> inputPort = std::dynamic_pointer_cast<InputPort>(inputPorts[i]->getSharedPointer());
 
         std::map<std::shared_ptr<Arc>, bool> marks;
-        nodeContexts[inputPort] = GraphAlgs::scopedTraceBackAndMark(inputPort, marks);
+        nodeContexts[inputPort] = GraphAlgs::scopedTraceBackAndMark(inputPort, marks, true, true);
     }
 
     return nodeContexts;
