@@ -26,13 +26,13 @@
  * @brief Represents a thread crossing FIFO in multi-threaded export.  Note that the read and write checks occur in the core scheduler.
  * The actual read and write operation may also occur in the scheduler and are handled via function arguments and return values
  *
- * Note, the FIFO sould reside in the partition that is writing into the FIFO.  This is because the emitters treat nodes with state differently.
+ * Note, the FIFO should reside in the partition that is writing into the FIFO.  This is because the emitters treat nodes with state differently.
  * When scheduled/emitted, the emitter the emitCExprNextState function instead of the emitCExpr function.  The emitCExprNextState function is
  * where the value to be written into the FIFO is stored into output variable to be handled by the core scheduler.  Since the actual data
  * movement of the FIFO is handled by the core schedulers, the emitCStateUpdate function does nothing.  As such, this block does not actually
  * need to create a state update node (like the delay or EnabledOutput nodes do).
  * Nodes with state (and no combinational path) also have their output arcs removed before scheduling begins.  This prevents cycles
- * from forming in the schedule and allows different pipeline stages to be scheduled independtly.
+ * from forming in the schedule and allows different pipeline stages to be scheduled independently.
  */
 class ThreadCrossingFIFO : public Node {
     friend NodeFactory;
