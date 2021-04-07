@@ -10,6 +10,7 @@
 
 #define VITIS_STD_ERROR_PREAMBLE "vitis - Error"
 #define VITIS_STD_WARNING_PREAMBLE "vitis - Warning"
+#define VITIS_STD_INFO_PREAMBLE "vitis - Info"
 
 /**
  * \addtogroup General General Helper Classes

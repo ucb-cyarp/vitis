@@ -18,6 +18,8 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include "TopologicalSortParameters.h"
 
+#define VITIS_CONTEXT_ABSORB_BARRIER_NAME "VITIS_CONTEXT_ABSORB_BARRIER"
+
 //Forward Declare
 class EnabledSubSystem;
 class EnabledNode;
@@ -47,10 +49,12 @@ namespace GraphAlgs {
      * connected to a single dummy node which is directly connected to our port of interest.
      *
      * @param traceFrom The port to trace from
-     * @param marks A map containing the marks for each arc.  A arc is considered marked if the value returned from the map is true.  This will be modified durring the call
+     * @param marks A map containing the marks for each arc.  A arc is considered marked if the value returned from the map is true.  This will be modified during the call
+     * @param stopAtPartitionBoundary if true, context discovery stops at nodes in another partition.  This is useful to avoid communication cycles created during context discovery
+     * @param checkForContextBarriers if true, context discovery stops at special nodes whose names indicate that they are context expansion barriers
      * @return The set of nodes in the port's context
      */
-    std::set<std::shared_ptr<Node>> scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks);
+    std::set<std::shared_ptr<Node>> scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers);
 
     /**
      * @brief Traces forward from a port through the design graph to discover a port's context, stopping at state elements and enabled subsystem boundaries.
@@ -67,9 +71,11 @@ namespace GraphAlgs {
      *
      * @param traceFrom The port to trace from
      * @param marks A map containing the marks for each arc.  A arc is considered marked if the value returned from the map is true.  This will be modified during the call
+     * @param stopAtPartitionBoundary if true, context discovery stops at nodes in another partition.  This is useful to avoid communication cycles created during context discovery
+     * @param checkForContextBarriers if true, context discovery stops at special nodes whose names indicate that they are context expansion barriers
      * @return The set of nodes in the port's context
      */
-    std::set<std::shared_ptr<Node>> scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks);
+    std::set<std::shared_ptr<Node>> scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers);
 
     /**
      * @brief Moves a node from its current position in the hierarchy to a position under another subsystem.
