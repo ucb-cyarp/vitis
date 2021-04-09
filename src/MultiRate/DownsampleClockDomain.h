@@ -82,6 +82,8 @@ public:
                             std::vector<std::shared_ptr<Arc>> &arcToRemove,
                             bool includeContext, bool includeOutputBridgeNodes) override;
 
+    void setClockDomainDriver(std::shared_ptr<Arc> newDriver) override;
+
     //==== Implement Context Root Functions ====
     int getNumSubContexts() const override;
 

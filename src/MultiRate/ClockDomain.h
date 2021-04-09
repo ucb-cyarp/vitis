@@ -34,6 +34,8 @@ protected:
     std::set<std::shared_ptr<OutputPort>> ioInput; ///<The set of I/O ports that directly connect to the inputs of nodes in this clock domain.  These should be MasterInput Ports
     std::set<std::shared_ptr<InputPort>> ioOutput; ///<The set of I/O ports that directly connect to the outputs of nodes in this clock domain.  These should be MasterOutput Ports
 
+    std::set<int> suppressClockDomainLogicForPartitions; ///<A set of partitions where it was determined that the only nodes are in this clock domain and no rate change nodes are included.  The clock domain counter logic is suppressed for these partitions and is handled by adjusting the compute outer loop
+
     /**
      * @brief Default constructor
      */
@@ -98,6 +100,10 @@ public:
     void removeRateChange(std::shared_ptr<RateChange> rateChange);
     void removeIOInput(std::shared_ptr<OutputPort> input);
     void removeIOOutput(std::shared_ptr<InputPort> output);
+
+    std::set<int> getSuppressClockDomainLogicForPartitions() const;
+    void setSuppressClockDomainLogicForPartitions(const std::set<int> &suppressClockDomainLogicForPartitions);
+    void addClockDomainLogicSuppressedPartition(int partitionNum);
 
     /**
      * @brief Copy parameters from another clock domain except for the lists of RateChange nodes
@@ -223,6 +229,13 @@ public:
                             std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                             std::vector<std::shared_ptr<Arc>> &arcToRemove,
                             bool includeContext, bool includeOutputBridgeNodes);
+
+    /**
+     * @brief Sets the clock domain driver
+     *
+     * @note createSupportNodes should be used in place of this.  This is used when setting some partitions to not emit clock domain logic
+     */
+    virtual void setClockDomainDriver(std::shared_ptr<Arc> newDriver);
 
 };
 

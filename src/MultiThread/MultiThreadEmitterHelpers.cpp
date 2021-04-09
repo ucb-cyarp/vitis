@@ -1233,8 +1233,17 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      std::string telemDumpFilePrefix, bool telemAvg,
                                                      std::string papiHelperHeader,
                                                      PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                                                     ComputeIODoubleBufferType doubleBuffer){
+                                                     ComputeIODoubleBufferType doubleBuffer,
+                                                     bool singleClkDomain, std::pair<int, int> singleRate){
     bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
+
+    if(singleClkDomain){
+        if((blockSize*singleRate.first) % singleRate.second != 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Partition " + GeneralHelper::to_string(partitionNum) + " has a single clock domain but the provide block size is not compatible with the given rate"));
+        }else{
+            blockSize = blockSize*singleRate.first/singleRate.second;
+        }
+    }
 
     std::string blockIndVar = "";
 
@@ -1257,14 +1266,21 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     bool fifoInPlace = false;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int portNum = 0; portNum<inputFIFOs[i]->getOutputPorts().size(); portNum++) {
-            //Create the index variable name based on the base
-            std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomainCreateIfNot(portNum);
-            std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-            inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVarStr);
-            if (clkDomain) {
-                fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-            } else {
+            if(singleClkDomain){
+                //With a single clock domain, set the index variable to just be the block index variable in the outer
+                //compute loop
                 fifoClockDomainRates.emplace(1, 1);
+                inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVar);
+            }else {
+                //Create the index variable name based on the base
+                std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomainCreateIfNot(portNum);
+                std::string blockIndVarStr = getClkDomainIndVarName(clkDomain,false);
+                inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVarStr);
+                if (clkDomain) {
+                    fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+                } else {
+                    fifoClockDomainRates.emplace(1, 1);
+                }
             }
         }
 
@@ -1279,13 +1295,20 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Also need to set the index variable of the output FIFOs
     for(int i = 0; i<outputFIFOs.size(); i++){
         for(int portNum = 0; portNum<outputFIFOs[i]->getInputPorts().size(); portNum++) {
-            std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomainCreateIfNot(portNum);
-            std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-            outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVarStr);
-            if (clkDomain) {
-                fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-            } else {
+            if(singleClkDomain){
+                //With a single clock domain, set the index variable to just be the block index variable in the outer
+                //compute loop
                 fifoClockDomainRates.emplace(1, 1);
+                outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVar);
+            }else {
+                std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomainCreateIfNot(portNum);
+                std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+                outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVarStr);
+                if (clkDomain) {
+                    fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+                } else {
+                    fifoClockDomainRates.emplace(1, 1);
+                }
             }
         }
 

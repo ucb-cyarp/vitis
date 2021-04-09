@@ -681,3 +681,19 @@ std::shared_ptr<ClockDomain> ClockDomain::specializeClockDomain(std::vector<std:
         return convertToUpsampleDownsampleDomain(false, nodesToAdd, nodesToRemove, arcsToAdd, arcToRemove);
     }
 }
+
+std::set<int> ClockDomain::getSuppressClockDomainLogicForPartitions() const {
+    return suppressClockDomainLogicForPartitions;
+}
+
+void ClockDomain::setSuppressClockDomainLogicForPartitions(const std::set<int> &suppressClockDomainLogicForPartitions) {
+    ClockDomain::suppressClockDomainLogicForPartitions = suppressClockDomainLogicForPartitions;
+}
+
+void ClockDomain::addClockDomainLogicSuppressedPartition(int partitionNum) {
+    suppressClockDomainLogicForPartitions.insert(partitionNum);
+}
+
+void ClockDomain::setClockDomainDriver(std::shared_ptr<Arc>) {
+
+}

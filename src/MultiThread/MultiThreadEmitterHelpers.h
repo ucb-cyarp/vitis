@@ -289,7 +289,8 @@ namespace MultiThreadEmitterHelpers {
                               std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem,
                               std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
                               PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                              ComputeIODoubleBufferType doubleBuffer);
+                              ComputeIODoubleBufferType doubleBuffer,
+                              bool singleClkDomain, std::pair<int, int> singleRate);
 
     /**
      * @brief Defines the structure containing the state for a particular partition
