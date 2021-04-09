@@ -2041,7 +2041,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
 
         if(collectTelem){
-            cFile << "rxSamples += " << blockSize << ";" << std::endl;
+            cFile << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
     }else {
         if(collectTelem){
