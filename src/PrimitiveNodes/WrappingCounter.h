@@ -16,6 +16,8 @@
 /**
  * @brief Represent an unconditional counter that counts up to a specified value then wraps back to 0
  *
+ * Outputs if the current counter value is 0
+ *
  * @note This is currently a primitive node to support context driver replication for DownsampleClockDomains
  */
 class WrappingCounter : public PrimitiveNode{
