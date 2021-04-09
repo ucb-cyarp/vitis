@@ -1237,6 +1237,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      bool singleClkDomain, std::pair<int, int> singleRate){
     bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
 
+    unsigned long blockSizeBase = blockSize;
     if(singleClkDomain){
         if((blockSize*singleRate.first) % singleRate.second != 0){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Partition " + GeneralHelper::to_string(partitionNum) + " has a single clock domain but the provide block size is not compatible with the given rate"));
@@ -2054,7 +2055,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
             cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
             cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
-            cFile << "rxSamples += " << blockSize << ";" << std::endl;
+            cFile << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
     }
 
