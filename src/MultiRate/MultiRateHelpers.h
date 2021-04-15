@@ -205,6 +205,18 @@ namespace MultiRateHelpers {
     void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
 
     void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
+
+    /**
+     * @brief Find which partitions only have nodes in a single clock domain rate and do not contain any rate transition nodes
+     *
+     * This function does not consider clock domain drivers or subsystem nodes when determining if all the nodes in a partition run at the same rate
+     *
+     * @param nodes the nodes in the design
+     * @return a map of partitions with only one clock domain and the associated clock domain
+     */
+    std::map<int, std::set<std::shared_ptr<ClockDomain>>> findPartitionsWithSingleClockDomain(const std::vector<std::shared_ptr<Node>> &nodes);
+
+
 };
 
 /*! @} */

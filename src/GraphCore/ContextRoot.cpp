@@ -114,3 +114,7 @@ std::shared_ptr<DummyReplica> ContextRoot::getDummyReplica(int partition) {
 void ContextRoot::setDummyReplica(int partition, std::shared_ptr<DummyReplica> dummyReplica){
     dummyReplicas[partition] = dummyReplica;
 }
+
+bool ContextRoot::allowFIFOAbsorption(){
+    return false;
+}

@@ -7,11 +7,11 @@
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
 
-CExpr::CExpr() : expr(""), exprType(ExprType::SCALAR_EXPR){
+CExpr::CExpr() : expr(""), exprType(ExprType::SCALAR_EXPR), vecLen(0){
 
 }
 
-CExpr::CExpr(std::string expr, ExprType exprType) : expr(expr), exprType(exprType){
+CExpr::CExpr(std::string expr, ExprType exprType) : expr(expr), exprType(exprType), vecLen(0){
 
 }
 

@@ -77,7 +77,7 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     //Just return the input expression
     //TODO: Change check after vector support implemented
     if(inputExpr.isArrayOrBuffer()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Line to Downsample Input is Expected to be Driven by a Scalar Expression or Variable", getSharedPointer()));
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Line to Downsample Input is Expected to be Driven by a Scalar Expression or Variable (from " + srcNode->getFullyQualifiedName() + ")", getSharedPointer()));
     }
 
     //Create a temporary variable to avoid issue if this node is directly attached to state
@@ -90,5 +90,9 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 }
 
 bool DownsampleInput::isSpecialized() {
+    return true;
+}
+
+bool DownsampleInput::isInput() {
     return true;
 }

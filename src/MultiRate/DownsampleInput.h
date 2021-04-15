@@ -93,6 +93,8 @@ public:
                     bool imag = false) override;
 
     bool isSpecialized() override;
+
+    bool isInput() override;
 };
 
 /*! @} */

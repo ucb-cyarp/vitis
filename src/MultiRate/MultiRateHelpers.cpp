@@ -14,6 +14,7 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include "RateChange.h"
 #include "MultiThread/ThreadCrossingFIFO.h"
+#include <iostream>
 
 std::set<std::shared_ptr<Node>>
 MultiRateHelpers::getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch) {
@@ -528,4 +529,93 @@ void MultiRateHelpers::checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> m
             }
         }
     }
+}
+
+std::map<int, std::set<std::shared_ptr<ClockDomain>>> MultiRateHelpers::findPartitionsWithSingleClockDomain(const std::vector<std::shared_ptr<Node>> &nodes_orig){
+    //Remove clock domain driver nodes from the list of nodes to check
+
+    std::vector<std::shared_ptr<Node>> nodes = nodes_orig;
+
+    //Find clock domains in design
+    std::set<std::shared_ptr<ClockDomain>> clockDomains;
+    for(std::shared_ptr<Node> &node : nodes){
+        std::shared_ptr<ClockDomain> asClkDomain = GeneralHelper::isType<Node, ClockDomain>(node);
+        if(asClkDomain){
+            clockDomains.insert(asClkDomain);
+        }
+    }
+
+    //Find clock domain drivers and remove them from the nodes to be checked
+    std::set<std::shared_ptr<Node>> driverNodes;
+    for(const std::shared_ptr<ClockDomain> &clockDomain : clockDomains){
+        //Only look at clock domains that have been specialized
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<ClockDomain, ContextRoot>(clockDomain);
+        if(asContextRoot){
+            std::vector<std::shared_ptr<Arc>> driverArcs = asContextRoot->getContextDecisionDriver(); //This does not include the replicas
+            for(const std::shared_ptr<Arc> &driverArc : driverArcs){
+                driverNodes.insert(driverArc->getSrcPort()->getParent());
+            }
+
+            //This may contains the origional context drivers.  It should also return the replicas
+            std::map<int, std::vector<std::shared_ptr<Arc>>> driverArcsPerPartition = asContextRoot->getContextDriversPerPartition();
+            for(const auto &partitionDrivers : driverArcsPerPartition){
+                for(const std::shared_ptr<Arc> &driverArc : partitionDrivers.second){
+                    driverNodes.insert(driverArc->getSrcPort()->getParent());
+                }
+            }
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Expecting all clock domains to be specialized by this point", clockDomain));
+        }
+    }
+
+    for(const std::shared_ptr<Node> &driverNode : driverNodes){
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), driverNode), nodes.end());
+    }
+
+    std::map<int, std::pair<int, int>> partitionDiscoveredRate;
+    std::set<int> partitionsWithConflictingRatesOrRateChangeNodes;
+    std::map<int, std::set<std::shared_ptr<ClockDomain>>> partitionClockDomains;
+
+    for(const std::shared_ptr<Node> &node : nodes){
+        //Don't check subsystems
+        if(GeneralHelper::isType<Node, SubSystem>(node) == nullptr) {
+            int partition = node->getPartitionNum();
+
+            //Only bother checking if a conflict has not already been found for this partition
+            if (partitionsWithConflictingRatesOrRateChangeNodes.find(partition) ==
+                partitionsWithConflictingRatesOrRateChangeNodes.end()) {
+                std::shared_ptr<ClockDomain> clkDomain = findClockDomain(node);
+                std::pair<int, int> clkRate = std::pair<int, int>(1, 1);
+                if (clkDomain) {
+                    clkRate = clkDomain->getRateRelativeToBase();
+                }
+
+                if (GeneralHelper::isType<Node, RateChange>(node)) {
+                    //We found a rate change, node, invalidate the rate for this partition
+                    partitionsWithConflictingRatesOrRateChangeNodes.insert(partition);
+                    partitionDiscoveredRate.erase(partition); //erase if exists
+                    partitionClockDomains.erase(partition); //erase if exists
+                } else {
+                    if (partitionDiscoveredRate.find(partition) == partitionDiscoveredRate.end()) {
+                        //This is the first time this partition was encountered
+                        partitionDiscoveredRate[partition] = clkRate;
+                        partitionClockDomains[partition].insert(clkDomain);
+                    } else {
+                        //This is not the first time we have seen this partition, we need to check
+                        if (partitionDiscoveredRate[partition] == clkRate) {
+                            //This is the same rate!  Insert the clock domain of this node into the set.  If it has already been discovered, no duplicate will be created
+                            partitionClockDomains[partition].insert(clkDomain);
+                        } else {
+                            //We found a conflict
+                            partitionsWithConflictingRatesOrRateChangeNodes.insert(partition);
+                            partitionDiscoveredRate.erase(partition); //erase if exists
+                            partitionClockDomains.erase(partition); //erase if exists
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return partitionClockDomains;
 }

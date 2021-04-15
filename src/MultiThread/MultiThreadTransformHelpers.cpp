@@ -25,7 +25,18 @@ void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pa
             //Check if the FIFO is in a contect.  If so, do not absorb delays.
             //TODO: Remove this when on demand FIFOs are implemented
             //Checks already exist in the input and output absorb methods to check that the delay is in the same context
-            if(fifoPtrs[i]->getContext().empty()) {
+
+            //We can allow FIFO delay absorption in different clock domain since they are not conditionally executed
+            //Check the context stack to see if they are all
+            std::vector<Context> contextStack = fifoPtrs[i]->getContext();
+            bool onlyClockDomainContexts = true;
+            for(Context &c : contextStack){
+                onlyClockDomainContexts &= c.getContextRoot()->allowFIFOAbsorption();
+            }
+
+            bool contextEmpty = contextStack.empty();
+
+            if(contextEmpty || (!contextEmpty && onlyClockDomainContexts)) {
                 bool done = false;
 
                 //Iterate because there may be a series of delays to ingest

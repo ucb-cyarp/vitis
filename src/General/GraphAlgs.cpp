@@ -20,7 +20,7 @@
 #include <random>
 
 std::set<std::shared_ptr<Node>>
-GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks) {
+GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers) {
     std::set<std::shared_ptr<Node>> contextNodes;
 
     //Get the set of arcs connected to this input port
@@ -31,8 +31,26 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 
         std::shared_ptr<Node> srcNode = (*it)->getSrcPort()->getParent();
 
-        //Check if the src node is a state element or a enable node (input or output), or a RateChange node
-        if(!(srcNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(srcNode) == nullptr && GeneralHelper::isType<Node, RateChange>(srcNode) == nullptr){
+        //Check for context expand barrier
+        bool contextExpandBarrier = false;
+        if(checkForContextBarriers && srcNode->getName().find(VITIS_CONTEXT_ABSORB_BARRIER_NAME) != std::string::npos){
+            contextExpandBarrier = true;
+
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Context Expand Barrier: " + srcNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        //Check if the src node is a state element or a enable node (input or output), or a RateChange node, or in another partition
+        bool blockedByStateOrType = srcNode->hasState() || GeneralHelper::isType<Node, EnableNode>(srcNode) != nullptr || GeneralHelper::isType<Node, RateChange>(srcNode) != nullptr;
+        bool blockedByPartitionBoundary = false;
+        if(stopAtPartitionBoundary){
+            blockedByPartitionBoundary = srcNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
+        }
+
+        if(blockedByPartitionBoundary && !blockedByStateOrType && !contextExpandBarrier){
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Partition Boundary: [" + GeneralHelper::to_string(srcNode->getPartitionNum()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getPartitionNum()) + "] " + srcNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier){
             //The src node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -75,7 +93,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 
                 std::vector<std::shared_ptr<InputPort>> inputPorts = srcNode->getInputPortsIncludingSpecial();
                 for(unsigned long i = 0; i<inputPorts.size(); i++){
-                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceBackAndMark(inputPorts[i], marks);
+                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceBackAndMark(inputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers);
 
                     //combine the sets of marked nodes
                     contextNodes.insert(moreNodesInContext.begin(), moreNodesInContext.end());
@@ -92,7 +110,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 }
 
 std::set<std::shared_ptr<Node>>
-GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks){
+GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers){
     std::set<std::shared_ptr<Node>> contextNodes;
 
     //Get the set of arcs connected to this output port
@@ -103,8 +121,26 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 
         std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
 
-        //Check if the dst node is a state element, a enable node (input or output), or RateChange node
-        if(!(dstNode->hasState()) && GeneralHelper::isType<Node, EnableNode>(dstNode) == nullptr && GeneralHelper::isType<Node, RateChange>(dstNode) == nullptr){
+        //Check for context expand barrier
+        bool contextExpandBarrier = false;
+        if(checkForContextBarriers && dstNode->getName().find(VITIS_CONTEXT_ABSORB_BARRIER_NAME) != std::string::npos){
+            contextExpandBarrier = true;
+
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Context Expand Barrier: " + dstNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        //Check if the src node is a state element or a enable node (input or output), or a RateChange node, or in another partition
+        bool blockedByStateOrType = dstNode->hasState() || GeneralHelper::isType<Node, EnableNode>(dstNode) != nullptr || GeneralHelper::isType<Node, RateChange>(dstNode) != nullptr;
+        bool blockedByPartitionBoundary = false;
+        if(stopAtPartitionBoundary){
+            blockedByPartitionBoundary = dstNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
+        }
+
+        if(blockedByPartitionBoundary && !blockedByStateOrType && !contextExpandBarrier){
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Partition Boundary: [" + GeneralHelper::to_string(dstNode->getPartitionNum()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getPartitionNum()) + "] " + dstNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier){
             //The dst node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -147,7 +183,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 
                 std::vector<std::shared_ptr<OutputPort>> outputPorts = dstNode->getOutputPorts();
                 for(unsigned long i = 0; i<outputPorts.size(); i++){
-                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceForwardAndMark(outputPorts[i], marks);
+                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceForwardAndMark(outputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers);
 
                     //combine the sets of marked nodes
                     contextNodes.insert(moreNodesInContext.begin(), moreNodesInContext.end());

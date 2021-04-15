@@ -1233,8 +1233,18 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      std::string telemDumpFilePrefix, bool telemAvg,
                                                      std::string papiHelperHeader,
                                                      PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                                                     ComputeIODoubleBufferType doubleBuffer){
+                                                     ComputeIODoubleBufferType doubleBuffer,
+                                                     bool singleClkDomain, std::pair<int, int> singleRate){
     bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
+
+    unsigned long blockSizeBase = blockSize;
+    if(singleClkDomain){
+        if((blockSize*singleRate.first) % singleRate.second != 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Partition " + GeneralHelper::to_string(partitionNum) + " has a single clock domain but the provide block size is not compatible with the given rate"));
+        }else{
+            blockSize = blockSize*singleRate.first/singleRate.second;
+        }
+    }
 
     std::string blockIndVar = "";
 
@@ -1255,16 +1265,31 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //Set the index variable in the input FIFOs
     bool fifoInPlace = false;
+    std::vector<std::vector<std::shared_ptr<ClockDomain>>> inputFIFOOrigClockDomains;
     for(int i = 0; i<inputFIFOs.size(); i++){
+        if(singleClkDomain){
+            inputFIFOOrigClockDomains.emplace_back();
+        }
+
         for(int portNum = 0; portNum<inputFIFOs[i]->getOutputPorts().size(); portNum++) {
-            //Create the index variable name based on the base
-            std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomainCreateIfNot(portNum);
-            std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-            inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVarStr);
-            if (clkDomain) {
-                fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-            } else {
+            if(singleClkDomain){
+                //With a single clock domain, set the index variable to just be the block index variable in the outer
+                //compute loop
                 fifoClockDomainRates.emplace(1, 1);
+                //All ports all have the same clock domain and size
+                inputFIFOOrigClockDomains[i].push_back(inputFIFOs[i]->getClockDomainCreateIfNot(portNum));
+                inputFIFOs[i]->setClockDomain(portNum, nullptr);
+                inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVar);
+            }else {
+                //Create the index variable name based on the base
+                std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomainCreateIfNot(portNum);
+                std::string blockIndVarStr = getClkDomainIndVarName(clkDomain,false);
+                inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVarStr);
+                if (clkDomain) {
+                    fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+                } else {
+                    fifoClockDomainRates.emplace(1, 1);
+                }
             }
         }
 
@@ -1277,15 +1302,30 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Also need to set the index variable of the output FIFOs
+    std::vector<std::vector<std::shared_ptr<ClockDomain>>> outputFIFOOrigClockDomains;
     for(int i = 0; i<outputFIFOs.size(); i++){
+        if(singleClkDomain){
+            outputFIFOOrigClockDomains.emplace_back();
+        }
+
         for(int portNum = 0; portNum<outputFIFOs[i]->getInputPorts().size(); portNum++) {
-            std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomainCreateIfNot(portNum);
-            std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-            outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVarStr);
-            if (clkDomain) {
-                fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-            } else {
+            if(singleClkDomain){
+                //With a single clock domain, set the index variable to just be the block index variable in the outer
+                //compute loop
                 fifoClockDomainRates.emplace(1, 1);
+                //All ports all have the same clock domain and size
+                outputFIFOOrigClockDomains[i].push_back(outputFIFOs[i]->getClockDomainCreateIfNot(portNum));
+                outputFIFOs[i]->setClockDomain(portNum, nullptr);
+                outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVar);
+            }else {
+                std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomainCreateIfNot(portNum);
+                std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
+                outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVarStr);
+                if (clkDomain) {
+                    fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
+                } else {
+                    fifoClockDomainRates.emplace(1, 1);
+                }
             }
         }
 
@@ -2001,7 +2041,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
 
         if(collectTelem){
-            cFile << "rxSamples += " << blockSize << ";" << std::endl;
+            cFile << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
     }else {
         if(collectTelem){
@@ -2031,7 +2071,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
             cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
             cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
-            cFile << "rxSamples += " << blockSize << ";" << std::endl;
+            cFile << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
     }
 
@@ -2218,6 +2258,16 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //Close function
     cFile << "}" << std::endl;
+
+    //Restore clock domains of FIFOs if single clock domain partition
+    if(singleClkDomain){
+        for(int i = 0; i<inputFIFOs.size(); i++){
+            inputFIFOs[i]->setClockDomains(inputFIFOOrigClockDomains[i]);
+        }
+        for(int i = 0; i<outputFIFOs.size(); i++){
+            outputFIFOs[i]->setClockDomains(outputFIFOOrigClockDomains[i]);
+        }
+    }
 
     cFile.close();
 }

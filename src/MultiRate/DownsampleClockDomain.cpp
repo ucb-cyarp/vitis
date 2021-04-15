@@ -228,88 +228,120 @@ bool DownsampleClockDomain::requiresContiguousContextEmits() {
 void DownsampleClockDomain::emitCContextOpenFirst(std::vector<std::string> &cStatementQueue,
                                                   SchedParams::SchedType schedType, int subContextNumber,
                                                   int partitionNum) {
-    //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
-    std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
-    if(contextDrivers.empty()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - No context drivers available for the given partition: " + GeneralHelper::to_string(partitionNum), getSharedPointer()));
-    }
+    //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
+    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+        //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
+        std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
+        if (contextDrivers.empty()) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - No context drivers available for the given partition: " +
+                    GeneralHelper::to_string(partitionNum), getSharedPointer()));
+        }
 
-    //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
-    std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
-    CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
-    if(enableDriverExpr.isArrayOrBuffer()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("The driver to the downsample clock domain is expected to be a scalar expression or variable", getSharedPointer()));
-    }
+        //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
+        std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
+        CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType,
+                                                                      enableDriverPort->getPortNum());
+        if (enableDriverExpr.isArrayOrBuffer()) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "The driver to the downsample clock domain is expected to be a scalar expression or variable",
+                    getSharedPointer()));
+        }
 
-    std::string cExpr;
-    //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
-    if(subContextNumber == 0) {
-        cExpr = "if(" + enableDriverExpr.getExpr() + "){";
-    }else if(subContextNumber == 1){
-        cExpr = "if(!" + enableDriverExpr.getExpr() + "){";
-    }else{
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
-    }
+        std::string cExpr;
+        //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
+        if (subContextNumber == 0) {
+            cExpr = "if(" + enableDriverExpr.getExpr() + "){";
+        } else if (subContextNumber == 1) {
+            cExpr = "if(!" + enableDriverExpr.getExpr() + "){";
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber),
+                    getSharedPointer()));
+        }
 
-    cStatementQueue.push_back(cExpr);
+        cStatementQueue.push_back(cExpr);
+    }
 }
 
 void
 DownsampleClockDomain::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                            int subContextNumber, int partitionNum) {
-    //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
-    std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
-    if(contextDrivers.empty()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - No context drivers available for the given partition: " + GeneralHelper::to_string(partitionNum), getSharedPointer()));
+    //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
+    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+        //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
+        std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
+        if (contextDrivers.empty()) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - No context drivers available for the given partition: " +
+                    GeneralHelper::to_string(partitionNum), getSharedPointer()));
+        }
+
+        //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
+        std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
+        CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType,
+                                                                      enableDriverPort->getPortNum());
+
+        if (enableDriverExpr.isArrayOrBuffer()) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "The driver to the downsample clock domain is expected to be a scalar expression or variable",
+                    getSharedPointer()));
+        }
+
+        std::string cExpr;
+        //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
+        if (subContextNumber == 0) {
+            cExpr = "else if(" + enableDriverExpr.getExpr() + "){";
+        } else if (subContextNumber == 1) {
+            cExpr = "else if(!" + enableDriverExpr.getExpr() + "){";
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber),
+                    getSharedPointer()));
+        }
+
+        cStatementQueue.push_back(cExpr);
     }
-
-    //There are probably multiple driver arcs (since they were copied for each enabled input and output.  Just grab the first one
-    std::shared_ptr<OutputPort> enableDriverPort = contextDrivers[0]->getSrcPort();
-    CExpr enableDriverExpr = enableDriverPort->getParent()->emitC(cStatementQueue, schedType, enableDriverPort->getPortNum());
-
-    if(enableDriverExpr.isArrayOrBuffer()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("The driver to the downsample clock domain is expected to be a scalar expression or variable", getSharedPointer()));
-    }
-
-    std::string cExpr;
-    //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
-    if(subContextNumber == 0) {
-        cExpr = "else if(" + enableDriverExpr.getExpr() + "){";
-    }else if(subContextNumber == 1){
-        cExpr = "else if(!" + enableDriverExpr.getExpr() + "){";
-    }else{
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
-    }
-
-    cStatementQueue.push_back(cExpr);
 }
 
 void
 DownsampleClockDomain::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                             int subContextNumber, int partitionNum) {
-    //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
-    std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
-    if(contextDrivers.empty()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - No context drivers available for the given partition: " + GeneralHelper::to_string(partitionNum), getSharedPointer()));
-    }
+    //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
+    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+        //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
+        std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
+        if (contextDrivers.empty()) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - No context drivers available for the given partition: " +
+                    GeneralHelper::to_string(partitionNum), getSharedPointer()));
+        }
 
-    std::string cExpr = "else{";
-    //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
-    if(subContextNumber != 0 && subContextNumber != 1) {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
-    }
+        std::string cExpr = "else{";
+        //There are actually 2 contexts for DownsampleClockDomain, 0 which is the actual clock domain, and 1 which includes StateUpdate nodes for UpsampleOutput
+        if (subContextNumber != 0 && subContextNumber != 1) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "C Emit Error - Unexpected sub-context number: " + GeneralHelper::to_string(subContextNumber),
+                    getSharedPointer()));
+        }
 
-    cStatementQueue.push_back(cExpr);
+        cStatementQueue.push_back(cExpr);
+    }
 }
 
 void DownsampleClockDomain::emitCContextCloseFirst(std::vector<std::string> &cStatementQueue,
                                                    SchedParams::SchedType schedType, int subContextNumber,
                                                    int partitionNum) {
-    if(subContextNumber != 0 && subContextNumber != 1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to cluse unexpected context " + GeneralHelper::to_string(subContextNumber), getSharedPointer()));
-    }
+    //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
+    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+        if (subContextNumber != 0 && subContextNumber != 1) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Tried to cluse unexpected context " + GeneralHelper::to_string(subContextNumber),
+                    getSharedPointer()));
+        }
 
-    cStatementQueue.push_back("}");
+        cStatementQueue.push_back("}");
+    }
 }
 
 void
@@ -322,4 +354,12 @@ void DownsampleClockDomain::emitCContextCloseLast(std::vector<std::string> &cSta
                                                   SchedParams::SchedType schedType, int subContextNumber,
                                                   int partitionNum) {
     DownsampleClockDomain::emitCContextCloseFirst(cStatementQueue, schedType, subContextNumber, partitionNum);
+}
+
+bool DownsampleClockDomain::allowFIFOAbsorption() {
+    return true;
+}
+
+void DownsampleClockDomain::setClockDomainDriver(std::shared_ptr<Arc> newDriver) {
+    contextDriver = newDriver;
 }

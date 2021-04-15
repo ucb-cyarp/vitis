@@ -82,6 +82,8 @@ public:
                             std::vector<std::shared_ptr<Arc>> &arcToRemove,
                             bool includeContext, bool includeOutputBridgeNodes) override;
 
+    void setClockDomainDriver(std::shared_ptr<Arc> newDriver) override;
+
     //==== Implement Context Root Functions ====
     int getNumSubContexts() const override;
 
@@ -101,6 +103,8 @@ public:
     void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
 
     bool shouldReplicateContextDriver() override;
+
+    bool allowFIFOAbsorption() override;
 
     //Also need to modify GraphAlgs::topologicalSortDestructive to handle this type of ContextRoot
 };

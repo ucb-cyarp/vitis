@@ -198,7 +198,7 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         DataType indexDT = getInputPort(1)->getDataType();
 
         //For loop if index is a vector
-        outputIsScalar = !indexDT.isScalar();
+        outputIsScalar = indexDT.isScalar();
         std::vector<std::string> forLoopIndexVars;
         std::vector<std::string> forLoopClose;
         if(!indexDT.isScalar()){
