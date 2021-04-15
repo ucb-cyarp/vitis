@@ -223,6 +223,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("partition_crossing_init_state_count_blocks", "int", false));
     parameters.insert(GraphMLParameter("partition_crossing_bytes_per_sample", "int", false));
     parameters.insert(GraphMLParameter("partition_crossing_bytes_per_block", "int", false));
+    parameters.insert(GraphMLParameter("partition_crossing_bytes_per_base_rate_sample", "double", false));
 
     std::set<GraphMLParameter> inputParameters = inputMaster->graphMLParameters();
     parameters.insert(inputParameters.begin(), inputParameters.end());

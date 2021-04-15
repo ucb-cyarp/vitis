@@ -20,6 +20,7 @@ private:
     int initStateCountBlocks;
     int bytesPerSample;
     int bytesPerBlock;
+    double bytesPerBaseRateSample; ///<Bytes per sample adjusted for the clock domain of the
 
     //==== Constructors ====
     /**
@@ -53,6 +54,10 @@ public:
     int getBytesPerBlock() const;
 
     void setBytesPerBlock(int bytesPerBlock);
+
+    double getBytesPerBaseRateSample() const;
+
+    void setBytesPerBaseRateSample(double bytesPerBaseRateSample);
 
     /**
      * @brief Factory function to create a new blank PartitionCrossing.
