@@ -529,7 +529,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOSupportFile(std::string path, std
 
         headerContents +=
                 "static inline void* fast_copy_unaligned_ramp_in(void* restrict dst, void* restrict src, size_t elementSize, size_t numElements){\n"
-                "    size_t bytesToCopy = elementSize*numElements;\n"
+                "    size_t totalBytesToCopy = elementSize*numElements;\n"
                 "    \n"
                 "    #ifdef __AVX__\n"
                 "        size_t bytesPerBlock = 32; //256-bit Wide Vector, 32 Bytes\n"
@@ -539,8 +539,8 @@ std::string MultiThreadEmitterHelpers::emitFIFOSupportFile(std::string path, std
                 "        size_t bytesPerBlock = 8;  //64-bit Wide Vector, 8 Bytes\n"
                 "    #endif\n"
                 "\n"
-                "    size_t blocksToCopy = bytesToCopy/bytesPerBlock;\n"
-                "    size_t bytesToCopy = bytesToCopy%bytesPerBlock;\n"
+                "    size_t blocksToCopy = totalBytesToCopy/bytesPerBlock;\n"
+                "    size_t bytesToCopy = totalBytesToCopy%bytesPerBlock;\n"
                 "\n"
                 "    char* restrict srcByte = ((char* restrict) src);\n"
                 "    char* restrict dstByte = ((char* restrict) dst);\n"
