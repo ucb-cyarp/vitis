@@ -30,8 +30,10 @@ public:
     static std::string threadCrossingFIFOTypeToString(ThreadCrossingFIFOType threadCrossingFifoType);
 
     enum class CopyMode{
-        ASSIGN,
-        FAST_COPY_UNALIGNED
+        ASSIGN, ///< Uses a standard assign
+        MEMCPY, ///< Uses the standard call to memcpy
+        CLANG_MEMCPY_INLINED, ///< Uses the clang intrinsic to guarentee memcpy is inlined https://clang.llvm.org/docs/LanguageExtensions.html#guaranteed-inlined-copy
+        FAST_COPY_UNALIGNED ///<Uses a function relying on vector intrinsics to perform the copy.  May be replaced by the compiler with a call to memcpy
     };
 
 

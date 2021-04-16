@@ -133,9 +133,9 @@ int ThreadCrossingFIFO::getBlockSizeCreateIfNot(int portNum){
     return blockSizes[portNum];
 }
 
-ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){}
+ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){}
 
-ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){}
+ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){}
 
 ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent, ThreadCrossingFIFO *orig) : Node(parent, orig),
                                        fifoLength(orig->fifoLength), initConditions(orig->initConditions),

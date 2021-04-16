@@ -358,8 +358,18 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
         cStatementQueue.push_back("//Write into array");
         if(copyMode==ThreadCrossingFIFOParameters::CopyMode::ASSIGN) {
             cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks + "] = " + srcName + ";");
-        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){
-            cStatementQueue.push_back("fast_copy_unaligned_ramp_in(" + arrayName + "+" + localWriteOffsetBlocks + ", &" + srcName + ", sizeof(" + getFIFOStructTypeName() + ")" + ", 1);");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED) {
+            cStatementQueue.push_back(
+                    "fast_copy_unaligned_ramp_in(" + arrayName + "+" + localWriteOffsetBlocks + ", &" + srcName +
+                    ", sizeof(" + getFIFOStructTypeName() + ")" + ", 1);");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::MEMCPY) {
+            cStatementQueue.push_back(
+                    "memcpy(" + arrayName + "+" + localWriteOffsetBlocks + ", &" + srcName +
+                    ", sizeof(" + getFIFOStructTypeName() + "));");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){
+            cStatementQueue.push_back(
+                    "__builtin_memcpy_inline(" + arrayName + "+" + localWriteOffsetBlocks + ", &" + srcName +
+                    ", sizeof(" + getFIFOStructTypeName() + "));");
         }else{
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
         }
@@ -453,8 +463,18 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         cStatementQueue.push_back("//Read from array");
         if(copyMode==ThreadCrossingFIFOParameters::CopyMode::ASSIGN) {
             cStatementQueue.push_back(dstName + " = " + arrayName + "[" + localReadOffsetBlocks + "];");
-        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){
-            cStatementQueue.push_back("fast_copy_unaligned_ramp_in(&" + dstName + ", " + arrayName + "+" + localReadOffsetBlocks + ", sizeof(" + getFIFOStructTypeName() + ")" + ", 1);");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED) {
+            cStatementQueue.push_back(
+                    "fast_copy_unaligned_ramp_in(&" + dstName + ", " + arrayName + "+" + localReadOffsetBlocks +
+                    ", sizeof(" + getFIFOStructTypeName() + ")" + ", 1);");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::MEMCPY) {
+            cStatementQueue.push_back(
+                    "memcpy(&" + dstName + ", " + arrayName + "+" + localReadOffsetBlocks +
+                    ", sizeof(" + getFIFOStructTypeName() + "));");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){
+            cStatementQueue.push_back(
+                    "__builtin_memcpy_inline(&" + dstName + ", " + arrayName + "+" + localReadOffsetBlocks +
+                    ", sizeof(" + getFIFOStructTypeName() + "));");
         }else{
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
         }
