@@ -3796,6 +3796,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Emit FIFO header (get struct descriptions from FIFOs)
     std::string fifoHeaderName = MultiThreadEmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);
 
+    //Emit FIFO Support File
+    std::set<ThreadCrossingFIFOParameters::CopyMode> copyModesUsed = MultiThreadEmitterHelpers::findFIFOCopyModesUsed(fifoVec);
+    std::string fifoSupportHeaderName = MultiThreadEmitterHelpers::emitFIFOSupportFile(path, fileName, copyModesUsed);
+
+    //Emit other support files
     MultiThreadEmitterHelpers::writePlatformParameters(path, VITIS_PLATFORM_PARAMS_NAME, memAlignment);
     MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(path, VITIS_NUMA_ALLOC_HELPERS);
 
@@ -3824,6 +3829,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
             MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
+                                                            fifoSupportHeaderName,
                                                             threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile,
                                                             fifoIndexCachingBehavior, fifoDoubleBuffer, singleClockDomain, rate);
         }
@@ -3872,11 +3878,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::vector<Variable> inputVars = inputVarRatePair.first;
 
     //++++Emit Const I/O Driver++++
-    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint, fifoIndexCachingBehavior);
+    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, fifoSupportHeaderName, threadDebugPrint, fifoIndexCachingBehavior);
     std::string constIOSuffix = "io_const";
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, constIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, constIOSuffix, inputVars);
@@ -3895,17 +3901,17 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::string pipeIOSuffix = "io_linux_pipe";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
-                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint, printTelem,
+                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, fifoSupportHeaderName, 0, threadDebugPrint, printTelem,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, pipeIOSuffix, inputVars);
 
     //Emit the client handlers
-    StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
+    StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, fifoSupportHeaderName, designName);
 
     //Emit the benchmark makefile
     MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(path, fileName, designName, partitionSet,
@@ -3917,11 +3923,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
-                                        fifoHeaderName, 0, threadDebugPrint, printTelem,
+                                        fifoHeaderName, fifoSupportHeaderName, 0, threadDebugPrint, printTelem,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, socketIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, socketIOSuffix, inputVars);
@@ -3937,11 +3943,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
-                                        fifoHeaderName, ioFifoSize, threadDebugPrint, printTelem,
+                                        fifoHeaderName, fifoSupportHeaderName, ioFifoSize, threadDebugPrint, printTelem,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);

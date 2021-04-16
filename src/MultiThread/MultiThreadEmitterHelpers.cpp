@@ -518,6 +518,107 @@ std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, st
     return fileName+".h";
 }
 
+std::string MultiThreadEmitterHelpers::emitFIFOSupportFile(std::string path, std::string fileNamePrefix, std::set<ThreadCrossingFIFOParameters::CopyMode> copyModes) {
+    bool shouldEmit = false;
+
+    //Get the required header and body support from the FIFOs
+    std::string headerContents;
+
+    if(copyModes.find(ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED) != copyModes.end()) {
+        shouldEmit = true;
+
+        headerContents +=
+                "static inline void* fast_copy_unaligned_ramp_in(void* restrict dst, void* restrict src, size_t elementSize, size_t numElements){\n"
+                "    size_t bytesToCopy = elementSize*numElements;\n"
+                "    \n"
+                "    #ifdef __AVX__\n"
+                "        size_t bytesPerBlock = 32; //256-bit Wide Vector, 32 Bytes\n"
+                "    #elif defined (__SSE2__)\n"
+                "        size_t bytesPerBlock = 16; //128-bit Wide Vector, 16 Bytes\n"
+                "    #else\n"
+                "        size_t bytesPerBlock = 8;  //64-bit Wide Vector, 8 Bytes\n"
+                "    #endif\n"
+                "\n"
+                "    size_t blocksToCopy = bytesToCopy/bytesPerBlock;\n"
+                "    size_t bytesToCopy = bytesToCopy%bytesPerBlock;\n"
+                "\n"
+                "    char* restrict srcByte = ((char* restrict) src);\n"
+                "    char* restrict dstByte = ((char* restrict) dst);\n"
+                "\n"
+                "    //Copy RemainingBytes\n"
+                "    for(size_t i = 0; i<bytesToCopy; i++){\n"
+                "        dstByte[i] = srcByte[i];\n"
+                "    }\n"
+                "\n"
+                "    char* restrict srcBlock = src+bytesToCopy;\n"
+                "    char* restrict dstBlock = dst+bytesToCopy;\n"
+                "\n"
+                "    //Copy Large Blocks\n"
+                "    for(size_t i = 0; i<blocksToCopy; i++){\n"
+                "        char* restrict srcCursor = srcBlock+i*bytesPerBlock;\n"
+                "        char* restrict dstCursor = dstBlock+i*bytesPerBlock;\n"
+                "        #ifdef __AVX__\n"
+                "            #ifdef FAST_COPY_USE_DOUBLE_LOAD_STORE\n"
+                "                __m256d tmp = _mm256_loadu_pd((double*) srcCursor);\n"
+                "                _mm256_storeu_pd((double*) dstCursor, tmp);\n"
+                "            #else\n"
+                "                __m256i tmp = _mm256_loadu_si256((__m256i*) srcCursor);\n"
+                "                _mm256_storeu_si256((__m256i*) dstCursor, tmp);\n"
+                "            #endif\n"
+                "            \n"
+                "        #elif defined (__SSE2__)\n"
+                "            #ifdef FAST_COPY_USE_DOUBLE_LOAD_STORE\n"
+                "                __128d tmp = _mm128_loadu_pd((double*) srcCursor);\n"
+                "                _mm_storeu_pd((double*) dstCursor, tmp);\n"
+                "            #else\n"
+                "                __128i tmp = _mm128_loadu_si128((__m128i*) srcCursor);\n"
+                "                _mm_storeu_si128((__m128i*) dstCursor, tmp);\n"
+                "            #endif\n"
+                "        #else\n"
+                "            *((int64_t*) dstCursor) = *((int64_t*) srcCursor);\n"
+                "        #endif\n"
+                "    }\n"
+                "\n"
+                "    return dst;\n"
+                "}\n";
+    }
+
+    if(shouldEmit) {
+        std::string fileName = fileNamePrefix + "_fifoSupport";
+        std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
+        //#### Emit .h file ####
+        std::ofstream headerFile;
+        headerFile.open(path + "/" + fileName + ".h", std::ofstream::out | std::ofstream::trunc);
+
+        std::string fileNameUpper = GeneralHelper::toUpper(fileName);
+        headerFile << "#ifndef " << fileNameUpper << "_H" << std::endl;
+        headerFile << "#define " << fileNameUpper << "_H" << std::endl;
+        headerFile << "#include <stdint.h>" << std::endl;
+        headerFile << "#include <stdbool.h>" << std::endl;
+        headerFile << "#include <immintrin.h>" << std::endl;
+        headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
+
+        headerFile << headerContents << std::endl;
+
+        headerFile << "#endif" << std::endl;
+        headerFile.close();
+
+        return fileName + ".h";
+    }else{
+        //Return nothing if no header file was emitted
+        return "";
+    }
+}
+
+std::set<ThreadCrossingFIFOParameters::CopyMode> MultiThreadEmitterHelpers::findFIFOCopyModesUsed(std::vector<std::shared_ptr<ThreadCrossingFIFO>> &fifos){
+    std::set<ThreadCrossingFIFOParameters::CopyMode> copyModes;
+    for(const auto &fifo : fifos){
+        copyModes.insert(fifo->getCopyMode());
+    }
+
+    return copyModes;
+}
+
 int MultiThreadEmitterHelpers::getCore(int parititon, const std::vector<int> &partitionMap, bool print){
     int core = 0;
     if(partitionMap.empty()) {
@@ -550,7 +651,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
                                                                  std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
-                                                                 std::string ioBenchmarkSuffix, std::vector<int> partitionMap,
+                                                                 std::string fifoSupportFile, std::string ioBenchmarkSuffix, std::vector<int> partitionMap,
                                                                  std::string papiHelperHeader, bool useSCHEDFIFO){
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
@@ -569,6 +670,9 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     headerFile << "#include <errno.h>" << std::endl;
     headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
+    if(!fifoSupportFile.empty()){
+        headerFile << "#include \"" << fifoSupportFile << "\"" << std::endl;
+    }
     headerFile << std::endl;
 
     //Output the function prototype for the I/O thread function
@@ -1229,7 +1333,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      std::string designName, SchedParams::SchedType schedType,
                                                      std::shared_ptr<MasterOutput> outputMaster,
                                                      unsigned long blockSize, std::string fifoHeaderFile,
-                                                     bool threadDebugPrint, bool printTelem,
+                                                     std::string fifoSupportFile, bool threadDebugPrint, bool printTelem,
                                                      std::string telemDumpFilePrefix, bool telemAvg,
                                                      std::string papiHelperHeader,
                                                      PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
@@ -1366,6 +1470,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     includesHFile.insert("#include <pthread.h>");
     includesHFile.insert("#include \"" + std::string(VITIS_TYPE_NAME) + ".h\"");
     includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
+    if(!fifoSupportFile.empty()) {
+        includesHFile.insert("#include \"" + fifoSupportFile + "\"");
+    }
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<nodesToEmit.size(); i++){
@@ -1383,7 +1490,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Need to emit blackbox headers first in case a blackbox type is referred to in the state structure
     //Insert BlackBox Headers
     std::vector<std::shared_ptr<BlackBox>> blackBoxes = EmitterHelpers::findBlackBoxes(nodesToEmit);
-    if(blackBoxes.size() > 0) {
+    if(!blackBoxes.empty()) {
         headerFile << "//==== BlackBox Headers ====" << std::endl;
 
         for(unsigned long i = 0; i<blackBoxes.size(); i++){

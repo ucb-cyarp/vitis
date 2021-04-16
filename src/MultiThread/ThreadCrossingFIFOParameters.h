@@ -28,6 +28,13 @@ public:
     static ThreadCrossingFIFOType parseThreadCrossingFIFOType(std::string str);
 
     static std::string threadCrossingFIFOTypeToString(ThreadCrossingFIFOType threadCrossingFifoType);
+
+    enum class CopyMode{
+        ASSIGN,
+        FAST_COPY_UNALIGNED
+    };
+
+
 };
 
 /*! @} */

@@ -11,6 +11,7 @@
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
 #include "PartitionParams.h"
+#include "ThreadCrossingFIFOParameters.h"
 #include <set>
 #include <map>
 #include <vector>
@@ -163,6 +164,22 @@ namespace MultiThreadEmitterHelpers {
     std::string emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos);
 
     /**
+     * @brief Emits a FIFO support files for fast read/write if applicable
+     * @param path
+     * @param filenamePrefix
+     * @param copyModes a set of copy modes used by FIFOs in the design
+     * @returns the filename of the header file
+     */
+    std::string emitFIFOSupportFile(std::string path, std::string fileNamePrefix, std::set<ThreadCrossingFIFOParameters::CopyMode> copyModes);
+
+    /**
+     * @brief Find the copy modes used by a set of FIFOs
+     * @param fifos
+     * @return
+     */
+    std::set<ThreadCrossingFIFOParameters::CopyMode> findFIFOCopyModesUsed(std::vector<std::shared_ptr<ThreadCrossingFIFO>> &fifos);
+
+    /**
      * @brief Get the core number for the specified partition number
      *
      * If a partition map is not provided (ie. is empty), -1 is returned
@@ -182,7 +199,8 @@ namespace MultiThreadEmitterHelpers {
                                           std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
                                           std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap,
                                           std::set<int> partitions, std::string path, std::string fileNamePrefix,
-                                          std::string designName, std::string fifoHeaderFile, std::string ioBenchmarkSuffix,
+                                          std::string designName, std::string fifoHeaderFile,
+                                          std::string fifoSupportFile, std::string ioBenchmarkSuffix,
                                           std::vector<int> partitionMap, std::string papiHelperHeader,
                                           bool useSCHED_FIFO);
 
@@ -273,6 +291,7 @@ namespace MultiThreadEmitterHelpers {
      * @param outputMaster a pointer to the output master of the design being emitted
      * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function.  This is the size for the base rate.
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
+     * @param fifoSupportFile the filename of the FIFO support file
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
      * @param printTelem if true, prints telemetry on the thread's execution
      * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
@@ -286,7 +305,7 @@ namespace MultiThreadEmitterHelpers {
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path,
                               std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
                               std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
-                              std::string fifoHeaderFile, bool threadDebugPrint, bool printTelem,
+                              std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint, bool printTelem,
                               std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
                               PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                               ComputeIODoubleBufferType doubleBuffer,

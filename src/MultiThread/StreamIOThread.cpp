@@ -17,6 +17,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
                                          std::string path, std::string fileNamePrefix, std::string designName,
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
+                                         std::string fifoSupportFile,
                                          int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
                                          bool threadDebugPrint, bool printTelem,
                                          PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
@@ -77,6 +78,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     includesHFile.insert("#include \"" + GeneralHelper::to_string(VITIS_TYPE_NAME) + ".h\"");
     includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
+    if(!fifoSupportFile.empty()){
+        includesHFile.insert("#include \"" + fifoSupportFile + "\"");
+    }
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<inputFIFOs.size(); i++){
@@ -1368,7 +1372,7 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
     }
 }
 
-void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName) {
+void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string fifoSupportFile, std::string designName) {
     std::string serverFilenamePostfix = "io_network_socket";
     std::string serverFileName = fileNamePrefix + "_" + serverFilenamePostfix;
 
@@ -1391,6 +1395,9 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
     headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << serverFileName << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
+    if(!fifoSupportFile.empty()){
+        headerFile << "#include \"" << fifoSupportFile << "\"" << std::endl;
+    }
     headerFile << std::endl;
 
     std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> masterInputVarRatePairs = EmitterHelpers::getCInputVariables(inputMaster);

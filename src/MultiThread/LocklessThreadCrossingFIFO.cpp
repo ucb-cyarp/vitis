@@ -356,7 +356,13 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
             cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + getCWriteOffsetCached().getCVarName(false) + ";"); //Elements and blocks are the same
         }
         cStatementQueue.push_back("//Write into array");
-        cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks + "] = " + srcName + ";");
+        if(copyMode==ThreadCrossingFIFOParameters::CopyMode::ASSIGN) {
+            cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks + "] = " + srcName + ";");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){
+            cStatementQueue.push_back("fast_copy_unaligned_ramp_in(" + arrayName + "+" + localWriteOffsetBlocks + ", &" + srcName + ", sizeof(" + getFIFOStructTypeName() + ")" + ", 1);");
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
+        }
         cStatementQueue.push_back("if (" + localWriteOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {"); //Elements and blocks are the same
         cStatementQueue.push_back(localWriteOffsetBlocks + " = 0;");
         cStatementQueue.push_back("} else {");
@@ -381,15 +387,23 @@ LocklessThreadCrossingFIFO::emitCWriteToFIFO(std::vector<std::string> &cStatemen
             cStatementQueue.push_back("int " + localWriteOffsetBlocks + " = " + getCWriteOffsetCached().getCVarName(false) + ";"); //Elements and blocks are the same
         }
         cStatementQueue.push_back("//Write into array");
-        cStatementQueue.push_back("for (int32_t i = 0; i < " + GeneralHelper::to_string(numBlocks) + "; i++){");
-        cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks +"] = " + srcName + "[i];");
-        //Handle the mod with a branch as it should be cheaper
-        cStatementQueue.push_back("if (" + localWriteOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {");
-        cStatementQueue.push_back(localWriteOffsetBlocks + " = 0;");
-        cStatementQueue.push_back("} else {");
-        cStatementQueue.push_back(localWriteOffsetBlocks + "++;");
-        cStatementQueue.push_back("}");
-        cStatementQueue.push_back("}");
+        if(copyMode==ThreadCrossingFIFOParameters::CopyMode::ASSIGN) {
+            cStatementQueue.push_back("for (int32_t i = 0; i < " + GeneralHelper::to_string(numBlocks) + "; i++){");
+            cStatementQueue.push_back(arrayName + "[" + localWriteOffsetBlocks +"] = " + srcName + "[i];");
+            //Handle the mod with a branch as it should be cheaper
+            cStatementQueue.push_back("if (" + localWriteOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {");
+            cStatementQueue.push_back(localWriteOffsetBlocks + " = 0;");
+            cStatementQueue.push_back("} else {");
+            cStatementQueue.push_back(localWriteOffsetBlocks + "++;");
+            cStatementQueue.push_back("}");
+            cStatementQueue.push_back("}");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){
+            //TODO: Implement
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Unaligned Fast Copy Not yet implemented for >1 block", getSharedPointer()));
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
+        }
+
         cStatementQueue.push_back("");
         cStatementQueue.push_back(getCWriteOffsetCached().getCVarName(false) + " = " + localWriteOffsetBlocks + ";");
         if(pushStateAfter) {
@@ -437,7 +451,13 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
         cStatementQueue.push_back("}");
         cStatementQueue.push_back("");
         cStatementQueue.push_back("//Read from array");
-        cStatementQueue.push_back(dstName + " = " + arrayName + "[" + localReadOffsetBlocks + "];");
+        if(copyMode==ThreadCrossingFIFOParameters::CopyMode::ASSIGN) {
+            cStatementQueue.push_back(dstName + " = " + arrayName + "[" + localReadOffsetBlocks + "];");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){
+            cStatementQueue.push_back("fast_copy_unaligned_ramp_in(&" + dstName + ", " + arrayName + "+" + localReadOffsetBlocks + ", sizeof(" + getFIFOStructTypeName() + ")" + ", 1);");
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
+        }
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = " + localReadOffsetBlocks + ";");
         if(pushStateAfter) {
             cStatementQueue.push_back("//Update Read Ptr");
@@ -457,16 +477,24 @@ LocklessThreadCrossingFIFO::emitCReadFromFIFO(std::vector<std::string> &cStateme
             cStatementQueue.push_back("int " + localReadOffsetBlocks + " = " + getCReadOffsetCached().getCVarName(false) + ";"); //Elements and blocks are the same
         }
         cStatementQueue.push_back("//Read from array");
-        cStatementQueue.push_back("for (int32_t i = 0; i < " + GeneralHelper::to_string(numBlocks) + "; i++){");
-        //Read pointer is at the position of the last read value. Needs to be incremented before read
-        //Handle the mod with a branch as it should be cheaper
-        cStatementQueue.push_back("if (" + localReadOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {");
-        cStatementQueue.push_back(localReadOffsetBlocks + " = 0;");
-        cStatementQueue.push_back("} else {");
-        cStatementQueue.push_back(localReadOffsetBlocks + "++;");
-        cStatementQueue.push_back("}");
-        cStatementQueue.push_back(dstName + "[i] = " + arrayName + "[" + localReadOffsetBlocks + "];");
-        cStatementQueue.push_back("}");
+        if(copyMode==ThreadCrossingFIFOParameters::CopyMode::ASSIGN) {
+            cStatementQueue.push_back("for (int32_t i = 0; i < " + GeneralHelper::to_string(numBlocks) + "; i++){");
+            //Read pointer is at the position of the last read value. Needs to be incremented before read
+            //Handle the mod with a branch as it should be cheaper
+            cStatementQueue.push_back("if (" + localReadOffsetBlocks + " >= " + GeneralHelper::to_string(arrayLengthBlocks - 1) + ") {");
+            cStatementQueue.push_back(localReadOffsetBlocks + " = 0;");
+            cStatementQueue.push_back("} else {");
+            cStatementQueue.push_back(localReadOffsetBlocks + "++;");
+            cStatementQueue.push_back("}");
+            cStatementQueue.push_back(dstName + "[i] = " + arrayName + "[" + localReadOffsetBlocks + "];");
+            cStatementQueue.push_back("}");
+        }else if(copyMode==ThreadCrossingFIFOParameters::CopyMode::FAST_COPY_UNALIGNED){
+            //TODO: Implement
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Unaligned Fast Copy Not yet implemented for >1 block", getSharedPointer()));
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
+        }
+
         cStatementQueue.push_back("");
         cStatementQueue.push_back(getCReadOffsetCached().getCVarName(false) + " = " + localReadOffsetBlocks + ";");
         if(pushStateAfter) {
