@@ -78,9 +78,6 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     includesHFile.insert("#include \"" + GeneralHelper::to_string(VITIS_TYPE_NAME) + ".h\"");
     includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
-    if(!fifoSupportFile.empty()){
-        includesHFile.insert("#include \"" + fifoSupportFile + "\"");
-    }
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<inputFIFOs.size(); i++){
@@ -211,6 +208,10 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     if(printTelem){
         includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h\"");
+    }
+
+    if(!fifoSupportFile.empty()){
+        includesCFile.insert("#include \"" + fifoSupportFile + "\"");
     }
 
     //Include any external include statements required by nodes in the design
@@ -1372,7 +1373,7 @@ void StreamIOThread::copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Va
     }
 }
 
-void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string fifoSupportFile, std::string designName) {
+void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName) {
     std::string serverFilenamePostfix = "io_network_socket";
     std::string serverFileName = fileNamePrefix + "_" + serverFilenamePostfix;
 
@@ -1395,9 +1396,6 @@ void StreamIOThread::emitSocketClientLib(std::shared_ptr<MasterInput> inputMaste
     headerFile << "#include \"" << VITIS_TYPE_NAME << ".h\"" << std::endl;
     headerFile << "#include \"" << serverFileName << ".h\"" << std::endl;
     headerFile << "#include \"" << fifoHeaderFile << "\"" << std::endl;
-    if(!fifoSupportFile.empty()){
-        headerFile << "#include \"" << fifoSupportFile << "\"" << std::endl;
-    }
     headerFile << std::endl;
 
     std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> masterInputVarRatePairs = EmitterHelpers::getCInputVariables(inputMaster);

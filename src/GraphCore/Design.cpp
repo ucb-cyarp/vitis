@@ -3911,7 +3911,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, pipeIOSuffix, inputVars);
 
     //Emit the client handlers
-    StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, fifoSupportHeaderName, designName);
+    StreamIOThread::emitSocketClientLib(inputMaster, outputMaster, path, fileName, fifoHeaderName, designName);
 
     //Emit the benchmark makefile
     MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(path, fileName, designName, partitionSet,

@@ -57,7 +57,7 @@ namespace StreamIOThread {
      */
     void emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile, std::string fifoSupportFile, int32_t ioFifoSize, bool threadDebugPrint, bool printTelem, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior, std::string streamNameSuffix);
 
-    void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string fifoSupportFile, std::string designName);
+    void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
 
     void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
                                 std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
