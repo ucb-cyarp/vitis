@@ -1131,7 +1131,7 @@ std::vector<NumericValue> Delay::getExportableInitCondsHelper() {
             initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin()+elements, initCondsAfterCircularCorrection.end());
         }else{
             //remove from the end
-            int initCondLen = initCondsAfterCircularCorrection.size();
+            int initCondLen = initCondsAfterCircularCorrection.size()-1;
             initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin(), initCondsAfterCircularCorrection.begin()+initCondLen);
         }
     }else{
