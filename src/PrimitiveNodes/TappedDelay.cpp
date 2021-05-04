@@ -185,48 +185,50 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
 
             CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
-            std::string insertPosition;
-            if(earliestFirst){
-                //The extra space is at offset
-                insertPosition = circularBufferOffsetVar.getCVarName(false);
-            }else{
-                //The extra space is at offset+delay
-                insertPosition = "(" + circularBufferOffsetVar.getCVarName(false) +
-                                 "+" + GeneralHelper::to_string(delayValue) + ")%" +
-                                 GeneralHelper::to_string(getBufferLength());
-            }
+            //For both the earliest first and oldest first versions of tapped delay, the circular buffer is the location to write into
+            std::string insertPosition = circularBufferOffsetVar.getCVarName(false);
 
             //The function should handle the case where where circular buffers with extra elements are in use
             assignInputToBuffer(inputExpr, insertPosition, imag, cStatementQueue);
         }
 
         //Return the variable
+        int fifoLen = delayValue;
+        if(allocateExtraSpace){
+            fifoLen++;
+        }
+
         if(circularBufferType == CircularBufferType::NO_EXTRA_LEN) {
-            return CExpr(cStateVar.getCVarName(imag), getBufferLength(), circularBufferOffsetVar.getCVarName(false));
+            if(earliestFirst) {
+                //The most recent value is at the circular buffer cursor position and that is what should be presented first
+                return CExpr(cStateVar.getCVarName(imag), getBufferLength(),
+                             circularBufferOffsetVar.getCVarName(false));
+            }else{
+                //The most revent value is in the circular buffer cursor position.  However, we want to present the oldest value first
+                //Even though this says there is no extra length allocated, the allocated size can be rounded up to a power of 2.
+                //We want to return the current cursor position - (fifo len -1).  However, we want to avoid wraparound.
+                //Note: 0%3=0, (2^8-1)%3 = 255%3 = 0.  So, unless the mod is by a power of 2, we cannot simply live with the wrap
+                //We, however, can add the buffer length again.
+
+                //Get an unsigned type that can work with 2x the max index
+                int numBitsReq = GeneralHelper::numIntegerBits(getBufferLength()*2-1, false);
+                DataType offsetDt = circularBufferOffsetVar.getDataType();
+                offsetDt.setTotalBits(numBitsReq);
+                offsetDt = offsetDt.getCPUStorageType();
+
+                return CExpr(cStateVar.getCVarName(imag), getBufferLength(),
+                             "((" + offsetDt.toString(DataType::StringStyle::C, false, false) + ")"
+                             + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(getBufferLength()-(fifoLen-1)) +
+                             ")");
+            };
         }else{
             if(earliestFirst){
                 //The returned array is simply the allocated array starting at the current offset of the circular buffer
                 return CExpr("(" + cStateVar.getCVarName(imag) + "+" + circularBufferOffsetVar.getCVarName(false) + ")", CExpr::ExprType::ARRAY);
             }else{
-                int fifoLen = delayValue;
-                if(allocateExtraSpace){
-                    fifoLen++;
-                }
-
-                //The start of the primary buffer region since the extra elements are added at the front of the array
-                int bufferStart;
-                if(circularBufferType == CircularBufferType::DOUBLE_LEN){
-                    bufferStart = getBufferLength();
-                }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
-                    bufferStart = fifoLen-1;
-                }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown CircularBufferType", getSharedPointer()));
-                }
-
-                return CExpr("(" + cStateVar.getCVarName(imag) + "+" + GeneralHelper::to_string(bufferStart) +
-                                         "+((" + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(fifoLen-1) + ")" + "%" + GeneralHelper::to_string(getBufferLength()) + ")"
-                                         + "-" + GeneralHelper::to_string(fifoLen-1)
-                                         + ")", CExpr::ExprType::ARRAY);
+                return CExpr("(" + cStateVar.getCVarName(imag) + "+" +
+                                        circularBufferOffsetVar.getCVarName(false) + "-" +
+                                        GeneralHelper::to_string(fifoLen-1) + ")", CExpr::ExprType::ARRAY);
             }
         }
     }else {
@@ -299,6 +301,68 @@ void TappedDelay::propagateProperties() {
     propagatePropertiesHelper();
 }
 
-//TODO: Update delay state update to avoid making an extra copy of the input when an extra space is allocated and
-//      the current value is inserted in the extra space.  Allows the shift logic to be used for the entire update
-//      with no special casing of the input into the delay
+void TappedDelay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
+                                   std::shared_ptr<StateUpdate> stateUpdateSrc) {
+
+    if(usesCircularBuffer() && !earliestFirst){
+        if(requiresStandaloneCExprNextState()) { //Includes check for allocateExtraSpace
+            assignInputToBuffer(circularBufferOffsetVar.getCVarName(false), cStatementQueue);
+        }else{
+            cStatementQueue.push_back("//Explicit next state assignment for " + getFullyQualifiedName() +
+                                      " [ID: " + GeneralHelper::to_string(id) + ", Type:" + typeNameStr() +
+                                      "] is not needed because a combinational path exists through the node and the input has already been captured in the Delay buffer");
+        }
+        incrementAndWrapCircularBufferOffset(cStatementQueue);
+    }else{
+        Delay::emitCStateUpdate(cStatementQueue, schedType, stateUpdateSrc);
+    }
+
+}
+
+void TappedDelay::incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) {
+    if(usesCircularBuffer() && !earliestFirst) {
+        if(circularBufferType == CircularBufferType::DOUBLE_LEN) {
+            //Use mod method
+            cStatementQueue.push_back(circularBufferOffsetVar.getCVarName(false) +
+                                      "=((" + circularBufferOffsetVar.getCVarName(false) + "+1)%" +
+                                      GeneralHelper::to_string(getBufferLength()) + ")" + "+" +
+                                      GeneralHelper::to_string(getBufferLength()) + ";");
+        }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+            //Do not use the mod method
+            cStatementQueue.push_back("if(" + circularBufferOffsetVar.getCVarName(false) + ">= " + GeneralHelper::to_string(getBufferAllocatedLen()-1) + "){");
+            // Let delay len (with extra element) = 3.  We will allocate 3-1=2 extra slots before
+            // extra extra orig orig orig
+            // 0     1     2    3    4
+            // The pointer should be set to the first orig, which is the delay (plus 1 if passthrough) - 1
+            cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "=" + GeneralHelper::to_string(getBufferLength()-1) + ";");
+            cStatementQueue.push_back("}else{");
+            cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "++" + ";");
+            cStatementQueue.push_back("}");
+        }else if(circularBufferType == CircularBufferType::NO_EXTRA_LEN){
+            //Use the standard method for delay
+            Delay::incrementAndWrapCircularBufferOffset(cStatementQueue);
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Circular Buffer Type", getSharedPointer()));
+        }
+    }else{
+        Delay::incrementAndWrapCircularBufferOffset(cStatementQueue);
+    }
+}
+
+int TappedDelay::getCircBufferInitialIdx() {
+    if(usesCircularBuffer() && !earliestFirst) {
+        //For the versions with extra length, we initialize the circular buffer cursor to be in the second segment of the array
+        if(circularBufferType == CircularBufferType::DOUBLE_LEN) {
+            return getBufferLength();
+        }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+            return getBufferLength()-1;
+        }else if(circularBufferType == CircularBufferType::NO_EXTRA_LEN){
+            return Delay::getCircBufferInitialIdx();
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Circular Buffer Type", getSharedPointer()));
+        }
+    }else{
+        return Delay::getCircBufferInitialIdx();
+    }
+
+}
