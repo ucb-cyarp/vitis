@@ -2045,7 +2045,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << "\"\\t\\t[" << partitionNum << "] Vector Instructions:          %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Floating Point Operations:    %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] L1 Data Cache Accesses:       %10lld (%4.3f)\\n\"" << std::endl;
-                cFile << "\"\\t\\t[" << partitionNum << "] Clock Rate (MHz):             %10lld\\n\"" << std::endl;
+                cFile << "\"\\t\\t[" << partitionNum << "] Clock Rate (MHz):             %10f\\n\"" << std::endl;
             }
 
             cFile << ", rateMSps" << std::endl;
