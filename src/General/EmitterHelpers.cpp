@@ -677,7 +677,7 @@ std::string EmitterHelpers::emitPAPIHelper(std::string path, std::string fileNam
                   "//low level API in papi.h " << std::endl;
     headerFile << "#include \"papi.h\"\n"
                   "\n"
-                  "    #define VITIS_NUM_PAPI_EVENTS 5\n"
+                  "    #define VITIS_NUM_PAPI_EVENTS 4\n"
                   "    extern int VITIS_PAPI_EVENTS[VITIS_NUM_PAPI_EVENTS];\n"
                   "\n"
                   "    typedef struct{\n"
