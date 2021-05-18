@@ -1837,6 +1837,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                      "long long instructions_retired = 0;\n"
                      "long long floating_point_operations_retired = 0;\n"
                      "long long l1_data_cache_accesses = 0;" << std::endl;
+            if(collectPAPIComputeOnly){
+                //Need to track the time for computing and reading PAPI when reporting clock freq
+                cFile << "double timeWaitingForComputeToFinishPlusPAPI = 0;" << std::endl;
+            }
         }
         cFile << "//Start timer" << std::endl;
         cFile << "uint64_t rxSamples = 0;" << std::endl;
@@ -2062,7 +2066,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 if(!collectPAPIComputeOnly) {
                     cFile << "((double) clock_cycles)/durationSinceStart/1000000" << std::endl;
                 }else{
-                    cFile << "((double) clock_cycles)/timeWaitingForComputeToFinish/1000000" << std::endl;
+                    cFile << "((double) clock_cycles)/timeWaitingForComputeToFinishPlusPAPI/1000000" << std::endl;
                 }
             }
             cFile << ");" << std::endl;
@@ -2117,6 +2121,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << "instructions_retired = 0;" << std::endl;
                 cFile << "floating_point_operations_retired = 0;" << std::endl;
                 cFile << "l1_data_cache_accesses = 0;" << std::endl;
+                if(collectPAPIComputeOnly){
+                    cFile << "timeWaitingForComputeToFinishPlusPAPI = 0;" << std::endl;
+                }
             }
         }
         cFile << "}" << std::endl;
@@ -2279,6 +2286,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "performance_counter_data_t counterData;" << std::endl;
             cFile << "readPapiCounters(&counterData, papiEventSet);" << std::endl;
             cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
+            cFile << "timespec_t waitingForComputeToFinishPlusPapiStop;" << std::endl;
+            cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishPlusPapiStop);" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
         cFile << "double durationWaitingForComputeToFinish = difftimespec(&waitingForComputeToFinishStop, &waitingForComputeToFinishStart);" << std::endl;
         cFile << "timeWaitingForComputeToFinish += durationWaitingForComputeToFinish;" << std::endl;
@@ -2288,6 +2298,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                      "instructions_retired += counterData.instructions_retired;\n"
                      "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
                      "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
+            cFile << "double durationWaitingForComputePlusPapiToFinish = difftimespec(&waitingForComputeToFinishPlusPapiStop, &waitingForComputeToFinishStart);" << std::endl;
+            cFile << "timeWaitingForComputeToFinishPlusPAPI += durationWaitingForComputePlusPapiToFinish;" << std::endl;
         }
     }else if(collectPAPIComputeOnly){
         cFile << "performance_counter_data_t counterData;" << std::endl;
@@ -2415,6 +2427,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                      "instructions_retired = 0;\n"
                      "l1_data_cache_accesses = 0;\n"
                      "floating_point_operations_retired = 0;" << std::endl;
+            if(collectPAPIComputeOnly){
+                cFile << "timeWaitingForComputeToFinishPlusPAPI = 0;" << std::endl;
+            }
         }
         cFile << "collectTelem = true;" << std::endl;
         cFile << "}" << std::endl;
