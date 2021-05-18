@@ -630,9 +630,7 @@ std::string EmitterHelpers::emitTelemetryHelper(std::string path, std::string fi
     cFile << std::endl;
 
     cFile << "double difftimespec(timespec_t* a, timespec_t* b){"  << std::endl;
-    cFile << "    double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
-    cFile << "    double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
-    cFile << "    return a_double - b_double;" << std::endl;
+    cFile << "    return (a->tv_sec - b->tv_sec) + ((double) (a->tv_nsec - b->tv_nsec))*(0.000000001);" << std::endl;
     cFile << "}" << std::endl;
 
     cFile << "double timespecToDouble(timespec_t* a){" << std::endl;
