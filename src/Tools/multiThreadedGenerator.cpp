@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         std::cout << "                           --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> " << std::endl;
         std::cout << "                           --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> " << std::endl;
         std::cout << "                           <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> " << std::endl;
-        std::cout << "                           --memAlignment <MEM_ALIGNMENT> <--emitPAPITelem>" << std::endl;
+        std::cout << "                           --memAlignment <MEM_ALIGNMENT>" << std::endl;
         std::cout << "                           --fifoCachedIndexes <INDEX_CACHE_BEHAVIOR>" << std::endl;
         std::cout << "                           --fifoDoubleBuffering <FIFO_DOUBLE_BUFFERING>" << std::endl;
 		std::cout << "                           <--useSCHED_FIFO> --pipeNameSuffix <PIPE_NAME_SUFFIX>" << std::endl;
@@ -108,7 +108,6 @@ int main(int argc, char* argv[]) {
     bool printNodeSched = false;
     bool threadDebugPrint = false;
     bool printTelem = false;
-    bool emitPapiTelem = false;
     bool useSCHEDFIFO = false;
     std::string telemDumpPrefix = "";
     std::string pipeNameSuffix = "";
@@ -310,8 +309,6 @@ int main(int argc, char* argv[]) {
             threadDebugPrint = true;
         }else if(strcmp(argv[i],  "--printTelem") == 0){
             printTelem = true;
-        }else if(strcmp(argv[i],  "--emitPAPITelem") == 0){
-            emitPapiTelem = true;
         }else if(strcmp(argv[i],  "--useSCHED_FIFO") == 0){
             useSCHEDFIFO = true;
         }else{
@@ -389,7 +386,7 @@ int main(int argc, char* argv[]) {
                                    fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize,
                                    propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint,
                                    ioFifoSize, printTelem, telemDumpPrefix, telemLevel,
-                                   telemCheckBlockFreq, telemReportPeriodSec, memAlignment, emitPapiTelem,
+                                   telemCheckBlockFreq, telemReportPeriodSec, memAlignment,
                                    useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer,
                                    pipeNameSuffix);
     }catch(std::exception& e) {

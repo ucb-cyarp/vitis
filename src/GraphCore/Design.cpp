@@ -3256,7 +3256,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
                                 int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
                                 EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
-                                unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO,
+                                unsigned long memAlignment, bool useSCHEDFIFO,
                                 PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                                 MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer,
                                 std::string pipeNameSuffix) {
@@ -3808,7 +3808,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //====Emit PAPI Helpers====
     std::vector<std::string> otherCFiles;
     std::string papiHelperHFile = "";
-    if(emitPAPITelem && (printTelem || !telemDumpPrefix.empty())){
+
+    if(EmitterHelpers::usesPAPI(telemLevel) && (printTelem || !telemDumpPrefix.empty())){
         papiHelperHFile = EmitterHelpers::emitPAPIHelper(path, "vitis");
         std::string papiHelperCFile = "vitis_papi_helpers.c";
         otherCFiles.push_back(papiHelperCFile);

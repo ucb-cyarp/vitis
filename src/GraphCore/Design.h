@@ -452,7 +452,6 @@ public:
      * @param telemCheckBlockFreq the number of blocks between checking if the telemetry duration has elapsed.  Used to reduce how often the timer is checked
      * @param telemReportPeriodSec the (inexact) period in seconds between telemetry being reported.  Inexact because how often the reporting timer is checked is governed by telemCheckBlockFreq
      * @param memAlignment the aligment (in bytes) used for FIFO buffer allocation
-     * @param emitPAPITelem if true, emits code for reading CPU performance counters using the PAPI library (and the underling kernel perf system).  Note that this will adversely affect performance.
      * @param useSCHEDFIFO if true, pthreads are created which will request to be run with the max RT priority under the linux SCHED_FIFO scheduler
      * @param fifoIndexCachingBehavior indicates when FIFOs check the head/tail pointers and when they rely on a priori information first
      * @param fifoDoubleBuffer indicates what FIFO double buffering behavior to use
@@ -465,7 +464,7 @@ public:
                             bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap,
                             bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
                             EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
-                            unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO,
+                            unsigned long memAlignment, bool useSCHEDFIFO,
                             PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                             MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer,
                             std::string pipeNameSuffix);
