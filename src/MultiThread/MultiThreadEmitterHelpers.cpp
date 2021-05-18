@@ -2059,7 +2059,11 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << "instructions_retired,                ((double) instructions_retired)/clock_cycles," << std::endl;
                 cFile << "floating_point_operations_retired,   ((double) floating_point_operations_retired)/clock_cycles," << std::endl;
                 cFile << "l1_data_cache_accesses,              ((double) l1_data_cache_accesses)/clock_cycles," << std::endl;
-                cFile << "((double) clock_cycles)/durationSinceStart/1000000" << std::endl;
+                if(!collectPAPIComputeOnly) {
+                    cFile << "((double) clock_cycles)/durationSinceStart/1000000" << std::endl;
+                }else{
+                    cFile << "((double) clock_cycles)/timeWaitingForComputeToFinish/1000000" << std::endl;
+                }
             }
             cFile << ");" << std::endl;
         }
