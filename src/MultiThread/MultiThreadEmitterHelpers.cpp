@@ -1824,6 +1824,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
             if(collectPAPI){
                 cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,l1_data_cache_accesses";
+                if(collectPAPIComputeOnly){
+                    cFile << ",timeWaitingForComputeToFinishPlusPAPI";
+                }
             }
             cFile << "\\n\");" << std::endl;
         }
@@ -2047,6 +2050,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << "\"\\t\\t[" << partitionNum << "] Floating Point Operations:    %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] L1 Data Cache Accesses:       %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Clock Rate (MHz):             %10f\\n\"" << std::endl;
+                if(collectPAPIComputeOnly){
+                    cFile << "\"\\t\\t[" << partitionNum << "] Time for Compute + PAPI Read: %10f\\n\"" << std::endl;
+                }
             }
 
             cFile << ", rateMSps" << std::endl;
@@ -2067,6 +2073,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                     cFile << "((double) clock_cycles)/durationSinceStart/1000000" << std::endl;
                 }else{
                     cFile << "((double) clock_cycles)/timeWaitingForComputeToFinishPlusPAPI/1000000" << std::endl;
+                    cFile << ", timeWaitingForComputeToFinishPlusPAPI" << std::endl;
                 }
             }
             cFile << ");" << std::endl;
@@ -2082,6 +2089,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << ",%e";
             if(collectPAPI) {
                 cFile << ",%lld,%lld,%lld,%lld";
+                if(collectPAPIComputeOnly){
+                    cFile << ",%e";
+                }
             }
 
             cFile << "\\n\", currentTime.tv_sec, currentTime.tv_nsec, rateMSps";
@@ -2096,6 +2106,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
             if(collectPAPI) {
                 cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,l1_data_cache_accesses";
+                if(collectPAPIComputeOnly){
+                    cFile << ",timeWaitingForComputeToFinishPlusPAPI";
+                }
             }
             cFile << ");" << std::endl;
 
