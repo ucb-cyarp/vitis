@@ -1823,7 +1823,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << ",TotalTime_s";
 
             if(collectPAPI){
-                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
+                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,l1_data_cache_accesses";
             }
             cFile << "\\n\");" << std::endl;
         }
@@ -1835,7 +1835,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                      "startPapiCounters(papiEventSet);\n"
                      "long long clock_cycles = 0;\n"
                      "long long instructions_retired = 0;\n"
-                     "long long vector_instructions_retired = 0;\n"
                      "long long floating_point_operations_retired = 0;\n"
                      "long long l1_data_cache_accesses = 0;" << std::endl;
         }
@@ -2017,7 +2016,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
             cFile << "clock_cycles += counterData.clock_cycles;\n"
                      "instructions_retired += counterData.instructions_retired;\n"
-                     "vector_instructions_retired += counterData.vector_instructions_retired;\n"
                      "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
                      "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
         }
@@ -2042,7 +2040,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             if(collectPAPI){
                 cFile << "\"\\t\\t[" << partitionNum << "] Cycles:                       %10lld\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Instructions:                 %10lld (%4.3f)\\n\"" << std::endl;
-                cFile << "\"\\t\\t[" << partitionNum << "] Vector Instructions:          %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Floating Point Operations:    %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] L1 Data Cache Accesses:       %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Clock Rate (MHz):             %10f\\n\"" << std::endl;
@@ -2060,7 +2057,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             if(collectPAPI){
                 cFile << ",clock_cycles," << std::endl;
                 cFile << "instructions_retired,                ((double) instructions_retired)/clock_cycles," << std::endl;
-                cFile << "vector_instructions_retired,         ((double) vector_instructions_retired)/clock_cycles," << std::endl;
                 cFile << "floating_point_operations_retired,   ((double) floating_point_operations_retired)/clock_cycles," << std::endl;
                 cFile << "l1_data_cache_accesses,              ((double) l1_data_cache_accesses)/clock_cycles," << std::endl;
                 cFile << "((double) clock_cycles)/durationSinceStart/1000000" << std::endl;
@@ -2077,7 +2073,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             }
             cFile << ",%e";
             if(collectPAPI) {
-                cFile << ",%lld,%lld,%lld,%lld,%lld";
+                cFile << ",%lld,%lld,%lld,%lld";
             }
 
             cFile << "\\n\", currentTime.tv_sec, currentTime.tv_nsec, rateMSps";
@@ -2091,7 +2087,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << ", durationSinceStart";
 
             if(collectPAPI) {
-                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
+                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,l1_data_cache_accesses";
             }
             cFile << ");" << std::endl;
 
@@ -2115,7 +2111,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             if(collectPAPI) {
                 cFile << "clock_cycles = 0;" << std::endl;
                 cFile << "instructions_retired = 0;" << std::endl;
-                cFile << "vector_instructions_retired = 0;" << std::endl;
                 cFile << "floating_point_operations_retired = 0;" << std::endl;
                 cFile << "l1_data_cache_accesses = 0;" << std::endl;
             }
@@ -2287,7 +2282,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         if(collectPAPIComputeOnly) {
             cFile << "clock_cycles += counterData.clock_cycles;\n"
                      "instructions_retired += counterData.instructions_retired;\n"
-                     "vector_instructions_retired += counterData.vector_instructions_retired;\n"
                      "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
                      "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
         }
@@ -2298,7 +2292,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
         cFile << "clock_cycles += counterData.clock_cycles;\n"
                  "instructions_retired += counterData.instructions_retired;\n"
-                 "vector_instructions_retired += counterData.vector_instructions_retired;\n"
                  "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
                  "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
     }
@@ -2416,7 +2409,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         if(collectPAPI) {
             cFile << "clock_cycles = 0;\n"
                      "instructions_retired = 0;\n"
-                     "vector_instructions_retired = 0;\n"
                      "l1_data_cache_accesses = 0;\n"
                      "floating_point_operations_retired = 0;" << std::endl;
         }
