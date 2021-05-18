@@ -1050,7 +1050,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMain(std::string path, std::str
     benchDriver << "int main(int argc, char* argv[]){" << std::endl;
 
     //Emit name, file, and units string
-    benchDriver << "printf(\"===== Generated System: " + designName + " =====\");" << std::endl;
+    benchDriver << "printf(\"===== Generated System: " + designName + " =====\\n\");" << std::endl;
 
     //Generate call to loop
     benchDriver << "//Call the generated function" << std::endl;
@@ -1334,12 +1334,17 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                      std::shared_ptr<MasterOutput> outputMaster,
                                                      unsigned long blockSize, std::string fifoHeaderFile,
                                                      std::string fifoSupportFile, bool threadDebugPrint, bool printTelem,
+                                                     EmitterHelpers::TelemetryLevel telemLevel,
+                                                     int telemReportFreqBlockFreq, double reportPeriodSeconds,
                                                      std::string telemDumpFilePrefix, bool telemAvg,
                                                      std::string papiHelperHeader,
                                                      PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                                                      ComputeIODoubleBufferType doubleBuffer,
                                                      bool singleClkDomain, std::pair<int, int> singleRate){
-    bool collectTelem = printTelem || !telemDumpFilePrefix.empty();
+    bool collectTelem = EmitterHelpers::shouldCollectTelemetry(telemLevel);
+    bool collectPAPI = EmitterHelpers::usesPAPI(telemLevel);
+    bool collectPAPIComputeOnly = EmitterHelpers::papiComputeOnly(telemLevel);
+    bool collectBreakdownTelem = EmitterHelpers::telemetryBreakdown(telemLevel);
 
     unsigned long blockSizeBase = blockSize;
     if(singleClkDomain){
@@ -1608,7 +1613,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h" + "\"");
     }
 
-    if(!papiHelperHeader.empty() && collectTelem){
+    if(collectPAPI){
         includesCFile.insert("#include \"" + papiHelperHeader + "\"");
     }
 
@@ -1798,9 +1803,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     cFile << ");" << std::endl;
     cFile << std::endl;
 
-    //Insert timer init code
-    double printDuration = 1; //TODO: Add option for this
-
     if(collectTelem){
         cFile << "timespec_t timeResolution;" << std::endl;
         cFile << "clock_getres(CLOCK_MONOTONIC, &timeResolution);" << std::endl;
@@ -1813,15 +1815,21 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "FILE* telemDumpFile = fopen(\"" << telemDumpFilePrefix << partitionNum << ".csv\", \"w\");" << std::endl;
 
             //Write Header Row
-            cFile << "fprintf(telemDumpFile, \"TimeStamp_s,TimeStamp_ns,Rate_msps,WaitingForInputFIFOs_s,ReadingInputFIFOs_s,WaitingForComputeToFinish_s,WaitingForOutputFIFOs_s,WritingOutputFIFOs_s,Telemetry_Misc_s,TotalTime_s";
-            if(!papiHelperHeader.empty()){
+            cFile << "fprintf(telemDumpFile, \"TimeStamp_s,TimeStamp_ns,Rate_msps";
+            if(collectBreakdownTelem){
+                cFile << ",WaitingForInputFIFOs_s,ReadingInputFIFOs_s,WaitingForComputeToFinish_s,WaitingForOutputFIFOs_s,WritingOutputFIFOs_s,Telemetry_Misc_s";
+            }
+
+            cFile << ",TotalTime_s";
+
+            if(collectPAPI){
                 cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
             }
             cFile << "\\n\");" << std::endl;
         }
         cFile << std::endl;
 
-        if(!papiHelperHeader.empty()){
+        if(collectPAPI){
             cFile << "//Setup PAPI Event Set" << std::endl;
             cFile << "int papiEventSet = setupPapiThread();\n"
                      "startPapiCounters(papiEventSet);\n"
@@ -1841,14 +1849,16 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        cFile << "double printDuration = " << printDuration << ";" << std::endl;
-        cFile << "double timeTotal = 0;" << std::endl;
-        cFile << "double timeWaitingForInputFIFOs = 0;" << std::endl;
-        cFile << "double timeReadingInputFIFOs = 0;" << std::endl;
-        cFile << "double timeWaitingForComputeToFinish = 0;" << std::endl;
-        cFile << "double timeWaitingForOutputFIFOs = 0;" << std::endl;
-        cFile << "double timeWritingOutputFIFOs = 0;" << std::endl;
+        if(collectBreakdownTelem) {
+            cFile << "double timeTotal = 0;" << std::endl;
+            cFile << "double timeWaitingForInputFIFOs = 0;" << std::endl;
+            cFile << "double timeReadingInputFIFOs = 0;" << std::endl;
+            cFile << "double timeWaitingForComputeToFinish = 0;" << std::endl;
+            cFile << "double timeWaitingForOutputFIFOs = 0;" << std::endl;
+            cFile << "double timeWritingOutputFIFOs = 0;" << std::endl;
+        }
         cFile << "bool collectTelem = false;" << std::endl;
+        cFile << "int telemCheckCount = 0;" << std::endl;
     }
 
     //Create Local Vars
@@ -1991,61 +2001,96 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //for the last interval + the time to evaluate the current interval.  In this case, nothing is double counted.
     if(collectTelem){
         //Emit timer reporting
+        cFile << "if(telemCheckCount > " << telemReportFreqBlockFreq << "){" << std::endl;
         cFile << "timespec_t currentTime;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
-        cFile << "if(duration >= printDuration){" << std::endl;
+        cFile << "if(duration >= " << reportPeriodSeconds << "){" << std::endl;
+
+        //If Collecting PAPI for entire thread (not isolated just to compute), collect here.  We want to avoid hitting PAPI too often since it involves a system call
+        if(collectPAPI && !collectPAPIComputeOnly){
+            cFile << "performance_counter_data_t counterData;" << std::endl;
+            cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
+            cFile << "readResetPapiCounters(&counterData, papiEventSet);" << std::endl;
+            cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
+            cFile << "clock_cycles += counterData.clock_cycles;\n"
+                     "instructions_retired += counterData.instructions_retired;\n"
+                     "vector_instructions_retired += counterData.vector_instructions_retired;\n"
+                     "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
+                     "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
+        }
+
         cFile << "lastPrint = currentTime;" << std::endl;
         cFile << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         cFile << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-        cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
+        if(collectBreakdownTelem) {
+            cFile << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
+        }
         if (printTelem) {
             //Print the telemetry information to stdout
             cFile << "printf(\"Current " << designName << " [" << partitionNum << "]  Rate: %10.5f\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
-            if(!papiHelperHeader.empty()){
+            if(collectBreakdownTelem){
+                cFile << "\"\\t[" << partitionNum << "] Waiting for Input FIFOs:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+                cFile << "\"\\t[" << partitionNum << "] Reading Input FIFOs:            %10.5f (%8.4f%%)\\n\"" << std::endl;
+                cFile << "\"\\t[" << partitionNum << "] Waiting For Compute to Finish:  %10.5f (%8.4f%%)\\n\"" << std::endl;
+                cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
+                cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
+                cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\"" << std::endl;
+            }
+            if(collectPAPI){
                 cFile << "\"\\t\\t[" << partitionNum << "] Cycles:                       %10lld\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Instructions:                 %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Vector Instructions:          %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] Floating Point Operations:    %10lld (%4.3f)\\n\"" << std::endl;
                 cFile << "\"\\t\\t[" << partitionNum << "] L1 Data Cache Accesses:       %10lld (%4.3f)\\n\"" << std::endl;
+                cFile << "\"\\t\\t[" << partitionNum << "] Clock Rate (MHz):             %10lld\\n\"" << std::endl;
             }
-            cFile << "\"\\t[" << partitionNum << "] Waiting for Output FIFOs:       %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Writing Output FIFOs:           %10.5f (%8.4f%%)\\n\"" << std::endl;
-            cFile << "\"\\t[" << partitionNum << "] Telemetry/Misc:                 %10.5f (%8.4f%%)\\n\", "
-                  << std::endl;
-            cFile << "rateMSps, " << std::endl;
-            cFile << "timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/durationSinceStart*100, " << std::endl;
-            cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/durationSinceStart*100, " << std::endl;
-            cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/durationSinceStart*100, " << std::endl;
-            if(!papiHelperHeader.empty()){
-                cFile << "clock_cycles," << std::endl;
+
+            cFile << ", rateMSps" << std::endl;
+            if(collectBreakdownTelem){
+                cFile << ", timeWaitingForInputFIFOs, timeWaitingForInputFIFOs/durationSinceStart*100, " << std::endl;
+                cFile << "timeReadingInputFIFOs, timeReadingInputFIFOs/durationSinceStart*100, " << std::endl;
+                cFile << "timeWaitingForComputeToFinish, timeWaitingForComputeToFinish/durationSinceStart*100, " << std::endl;
+                cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/durationSinceStart*100, " << std::endl;
+                cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/durationSinceStart*100, " << std::endl;
+                cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100" << std::endl;
+            }
+            if(collectPAPI){
+                cFile << ",clock_cycles," << std::endl;
                 cFile << "instructions_retired,                ((double) instructions_retired)/clock_cycles," << std::endl;
                 cFile << "vector_instructions_retired,         ((double) vector_instructions_retired)/clock_cycles," << std::endl;
                 cFile << "floating_point_operations_retired,   ((double) floating_point_operations_retired)/clock_cycles," << std::endl;
                 cFile << "l1_data_cache_accesses,              ((double) l1_data_cache_accesses)/clock_cycles," << std::endl;
+                cFile << "((double) clock_cycles)/durationSinceStart/1000000" << std::endl;
             }
-            cFile << "timeWaitingForOutputFIFOs, timeWaitingForOutputFIFOs/durationSinceStart*100, " << std::endl;
-            cFile << "timeWritingOutputFIFOs, timeWritingOutputFIFOs/durationSinceStart*100, " << std::endl;
-            cFile << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
+            cFile << ");" << std::endl;
         }
         if (!telemDumpFilePrefix.empty()) {
             //Write the telemetry to the file
             //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
             //The partition number is included in the filename and is not written to the file
-            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e,%e,%e,%e,%e,%e,%e,%e";
-            if(!papiHelperHeader.empty()) {
+            cFile << "fprintf(telemDumpFile, \"%ld,%ld,%e";
+            if(collectBreakdownTelem){
+                cFile << ",%e,%e,%e,%e,%e,%e";
+            }
+            cFile << ",%e";
+            if(collectPAPI) {
                 cFile << ",%lld,%lld,%lld,%lld,%lld";
             }
-            cFile << "\\n\", "
-                     "currentTime.tv_sec, currentTime.tv_nsec, rateMSps, timeWaitingForInputFIFOs, timeReadingInputFIFOs, "
-                     "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
-                     "durationTelemMisc, durationSinceStart";
-            if(!papiHelperHeader.empty()) {
+
+            cFile << "\\n\", currentTime.tv_sec, currentTime.tv_nsec, rateMSps";
+
+            if(collectBreakdownTelem){
+                cFile << ", timeWaitingForInputFIFOs, timeReadingInputFIFOs,"
+                         "timeWaitingForComputeToFinish, timeWaitingForOutputFIFOs, timeWritingOutputFIFOs, "
+                         "durationTelemMisc";
+            }
+
+            cFile << ", durationSinceStart";
+
+            if(collectPAPI) {
                 cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
             }
             cFile << ");" << std::endl;
@@ -2059,13 +2104,15 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             //Reset the counters for the next collection interval.
             cFile << "startTime = currentTime;" << std::endl;
             cFile << "rxSamples = 0;" << std::endl;
-            cFile << "timeTotal = 0;" << std::endl;
-            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
-            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
-            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
-            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
-            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
-            if(!papiHelperHeader.empty()) {
+            if(collectBreakdownTelem) {
+                cFile << "timeTotal = 0;" << std::endl;
+                cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
+                cFile << "timeReadingInputFIFOs = 0;" << std::endl;
+                cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
+                cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
+                cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+            }
+            if(collectPAPI) {
                 cFile << "clock_cycles = 0;" << std::endl;
                 cFile << "instructions_retired = 0;" << std::endl;
                 cFile << "vector_instructions_retired = 0;" << std::endl;
@@ -2073,7 +2120,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                 cFile << "l1_data_cache_accesses = 0;" << std::endl;
             }
         }
-
+        cFile << "}" << std::endl;
+        cFile << "telemCheckCount=0;" << std::endl;
+        cFile << "}else{" << std::endl;
+        cFile << "telemCheckCount++;" << std::endl;
         cFile << "}" << std::endl;
     }
 
@@ -2083,7 +2133,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //=== Check Input FIFOs ===
-    if(collectTelem) {
+    if(collectBreakdownTelem) {
         cFile << "timespec_t waitingForInputFIFOsStart;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStart);" << std::endl;
@@ -2095,7 +2145,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
     //each metric has undergone the same number of cycles
-    if(collectTelem) {
+    if(collectBreakdownTelem) {
         cFile << "timespec_t waitingForInputFIFOsStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForInputFIFOsStop);" << std::endl;
@@ -2115,7 +2165,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                      " waiting for room in output FIFOs ...\\n\");" << std::endl;
         }
 
-        if(collectTelem) {
+        if(collectBreakdownTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
@@ -2124,7 +2174,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
         cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
-        if(collectTelem) {
+        if(collectBreakdownTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
@@ -2151,7 +2201,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
     }else {
-        if(collectTelem){
+        if(collectBreakdownTelem){
             //Now, time how long it takes to read the FIFO
             cFile << "timespec_t readingInputFIFOsStart;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -2170,7 +2220,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << readFIFOExprs[i] << std::endl;
         }
 
-        if(collectTelem) {
+        if(collectBreakdownTelem) {
             cFile << "timespec_t readingInputFIFOsStop;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &readingInputFIFOsStop);" << std::endl;
@@ -2178,6 +2228,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "double durationReadingInputFIFOs = difftimespec(&readingInputFIFOsStop, &readingInputFIFOsStart);" << std::endl;
             cFile << "timeReadingInputFIFOs += durationReadingInputFIFOs;" << std::endl;
             cFile << "timeTotal += durationReadingInputFIFOs;" << std::endl;
+        }
+        if(collectTelem){
             cFile << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
     }
@@ -2186,15 +2238,21 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "printf(\"Partition " + GeneralHelper::to_string(partitionNum) + " computing ...\\n\");" << std::endl;
     }
 
-    if(collectTelem) {
+    //If collecting the telemetry breakdown, do this
+    if(collectBreakdownTelem) {
         cFile << "timespec_t waitingForComputeToFinishStart;" << std::endl;
-        if(!papiHelperHeader.empty()) {
+        if(collectPAPIComputeOnly) {
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of PAPI reset" << std::endl;
             cFile << "resetPapiCounters(papiEventSet); //Including timer read in the performance counter segment since clock_gettime should require very few cycles but PAPI requires more.  " << std::endl;
         }
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStart);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+    }else if(collectPAPIComputeOnly){
+        //If not collecting breakdown telemetry but collecting papi durring the compute function only
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of PAPI reset" << std::endl;
+        cFile << "resetPapiCounters(papiEventSet); //Including timer read in the performance counter segment since clock_gettime should require very few cycles but PAPI requires more.  " << std::endl;
+        cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of PAPI reset" << std::endl;
     }
 
     //Call compute function (recall that the compute function is declared with outputs as references)
@@ -2212,12 +2270,13 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                                                         "_prev");
     cFile << call << std::endl;
 
-    if(collectTelem) {
+    //If collecting the telemetry breakdown, do this
+    if(collectBreakdownTelem) {
         cFile << "timespec_t waitingForComputeToFinishStop;" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForComputeToFinishStop);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        if(!papiHelperHeader.empty()) {
+        if(collectPAPIComputeOnly) {
             cFile << "performance_counter_data_t counterData;" << std::endl;
             cFile << "readPapiCounters(&counterData, papiEventSet);" << std::endl;
             cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
@@ -2225,15 +2284,24 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "double durationWaitingForComputeToFinish = difftimespec(&waitingForComputeToFinishStop, &waitingForComputeToFinishStart);" << std::endl;
         cFile << "timeWaitingForComputeToFinish += durationWaitingForComputeToFinish;" << std::endl;
         cFile << "timeTotal += durationWaitingForComputeToFinish;" << std::endl;
-        if(!papiHelperHeader.empty()) {
+        if(collectPAPIComputeOnly) {
             cFile << "clock_cycles += counterData.clock_cycles;\n"
                      "instructions_retired += counterData.instructions_retired;\n"
                      "vector_instructions_retired += counterData.vector_instructions_retired;\n"
                      "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
                      "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
         }
+    }else if(collectPAPIComputeOnly){
+        cFile << "performance_counter_data_t counterData;" << std::endl;
+        cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
+        cFile << "readPapiCounters(&counterData, papiEventSet);" << std::endl;
+        cFile << "asm volatile(\"\" ::: \"memory\"); //Stop Re-ordering of PAPI Read" << std::endl;
+        cFile << "clock_cycles += counterData.clock_cycles;\n"
+                 "instructions_retired += counterData.instructions_retired;\n"
+                 "vector_instructions_retired += counterData.vector_instructions_retired;\n"
+                 "floating_point_operations_retired += counterData.floating_point_operations_retired;\n"
+                 "l1_data_cache_accesses += counterData.l1_data_cache_accesses;" << std::endl;
     }
-
 
     //Only do FIFO output check here if not in-place (done before compute if in place)
     if(!fifoInPlace){
@@ -2243,7 +2311,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                      " waiting for room in output FIFOs ...\\n\");" << std::endl;
         }
 
-        if(collectTelem) {
+        if(collectBreakdownTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStart;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStart);" << std::endl;
@@ -2252,7 +2320,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
         cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
-        if(collectTelem) {
+        if(collectBreakdownTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &waitingForOutputFIFOsStop);" << std::endl;
@@ -2269,7 +2337,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         }
 
         //If the FIFOs are not in place
-        if (collectTelem) {
+        if (collectBreakdownTelem) {
             cFile << "timespec_t writingOutputFIFOsStart;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStart);" << std::endl;
@@ -2281,7 +2349,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << writeFIFOExprs[i] << std::endl;
         }
 
-        if (collectTelem) {
+        if (collectBreakdownTelem) {
             cFile << "timespec_t writingOutputFIFOsStop;" << std::endl;
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
             cFile << "clock_gettime(CLOCK_MONOTONIC, &writingOutputFIFOsStop);" << std::endl;
@@ -2332,14 +2400,20 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         cFile << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
         cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
+        if(collectPAPI && !collectPAPIComputeOnly) {
+            cFile << "resetPapiCounters(papiEventSet); //Doing this after Timer fetch since, when collecting PAPI for entire thread execution, PAPI is reset after the timer is checked (to prevent calling PAPI too often)" << std::endl;
+            cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of PAPI reset" << std::endl;
+        }
         cFile << "lastPrint = startTime;" << std::endl;
-        cFile << "timeTotal = 0;" << std::endl;
-        cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
-        cFile << "timeReadingInputFIFOs = 0;" << std::endl;
-        cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
-        cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
-        cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
-        if(!papiHelperHeader.empty()) {
+        if(collectBreakdownTelem) {
+            cFile << "timeTotal = 0;" << std::endl;
+            cFile << "timeWaitingForInputFIFOs = 0;" << std::endl;
+            cFile << "timeReadingInputFIFOs = 0;" << std::endl;
+            cFile << "timeWaitingForComputeToFinish = 0;" << std::endl;
+            cFile << "timeWaitingForOutputFIFOs = 0;" << std::endl;
+            cFile << "timeWritingOutputFIFOs = 0;" << std::endl;
+        }
+        if(collectPAPI) {
             cFile << "clock_cycles = 0;\n"
                      "instructions_retired = 0;\n"
                      "vector_instructions_retired = 0;\n"
@@ -2353,11 +2427,11 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Close loop
     cFile << "}" << std::endl;
 
-    if(!papiHelperHeader.empty()) {
+    if(collectPAPI) {
         cFile << "stopPapiCounters(papiEventSet);" << std::endl;
     }
 
-    if(!telemDumpFilePrefix.empty()){
+    if(collectTelem && !telemDumpFilePrefix.empty()){
         cFile << "fclose(telemDumpFile);" << std::endl;
     }
 
@@ -2922,7 +2996,7 @@ void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::
     configFile << "{" << std::endl;
     configFile << "\t\"name\": \"" << designName << "\"," << std::endl;
     configFile << "\t\"ioTelemFiles\": {" << std::endl;
-    configFile << "\t\t\""<< ioPartitionNumber << "\": \"\"" << std::endl; //For now, do not pass an I/O telemetry file.  However, include the entry so that the I/O core can be extracted.  TODO: Include I/O thread telemetry
+    configFile << "\t\t\""<< ioPartitionNumber << "\": \"" << telemDumpPrefix + "IO.csv" << "\"" << std::endl;
     configFile << "\t}," << std::endl;
     configFile << "\t\"computeTelemFiles\": {" << std::endl;
 

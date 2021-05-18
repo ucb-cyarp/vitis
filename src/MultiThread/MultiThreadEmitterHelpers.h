@@ -12,6 +12,7 @@
 #include "GraphCore/Variable.h"
 #include "PartitionParams.h"
 #include "ThreadCrossingFIFOParameters.h"
+#include "General/EmitterHelpers.h"
 #include <set>
 #include <map>
 #include <vector>
@@ -294,6 +295,9 @@ namespace MultiThreadEmitterHelpers {
      * @param fifoSupportFile the filename of the FIFO support file
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
      * @param printTelem if true, prints telemetry on the thread's execution
+     * @param telemLevel the level of telemetry to print/collect
+     * @param telemReportFreqBlockFreq how frequently (in terms of # of blocks processed) the wall clock will be checked to determine if telemetry should be reported
+     * @param reportPeriodSeconds How frequently telemetry is printed/saved/reported in terms of seconds.  If PAPI is used, the performance counters are only checked right before reporting occurs
      * @param telemDumpFilePrefix if not empty, specifies a file into which telemetry from the compute thread is dumped
      * @param telemAvg if true, the telemetry is averaged over the entire run.  If false, the telemetry is only an average of the measurement period
      * @param papiHelperHeader if not empty, collects performance counter information from the PAPI library.  Note that this will have an adverse effect on performance.  printTelem || !telemDumpFilePrefix.empty() must be true for this to be collected
@@ -305,7 +309,9 @@ namespace MultiThreadEmitterHelpers {
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path,
                               std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
                               std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
-                              std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint, bool printTelem,
+                              std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint,
+                              bool printTelem, EmitterHelpers::TelemetryLevel telemLevel,
+                              int telemReportFreqBlockFreq, double reportPeriodSeconds,
                               std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
                               PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                               ComputeIODoubleBufferType doubleBuffer,

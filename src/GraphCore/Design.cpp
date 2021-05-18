@@ -3254,8 +3254,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
-                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment,
-                                bool emitPAPITelem, bool useSCHEDFIFO,
+                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
+                                EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
+                                unsigned long memAlignment, bool emitPAPITelem, bool useSCHEDFIFO,
                                 PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                                 MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer,
                                 std::string pipeNameSuffix) {
@@ -3830,7 +3831,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
                                                             fifoSupportHeaderName,
-                                                            threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile,
+                                                            threadDebugPrint, printTelem,
+                                                            telemLevel, telemCheckBlockFreq, telemReportPeriodSec,
+                                                            telemDumpPrefix, false, papiHelperHFile,
                                                             fifoIndexCachingBehavior, fifoDoubleBuffer, singleClockDomain, rate);
         }
     }
@@ -3902,6 +3905,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, fifoSupportHeaderName, 0, threadDebugPrint, printTelem,
+                                        telemLevel, telemCheckBlockFreq, telemReportPeriodSec, telemDumpPrefix, false,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
@@ -3924,6 +3928,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
                                         fifoHeaderName, fifoSupportHeaderName, 0, threadDebugPrint, printTelem,
+                                        telemLevel, telemCheckBlockFreq, telemReportPeriodSec, telemDumpPrefix, false,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
@@ -3944,6 +3949,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
                                         fifoHeaderName, fifoSupportHeaderName, ioFifoSize, threadDebugPrint, printTelem,
+                                        telemLevel, telemCheckBlockFreq, telemReportPeriodSec, telemDumpPrefix, false,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)

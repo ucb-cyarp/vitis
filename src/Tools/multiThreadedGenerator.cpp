@@ -33,6 +33,7 @@ int main(int argc, char* argv[]) {
         std::cout << "                           --fifoCachedIndexes <INDEX_CACHE_BEHAVIOR>" << std::endl;
         std::cout << "                           --fifoDoubleBuffering <FIFO_DOUBLE_BUFFERING>" << std::endl;
 		std::cout << "                           <--useSCHED_FIFO> --pipeNameSuffix <PIPE_NAME_SUFFIX>" << std::endl;
+        std::cout << "                           --telemLevel <TELEM_LEVEL> <--telemCheckBlockFreq> <--telemReportPeriodSec>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible PARTITIONER:" << std::endl;
         std::cout << "    manual <DEFAULT> = Partitioning is accomplished manually using VITIS_PARTITION directives" << std::endl;
@@ -79,7 +80,16 @@ int main(int argc, char* argv[]) {
         std::cout << "    input            = Double buffering on inputs only" << std::endl;
         std::cout << "    output           = Double buffering on outputs only" << std::endl;
         std::cout << std::endl;
-
+        std::cout << "Possible TELEM_LEVEL (Telemetry Collection Level):" << std::endl;
+        std::cout << "    none <Default>  = No telemetry collection" << std::endl;
+        std::cout << "    breakdown       = Collects timing telemetry with a breakdown of the different phases of thread execution" << std::endl;
+        std::cout << "    rateOnly        = Collects timing telemetry but only reports overall processing rate (not broken down into phases)" << std::endl;
+        std::cout << "    papiBreakdown   = Collects timing telemetry with a breakdown of the different phases of thread execution.  PAPI counters are collected each time telemetry is reported and is not broken down into different phases of thread execution" << std::endl;
+        std::cout << "    papiComputeOnly = Collects timing telemetry with a breakdown of the different phases of thread execution.  PAPI counters are collected only durring the compute phase of thread execution.  Due to isolating the compute segment, this mode incurs substantial telemetry overhead" << std::endl;
+        std::cout << "    papiRateOnly    = Collects timing telemetry but only reports overall processing rate (not broken down into phases).  PAPI counters are collected each time telemetry is reported and is not broken down into different phases of thread execution" << std::endl;
+        std::cout << "    ioBreakdown     = Collects timing telemetry in I/O thread only with a breakdown of the different phases of thread execution" << std::endl;
+        std::cout << "    ioRateOnly      = Collects timing telemetry in I/O thread only only rate reported" << std::endl;
+        std::cout << std::endl;
         return 1;
     }
 
@@ -104,6 +114,10 @@ int main(int argc, char* argv[]) {
     std::string pipeNameSuffix = "";
     PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior = PartitionParams::FIFOIndexCachingBehavior::NONE;
     MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer = MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE;
+
+    EmitterHelpers::TelemetryLevel telemLevel = EmitterHelpers::TelemetryLevel::NONE;
+    int telemCheckBlockFreq = 100;
+    double telemReportPeriodSec = 1.0;
 
     //Check for command line parameters
     for(unsigned long i = 4; i<argc; i++){
@@ -198,6 +212,44 @@ int main(int argc, char* argv[]) {
                 }
             } catch (std::invalid_argument e) {
                 std::cerr << "Invalid command line option type: --memAlignment " << argv[i] << std::endl;
+                exit(1);
+            }
+        }else if(strcmp(argv[i], "--telemLevel") == 0) {
+            i++;
+            std::string argStr = argv[i];
+            try {
+                EmitterHelpers::TelemetryLevel telemLevelParsed = EmitterHelpers::parseTelemetryLevelStr(argStr);
+                telemLevel = telemLevelParsed;
+            } catch (std::invalid_argument e) {
+                std::cerr << "Invalid command line option type: --telemLevel " << argv[i] << std::endl;
+                exit(1);
+            }
+        }else if(strcmp(argv[i], "--telemCheckBlockFreq") == 0){
+            i++; //Get the actual argument
+            try{
+                int parsedTelemCheckBlockFreq = std::stoi(argv[i]);
+                if(parsedTelemCheckBlockFreq > 0) {
+                    telemCheckBlockFreq = parsedTelemCheckBlockFreq;
+                }else{
+                    std::cerr << "Invalid command line option type: --telemCheckBlockFreq must be > 0.  Currently:  " << argv[i] << std::endl;
+                    exit(1);
+                }
+            }catch(std::runtime_error e){
+                std::cerr << "Unknown command line option selection: --telemCheckBlockFreq " << argv[i] << std::endl;
+                exit(1);
+            }
+        }else if(strcmp(argv[i], "--telemReportPeriodSec") == 0){
+            i++; //Get the actual argument
+            try{
+                int parsedTelemReportPeriodSec = std::stod(argv[i]);
+                if(parsedTelemReportPeriodSec >= 0) {
+                    telemReportPeriodSec = parsedTelemReportPeriodSec;
+                }else{
+                    std::cerr << "Invalid command line option type: --telemReportPeriodSec must be >= 0.  Currently:  " << argv[i] << std::endl;
+                    exit(1);
+                }
+            }catch(std::runtime_error e){
+                std::cerr << "Unknown command line option selection: --telemCheckBlockFreq " << argv[i] << std::endl;
                 exit(1);
             }
         }else if(strcmp(argv[i], "--partitionMap") == 0) {
@@ -333,7 +385,13 @@ int main(int argc, char* argv[]) {
 
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams, fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint, ioFifoSize, printTelem, telemDumpPrefix, memAlignment, emitPapiTelem, useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer, pipeNameSuffix);
+        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams,
+                                   fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize,
+                                   propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint,
+                                   ioFifoSize, printTelem, telemDumpPrefix, telemLevel,
+                                   telemCheckBlockFreq, telemReportPeriodSec, memAlignment, emitPapiTelem,
+                                   useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer,
+                                   pipeNameSuffix);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

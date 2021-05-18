@@ -1021,3 +1021,70 @@ std::vector<int> EmitterHelpers::memIdx2ArrayIdx(int idx, std::vector<int> dimen
 
     return arrayIdx;
 }
+
+bool EmitterHelpers::shouldCollectTelemetry(EmitterHelpers::TelemetryLevel level){
+    //IO Telem Levels are Checked by Another Function
+    return level != EmitterHelpers::TelemetryLevel::NONE && level != EmitterHelpers::TelemetryLevel::IO_BREAKDOWN && level != EmitterHelpers::TelemetryLevel::IO_RATE_ONLY;
+}
+bool EmitterHelpers::usesPAPI(EmitterHelpers::TelemetryLevel level){
+    return level == EmitterHelpers::TelemetryLevel::PAPI_RATE_ONLY || level == EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN || level == EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+}
+bool EmitterHelpers::papiComputeOnly(EmitterHelpers::TelemetryLevel level){
+    return level == EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+}
+bool EmitterHelpers::telemetryBreakdown(EmitterHelpers::TelemetryLevel level){
+    return level == EmitterHelpers::TelemetryLevel::BREAKDOWN || level == EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN || level == EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+}
+bool EmitterHelpers::ioShouldCollectTelemetry(EmitterHelpers::TelemetryLevel level){
+    return shouldCollectTelemetry(level) || level == EmitterHelpers::TelemetryLevel::IO_BREAKDOWN || level == EmitterHelpers::TelemetryLevel::IO_RATE_ONLY;
+}
+bool EmitterHelpers::ioTelemetryBreakdown(EmitterHelpers::TelemetryLevel level){
+    return telemetryBreakdown(level) || level == EmitterHelpers::TelemetryLevel::IO_BREAKDOWN;
+}
+
+EmitterHelpers::TelemetryLevel EmitterHelpers::parseTelemetryLevelStr(std::string str){
+    if(str == "NONE" || str == "none"){
+        return EmitterHelpers::TelemetryLevel::NONE;
+    }else if(str == "BREAKDOWN" || str == "breakdown"){
+        return EmitterHelpers::TelemetryLevel::BREAKDOWN;
+    }else if(str == "RATE_ONLY" || str == "rate_only" || str == "rateOnly"){
+        return EmitterHelpers::TelemetryLevel::RATE_ONLY;
+    }else if(str == "PAPI_BREAKDOWN" || str == "papi_breakdown" || str == "papiBreakdown"){
+        return EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN;
+    }else if(str == "PAPI_COMPUTE_ONLY" || str == "papi_compute_only" || str == "papiComputeOnly"){
+        return EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+    }else if(str == "PAPI_RATE_ONLY" || str == "papi_rate_only" || str == "papiRateOnly"){
+        return EmitterHelpers::TelemetryLevel::PAPI_RATE_ONLY;
+    }else if(str == "IO_BREAKDOWN" || str == "io_breakdown" || str == "ioBreakdown"){
+        return EmitterHelpers::TelemetryLevel::IO_BREAKDOWN;
+    }else if(str == "IO_RATE_ONLY" || str == "io_rate_only" || str == "ioRateOnly"){
+        return EmitterHelpers::TelemetryLevel::IO_RATE_ONLY;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown TelemetryLevel: " + str));
+    }
+
+    //IO_BREAKDOWN, ///<Telemetry is only taken/reported in the I/O thread.  Telemetry is broken down into phases.
+    //        IO_RATE_ONLY ///<Telemetry is only taken/reported in the I/O thread and only rate is only reported
+}
+std::string EmitterHelpers::telemetryLevelToString(EmitterHelpers::TelemetryLevel level){
+    switch(level){
+        case EmitterHelpers::TelemetryLevel::NONE:
+            return "NONE";
+        case EmitterHelpers::TelemetryLevel::BREAKDOWN:
+            return "BREAKDOWN";
+        case EmitterHelpers::TelemetryLevel::RATE_ONLY:
+            return "RATE_ONLY";
+        case EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN:
+            return "PAPI_BREAKDOWN";
+        case EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY:
+            return "PAPI_COMPUTE_ONLY";
+        case EmitterHelpers::TelemetryLevel::PAPI_RATE_ONLY:
+            return "PAPI_RATE_ONLY";
+        case EmitterHelpers::TelemetryLevel::IO_BREAKDOWN:
+            return "IO_BREAKDOWN";
+        case EmitterHelpers::TelemetryLevel::IO_RATE_ONLY:
+            return "IO_RATE_ONLY";
+        default:
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown TelemetryLevel"));
+    }
+}
