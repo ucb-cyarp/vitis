@@ -276,7 +276,9 @@ set(COMMON_SRCS
         src/Estimators/PartitionCrossing.cpp
         src/Estimators/PartitionCrossing.h
         src/MultiThread/LocklessInPlaceThreadCrossingFIFO.cpp
-        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h)
+        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h
+        src/PrimitiveNodes/FIFO.cpp
+        src/PrimitiveNodes/FIFO.h src/PrimitiveNodes/UnrolledFIRFilter.cpp src/PrimitiveNodes/UnrolledFIRFilter.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

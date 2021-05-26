@@ -583,6 +583,34 @@ elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Concatenate')
     %    - 'Vector' - Vector Concatenate (ignores ConcatenateDimension)
     %    - 'Multidimensional array' - Multidimensional Array (requires ConcatenateDimension)
     
+%---- Concatenate -----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'SubSystem') && strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'hdlsllib/HDL RAMs/HDL FIFO')
+    node.simulinkBlockType = 'FIFO';
+    node.dialogPropertiesNumeric('FIFOSize') = GetParamEval(simulink_block_handle, 'fifo_size'); %The size of the FIFO
+    node.dialogPropertiesNumeric('RateRatio') = GetParamEval(simulink_block_handle, 'rate'); %Ratio of output time to input time
+
+    % mode: The FIFO Read Mode
+    %    - 'FWFT' - First Word Fall Through mode
+    %    - 'Classic' - Data present cycle after pop
+    
+    % push_msg, pop_msg: How to treat when pushing to a full FIFO or popping
+    %                    from an empty FIFO
+    %    - 'Error' - Throws an error
+    %    - 'Warning' - Throws a warning
+    %    - 'Ignore'
+    
+    % show_empty: Include the 'empty' port
+    %    - 'on' - Empty port included
+    %    - 'off' - Empty port not included
+    
+    % show_full: Include the 'full' port
+    %    - 'on' - Full port included
+    %    - 'off' - Full port not included
+    
+    % show_num: Include the Count/Num port
+    %    - 'on' - Count (Num) port included
+    %    - 'off' - Count (Num) port not included
+    
 %TODO: More Blocks
 end
     
