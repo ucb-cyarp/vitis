@@ -276,25 +276,25 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         } else {
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Select Mode", getSharedPointer()));
         }
+    }
 
-        //Emit for loop
-        //Do not emit loops for a given dimension when it only has 1 element
-        for(int i = 0; i<modes.size(); i++) {
-            if(outputDT.getDimensions()[i] > 1){
-                cStatementQueue.push_back(forLoopOpen[i]);
-            }
+    //Emit for loop
+    //Do not emit loops for a given dimension when it only has 1 element
+    for(int i = 0; i<modes.size(); i++) {
+        if(outputDT.getDimensions()[i] > 1){
+            cStatementQueue.push_back(forLoopOpen[i]);
         }
+    }
 
-        //Copy Logic
-        std::string srcTerm = inputExpr.getExprIndexed(expandedIndexExprs, true); //Deref with the index terms
-        std::string dstTerm = outputVar.getCVarName(imag) + (outputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)); //Deref (if not a scalar) with just the indexes from the for loops
-        cStatementQueue.push_back(dstTerm + " = " + srcTerm + ";");
+    //Copy Logic
+    std::string srcTerm = inputExpr.getExprIndexed(expandedIndexExprs, true); //Deref with the index terms
+    std::string dstTerm = outputVar.getCVarName(imag) + (outputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)); //Deref (if not a scalar) with just the indexes from the for loops
+    cStatementQueue.push_back(dstTerm + " = " + srcTerm + ";");
 
-        //Close
-        for(int i = 0; i<modes.size(); i++) {
-            if (outputDT.getDimensions()[i] > 1) {
-                cStatementQueue.push_back(forLoopClose[i]);
-            }
+    //Close
+    for(int i = 0; i<modes.size(); i++) {
+        if (outputDT.getDimensions()[i] > 1) {
+            cStatementQueue.push_back(forLoopClose[i]);
         }
     }
 
