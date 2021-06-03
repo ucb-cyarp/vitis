@@ -62,23 +62,16 @@ std::shared_ptr<Node> DownsampleInput::shallowClone(std::shared_ptr<SubSystem> p
 
 CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                  int outputPortNum, bool imag) {
-    //TODO: Implement Vector Support
-    if (!getInputPort(0)->getDataType().isScalar()) {
-        throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Ln Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
-    }
-
     //Get the Expression for the input (should only be 1)
     std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
     int srcOutputPortNum = srcOutputPort->getPortNum();
     std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-    DataType inputDT = getInputPort(outputPortNum)->getDataType();
+    DataType inputDT = getInputPort(0)->getDataType();
     CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
 
+    DataType outputDT = getOutputPort(0)->getDataType();
+
     //Just return the input expression
-    //TODO: Change check after vector support implemented
-    if(inputExpr.isArrayOrBuffer()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Enable Line to Downsample Input is Expected to be Driven by a Scalar Expression or Variable (from " + srcNode->getFullyQualifiedName() + ")", getSharedPointer()));
-    }
 
     //Create a temporary variable to avoid issue if this node is directly attached to state
     //at the input.  The state update is placed after this node but the variable from the delay is simply
@@ -86,7 +79,29 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
     //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
     //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
 
-    return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
+    if(inputDT.isScalar()) {
+        return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR); //This will create a new variable.  If input is a variable, this will create a copy
+    }else{
+        std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_OutMat";
+        Variable outputVar = Variable(outName, outputDT);
+        cStatementQueue.push_back(outputVar.getCVarDecl(imag, true, true, true, false) + ";");
+
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+        std::string assignExpr = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + inputExpr.getExprIndexed(forLoopIndexVars, true) + ";";
+        cStatementQueue.push_back(assignExpr);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+
+        return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+    }
 }
 
 bool DownsampleInput::isSpecialized() {
