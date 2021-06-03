@@ -177,9 +177,10 @@ elseif strcmp(node.simulinkBlockType, 'Switch')
     %Chriteria - Switching Criteria
     %ZeroCross - Zero Crossing
     
-%---- Sum ----
+%---- Sum (also Sum of Elements) ----
 elseif strcmp(node.simulinkBlockType, 'Sum')
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
+    node.dialogPropertiesNumeric('CollapseDim') = GetParamEval(simulink_block_handle, 'CollapseDim');
     
     %Important DialogParameters
     %Inputs = The string showing what operation each input is (+ or -).  |
@@ -192,6 +193,10 @@ elseif strcmp(node.simulinkBlockType, 'Sum')
     %OutDataTypeStr: output datatype str
     %AccumDataTypeStr: accumulator datatype
     %  A valid type is 'Inherit: Inherit via internal rule'
+    
+    %CollapseMode:
+    %    'All dimensions' - The standard sum mode
+    %    'Specified dimension' - collapses allong the dimension specified in CollapseDim
     
 %---- Product ----
 elseif strcmp(node.simulinkBlockType, 'Product')
@@ -263,10 +268,6 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     %Selects from a matrix/vector
     node.dialogPropertiesNumeric('NumberOfDimensions') = GetParamEval(simulink_block_handle, 'NumberOfDimensions');
     
-    if node.dialogPropertiesNumeric('NumberOfDimensions') ~= 1
-        error('Currently only support 1D array wires (vectors).  Selector is set to a dimension != 1');
-    end
-    
     index_mode = get_param(simulink_block_handle, 'IndexMode');
     
     if iscell(index_mode)
@@ -300,7 +301,17 @@ elseif strcmp(node.simulinkBlockType, 'Selector')
     node.dialogProperties('IndexOption1st') = index_options{1};
     node.dialogPropertiesNumeric('OutputSize1st') = output_size_array{1};
     
-    node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
+    %Get the other dimensions
+    for dim = 2:node.dialogPropertiesNumeric('NumberOfDimensions')
+        node.dialogPropertiesNumeric(['IndexParam' num2str(dim)]) = index_params{dim};
+        node.dialogProperties(['IndexOption' num2str(dim)]) = index_options{dim};
+        node.dialogPropertiesNumeric(['OutputSize' num2str(dim)]) = output_size_array{dim};
+    end
+    
+    %Only include if num dimensions <2
+    if(node.dialogPropertiesNumeric('NumberOfDimensions') < 2)
+        node.dialogPropertiesNumeric('InputPortWidth') = GetParamEval(simulink_block_handle, 'InputPortWidth');
+    end
     
     node.dialogPropertiesNumeric('SampleTime') = GetParamEval(simulink_block_handle, 'SampleTime');
 
@@ -582,6 +593,17 @@ elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Concatenate')
     %Mode: The concatenate mode
     %    - 'Vector' - Vector Concatenate (ignores ConcatenateDimension)
     %    - 'Multidimensional array' - Multidimensional Array (requires ConcatenateDimension)
+    
+%---- Reshape ----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Reshape')
+    node.dialogPropertiesNumeric('OutputDimensions') = GetParamEval(simulink_block_handle, 'OutputDimensions'); %Output Dimensions if OutputDimensionality is "Customize"
+    
+    %OutputDimensionality: The output dimensions
+    %    - '1-D array' - 1D Vector
+    %    - 'Column vector (2-D)' - 2D Column Vector
+    %    - 'Row vector (2-D)' - 2D Row Vector
+    %    - 'Customize' - Specify Dimensions in 
+    %    - 'Derive from reference input port' - Reshape to the Dimensions of a Second input
     
 %TODO: More Blocks
 end

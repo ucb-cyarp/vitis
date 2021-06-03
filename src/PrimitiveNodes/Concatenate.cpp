@@ -7,15 +7,15 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 
-Concatenate::Concatenate() {
+Concatenate::Concatenate() :concatDim(0) {
 
 }
 
-Concatenate::Concatenate(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent) {
+Concatenate::Concatenate(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), concatDim(0) {
 
 }
 
-Concatenate::Concatenate(std::shared_ptr<SubSystem> parent, Concatenate *orig) : PrimitiveNode(parent, orig) {
+Concatenate::Concatenate(std::shared_ptr<SubSystem> parent, Concatenate *orig) : PrimitiveNode(parent, orig), concatDim(orig->concatDim) {
 
 }
 
@@ -27,14 +27,18 @@ Concatenate::createFromGraphML(int id, std::string name, std::map<std::string, s
     newNode->setName(name);
 
     if(dialect == GraphMLDialect::VITIS){
-        //TODO: Import parameters for multidimensional concat
+        std::string concatDimStr = dataKeyValueMap.at("ConcatDim");
+        int concatDim = std::stoi(concatDimStr);
+        newNode->setConcatDim(concatDim);
     } else if(dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //Simulink Name -- Inputs
         std::string mode = dataKeyValueMap.at("Mode");
         if(mode == "Vector"){
-            //This is what we currently support
+            newNode->setConcatDim(0);
         }else if(mode == "Multidimensional array"){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Multidimensional array Concatenate is not currently supported", newNode));
+            std::string concatDimStr = dataKeyValueMap.at("Numeric.ConcatenateDimension");
+            int concatDim = std::stoi(concatDimStr);
+            newNode->setConcatDim(concatDim);
         }else{
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown mode for Concatenate", newNode));
         }
@@ -47,8 +51,10 @@ Concatenate::createFromGraphML(int id, std::string name, std::map<std::string, s
 
 
 std::set<GraphMLParameter> Concatenate::graphMLParameters() {
-    //TODO: update when parameters saved for multidimensional concat
-    return Node::graphMLParameters();
+    std::set<GraphMLParameter> parameters;
+    parameters.insert(GraphMLParameter("ConcatDim", "int", true));
+
+    return parameters;
 }
 
 xercesc::DOMElement *
@@ -59,6 +65,7 @@ Concatenate::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNo
     }
 
     GraphMLHelper::addDataNode(doc, thisNode, "block_function", "Concatenate");
+    GraphMLHelper::addDataNode(doc, thisNode, "ConcatDim", GeneralHelper::to_string(concatDim));
 
     return thisNode;
 }
@@ -70,7 +77,8 @@ std::string Concatenate::typeNameStr() {
 std::string Concatenate::labelStr() {
     std::string label = Node::labelStr();
 
-    label += "\nFunction: " + typeNameStr();
+    label += "\nFunction: " + typeNameStr() +
+             "\nConcatDim: " + GeneralHelper::to_string(concatDim);
 
     return label;
 }
@@ -80,8 +88,6 @@ std::shared_ptr<Node> Concatenate::shallowClone(std::shared_ptr<SubSystem> paren
 }
 
 void Concatenate::validate() {
-    //TODO: implement multidimensional concat
-
     Node::validate();
 
     if(inputPorts.size() < 2){
@@ -95,31 +101,41 @@ void Concatenate::validate() {
     DataType outputDT = getOutputPort(0)->getDataType();
     DataType outputDTScalar = outputDT;
     outputDTScalar.setDimensions({1});
-    if(!outputDT.isVector()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Multidimensional array Concatenate is not currently supported, the output port should be a vector", getSharedPointer()));
-    }
 
-    int elements = 0;
-
+    //Check that inputs are consistent except for the dimension along which concatenation is occurring
+    //Note: Will not expand number of dimensions.  Use a reshape block to expand the number of dimensions if needed.  The one exception is scalars which can be expanded to a vector or row/col vector
+    int concatDimLen = 0;
+    std::vector<int> dimensionConstraint = getInputPort(0)->getDataType().getDimensions();
+    dimensionConstraint[concatDim] = 0;
     for(int i = 0; i<inputPorts.size(); i++){
         DataType inputDT = getInputPort(i)->getDataType();
         DataType inputDTScalar = inputDT;
         inputDTScalar.setDimensions({1});
 
-        if(!inputDT.isScalar() && !inputDT.isVector()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Multidimensional array Concatenate is not currently supported, port " + GeneralHelper::to_string(i) + " is not a scalar or vector", getSharedPointer()));
+        std::vector<int> portDim = inputDT.getDimensions();
+        if(inputDT.isScalar()){
+            //This is the one case where we will auto-expand since adding dimensions is unambiguous when expanding to a vector or row/col vector (does not matter if row major or col major)
+            for(int dim = portDim.size(); dim<outputDT.getDimensions().size(); dim++){
+                portDim.push_back(1);
+            }
+        }
+
+        concatDimLen += portDim[concatDim];
+        portDim[concatDim] = 0;
+        if(portDim != dimensionConstraint){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Concatenate - Input Dimension " + GeneralHelper::to_string(i) + " does not match the first input (excluding the concatinate dimension).  Laminar does not expand the dimension automatically (due to row/column major semantic disagreement).  Use a reshape block to manually expand the dimension of the input if nessisary", getSharedPointer()));
         }
 
         if(inputDTScalar != outputDTScalar){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Input port (" + GeneralHelper::to_string(i) + ") type should match the output port", getSharedPointer()));
         }
-        elements += inputDT.numberOfElements();
     }
 
-    if(elements != outputDT.numberOfElements()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Number of elements in output should match the sum of the number of elements at the inputs", getSharedPointer()));
+    //Check output port dimension
+    dimensionConstraint[concatDim] = concatDimLen;
+    if(getOutputPort(0)->getDataType().getDimensions() != dimensionConstraint){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Concatenate - Output Dimension Does Not Match Input Dimensions Concatenated Along Specified Dimension", getSharedPointer()));
     }
-
 }
 
 CExpr
@@ -142,7 +158,6 @@ Concatenate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
     cStatementQueue.push_back(outputVar.getCVarDecl(imag, true, false, true) + ";");
 
     int outputOffset = 0;
-    //TODO: Change the offset to be multidimension when multidimensional arrays supported
     for(unsigned long i = 0; i<inputExprs.size(); i++){
         DataType inputDT = getInputPort(i)->getDataType();
 
@@ -160,13 +175,25 @@ Concatenate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
         }
 
-        //TODO: Change to multidimensional for loop when multidimensional arrays supported
         //For now, relies on output being a vector
-        std::string dstIndex = GeneralHelper::to_string(outputOffset) + (inputDT.isScalar() ? "" : " + " + forLoopIndexVars[0]);
-        std::vector<std::string> dstIndexVec = {dstIndex};
+        std::vector<std::string> dstIndexVec;
+        if(inputDT.isScalar()){
+            //The one case we do auto-expand is when the input is a scalar.  It will expand to a vector
+            std::string concatDimDstIndex = GeneralHelper::to_string(outputOffset);
+
+            for(int dim = 0; dim < getOutputPort(0)->getDataType().getDimensions().size(); dim++){
+                dstIndexVec.push_back("1");
+            }
+
+            dstIndexVec[concatDim] = concatDimDstIndex;
+        }else{
+            std::string concatDimDstIndex = GeneralHelper::to_string(outputOffset) + " + " + forLoopIndexVars[concatDim];
+            dstIndexVec = forLoopIndexVars;
+            dstIndexVec[concatDim] = concatDimDstIndex;
+        }
         std::string assignDest = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(dstIndexVec);
 
-        //Relies on input being a scalar or vector
+        //Relies on input being a scalar or array
         std::vector<std::string> emptyArr;
         std::string assignVal = inputExprs[i].getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars, true);
 
@@ -177,8 +204,16 @@ Concatenate::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
         }
 
-        outputOffset += inputDT.numberOfElements();
+        outputOffset += inputDT.getDimensions()[concatDim];
     }
 
     return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+}
+
+int Concatenate::getConcatDim() const {
+    return concatDim;
+}
+
+void Concatenate::setConcatDim(int concatDim) {
+    Concatenate::concatDim = concatDim;
 }

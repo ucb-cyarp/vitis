@@ -43,6 +43,7 @@
 #include "PrimitiveNodes/InnerProduct.h"
 #include "PrimitiveNodes/TappedDelay.h"
 #include "PrimitiveNodes/Select.h"
+#include "PrimitiveNodes/Reshape.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -1157,6 +1158,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "SimulinkBitShift" || blockFunction == "BitShift"){ //--Vitis name is SimulinkBitShift. Simulink Name is Bit Shift
         newNode = SimulinkBitShift::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Reshape" || blockFunction == "BitShift"){ //--Vitis name is Reshape. Simulink Name is Reshape
+        newNode = Reshape::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }

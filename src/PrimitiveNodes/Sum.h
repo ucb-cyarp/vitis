@@ -28,6 +28,7 @@ class Sum : public PrimitiveNode{
     friend NodeFactory;
 private:
     std::vector<bool> inputSign; ///<An array of input signs to the sum operation.  True = positive, False = negative.  Or a number indicating the number of + inputs
+    int collapseDimension; ///< Specifies the dimension along which summation occurs.  If summing across all dimensions, will be <0.  NOTE: If >=0, the sum expects a single input port
 
     //==== Constructors ====
     /**
@@ -64,6 +65,8 @@ public:
     //====Getters/Setters====
     std::vector<bool> getInputSign() const;
     void setInputSign(const std::vector<bool> &inputSign);
+    int getCollapseDimension() const;
+    void setCollapseDimension(int collapsDimension);
 
     //====Factories====
     /**
