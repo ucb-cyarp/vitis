@@ -38,6 +38,7 @@ Concatenate::createFromGraphML(int id, std::string name, std::map<std::string, s
         }else if(mode == "Multidimensional array"){
             std::string concatDimStr = dataKeyValueMap.at("Numeric.ConcatenateDimension");
             int concatDim = std::stoi(concatDimStr);
+            concatDim--; //This is due to Simulink indexing starting from 1
             newNode->setConcatDim(concatDim);
         }else{
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown mode for Concatenate", newNode));

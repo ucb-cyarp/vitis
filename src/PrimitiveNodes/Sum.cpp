@@ -47,7 +47,16 @@ std::shared_ptr<Sum> Sum::createFromGraphML(int id, std::string name,
         //Simulink Name -- Inputs
         inputSigns = dataKeyValueMap.at("Inputs");
 
-        std::string collapseMode = dataKeyValueMap.at("CollapseMode");
+        //For legacy support, CollapseMode may not be exported.  In this case, default to All Dimensions
+        std::string collapseMode;
+
+        auto collapseModeEntry = dataKeyValueMap.find("CollapseMode");
+        if(collapseModeEntry != dataKeyValueMap.end()) {
+            collapseMode = dataKeyValueMap.at("CollapseMode");
+        }else{
+            collapseMode = "All dimensions";
+        }
+
         if(collapseMode == "All dimensions"){
             newNode->setCollapseDimension(-1);
         }else if(collapseMode == "Specified dimension"){
