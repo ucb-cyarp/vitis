@@ -110,7 +110,7 @@ SimulinkSelect::createFromGraphML(int id, std::string name, std::map<std::string
         std::vector<int> outputLens;
         std::vector<std::vector<NumericValue>> dialogIndexes;
         for(int i = 0; i<numDims; i++) {
-            std::string suffix = i == 0 ? "1st" : GeneralHelper::to_string(i); //For legacy reasons, the first index has a different format from subsequent indexes
+            std::string suffix = i == 0 ? "1st" : GeneralHelper::to_string(i+1); //For legacy reasons, the first index has a different format from subsequent indexes
 
             std::string modeStr = dataKeyValueMap.at("IndexOption"+suffix);
             if (modeStr == "Index vector (dialog)") {
@@ -303,7 +303,7 @@ void SimulinkSelect::validate() {
                             getSharedPointer()));
                 }
             } else if (modes[i] == Select::SelectMode::OFFSET_LENGTH) {
-                if (dialogIndexes.size() != 1) {
+                if (dialogIndexes[i].size() != 1) {
                     throw std::runtime_error(ErrorHelpers::genErrorStr(
                             "Validation Failed - SimulinkSelect - Index Should be a Scalar When Indexing Mode is Offset",
                             getSharedPointer()));
