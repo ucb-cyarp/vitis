@@ -441,7 +441,7 @@ SimulinkSelect::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vecto
                 }
             }
 
-            int constElements = dialogIndexes.size();
+            int constElements = dialogIndexes[dim].size();
             indexDT = DataType(false, isSigned, false, numBits, 0, {constElements});
             indexDT = indexDT.getCPUStorageType(); //Do not want extra masking operation
         } else {
