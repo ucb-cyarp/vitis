@@ -315,7 +315,7 @@ CExpr Reshape::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             }
             dstIndexExprs.insert(dstIndexExprs.begin(), "(" + forLoopVar + "/" + GeneralHelper::to_string(divisor) + ")"); //No need to mod this entry
         }
-        std::string dstExpr = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(srcIndexExprs);
+        std::string dstExpr = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(dstIndexExprs);
 
         //Assign
         cStatementQueue.push_back(dstExpr + " = " + srcExpr + ";");
