@@ -1370,7 +1370,6 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
                 dimensions.push_back(simulinkDim[dim]);
                 if(simulinkDim[dim] != 1){
                     allOnes = false;
-                    break;
                 }
             }
 
