@@ -215,7 +215,7 @@ CExpr Select::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     //Index(s)
     std::vector<CExpr> indExprs;
     for(int i = 0; i<modes.size(); i++) {
-        std::shared_ptr<OutputPort> indSrcOutputPort = getInputPort(1)->getSrcOutputPort();
+        std::shared_ptr<OutputPort> indSrcOutputPort = getInputPort(1+i)->getSrcOutputPort();
         int indSrcOutputPortNum = indSrcOutputPort->getPortNum();
         std::shared_ptr<Node> indSrcNode = indSrcOutputPort->getParent();
         indExprs.push_back(indSrcNode->emitC(cStatementQueue, schedType, indSrcOutputPortNum, false));
