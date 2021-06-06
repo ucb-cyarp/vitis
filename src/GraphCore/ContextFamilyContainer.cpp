@@ -267,3 +267,18 @@ std::shared_ptr<DummyReplica> ContextFamilyContainer::getDummyNode() const {
 void ContextFamilyContainer::setDummyNode(const std::shared_ptr<DummyReplica> &dummyNode) {
     ContextFamilyContainer::dummyNode = dummyNode;
 }
+
+std::string ContextFamilyContainer::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
+    std::shared_ptr<Node> asNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+
+    if(asNode){
+        std::string origName = asNode->getFullyQualifiedOrigName(sanitize, delim);
+        if(!origName.empty()){
+            origName += delim;
+        }
+        origName += typeNameStr();
+        return origName;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Context Root was not a node", getSharedPointer()));
+    }
+}

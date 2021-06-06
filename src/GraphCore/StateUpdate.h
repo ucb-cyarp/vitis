@@ -114,6 +114,8 @@ public:
     std::string typeNameStr() override;
 
     std::string labelStr() override ;
+
+    std::string getFullyQualifiedOrigName(bool sanitize, std::string delim) override;
 };
 
 /*! @} */

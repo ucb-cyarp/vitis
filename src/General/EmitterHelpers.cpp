@@ -217,6 +217,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
             //Emit state update
             cFile << std::endl << "//---- State Update for "
                   << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             std::vector<std::string> stateUpdateExprs;
             (*it)->emitCStateUpdate(stateUpdateExprs, schedType, nullptr); //Do not pass a stateUpdateSrc since this is emitting the StateUpdate for a primary node.  The StateUpdate node will set stateUpdateSrc to itself when calling the function in the primary node
@@ -232,6 +233,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
             //Emit comment
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             std::vector<std::string> nextStateExprs;
             (*it)->emitCExprNextState(nextStateExprs, schedType);
@@ -428,6 +430,7 @@ void EmitterHelpers::emitCloseOpenContext(const SchedParams::SchedType &schedTyp
 void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &cFile, SchedParams::SchedType schedType){
     //Emit comment
     cFile << std::endl << "//---- Calculate " << nodeToEmit->getFullyQualifiedName() << " ----" << std::endl;
+    cFile << "//~~~~ Orig Path: " << nodeToEmit->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
     unsigned long numOutputPorts = nodeToEmit->getOutputPorts().size();
     //Emit each output port

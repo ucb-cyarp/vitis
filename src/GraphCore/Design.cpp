@@ -206,6 +206,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("block_label", "string", true));
     parameters.insert(GraphMLParameter("block_partition_num", "int", true));
     parameters.insert(GraphMLParameter("block_sched_order", "int", true));
+    parameters.insert(GraphMLParameter("orig_location", "int", true));
     parameters.insert(GraphMLParameter("node_id", "int", true));
 
     //Add the static entries for arcs
@@ -635,6 +636,8 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
         std::vector<std::string> nextStateExprs;
         nodesWithState[i]->emitCExprNextState(nextStateExprs, schedType);
         cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
+        cFile << "//~~~~ Orig Path: " << nodesWithState[i]->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
+
 
         unsigned long numNextStateExprs = nextStateExprs.size();
         for(unsigned long j = 0; j<numNextStateExprs; j++){
@@ -770,6 +773,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
             //Emit comment
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             std::vector<std::string> nextStateExprs;
             (*it)->emitCExprNextState(nextStateExprs, schedType);
@@ -783,6 +787,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
             //Emit comment
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             unsigned long numOutputPorts = (*it)->getOutputPorts().size();
             //Emit each output port

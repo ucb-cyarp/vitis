@@ -99,6 +99,8 @@ public:
     void rewireArcsToContextFamilyContainerAndRecurse(std::vector<std::shared_ptr<Arc>> &arcs_to_delete);
 
     std::string typeNameStr() override;
+
+    std::string getFullyQualifiedOrigName(bool sanitize, std::string delim) override;
 };
 
 /*! @} */

@@ -224,3 +224,18 @@ std::string ContextVariableUpdate::labelStr(){
 
     return label;
 }
+
+std::string ContextVariableUpdate::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
+    std::shared_ptr<Node> asNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+
+    if(asNode) {
+        std::string origName = asNode->getFullyQualifiedOrigName(sanitize, delim);
+        if (!origName.empty()) {
+            origName += delim;
+        }
+        origName += typeNameStr();
+        return origName;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Context Root is not Node", getSharedPointer()));
+    }
+}

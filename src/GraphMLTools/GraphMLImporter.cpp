@@ -242,6 +242,12 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
             }
         }
 
+        //Should not be necessary to set original locations in this way.  They should be set during node creation
+//        //Get original names
+//        for(auto node = nodes.begin(); node != nodes.end(); node++){
+//            (*node)->setOrigLocation();
+//        }
+
         //Validate nodes (get the node vector again in case nodes were added)
         nodes = design->getNodes();
         for(auto node = nodes.begin(); node != nodes.end(); node++){

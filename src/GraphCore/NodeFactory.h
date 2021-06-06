@@ -58,6 +58,9 @@ public:
         if(parent != nullptr)
         {
             parent->addChild(node);
+            std::vector<std::string> origLoc = parent->getOrigLocation();
+            origLoc.push_back(parent->getName());
+            node->setOrigLocation(origLoc);
         }
 
         return node;
@@ -100,6 +103,7 @@ public:
         node->init(); //There is now a shared_ptr to the class, can now init things that require pointers to "this" inside the node constructor.
         node->setOrigNode(orig);
         node->setName(orig->getName() + "_expanded");
+        node->setOrigLocation(orig->getOrigLocation());
 
         if(parent != nullptr)
         {
