@@ -436,12 +436,12 @@ std::string LUT::getGlobalDecl(){
     Variable tableVar = Variable(varName, tableType);
 
     std::string tableDecl = "const " + tableVar.getCVarDecl(false, true, false, true, false, true) + " = " +
-                            NumericValue::toStringComponent(false, tableType, tableData, "{\n", "\n}", ",\n") + ";";
+                            NumericValue::toStringComponent(false, tableType, tableData, "{", "}", ", ") + ";";
 
     //Emit an imagionary vector if the table is complex
     if(tableType.isComplex()){
-         tableDecl += "const " + tableVar.getCVarDecl(true, true, false, true, false, true) + " = " +
-                      NumericValue::toStringComponent(true, tableType, tableData, "{\n", "\n}", ",\n") + ";";
+         tableDecl += "\nconst " + tableVar.getCVarDecl(true, true, false, true, false, true) + " = " +
+                      NumericValue::toStringComponent(true, tableType, tableData, "{", "}", ", ") + ";";
     }
 
     return tableDecl;
