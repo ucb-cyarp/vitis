@@ -101,6 +101,9 @@ public:
     bool operator==(const Variable &rhs) const;
 
     bool operator!=(const Variable &rhs) const;
+
+    std::vector<std::string> genReset();
+    std::vector<std::string> getResetConst(bool alignTo, std::string alignment = "VITIS_MEM_ALIGNMENT");
 };
 
 /*! @} */

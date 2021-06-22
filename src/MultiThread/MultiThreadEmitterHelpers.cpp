@@ -1637,6 +1637,22 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << std::endl;
 
+    //Emit the reset constants
+    cFile << "//==== State Var Reset Vals ====" << std::endl;
+    for(unsigned long i = 0; i<nodesWithStateCount; i++) {
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++) {
+            std::vector<std::string> rstConsts = stateVars[j].getResetConst(true);
+            for(const std::string &constant : rstConsts){
+                cFile << constant << std::endl;
+            }
+        }
+    }
+
+    cFile << std::endl;
+
     //Emit BlackBox C++ functions
     if(blackBoxes.size() > 0) {
         cFile << "//==== BlackBox Functions ====" << std::endl;
@@ -1744,26 +1760,9 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         //Emit State Vars
         unsigned long numStateVars = stateVars.size();
         for(unsigned long j = 0; j<numStateVars; j++){
-            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            DataType initDataType = stateVars[j].getDataType();
-            std::vector<NumericValue> initVals = stateVars[j].getInitValue();
-            unsigned long initValsLen = initVals.size();
-            if(initValsLen == 1){
-                cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
-            }else{
-                for(unsigned long k = 0; k < initValsLen; k++){
-                    cFile << stateVars[j].getCVarName(false) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
-                }
-            }
-
-            if(stateVars[j].getDataType().isComplex()){
-                if(initValsLen == 1){
-                    cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
-                }else{
-                    for(unsigned long k = 0; k < initValsLen; k++){
-                        cFile << stateVars[j].getCVarName(true) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
-                    }
-                }
+            std::vector<std::string> rstStatements = stateVars[j].genReset();
+            for(const std::string &rstStatement : rstStatements) {
+                cFile << rstStatement << std::endl;
             }
         }
     }
