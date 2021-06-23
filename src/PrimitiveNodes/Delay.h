@@ -135,8 +135,8 @@ public:
      * @param parent The parent of this node in the hierarchy
      * @param dialect The dialect of the GraphML file being imported
      */
-    static void populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::string simulinkInitCondName,
-                                              std::string simulinkDelayLenName,
+    static void populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::string simulinkDelayLenName,
+                                              std::string simulinkInitCondName,
                                               int id, std::string name,
                                               std::map<std::string, std::string> dataKeyValueMap,
                                               std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);

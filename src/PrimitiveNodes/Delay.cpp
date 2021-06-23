@@ -81,7 +81,12 @@ void Delay::populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::stri
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Delay", node));
     }
 
-    int delayVal = std::stoi(delayStr);
+    int delayVal;
+    if(dataKeyValueMap.at("block_function") == "VectorTappedDelay" || dataKeyValueMap.at("block_function") == "TappedDelayWithReset") {
+        delayVal = std::stoi(delayStr)-1; //Vector Tapped Delay and TappedDelayWithReset (both Laminar Library Blocks) Depth is the delay+1
+    }else{
+        delayVal = std::stoi(delayStr);
+    }
     node->setDelayValue(delayVal);
 
     std::vector<NumericValue> initialConds = NumericValue::parseXMLString(initialConditionStr);
@@ -309,6 +314,11 @@ std::vector<Variable> Delay::getCStateVars() {
 }
 
 CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
+    bool hasRstPort = inputPorts.size() > 1;
+    if(hasRstPort){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Async reset line only supported with tapped delays with passthrough"));
+    }
+
     if(delayValue == 0){
         //NOTE: allocateExtraSpace has no effect with a delayValue == 0
         //If delay = 0, simply pass through
@@ -405,6 +415,8 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
 }
 
 void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
+    //TODO: Implement Rst input
+
     DataType inputDT = getInputPort(0)->getDataType(); //This is the datatype of the input and does not include any extra dimension for the buffer
 
     if(delayValue == 0){
@@ -793,7 +805,11 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
 }
 
 bool Delay::hasCombinationalPath() {
-    return false; //This is a pure state element
+    if(delayValue > 0) {
+        return false; //This is a pure state element
+    }else{
+        return true; //This is a passthrough
+    }
 }
 
 bool Delay::isEarliestFirst() const {
@@ -1133,13 +1149,13 @@ std::vector<NumericValue> Delay::getExportableInitCondsHelper() {
     std::vector<NumericValue> initConds;
     if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
         //Remove the extra value for the extra space
+        int elements = getInputPort(0)->getDataType().numberOfElements();
         if(earliestFirst){
             //Remove from the beginning
-            int elements = getInputPort(0)->getDataType().numberOfElements();
             initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin()+elements, initCondsAfterCircularCorrection.end());
         }else{
             //remove from the end
-            int initCondLen = initCondsAfterCircularCorrection.size()-1;
+            int initCondLen = initCondsAfterCircularCorrection.size()-elements;
             initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin(), initCondsAfterCircularCorrection.begin()+initCondLen);
         }
     }else{

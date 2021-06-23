@@ -19,6 +19,8 @@ node.simulinkBlockType = get_param(simulink_block_handle, 'BlockType');
 %Handle Stateflow and Bit Shift which Returns a Type of Subsystem
 isStateflow = false;
 isBitShift = false;
+isVectorTappedDelay = false;
+isRstTappedDelay = false;
 if strcmp(node.simulinkBlockType, 'SubSystem')
     %Using solution from https://www.mathworks.com/matlabcentral/answers/156628-how-to-recognize-stateflow-blocks-using-simulink-api-get_param
     %did not know about the SFBlockType parameter (I assume this means
@@ -30,6 +32,14 @@ if strcmp(node.simulinkBlockType, 'SubSystem')
     
     if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), ['hdlsllib/Logic and Bit' newline 'Operations/Bit Shift'])
         isBitShift = true;
+    end
+    
+    if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/VectorTappedDelay_startingWithOldest') || strcmp(get_param(simulink_block_handle, 'ReferenceBlock'), 'laminarLib/VectorTappedDelay_startingWithOldest')
+        isVectorTappedDelay = true;
+    end
+    
+    if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/TappedDelayWithReset_oldestFirst') || strcmp(get_param(simulink_block_handle, 'ReferenceBlock'), 'laminarLib/TappedDelayWithReset_oldestFirst')
+        isRstTappedDelay = true;
     end
 end
 
@@ -604,6 +614,25 @@ elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Reshape')
     %    - 'Row vector (2-D)' - 2D Row Vector
     %    - 'Customize' - Specify Dimensions in 
     %    - 'Derive from reference input port' - Reshape to the Dimensions of a Second input
+    
+%---- Vector Tapped Delay ----
+elseif isVectorTappedDelay
+    %Note that this is a Laminar library block since Simulink's tapped delay
+    %does not support vector inputs
+    node.simulinkBlockType = 'VectorTappedDelay';
+
+    node.dialogPropertiesNumeric('VecLen') = GetParamEval(simulink_block_handle, 'VecLen'); %This is the length of the input vector
+    node.dialogPropertiesNumeric('Depth') = GetParamEval(simulink_block_handle, 'Depth'); %This is the number of vectors in the output (including the passthrough).  Depth-1 is the delay
+    node.dialogPropertiesNumeric('InitCond') = GetParamEval(simulink_block_handle, 'InitCond'); %Initial Conditions
+
+%---- Tapped Delay with Reset ----
+elseif isRstTappedDelay
+    %Note that this is a Laminar library block
+    node.simulinkBlockType = 'TappedDelayWithReset';
+
+    node.dialogPropertiesNumeric('Depth') = GetParamEval(simulink_block_handle, 'Depth'); %This is the number of vectors in the output (including the passthrough).  Depth-1 is the delay
+    node.dialogPropertiesNumeric('InitCond') = GetParamEval(simulink_block_handle, 'RstVal'); %Initial Conditions
+
     
 %TODO: More Blocks
 end

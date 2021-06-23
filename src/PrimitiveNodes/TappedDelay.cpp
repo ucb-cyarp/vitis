@@ -29,7 +29,15 @@ TappedDelay::createFromGraphML(int id, std::string name, std::map<std::string, s
     std::shared_ptr<TappedDelay> newNode = NodeFactory::createNode<TappedDelay>(parent);
 
     //Import Delay base properties
-    populatePropertiesFromGraphML(newNode, "Numeric.NumDelays", "Numeric.vinit", id, name, dataKeyValueMap, parent, dialect);
+    if(dataKeyValueMap.at("block_function") == "VectorTappedDelay" || dataKeyValueMap.at("block_function") == "TappedDelayWithReset") {
+        populatePropertiesFromGraphML(newNode, "Numeric.Depth",
+                                      "Numeric.InitCond", id, name,
+                                      dataKeyValueMap, parent, dialect);
+    }else{
+        populatePropertiesFromGraphML(newNode, "Numeric.NumDelays",
+                                      "Numeric.vinit", id, name,
+                                      dataKeyValueMap, parent, dialect);
+    }
 
     //Override the TappedDelay specific properties (earliestFirst, allocateExtraSpace)
     if (dialect == GraphMLDialect::VITIS) {
@@ -38,22 +46,28 @@ TappedDelay::createFromGraphML(int id, std::string name, std::map<std::string, s
         std::string allocateExtraSpaceStr = dataKeyValueMap.at("IncludeCurrent");
         newNode->allocateExtraSpace = GeneralHelper::parseBool(allocateExtraSpaceStr);
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        std::string orderStr = dataKeyValueMap.at("DelayOrder");
-        if(orderStr == "Newest"){
-            newNode->earliestFirst = true;
-        }else if(orderStr == "Oldest"){
+        if(dataKeyValueMap.at("block_function") == "VectorTappedDelay" || dataKeyValueMap.at("block_function") == "TappedDelayWithReset"){
             newNode->earliestFirst = false;
-        }else{
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown DelayOrder: " + orderStr + " - TappedDelay", newNode));
-        }
-
-        std::string includeCurrentStr = dataKeyValueMap.at("includeCurrent");
-        if(includeCurrentStr == "on"){
             newNode->allocateExtraSpace = true;
-        }else if(includeCurrentStr == "off"){
-            newNode->allocateExtraSpace = false;
-        }else{
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown includeCurrent: " + orderStr + " - TappedDelay", newNode));
+        }else {
+            std::string orderStr = dataKeyValueMap.at("DelayOrder");
+            if (orderStr == "Newest") {
+                newNode->earliestFirst = true;
+            } else if (orderStr == "Oldest") {
+                newNode->earliestFirst = false;
+            } else {
+                throw std::runtime_error(
+                        ErrorHelpers::genErrorStr("Unknown DelayOrder: " + orderStr + " - TappedDelay", newNode));
+            }
+
+            std::string includeCurrentStr = dataKeyValueMap.at("includeCurrent");
+            if(includeCurrentStr == "on"){
+                newNode->allocateExtraSpace = true;
+            }else if(includeCurrentStr == "off"){
+                newNode->allocateExtraSpace = false;
+            }else{
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown includeCurrent: " + orderStr + " - TappedDelay", newNode));
+            }
         }
     } else {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - TappedDelay", newNode));
@@ -119,8 +133,12 @@ void TappedDelay::validate() {
     Node::validate();
 
     //Should have 1 input ports and 1 output port
-    if(inputPorts.size() != 1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Should Have Exactly 1 Input Port", getSharedPointer()));
+    if(inputPorts.size() >2){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Should Have 1 Input Port and, Optionally, 1 Reset Port", getSharedPointer()));
+    }
+
+    if(inputPorts.size() == 2 && !allocateExtraSpace){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Async Reset Ports are only supported with Tapped Delays which Pass Through The Current Value", getSharedPointer()));
     }
 
     if(outputPorts.size() != 1){
@@ -139,6 +157,21 @@ void TappedDelay::validate() {
     outTypeDim1.setDimensions({1});
     DataType inTypeDim1 = inType;
     inTypeDim1.setDimensions({1});
+
+    if(inputPorts.size() >1){
+        DataType rstType = getInputPort(1)->getDataType();
+        if(!rstType.isScalar()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Async Reset Ports Should be Scalar", getSharedPointer()));
+        }
+
+        if(!rstType.isBool()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Async Reset Ports Should be Bool Type", getSharedPointer()));
+        }
+
+        if(rstType.isComplex()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Async Reset Ports Should be A Real Type", getSharedPointer()));
+        }
+    }
 
     if(outTypeDim1 != inTypeDim1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - DataType of Input Port Does not Match Output Port", getSharedPointer()));
@@ -185,11 +218,36 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
 
             CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
+            //Reset buffer here if reset pulled
+            //Also reset pointer locations so that initial state is properly aligned
+            bool hasRst = inputPorts.size()>1;
+            if(hasRst){
+                std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
+                int rstOutPortNum = rstPort->getPortNum();
+                std::shared_ptr<Node> rstNode = rstPort->getParent();
+                CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
+
+                //Emit the reset check
+                cStatementQueue.push_back("if(" + rstExpr.getExpr() + "){");
+                //Reset the state vars
+                std::vector<std::string> bufferRst = cStateVar.genReset();
+                cStatementQueue.insert(cStatementQueue.end(), bufferRst.begin(), bufferRst.end());
+                std::vector<std::string> offsetRst = circularBufferOffsetVar.genReset();
+                cStatementQueue.insert(cStatementQueue.end(), offsetRst.begin(), offsetRst.end());
+                cStatementQueue.push_back("}else{");
+                //Else, perform the standard emit where the current input is pulled into the buffer
+            }
+
             //For both the earliest first and oldest first versions of tapped delay, the circular buffer is the location to write into
             std::string insertPosition = circularBufferOffsetVar.getCVarName(false);
 
             //The function should handle the case where where circular buffers with extra elements are in use
             assignInputToBuffer(inputExpr, insertPosition, imag, cStatementQueue);
+
+            if(hasRst){
+                //Close the reset scope
+                cStatementQueue.push_back("}");
+            }
         }
 
         //Return the variable
@@ -220,7 +278,7 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
                              "((" + offsetDt.toString(DataType::StringStyle::C, false, false) + ")"
                              + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(getBufferLength()-(fifoLen-1)) +
                              ")");
-            };
+            }
         }else{
             if(earliestFirst){
                 //The returned array is simply the allocated array starting at the current offset of the circular buffer
@@ -239,6 +297,23 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             std::shared_ptr<Node> srcNode = srcPort->getParent();
 
             CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+
+            //Reset buffer here if reset pulled
+            bool hasRst = inputPorts.size()>1;
+            if(hasRst){
+                std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
+                int rstOutPortNum = rstPort->getPortNum();
+                std::shared_ptr<Node> rstNode = rstPort->getParent();
+                CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
+
+                //Emit the reset check
+                cStatementQueue.push_back("if(" + rstExpr.getExpr() + "){");
+                //Reset the state vars
+                std::vector<std::string> bufferRst = cStateVar.genReset();
+                cStatementQueue.insert(cStatementQueue.end(), bufferRst.begin(), bufferRst.end());
+                cStatementQueue.push_back("}else{");
+                //Else, perform the standard emit where the current input is pulled into the buffer
+            }
 
             //It is possible for the input to be a vector, emit a for loop if nessasary
             DataType inputDT = getInputPort(0)->getDataType();
@@ -274,6 +349,11 @@ TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
             if (!inputDT.isScalar()) {
                 cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
             }
+
+            if(hasRst){
+                //Close the reset scope
+                cStatementQueue.push_back("}");
+            }
         }
 
         //Return the variable without any dereferencing
@@ -304,6 +384,19 @@ void TappedDelay::propagateProperties() {
 void TappedDelay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                    std::shared_ptr<StateUpdate> stateUpdateSrc) {
 
+    //Emit check for reset.  If reset, do not do the state update.  The state was reset in emitCExpr
+    bool hasRst = inputPorts.size()>1;
+    if(hasRst){
+        std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
+        int rstOutPortNum = rstPort->getPortNum();
+        std::shared_ptr<Node> rstNode = rstPort->getParent();
+        CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
+
+        //Emit the reset check
+        cStatementQueue.push_back("if(!(" + rstExpr.getExpr() + ")){");
+        //Perform the state update if
+    }
+
     if(usesCircularBuffer() && !earliestFirst){
         if(requiresStandaloneCExprNextState()) { //Includes check for allocateExtraSpace
             assignInputToBuffer(circularBufferOffsetVar.getCVarName(false), cStatementQueue);
@@ -317,6 +410,10 @@ void TappedDelay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, Sc
         Delay::emitCStateUpdate(cStatementQueue, schedType, stateUpdateSrc);
     }
 
+    if(hasRst){
+        //Close the reset scope
+        cStatementQueue.push_back("}");
+    }
 }
 
 void TappedDelay::incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) {

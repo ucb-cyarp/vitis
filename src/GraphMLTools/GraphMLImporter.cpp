@@ -1076,7 +1076,7 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DiscreteFIR" || blockFunction == "DiscreteFir"){ //Vitis name is DiscreteFIR, Simulink name is DiscreteFir
         newNode = DiscreteFIR::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "TappedDelay"){ //Vitis & Simulink name is TappedDelay
+    }else if(blockFunction == "TappedDelay" || blockFunction == "TappedDelay" || blockFunction == "VectorTappedDelay" || blockFunction == "TappedDelayWithReset"){ //Vitis & Simulink name is TappedDelay
         newNode = TappedDelay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "ComplexToRealImag"){
         newNode = ComplexToRealImag::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
