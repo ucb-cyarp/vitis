@@ -187,12 +187,12 @@ std::vector<std::string> Variable::getResetConst(bool alignTo, std::string align
         rstVar.inStateStructure = false;
 
         std::string realRstDecl = "const " + rstVar.getCVarDecl(false, true, true, true, false,
-                alignTo, alignment);
+                alignTo, alignment) + ";";
         rstConst.push_back(realRstDecl);
 
         if(dataType.isComplex()){
             std::string imagRstDecl = "const " + rstVar.getCVarDecl(true, true, true, true, false,
-                                                                    alignTo, alignment);
+                                                                    alignTo, alignment) + ";";
             rstConst.push_back(imagRstDecl);
         }
     }
