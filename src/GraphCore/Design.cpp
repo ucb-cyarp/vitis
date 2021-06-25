@@ -206,7 +206,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("block_label", "string", true));
     parameters.insert(GraphMLParameter("block_partition_num", "int", true));
     parameters.insert(GraphMLParameter("block_sched_order", "int", true));
-    parameters.insert(GraphMLParameter("orig_location", "int", true));
+    parameters.insert(GraphMLParameter("orig_location", "string", true));
     parameters.insert(GraphMLParameter("node_id", "int", true));
 
     //Add the static entries for arcs
@@ -2566,8 +2566,8 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
         designClone.assignArcIDs();
     }
 
-//    std::cout << "Emitting: ./cOut/context_scheduleGraph.graphml" << std::endl;
-//    GraphMLExporter::exportGraphML("./cOut/context_scheduleGraph.graphml", designClone);
+//    std::cout << "Emitting: ./rev1BB_receiver_rev1-3/context_scheduleGraph.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML("./rev1BB_receiver_rev1-3/context_scheduleGraph.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
     if(schedulePartitions) {
@@ -3742,6 +3742,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     if(!MultiThreadEmitterHelpers::checkNoNodesInIO(nodes)){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Nodes exist in the I/O partition of the design which are not FIFOs"));
     }
+
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
+//    }
 
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
