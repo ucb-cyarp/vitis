@@ -1757,6 +1757,12 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
     designCopy.nodes=nodeCopies;
 
+    for(const auto node : designCopy.nodes){
+        if(node->getId() == 1138){
+            std::cout << "Got here" << std::endl;
+        }
+    }
+
 //    //Copy the node list in the same order
 //    std::vector<std::shared_ptr<Node>> nodeCopiesOrdered;
 //    for(unsigned long i = 0; i<nodes.size(); i++){
@@ -1895,35 +1901,8 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
             std::shared_ptr<ContextFamilyContainer> contextFamilyContainerCopy = std::dynamic_pointer_cast<ContextFamilyContainer>(nodeCopies[i]);
             std::shared_ptr<ContextFamilyContainer> contextFamilyContainerOrig = std::dynamic_pointer_cast<ContextFamilyContainer>(copyToOrigNode[contextFamilyContainerCopy]);
 
-            //translate the ContextRoot pointer
-            if(contextFamilyContainerOrig->getContextRoot() != nullptr){
-                //Fix diamond inheritance
-                std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextFamilyContainerOrig->getContextRoot());
-                if(origContextRootAsNode == nullptr){
-                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a ContextRoot to a Node");
-                }
-                std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
-
-                std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
-                if(copyContextRoot == nullptr){
-                    throw std::runtime_error("When cloning ContextFamilyContainer " + contextFamilyContainerOrig->getFullyQualifiedName() + ", could not cast a Node to a ContextRoot");
-                }
-
-                contextFamilyContainerCopy->setContextRoot(copyContextRoot);
-            }else{
-                contextFamilyContainerCopy->setContextRoot(nullptr);
-            }
-
-            //Copy DummyNode
-
-            //subContextContainers are handled in the clone method
-            if(contextFamilyContainerOrig->getDummyNode() != nullptr){
-                std::shared_ptr<Node> dummyCopyAsNode = origToCopyNode[contextFamilyContainerOrig->getDummyNode()];
-                std::shared_ptr<DummyReplica> dummyCopy = std::dynamic_pointer_cast<DummyReplica>(dummyCopyAsNode);
-                contextFamilyContainerCopy->setDummyNode(dummyCopy);
-            }else{
-                contextFamilyContainerCopy->setDummyNode(nullptr);
-            }
+            //Set the relationships of the context family container
+            contextFamilyContainerOrig->cloneContextFamilyContainerRelationships(origToCopyNode);
         }
 
         if(GeneralHelper::isType<Node, DummyReplica>(nodeCopies[i]) != nullptr){
@@ -2436,6 +2415,12 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
     //This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
     //later, a method for having vector intermediates would be required.
 
+    for(const auto &node : nodes){
+        if(node->getId() == 1138){
+            std::cout << "got here1" << std::endl;
+        }
+    }
+
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2443,6 +2428,12 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
+
+    for(const auto &node : designClone.nodes){
+        if(node->getId() == 1138){
+            std::cout << "got here2" << std::endl;
+        }
+    }
 
 //    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
     unsigned long numNodesPruned=0;
@@ -2566,8 +2557,8 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
         designClone.assignArcIDs();
     }
 
-//    std::cout << "Emitting: ./rev1BB_receiver_rev1-3/context_scheduleGraph.graphml" << std::endl;
-//    GraphMLExporter::exportGraphML("./rev1BB_receiver_rev1-3/context_scheduleGraph.graphml", designClone);
+//    std::cout << "Emitting: ./rev1BB_receiver_rev1-4_blockLMS_splitEQ/context_scheduleGraph.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML("./rev1BB_receiver_rev1-4_blockLMS_splitEQ/context_scheduleGraph.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
     if(schedulePartitions) {
@@ -2938,7 +2929,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> contextRootOrigArcs, contextRootRewiredArcs; //Want Arc orders to be consistent across runs
 
     //For each discovered context root
-    //Mark the driver arcs to be removed because order constraint arcs serving representing the drivers for each partition's
+    //Mark the driver arcs to be removed because order constraint arcs representing the drivers for each partition's
     //ContextFamilyContainer should have already been created durring encapsulation.  This should include an arc to the
     //ContextFamilyContainer in the same partition as the ContextRoot.  In the past, this function would create replicas
     //of the context driver arcs for each partition.  However, that could result in undesierable behavior if a context
@@ -2946,6 +2937,8 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //at the order constraint arcs introduced during encapsulation that span partitions.  Arcs after these FIFOs are
     //removed before this function is called as part of scheduling because the FIFOs are stateful nodes with no
     //cobinational path.  This prevents the partition context drivers from becoming false cross partition dependencies
+
+    //NOTE: Clock domain
 
     //Mark the origional (before encapsulation) ContextDriverArcs for deletion
     for(unsigned long i = 0; i<contextRoots.size(); i++){
@@ -2960,6 +2953,11 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
             //TODO: Remove check
             if(driverArcs[j] == nullptr){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("Null Arc discovered when rewiring driver arcs"));
+            }
+
+            std::shared_ptr<Arc> driverArc = driverArcs[j];
+            if(driverArc->getId() == 1796){
+                std::cout << "got here" << std::endl;
             }
 
             origArcs.push_back(driverArcs[j]);
@@ -2982,6 +2980,10 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
         std::shared_ptr<Arc> candidateArc = candidateArcs[i];
+
+        if(candidateArc->getId() == 1796 || candidateArc->getSrcPort()->getParent()->getId() == 1138){
+            std::cout << "got here" << std::endl;
+        }
 
         std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
         std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
@@ -3616,6 +3618,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //      To make this easier to work with with, insert the FIFO into the context of all the inputs if they are all the same
     //      otherwise, put it outside the contexts
 
+    //Export GraphML (for debugging)
+    std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+              << "_scheduleGraph_preFIFOMerge.graphml" << std::endl;
+    GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOMerge.graphml", *this);
+
     //TODO: There is currently a problem when ignoring contexts due to scheduling nodes connected to the FIFOs
     {
         std::vector<std::shared_ptr<Node>> new_nodes;
@@ -3743,12 +3750,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         throw std::runtime_error(ErrorHelpers::genErrorStr("Nodes exist in the I/O partition of the design which are not FIFOs"));
     }
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
-//    }
+    if(emitGraphMLSched) {
+        //Export GraphML (for debugging)
+        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
+                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
+        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
+    }
 
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes

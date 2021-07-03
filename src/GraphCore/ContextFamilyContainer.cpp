@@ -7,6 +7,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "EnabledSubSystem.h"
 #include "General/ErrorHelpers.h"
+#include "GraphCore/DummyReplica.h"
 
 std::vector<std::shared_ptr<ContextContainer>> ContextFamilyContainer::getSubContextContainers() const {
     return subContextContainers;
@@ -32,62 +33,71 @@ std::shared_ptr<Node> ContextFamilyContainer::shallowClone(std::shared_ptr<SubSy
     return NodeFactory::shallowCloneNode<ContextFamilyContainer>(parent, this);
 }
 
-void ContextFamilyContainer::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
-                                                      std::vector<std::shared_ptr<Node>> &nodeCopies,
-                                                      std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
-                                                      std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) {
-
-    //Because of sibbling context family containers, it is possible for the clone method to be called on a ContextFamilyContainer
-    //more than once: once because it is a node in the graph and once because it is a sibbling.  We do not want the node cloned
-    //more than once but we also don't want to introduce some state which identifies if it has been cloned before since we may
-    //want to clone a design more than once.  We therefore check if the ContextFamilyContainer appears in the origToCopyNode map.
-    //If it does, it means it has already been cloned and no action is taken here.  Otherwise, it is cloned.
-
-    if(origToCopyNode.find(getSharedPointer()) == origToCopyNode.end()) {
-        SubSystem::shallowCloneWithChildren(parent, nodeCopies, origToCopyNode, copyToOrigNode);
-
-        //Copy the containerOrder vector with the cloned versions
-        std::shared_ptr<ContextFamilyContainer> nodeCopy = std::dynamic_pointer_cast<ContextFamilyContainer>(
-                origToCopyNode[getSharedPointer()]);
-
-        std::vector<std::shared_ptr<ContextContainer>> subContextContainersCopy;
-
-        for (unsigned long i = 0; i < subContextContainers.size(); i++) {
-            subContextContainersCopy.push_back(
-                    std::dynamic_pointer_cast<ContextContainer>(origToCopyNode[subContextContainers[i]]));
-        }
-
-        nodeCopy->setSubContextContainers(subContextContainersCopy);
-
-        //Copy siblings
-        //Note, there is a protection against double duplication of ContextFamilyContainers (and their children) provided above
-        std::map<int, std::shared_ptr<ContextFamilyContainer>> sibblingMap;
-        for (auto it = siblingContainers.begin(); it != siblingContainers.end(); it++) {
-            int part = it->first;
-            std::shared_ptr<ContextFamilyContainer> origContextFamilyContainer = it->second;
-            std::shared_ptr<SubSystem> origContextFamilyContainerParent = origContextFamilyContainer->getParent();
-
-            std::shared_ptr<Node> copyContextFamilyContainerParentNode = origToCopyNode[origContextFamilyContainerParent];
-            if(copyContextFamilyContainerParentNode == nullptr){
-                ErrorHelpers::genErrorStr("Error when cloning ContextFamilyContainer.  Sibling Parent Not Found: ", getSharedPointer());
-            }
-            std::shared_ptr<SubSystem> copyContextFamilyContainerParent = std::dynamic_pointer_cast<SubSystem>(copyContextFamilyContainerParentNode);
-
-            origContextFamilyContainer->shallowCloneWithChildren(copyContextFamilyContainerParent, nodeCopies, origToCopyNode, copyToOrigNode);
-
-            std::shared_ptr<Node> clonesContextFamilyContainer = origToCopyNode[origContextFamilyContainer];
-
-            if (GeneralHelper::isType<Node, ContextFamilyContainer>(clonesContextFamilyContainer) == nullptr) {
-                throw std::runtime_error(
-                        ErrorHelpers::genErrorStr("Error when cloning ContextFamilyContainer.  Sibling Not Found: ", getSharedPointer()));
-            }
-
-            sibblingMap[part] = std::dynamic_pointer_cast<ContextFamilyContainer>(clonesContextFamilyContainer);
-        }
-
-        nodeCopy->setSiblingContainers(sibblingMap);
+void ContextFamilyContainer::cloneContextFamilyContainerRelationships(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode){
+    //Get the cloned version of this node
+    auto clonedNodeIter = origToCopyNode.find(getSharedPointer());
+    if(clonedNodeIter == origToCopyNode.end()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find cloned version of this node", getSharedPointer()));
     }
-}
+
+    //Copy the containerOrder vector with the cloned versions
+    std::shared_ptr<ContextFamilyContainer> nodeCopy = std::dynamic_pointer_cast<ContextFamilyContainer>(origToCopyNode[getSharedPointer()]);
+    std::vector<std::shared_ptr<ContextContainer>> subContextContainersCopy;
+    for (unsigned long i = 0; i < subContextContainers.size(); i++) {
+        std::shared_ptr<ContextContainer> subContextContainer = std::dynamic_pointer_cast<ContextContainer>(origToCopyNode[subContextContainers[i]]);
+        if(subContextContainer == nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find clone of subContextContainer: " + subContextContainers[i]->getFullyQualifiedName(), getSharedPointer()));
+        }
+
+        subContextContainersCopy.push_back(subContextContainer);
+    }
+    nodeCopy->setSubContextContainers(subContextContainersCopy);
+
+    //Copy sibling relationship
+    std::map<int, std::shared_ptr<ContextFamilyContainer>> sibblingMap;
+    for (auto it = siblingContainers.begin(); it != siblingContainers.end(); it++) {
+        int part = it->first;
+        std::shared_ptr<ContextFamilyContainer> origContextFamilyContainer = it->second;
+
+        std::shared_ptr<Node> clonedContextFamilyContainer = origToCopyNode[origContextFamilyContainer];
+
+        if (GeneralHelper::isType<Node, ContextFamilyContainer>(clonedContextFamilyContainer) == nullptr) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when cloning ContextFamilyContainer.  Sibling Not Found: ", getSharedPointer()));
+        }
+
+        sibblingMap[part] = std::dynamic_pointer_cast<ContextFamilyContainer>(clonedContextFamilyContainer);
+    }
+    nodeCopy->setSiblingContainers(sibblingMap);
+
+    //translate the ContextRoot pointer
+    if(contextRoot != nullptr){
+        //Fix diamond inheritance
+        std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+        if(origContextRootAsNode == nullptr){
+            throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a ContextRoot to a Node");
+        }
+        std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
+
+        std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
+        if(copyContextRoot == nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When cloning ContextFamilyContainer, could not cast a Node to a ContextRoot", getSharedPointer()));
+        }
+
+        nodeCopy->setContextRoot(copyContextRoot);
+    }else{
+        nodeCopy->setContextRoot(nullptr);
+    }
+
+    //Copy DummyNode
+    //subContextContainers are handled in the clone method
+    if(dummyNode != nullptr){
+        std::shared_ptr<Node> dummyCopyAsNode = origToCopyNode[dummyNode];
+        std::shared_ptr<DummyReplica> dummyCopy = std::dynamic_pointer_cast<DummyReplica>(dummyCopyAsNode);
+        nodeCopy->setDummyNode(dummyCopy);
+    }else{
+        nodeCopy->setDummyNode(nullptr);
+    }
+};
 
 std::shared_ptr<ContextContainer> ContextFamilyContainer::getSubContextContainer(unsigned long subContext) {
     return subContextContainers[subContext];
