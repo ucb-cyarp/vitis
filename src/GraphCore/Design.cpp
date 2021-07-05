@@ -1757,12 +1757,6 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
 
     designCopy.nodes=nodeCopies;
 
-    for(const auto node : designCopy.nodes){
-        if(node->getId() == 1138){
-            std::cout << "Got here" << std::endl;
-        }
-    }
-
 //    //Copy the node list in the same order
 //    std::vector<std::shared_ptr<Node>> nodeCopiesOrdered;
 //    for(unsigned long i = 0; i<nodes.size(); i++){
@@ -2415,12 +2409,6 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
     //This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
     //later, a method for having vector intermediates would be required.
 
-    for(const auto &node : nodes){
-        if(node->getId() == 1138){
-            std::cout << "got here1" << std::endl;
-        }
-    }
-
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> origToClonedNodes;
     std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> clonedToOrigNodes;
     std::map<std::shared_ptr<Arc>, std::shared_ptr<Arc>> origToClonedArcs;
@@ -2428,12 +2416,6 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
 
     //Make a copy of the design to conduct the destructive topological sort on
     Design designClone = copyGraph(origToClonedNodes, clonedToOrigNodes, origToClonedArcs, clonedToOrigArcs);
-
-    for(const auto &node : designClone.nodes){
-        if(node->getId() == 1138){
-            std::cout << "got here2" << std::endl;
-        }
-    }
 
 //    std::cerr << "Node Count: " << designClone.nodes.size() << std::endl;
     unsigned long numNodesPruned=0;
@@ -2956,9 +2938,6 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
             }
 
             std::shared_ptr<Arc> driverArc = driverArcs[j];
-            if(driverArc->getId() == 1796){
-                std::cout << "got here" << std::endl;
-            }
 
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
@@ -2980,10 +2959,6 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //Run through the remaining arcs and check if they should be rewired.
     for(unsigned long i = 0; i<candidateArcs.size(); i++){
         std::shared_ptr<Arc> candidateArc = candidateArcs[i];
-
-        if(candidateArc->getId() == 1796 || candidateArc->getSrcPort()->getParent()->getId() == 1138){
-            std::cout << "got here" << std::endl;
-        }
 
         std::vector<Context> srcContext = candidateArc->getSrcPort()->getParent()->getContext();
         std::vector<Context> dstContext = candidateArc->getDstPort()->getParent()->getContext();
