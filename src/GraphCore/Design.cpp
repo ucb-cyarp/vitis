@@ -3594,9 +3594,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //      otherwise, put it outside the contexts
 
     //Export GraphML (for debugging)
-    std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-              << "_scheduleGraph_preFIFOMerge.graphml" << std::endl;
-    GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOMerge.graphml", *this);
+//    std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//              << "_scheduleGraph_preFIFOMerge.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOMerge.graphml", *this);
 
     //TODO: There is currently a problem when ignoring contexts due to scheduling nodes connected to the FIFOs
     {
@@ -3725,12 +3725,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         throw std::runtime_error(ErrorHelpers::genErrorStr("Nodes exist in the I/O partition of the design which are not FIFOs"));
     }
 
-    if(emitGraphMLSched) {
-        //Export GraphML (for debugging)
-        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
-                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
-        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
-    }
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
+//    }
 
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
