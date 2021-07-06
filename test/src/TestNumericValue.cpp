@@ -19,16 +19,16 @@ TEST(NumericValue, ParseRealInt) {
 }
 
 TEST(NumericValue, ParseRealDouble) {
-    std::vector<NumericValue> test = NumericValue::parseXMLString("9.3");
+    std::vector<NumericValue> test = NumericValue::parseXMLString("9.25");
 
     ASSERT_EQ(test.size(), 1);
     ASSERT_EQ(test[0].isComplex(), false);
     ASSERT_EQ(test[0].isFractional(), true);
 
-    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 9.3);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 9.25);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
 
-    std::regex regexExpr("9[.]3[0]*");
+    std::regex regexExpr("9[.]25[0]*");
     std::smatch matches;
     std::string str0 = test[0].toString();
     bool regexMatched = std::regex_match(str0, matches, regexExpr);
@@ -121,15 +121,15 @@ TEST(NumericValue, ParseRealIntArray) {
 }
 
 TEST(NumericValue, ParseRealDoubleArray) {
-    std::vector<NumericValue> test = NumericValue::parseXMLString("[9.3, 8.5, 2.25]");
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[9.75, 8.5, 2.25]");
 
     ASSERT_EQ(test.size(), 3);
 
     ASSERT_EQ(test[0].isComplex(), false);
     ASSERT_EQ(test[0].isFractional(), true);
-    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 9.3);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), 9.75);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 0);
-    std::regex regexExpr0("9[.]3[0]*");
+    std::regex regexExpr0("9[.]75[0]*");
     std::smatch matches0;
     std::string str0 = test[0].toString();
     bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
@@ -181,15 +181,15 @@ TEST(NumericValue, ParseComplexIntArray) {
 }
 
 TEST(NumericValue, ParseComplexDoubleArray) {
-    std::vector<NumericValue> test = NumericValue::parseXMLString("[-9.3+8.25i, 8.5-2.5i, 2.25+3.5i]");
+    std::vector<NumericValue> test = NumericValue::parseXMLString("[-9.75+8.25i, 8.5-2.5i, 2.25+3.5i]");
 
     ASSERT_EQ(test.size(), 3);
 
     ASSERT_EQ(test[0].isComplex(), true);
     ASSERT_EQ(test[0].isFractional(), true);
-    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), -9.3);
+    ASSERT_DOUBLE_EQ(test[0].getComplexDouble().real(), -9.75);
     ASSERT_DOUBLE_EQ(test[0].getComplexDouble().imag(), 8.25);
-    std::regex regexExpr0("[-]9[.]3[0]* [+] 8[.]25[0]*i");
+    std::regex regexExpr0("[-]9[.]75[0]* [+] 8[.]25[0]*i");
     std::smatch matches0;
     std::string str0 = test[0].toString();
     bool regexMatched0 = std::regex_match(str0, matches0, regexExpr0);
