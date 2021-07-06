@@ -28,8 +28,8 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
      *
      * Uses the ostream operators which do this.
      *
-     * Use of ostringstream to get a string and realization that precision of std::to_string cannot be changed was informed
-     * by (https://stackoverflow.com/questions/16605967/set-precision-of-stdto-string-when-converting-floating-point-values)
+     * Precision setting informed by
+     * https://stackoverflow.com/questions/554063/how-do-i-print-a-double-value-with-full-precision-using-cout
      *
      * @tparam T
      * @param val
@@ -45,6 +45,14 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
     //This is a specialization for bool type that will emit "true"/"false"
     template<>
     std::string to_string(const bool);
+
+    //This is a specialization for float
+    template<>
+    std::string to_string(const float);
+
+    //This is a specialization for double
+    template<>
+    std::string to_string(const double);
 
 //    std::string bool_to_string(bool val);
 
