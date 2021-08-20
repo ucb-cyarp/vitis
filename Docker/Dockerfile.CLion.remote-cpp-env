@@ -19,12 +19,15 @@
 #   Authentication: ssh key: id_rsa_clionContainer.pub
 #   Copy your own pubkey here
 
-FROM ubuntu:18.04
+# Updated to based off of Mar 25 revision of the example file.  Includes using ubuntu:20.04, installing tzdata, and set terminal to bash
+
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND="noninteractive"
 ENV TZ="America/Los_Angeles"
 RUN apt-get update \
-  && apt-get install -y ssh \
+  && apt-get install -y tzdata \
+      ssh \
       build-essential \
       git \
       gcc \
@@ -51,6 +54,8 @@ RUN apt-get update \
       libxerces-c-dev \
       graphviz \
       doxygen \
+#Other
+      cloc \
   && apt-get clean
 
 RUN ( \
@@ -71,5 +76,7 @@ RUN chmod +r /tmp/id_rsa_clionContainer.pub; \
     su - clion -c "chmod 600 ~/.ssh/authorized_keys"; \
     su - clion -c "cat /tmp/id_rsa_clionContainer.pub >> ~/.ssh/authorized_keys"; \
     rm /tmp/id_rsa_clionContainer.pub;
+
+RUN usermod -s /bin/bash clion
 
 CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]
