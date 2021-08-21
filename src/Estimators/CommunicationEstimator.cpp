@@ -196,9 +196,10 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
             }
 
             //TODO: Remove check
-            int inputPortSrcPartition = fifo->getInputPort(i)->getSrcOutputPort()->getParent()->getPartitionNum();
+            std::shared_ptr<Node> srcNode = fifo->getInputPort(i)->getSrcOutputPort()->getParent();
+            int inputPortSrcPartition = srcNode->getPartitionNum();
             if(srcPartition != inputPortSrcPartition){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("ThreadCrossingFIFO input partition disagrees with detected partition", fifo));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("ThreadCrossingFIFO input partition disagrees with detected partition.  Input: " + srcNode->getFullyQualifiedName(), fifo));
             }
         }
 
