@@ -10,6 +10,8 @@ else
     verbose = verbose_in;
 end
 
+oldFormat = format('longE');
+
 %% Load Simulink and put into compile mode
 if verbose >= 1
     disp('[SimulinkToGraphML] **** Opening System ****');
@@ -568,6 +570,8 @@ if verbose >= 1
        disp(sprintf('%s | Count: %6d', key, count));
     end
 end
+
+format(oldFormat);
 
 end
 
