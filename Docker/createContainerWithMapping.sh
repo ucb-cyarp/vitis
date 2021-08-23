@@ -28,7 +28,7 @@ docker rmi clion/remote-cpp-env:0.5
 #Build the container image
 cd $scriptSrc
 echo "docker build -t clion/remote-cpp-env:0.5 -f Dockerfile.CLion.remote-cpp-env ."
-docker build -t clion/remote-cpp-env:0.5 -f Dockerfile.CLion.remote-cpp-env .
+docker build --progress=plain -t clion/remote-cpp-env:0.5 -f Dockerfile.CLion.remote-cpp-env . 2>&1 | tee dockerBuild.log
 
 #Create and run the container.  Map the project directory
 echo "docker run -d --cap-add sys_ptrace -p127.0.0.1:2222:22 -v $projectDir:/project: --name clion_remote_env clion/remote-cpp-env:0.5"

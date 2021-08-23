@@ -53,10 +53,29 @@ RUN apt-get update \
       libboost-all-dev \
       libxerces-c-dev \
       graphviz \
-      doxygen \
+#Used to install doxygen from apt but need a more modern version (see below) so I compile from src
+#Doxygen build dependencies
+      flex \
+      bison \
 #Other
       cloc \
   && apt-get clean
+
+#TODO: Revisit if moving to a new Ubuntu base
+#Install more modern doxygen 1.9.2 due to a regression in grouped classes (https://github.com/doxygen/doxygen/issues/7772)
+RUN cd /tmp && \
+    mkdir doxygen && \
+    git clone https://github.com/doxygen/doxygen.git && \
+    cd doxygen && \
+    git checkout Release_1_9_2 && \
+    mkdir build && \
+    cd build && \
+    cmake -G "Unix Makefiles" .. && \
+    make && \
+    make install && \
+    #Cleanup Doxygen Build Dir
+    cd /tmp && \
+    rm -rf doxygen
 
 RUN ( \
     echo 'LogLevel DEBUG2'; \

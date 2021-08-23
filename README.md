@@ -1,4 +1,4 @@
-# vitis
+# Laminar
 An Optimizing DSP Compiler for Data Flow Graphs
 
 ## Status:
