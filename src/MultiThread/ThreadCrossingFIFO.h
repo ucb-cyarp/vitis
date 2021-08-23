@@ -15,6 +15,7 @@
 #include "GraphMLTools/GraphMLDialect.h"
 #include "GraphCore/StateUpdate.h"
 #include "MultiRate/ClockDomain.h"
+#include "ThreadCrossingFIFOParameters.h"
 
 /**
  * \addtogroup MultiThread Multi-Thread Support
@@ -52,6 +53,8 @@ protected:
     std::vector<bool> cStateInputVarsInitialized;
 
     std::vector<std::shared_ptr<ClockDomain>> clockDomains; ///<The clock domains that this FIFO is associated with.  Each port can be in a different clock domain.  Because the FIFO exists in the context of the source, FIFOs connected to the MasterInput will not be in the context of the clock domain they belong to
+
+    ThreadCrossingFIFOParameters::CopyMode copyMode;
 
     //==== Constructors ====
     /**
@@ -112,6 +115,10 @@ public:
 
     std::vector<std::vector<NumericValue>> getInitConditions() const;
     void setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions);
+
+    ThreadCrossingFIFOParameters::CopyMode getCopyMode() const;
+
+    void setCopyMode(ThreadCrossingFIFOParameters::CopyMode copyMode);
 
     /**
      * @brief Returns true if threads operation on this FIFO use the data in the FIFO in place or copy to/from a local

@@ -191,6 +191,8 @@ set(COMMON_SRCS
         src/PrimitiveNodes/Concatenate.h
         src/PrimitiveNodes/Select.cpp
         src/PrimitiveNodes/Select.h
+        src/PrimitiveNodes/Reshape.cpp
+        src/PrimitiveNodes/Reshape.h
         src/MediumLevelNodes/MediumLevelNode.cpp
         src/MediumLevelNodes/MediumLevelNode.h
         src/MediumLevelNodes/Gain.cpp

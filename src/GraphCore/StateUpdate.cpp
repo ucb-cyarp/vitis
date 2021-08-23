@@ -154,3 +154,13 @@ std::string StateUpdate::labelStr(){
 
     return label;
 }
+
+std::string StateUpdate::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
+
+    std::string origName = primaryNode->getFullyQualifiedOrigName(sanitize, delim);
+    if(!origName.empty()){
+        origName += delim;
+    }
+    origName += typeNameStr();
+    return origName;
+}

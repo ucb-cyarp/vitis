@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <locale>
+#include <limits>
 
 #include "GraphCore/NumericValue.h"
 
@@ -217,6 +218,24 @@ std::string GeneralHelper::to_string<bool>(const bool val){
     }else{
         return "false";
     }
+}
+
+template<>
+std::string GeneralHelper::to_string<float>(const float val){
+    std::ostringstream stringStream;
+    int precision = std::numeric_limits<float>::max_digits10;
+    stringStream.precision(precision);
+    stringStream << val;
+    return stringStream.str();
+}
+
+template<>
+std::string GeneralHelper::to_string<double>(const double val){
+    std::ostringstream stringStream;
+    int precision = std::numeric_limits<double>::max_digits10;
+    stringStream.precision(precision);
+    stringStream << val;
+    return stringStream.str();
 }
 
 //std::string GeneralHelper::bool_to_string(bool val){

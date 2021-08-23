@@ -20,11 +20,9 @@
  */
 class Concatenate : public PrimitiveNode {
     friend NodeFactory;
-    //TODO: implement multidimensional matrix concatenate support
 
 private:
-    //Parameters only used for multidimensional emit
-    // - ConcatenateDimension
+    int concatDim; ///<The dimension allong which the concatenation occurs
 
     //==== Constructors ====
     /**
@@ -58,6 +56,10 @@ private:
     Concatenate(std::shared_ptr<SubSystem> parent, Concatenate* orig);
 
 public:
+    //====Getters/Setters====
+    int getConcatDim() const;
+    void setConcatDim(int concatDim);
+
     //====Factories====
     /**
      * @brief Creates a Concatenate node from a GraphML Description

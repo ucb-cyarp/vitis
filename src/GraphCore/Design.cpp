@@ -206,6 +206,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("block_label", "string", true));
     parameters.insert(GraphMLParameter("block_partition_num", "int", true));
     parameters.insert(GraphMLParameter("block_sched_order", "int", true));
+    parameters.insert(GraphMLParameter("orig_location", "string", true));
     parameters.insert(GraphMLParameter("node_id", "int", true));
 
     //Add the static entries for arcs
@@ -223,6 +224,7 @@ std::set<GraphMLParameter> Design::graphMLParameters() {
     parameters.insert(GraphMLParameter("partition_crossing_init_state_count_blocks", "int", false));
     parameters.insert(GraphMLParameter("partition_crossing_bytes_per_sample", "int", false));
     parameters.insert(GraphMLParameter("partition_crossing_bytes_per_block", "int", false));
+    parameters.insert(GraphMLParameter("partition_crossing_bytes_per_base_rate_sample", "double", false));
 
     std::set<GraphMLParameter> inputParameters = inputMaster->graphMLParameters();
     parameters.insert(inputParameters.begin(), inputParameters.end());
@@ -634,6 +636,8 @@ void Design::emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std
         std::vector<std::string> nextStateExprs;
         nodesWithState[i]->emitCExprNextState(nextStateExprs, schedType);
         cFile << std::endl << "//---- Compute Next States " << nodesWithState[i]->getFullyQualifiedName() <<" ----" << std::endl;
+        cFile << "//~~~~ Orig Path: " << nodesWithState[i]->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
+
 
         unsigned long numNextStateExprs = nextStateExprs.size();
         for(unsigned long j = 0; j<numNextStateExprs; j++){
@@ -769,6 +773,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
             //Emit comment
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             std::vector<std::string> nextStateExprs;
             (*it)->emitCExprNextState(nextStateExprs, schedType);
@@ -782,6 +787,7 @@ void Design::emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::Sched
 
             //Emit comment
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             unsigned long numOutputPorts = (*it)->getOutputPorts().size();
             //Emit each output port
@@ -966,6 +972,20 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         }
     }
 
+    //Emit the reset constants
+    cFile << "//==== State Var Reset Vals ====" << std::endl;
+    for(unsigned long i = 0; i<nodesWithStateCount; i++) {
+        std::vector<Variable> stateVars = nodesWithState[i]->getCStateVars();
+
+        unsigned long numStateVars = stateVars.size();
+        for(unsigned long j = 0; j<numStateVars; j++) {
+            std::vector<std::string> rstConsts = stateVars[j].getResetConst(true);
+            for(const std::string &constant : rstConsts){
+                cFile << constant << std::endl;
+            }
+        }
+    }
+
     cFile << std::endl;
 
     cFile << "//==== Global Declarations ====" << std::endl;
@@ -1045,26 +1065,9 @@ void Design::emitSingleThreadedC(std::string path, std::string fileName, std::st
         //Emit State Vars
         unsigned long numStateVars = stateVars.size();
         for(unsigned long j = 0; j<numStateVars; j++){
-            //cFile << "_Thread_local static " << stateVars[j].getCVarDecl(false, true, true) << ";" << std::endl;
-            DataType initDataType = stateVars[j].getDataType();
-            std::vector<NumericValue> initVals = stateVars[j].getInitValue();
-            unsigned long initValsLen = initVals.size();
-            if(initValsLen == 1){
-                cFile << stateVars[j].getCVarName(false) << " = " << initVals[0].toStringComponent(false, initDataType) << ";" << std::endl;
-            }else{
-                for(unsigned long k = 0; k < initValsLen; k++){
-                    cFile << stateVars[j].getCVarName(false) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(false, initDataType) << ";" << std::endl;
-                }
-            }
-
-            if(stateVars[j].getDataType().isComplex()){
-                if(initValsLen == 1){
-                    cFile << stateVars[j].getCVarName(true) << " = " << initVals[0].toStringComponent(true, initDataType) << ";" << std::endl;
-                }else{
-                    for(unsigned long k = 0; k < initValsLen; k++){
-                        cFile << stateVars[j].getCVarName(true) << EmitterHelpers::generateIndexOperation(EmitterHelpers::memIdx2ArrayIdx(k, initDataType.getDimensions())) << " = " << initVals[k].toStringComponent(true, initDataType) << ";" << std::endl;
-                    }
-                }
+            std::vector<std::string> rstStatements = stateVars[j].genReset();
+            for(const std::string &rstStatement : rstStatements){
+                cFile << rstStatement << std::endl;
             }
         }
     }
@@ -1892,35 +1895,8 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
             std::shared_ptr<ContextFamilyContainer> contextFamilyContainerCopy = std::dynamic_pointer_cast<ContextFamilyContainer>(nodeCopies[i]);
             std::shared_ptr<ContextFamilyContainer> contextFamilyContainerOrig = std::dynamic_pointer_cast<ContextFamilyContainer>(copyToOrigNode[contextFamilyContainerCopy]);
 
-            //translate the ContextRoot pointer
-            if(contextFamilyContainerOrig->getContextRoot() != nullptr){
-                //Fix diamond inheritance
-                std::shared_ptr<Node> origContextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextFamilyContainerOrig->getContextRoot());
-                if(origContextRootAsNode == nullptr){
-                    throw std::runtime_error("When cloning ContextFamilyContainer, could not cast a ContextRoot to a Node");
-                }
-                std::shared_ptr<Node> copyContextRootAsNode = origToCopyNode[origContextRootAsNode];
-
-                std::shared_ptr<ContextRoot> copyContextRoot = GeneralHelper::isType<Node, ContextRoot>(copyContextRootAsNode);
-                if(copyContextRoot == nullptr){
-                    throw std::runtime_error("When cloning ContextFamilyContainer " + contextFamilyContainerOrig->getFullyQualifiedName() + ", could not cast a Node to a ContextRoot");
-                }
-
-                contextFamilyContainerCopy->setContextRoot(copyContextRoot);
-            }else{
-                contextFamilyContainerCopy->setContextRoot(nullptr);
-            }
-
-            //Copy DummyNode
-
-            //subContextContainers are handled in the clone method
-            if(contextFamilyContainerOrig->getDummyNode() != nullptr){
-                std::shared_ptr<Node> dummyCopyAsNode = origToCopyNode[contextFamilyContainerOrig->getDummyNode()];
-                std::shared_ptr<DummyReplica> dummyCopy = std::dynamic_pointer_cast<DummyReplica>(dummyCopyAsNode);
-                contextFamilyContainerCopy->setDummyNode(dummyCopy);
-            }else{
-                contextFamilyContainerCopy->setDummyNode(nullptr);
-            }
+            //Set the relationships of the context family container
+            contextFamilyContainerOrig->cloneContextFamilyContainerRelationships(origToCopyNode);
         }
 
         if(GeneralHelper::isType<Node, DummyReplica>(nodeCopies[i]) != nullptr){
@@ -2563,8 +2539,8 @@ unsigned long Design::scheduleTopologicalStort(TopologicalSortParameters params,
         designClone.assignArcIDs();
     }
 
-//    std::cout << "Emitting: ./cOut/context_scheduleGraph.graphml" << std::endl;
-//    GraphMLExporter::exportGraphML("./cOut/context_scheduleGraph.graphml", designClone);
+//    std::cout << "Emitting: ./rev1BB_receiver_rev1-4_blockLMS_splitEQ/context_scheduleGraph.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML("./rev1BB_receiver_rev1-4_blockLMS_splitEQ/context_scheduleGraph.graphml", designClone);
 
     //==== Topological Sort (Destructive) ====
     if(schedulePartitions) {
@@ -2935,7 +2911,7 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     std::set<std::shared_ptr<Arc>, Arc::PtrID_Compare> contextRootOrigArcs, contextRootRewiredArcs; //Want Arc orders to be consistent across runs
 
     //For each discovered context root
-    //Mark the driver arcs to be removed because order constraint arcs serving representing the drivers for each partition's
+    //Mark the driver arcs to be removed because order constraint arcs representing the drivers for each partition's
     //ContextFamilyContainer should have already been created durring encapsulation.  This should include an arc to the
     //ContextFamilyContainer in the same partition as the ContextRoot.  In the past, this function would create replicas
     //of the context driver arcs for each partition.  However, that could result in undesierable behavior if a context
@@ -2943,6 +2919,8 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
     //at the order constraint arcs introduced during encapsulation that span partitions.  Arcs after these FIFOs are
     //removed before this function is called as part of scheduling because the FIFOs are stateful nodes with no
     //cobinational path.  This prevents the partition context drivers from becoming false cross partition dependencies
+
+    //NOTE: Clock domain
 
     //Mark the origional (before encapsulation) ContextDriverArcs for deletion
     for(unsigned long i = 0; i<contextRoots.size(); i++){
@@ -2958,6 +2936,8 @@ void Design::rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs,
             if(driverArcs[j] == nullptr){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("Null Arc discovered when rewiring driver arcs"));
             }
+
+            std::shared_ptr<Arc> driverArc = driverArcs[j];
 
             origArcs.push_back(driverArcs[j]);
             contextRootOrigArcs.insert(driverArcs[j]);
@@ -3253,8 +3233,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
-                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix, unsigned long memAlignment,
-                                bool emitPAPITelem, bool useSCHEDFIFO,
+                                int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
+                                EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
+                                unsigned long memAlignment, bool useSCHEDFIFO,
                                 PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                                 MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer,
                                 std::string pipeNameSuffix) {
@@ -3612,6 +3593,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //      To make this easier to work with with, insert the FIFO into the context of all the inputs if they are all the same
     //      otherwise, put it outside the contexts
 
+    //Export GraphML (for debugging)
+//    std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
+//              << "_scheduleGraph_preFIFOMerge.graphml" << std::endl;
+//    GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOMerge.graphml", *this);
+
     //TODO: There is currently a problem when ignoring contexts due to scheduling nodes connected to the FIFOs
     {
         std::vector<std::shared_ptr<Node>> new_nodes;
@@ -3739,6 +3725,13 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         throw std::runtime_error(ErrorHelpers::genErrorStr("Nodes exist in the I/O partition of the design which are not FIFOs"));
     }
 
+//    if(emitGraphMLSched) {
+//        //Export GraphML (for debugging)
+//        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
+//                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
+//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
+//    }
+
     //Schedule the partitions
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
 
@@ -3795,13 +3788,19 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Emit FIFO header (get struct descriptions from FIFOs)
     std::string fifoHeaderName = MultiThreadEmitterHelpers::emitFIFOStructHeader(path, fileName, fifoVec);
 
+    //Emit FIFO Support File
+    std::set<ThreadCrossingFIFOParameters::CopyMode> copyModesUsed = MultiThreadEmitterHelpers::findFIFOCopyModesUsed(fifoVec);
+    std::string fifoSupportHeaderName = MultiThreadEmitterHelpers::emitFIFOSupportFile(path, fileName, copyModesUsed);
+
+    //Emit other support files
     MultiThreadEmitterHelpers::writePlatformParameters(path, VITIS_PLATFORM_PARAMS_NAME, memAlignment);
     MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(path, VITIS_NUMA_ALLOC_HELPERS);
 
     //====Emit PAPI Helpers====
     std::vector<std::string> otherCFiles;
     std::string papiHelperHFile = "";
-    if(emitPAPITelem && (printTelem || !telemDumpPrefix.empty())){
+
+    if(EmitterHelpers::usesPAPI(telemLevel) && (printTelem || !telemDumpPrefix.empty())){
         papiHelperHFile = EmitterHelpers::emitPAPIHelper(path, "vitis");
         std::string papiHelperCFile = "vitis_papi_helpers.c";
         otherCFiles.push_back(papiHelperCFile);
@@ -3823,7 +3822,10 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
             MultiThreadEmitterHelpers::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
                                                             inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
                                                             path, fileName, designName, schedType, outputMaster, blockSize, fifoHeaderName,
-                                                            threadDebugPrint, printTelem, telemDumpPrefix, false, papiHelperHFile,
+                                                            fifoSupportHeaderName,
+                                                            threadDebugPrint, printTelem,
+                                                            telemLevel, telemCheckBlockFreq, telemReportPeriodSec,
+                                                            telemDumpPrefix, false, papiHelperHFile,
                                                             fifoIndexCachingBehavior, fifoDoubleBuffer, singleClockDomain, rate);
         }
     }
@@ -3871,11 +3873,11 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::vector<Variable> inputVars = inputVarRatePair.first;
 
     //++++Emit Const I/O Driver++++
-    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, threadDebugPrint, fifoIndexCachingBehavior);
+    ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, fifoSupportHeaderName, threadDebugPrint, fifoIndexCachingBehavior);
     std::string constIOSuffix = "io_const";
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, constIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, constIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, constIOSuffix, inputVars);
@@ -3894,11 +3896,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::string pipeIOSuffix = "io_linux_pipe";
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
-                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, 0, threadDebugPrint, printTelem,
+                                        StreamIOThread::StreamType::PIPE, blockSize, fifoHeaderName, fifoSupportHeaderName, 0, threadDebugPrint, printTelem,
+                                        telemLevel, telemCheckBlockFreq, telemReportPeriodSec, telemDumpPrefix, false,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, pipeIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, pipeIOSuffix, inputVars);
@@ -3916,11 +3919,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::SOCKET, blockSize,
-                                        fifoHeaderName, 0, threadDebugPrint, printTelem,
+                                        fifoHeaderName, fifoSupportHeaderName, 0, threadDebugPrint, printTelem,
+                                        telemLevel, telemCheckBlockFreq, telemReportPeriodSec, telemDumpPrefix, false,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, socketIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, socketIOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, socketIOSuffix, inputVars);
@@ -3936,11 +3940,12 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     StreamIOThread::emitStreamIOThreadC(inputMaster, outputMaster, inputFIFOs[IO_PARTITION_NUM],
                                         outputFIFOs[IO_PARTITION_NUM], path, fileName, designName,
                                         StreamIOThread::StreamType::POSIX_SHARED_MEM, blockSize,
-                                        fifoHeaderName, ioFifoSize, threadDebugPrint, printTelem,
+                                        fifoHeaderName, fifoSupportHeaderName, ioFifoSize, threadDebugPrint, printTelem,
+                                        telemLevel, telemCheckBlockFreq, telemReportPeriodSec, telemDumpPrefix, false,
                                         fifoIndexCachingBehavior, pipeNameSuffix);
 
     //Emit the startup function (aka the benchmark kernel)
-    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
+    MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(fifoMap, inputFIFOs, outputFIFOs, partitionSet, path, fileName, designName, fifoHeaderName, fifoSupportHeaderName, sharedMemoryFIFOSuffix, partitionMap, papiHelperHFile, useSCHEDFIFO);
 
     //Emit the benchmark driver
     MultiThreadEmitterHelpers::emitMultiThreadedMain(path, fileName, designName, sharedMemoryFIFOSuffix, inputVars);

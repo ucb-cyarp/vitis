@@ -133,15 +133,16 @@ int ThreadCrossingFIFO::getBlockSizeCreateIfNot(int portNum){
     return blockSizes[portNum];
 }
 
-ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8){}
+ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){}
 
-ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8){}
+ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){}
 
 ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent, ThreadCrossingFIFO *orig) : Node(parent, orig),
                                        fifoLength(orig->fifoLength), initConditions(orig->initConditions),
                                        cStateVars(orig->cStateVars), cStateInputVars(orig->cStateInputVars),
                                        blockSizes(orig->blockSizes), cStateVarsInitialized(orig->cStateVarsInitialized),
-                                       cStateInputVarsInitialized(orig->cStateInputVarsInitialized){}
+                                       cStateInputVarsInitialized(orig->cStateInputVarsInitialized),
+                                       copyMode(orig->copyMode){}
 
 std::set<GraphMLParameter> ThreadCrossingFIFO::graphMLParameters() {
     std::set<GraphMLParameter> parameters;
@@ -677,4 +678,12 @@ int ThreadCrossingFIFO::getTotalBlockSizeAllPorts() {
     }
 
     return elements;
+}
+
+ThreadCrossingFIFOParameters::CopyMode ThreadCrossingFIFO::getCopyMode() const {
+    return copyMode;
+}
+
+void ThreadCrossingFIFO::setCopyMode(ThreadCrossingFIFOParameters::CopyMode copyMode) {
+    ThreadCrossingFIFO::copyMode = copyMode;
 }

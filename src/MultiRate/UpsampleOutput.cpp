@@ -170,13 +170,6 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
 
 CExpr UpsampleOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                 int outputPortNum, bool imag) {
-    //TODO: Implement Vector Support
-    if(!getInputPort(0)->getDataType().isScalar()){
-        throw std::runtime_error("C Emit Error - UpsampleOutput Support for Vector Types has Not Yet Been Implemented");
-    }
-
-    //Return the state var name as the expression
-    //Return the simple name (no index needed as it is not an array
     return CExpr(stateVar.getCVarName(imag), stateVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
 }
 
@@ -184,8 +177,6 @@ std::vector<Variable> UpsampleOutput::getCStateVars() {
     std::vector<Variable> vars;
 
     DataType stateType = getInputPort(0)->getDataType();
-
-    //TODO: Extend to support vectors (must declare 2D array for state)
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
     Variable var = Variable(varName, stateType, initCond, false, true);
@@ -217,6 +208,20 @@ void UpsampleOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue,
 
     DataType inputDataType = getInputPort(0)->getDataType();
 
+    std::vector<std::string> forLoopIndexVars;
+    std::vector<std::string> forLoopClose;
+    if(!inputDataType.isScalar()){
+        //Emit For Loop
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(inputDataType.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        forLoopIndexVars = std::get<1>(forLoopStrs);
+        forLoopClose = std::get<2>(forLoopStrs);
+
+        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+    }
+
     if(subContextNum == 0) {
         //This is the latching logic
         std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
@@ -231,35 +236,35 @@ void UpsampleOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue,
             inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
         }
 
-        //TODO: Implement Vector Support
-
-        //The state variable is not an array
-        //TODO: Modify when vector support added
-        if(inputExprRe.isArrayOrBuffer()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/matrices are not currently supported in UpsampleOutput", getSharedPointer()));
-        }
-        cStatementQueue.push_back(stateVar.getCVarName(false) + " = " + inputExprRe.getExpr() + ";");
+        std::string assignExprRe = stateVar.getCVarName(false) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                                   " = " + (inputDataType.isScalar() ? inputExprRe.getExpr() : inputExprRe.getExprIndexed(forLoopIndexVars, true)) + ";";
+        cStatementQueue.push_back(assignExprRe);
 
         if (stateVar.getDataType().isComplex()) {
-            //TODO: Modify when vector support added
-            if(inputExprRe.isArrayOrBuffer()){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Vector/matrices are not currently supported in UpsampleOutput", getSharedPointer()));
-            }
-            cStatementQueue.push_back(stateVar.getCVarName(true) + " = " + inputExprIm.getExpr() + ";");
+            std::string assignExprIm = stateVar.getCVarName(true) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                                       " = " + (inputDataType.isScalar() ? inputExprIm.getExpr() : inputExprIm.getExprIndexed(forLoopIndexVars, true)) + ";";
+            cStatementQueue.push_back(assignExprIm);
         }
     }else if(subContextNum == 1){
         //This is the zero fill logic
         NumericValue zeroConst((long) 0);
 
-        //TODO: Implement Vector Support
-
-        //Set the statr
-        cStatementQueue.push_back(stateVar.getCVarName(false) + " = " + zeroConst.toStringComponent(false, inputDataType) + ";");
+        //Set the state
+        std::string assignExprRe = stateVar.getCVarName(false) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                                   " = " + zeroConst.toStringComponent(false, inputDataType) + ";";
+        cStatementQueue.push_back(assignExprRe);
 
         if (stateVar.getDataType().isComplex()) {
-            cStatementQueue.push_back(stateVar.getCVarName(true) + " = " + zeroConst.toStringComponent(true, inputDataType) + ";");
+            std::string assignExprIm = stateVar.getCVarName(true) + (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
+                                       " = " + zeroConst.toStringComponent(true, inputDataType) + ";";
+            cStatementQueue.push_back(assignExprIm);
         }
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("When emitting the Upsample StateUpdate, the state update node had an unexpected subcontext number", getSharedPointer()));
+    }
+
+    if(!inputDataType.isScalar()) {
+        //Close For Loop
+        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
     }
 }

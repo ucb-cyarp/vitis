@@ -23,13 +23,11 @@
 class SimulinkSelect : public MediumLevelNode{
     friend NodeFactory;
 private:
-    //TODO: Add numDimensions when supporting multidimensional select.  For now, not needed
-    //int numDimensions; ///<The number of dimensions the selection is over
     bool oneBased; ///<If true, indexes are 1 based instead of 0 based
-    Select::SelectMode mode; ///<The indexing mode (either a vector of indexes or an offset and a vector length)
-    std::vector<NumericValue> dialogIndexes; ///<The indexs (or offset) from the dialog.  Only relevant if index comes from dialog.
-    int outputLen; ///<The output length when the mode is offset/length
-    bool fromDialog;///<If true, the indexes come from the dialog parameter, otherwise, they come from the second input
+    std::vector<Select::SelectMode> modes; ///<The indexing mode (either a vector of indexes or an offset and a vector length)
+    std::vector<std::vector<NumericValue>> dialogIndexes; ///<The indexs (or offset) from the dialog.  Only relevant if index comes from dialog.
+    std::vector<int> outputLens; ///<The output length when the mode is offset/length
+    std::vector<bool> fromDialog;///<If true, the indexes come from the dialog parameter, otherwise, they come from the second input
 
     //outputSizeArray and inputPortWidth is also currently not needed as this information is stored in the connected arcs
     //Also, we are restricting to vectors at the moment
@@ -69,14 +67,14 @@ public:
     //==== Getters/Setters ====
     bool isOneBased() const;
     void setOneBased(bool oneBased);
-    Select::SelectMode getMode() const;
-    void setMode(Select::SelectMode mode);
-    std::vector<NumericValue> getDialogIndexes() const;
-    void setDialogIndexes(const std::vector<NumericValue> &dialogIndexes);
-    bool isFromDialog() const;
-    void setFromDialog(bool fromDialog);
-    int getOutputLen() const;
-    void setOutputLen(int outputLen);
+    std::vector<Select::SelectMode> getModes() const;
+    void setModes(const std::vector<Select::SelectMode> &modes);
+    std::vector<std::vector<NumericValue>> getDialogIndexes() const;
+    void setDialogIndexes(const std::vector<std::vector<NumericValue>> &dialogIndexes);
+    std::vector<int> getOutputLens() const;
+    void setOutputLens(const std::vector<int> &outputLens);
+    std::vector<bool> getFromDialog() const;
+    void setFromDialog(const std::vector<bool> &fromDialog);
 
     //==== Factories ====
     /**

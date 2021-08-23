@@ -299,8 +299,8 @@ void DigitalDemodulator::validate() {
     //Output may be real (BPSK) or imagionary
 
     //TODO: implement more modulation schemes
-    if(bitsPerSymbol != 1 && bitsPerSymbol != 2 && bitsPerSymbol != 4){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalDemodulator - Currently Only Supports BPSK, QPSK/4QAM, and 16QAM", getSharedPointer()));
+    if(bitsPerSymbol != 1 && bitsPerSymbol != 2 && bitsPerSymbol != 4 && bitsPerSymbol != 6 && bitsPerSymbol != 8){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - DigitalDemodulator - Currently Only Supports BPSK, QPSK/4QAM, 16QAM, 64QAM, and 256QAM", getSharedPointer()));
 
     }
 

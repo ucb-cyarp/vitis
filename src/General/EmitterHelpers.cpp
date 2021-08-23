@@ -217,6 +217,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
             //Emit state update
             cFile << std::endl << "//---- State Update for "
                   << stateUpdateNode->getPrimaryNode()->getFullyQualifiedName() << " ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             std::vector<std::string> stateUpdateExprs;
             (*it)->emitCStateUpdate(stateUpdateExprs, schedType, nullptr); //Do not pass a stateUpdateSrc since this is emitting the StateUpdate for a primary node.  The StateUpdate node will set stateUpdateSrc to itself when calling the function in the primary node
@@ -232,6 +233,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
             //Emit comment
             cFile << std::endl << "//---- Calculate " << (*it)->getFullyQualifiedName() << " Inputs ----" << std::endl;
+            cFile << "//~~~~ Orig Path: " << (*it)->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
             std::vector<std::string> nextStateExprs;
             (*it)->emitCExprNextState(nextStateExprs, schedType);
@@ -428,6 +430,7 @@ void EmitterHelpers::emitCloseOpenContext(const SchedParams::SchedType &schedTyp
 void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &cFile, SchedParams::SchedType schedType){
     //Emit comment
     cFile << std::endl << "//---- Calculate " << nodeToEmit->getFullyQualifiedName() << " ----" << std::endl;
+    cFile << "//~~~~ Orig Path: " << nodeToEmit->getFullyQualifiedOrigName()  << "~~~~" << std::endl;
 
     unsigned long numOutputPorts = nodeToEmit->getOutputPorts().size();
     //Emit each output port
@@ -630,9 +633,7 @@ std::string EmitterHelpers::emitTelemetryHelper(std::string path, std::string fi
     cFile << std::endl;
 
     cFile << "double difftimespec(timespec_t* a, timespec_t* b){"  << std::endl;
-    cFile << "    double a_double = a->tv_sec + (a->tv_nsec)*(0.000000001);" << std::endl;
-    cFile << "    double b_double = b->tv_sec + (b->tv_nsec)*(0.000000001);" << std::endl;
-    cFile << "    return a_double - b_double;" << std::endl;
+    cFile << "    return (a->tv_sec - b->tv_sec) + ((double) (a->tv_nsec - b->tv_nsec))*(0.000000001);" << std::endl;
     cFile << "}" << std::endl;
 
     cFile << "double timespecToDouble(timespec_t* a){" << std::endl;
@@ -677,14 +678,13 @@ std::string EmitterHelpers::emitPAPIHelper(std::string path, std::string fileNam
                   "//low level API in papi.h " << std::endl;
     headerFile << "#include \"papi.h\"\n"
                   "\n"
-                  "    #define VITIS_NUM_PAPI_EVENTS 5\n"
+                  "    #define VITIS_NUM_PAPI_EVENTS 4\n"
                   "    extern int VITIS_PAPI_EVENTS[VITIS_NUM_PAPI_EVENTS];\n"
                   "\n"
                   "    typedef struct{\n"
                   "        long long clock_cycles;\n"
                   "        long long instructions_retired;\n"
                   "        long long floating_point_operations_retired;\n"
-                  "        long long vector_instructions_retired;\n"
                   "        long long l1_data_cache_accesses;\n"
                   "    } performance_counter_data_t;\n"
                   "\n"
@@ -744,12 +744,11 @@ std::string EmitterHelpers::emitPAPIHelper(std::string path, std::string fileNam
     cFile << "#include <stdio.h>\n"
              "#include <stdlib.h>\n"
              "\n"
-             "int VITIS_PAPI_EVENTS[VITIS_NUM_PAPI_EVENTS] = {PAPI_TOT_CYC, PAPI_TOT_INS, PAPI_FP_OPS, PAPI_VEC_INS, PAPI_L1_DCA};\n"
+             "int VITIS_PAPI_EVENTS[VITIS_NUM_PAPI_EVENTS] = {PAPI_TOT_CYC, PAPI_TOT_INS, PAPI_FP_OPS, PAPI_L1_DCA};\n"
              "\n"
              "void resetPerformanceCounterData(performance_counter_data_t *data){\n"
              "    data->clock_cycles = 0;\n"
              "    data->instructions_retired = 0;\n"
-             "    data->vector_instructions_retired = 0;\n"
              "    data->floating_point_operations_retired = 0;\n"
              "    data->l1_data_cache_accesses = 0;\n"
              "}\n"
@@ -818,8 +817,7 @@ std::string EmitterHelpers::emitPAPIHelper(std::string path, std::string fileNam
              "    data->clock_cycles = values[0];\n"
              "    data->instructions_retired = values[1];\n"
              "    data->floating_point_operations_retired = values[2];\n"
-             "    data->vector_instructions_retired = values[3];\n"
-             "    data->l1_data_cache_accesses = values[4];\n"
+             "    data->l1_data_cache_accesses = values[3];\n"
              "}\n"
              "\n"
              "void readPapiCounters(performance_counter_data_t *data, int eventSet){\n"
@@ -833,8 +831,7 @@ std::string EmitterHelpers::emitPAPIHelper(std::string path, std::string fileNam
              "    data->clock_cycles = values[0];\n"
              "    data->instructions_retired = values[1];\n"
              "    data->floating_point_operations_retired = values[2];\n"
-             "    data->vector_instructions_retired = values[3];\n"
-             "    data->l1_data_cache_accesses = values[4];\n"
+             "    data->l1_data_cache_accesses = values[3];\n"
              "}\n"
              "\n"
              "void stopPapiCounters(int eventSet){\n"
@@ -1020,4 +1017,71 @@ std::vector<int> EmitterHelpers::memIdx2ArrayIdx(int idx, std::vector<int> dimen
     }
 
     return arrayIdx;
+}
+
+bool EmitterHelpers::shouldCollectTelemetry(EmitterHelpers::TelemetryLevel level){
+    //IO Telem Levels are Checked by Another Function
+    return level != EmitterHelpers::TelemetryLevel::NONE && level != EmitterHelpers::TelemetryLevel::IO_BREAKDOWN && level != EmitterHelpers::TelemetryLevel::IO_RATE_ONLY;
+}
+bool EmitterHelpers::usesPAPI(EmitterHelpers::TelemetryLevel level){
+    return level == EmitterHelpers::TelemetryLevel::PAPI_RATE_ONLY || level == EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN || level == EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+}
+bool EmitterHelpers::papiComputeOnly(EmitterHelpers::TelemetryLevel level){
+    return level == EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+}
+bool EmitterHelpers::telemetryBreakdown(EmitterHelpers::TelemetryLevel level){
+    return level == EmitterHelpers::TelemetryLevel::BREAKDOWN || level == EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN || level == EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+}
+bool EmitterHelpers::ioShouldCollectTelemetry(EmitterHelpers::TelemetryLevel level){
+    return shouldCollectTelemetry(level) || level == EmitterHelpers::TelemetryLevel::IO_BREAKDOWN || level == EmitterHelpers::TelemetryLevel::IO_RATE_ONLY;
+}
+bool EmitterHelpers::ioTelemetryBreakdown(EmitterHelpers::TelemetryLevel level){
+    return telemetryBreakdown(level) || level == EmitterHelpers::TelemetryLevel::IO_BREAKDOWN;
+}
+
+EmitterHelpers::TelemetryLevel EmitterHelpers::parseTelemetryLevelStr(std::string str){
+    if(str == "NONE" || str == "none"){
+        return EmitterHelpers::TelemetryLevel::NONE;
+    }else if(str == "BREAKDOWN" || str == "breakdown"){
+        return EmitterHelpers::TelemetryLevel::BREAKDOWN;
+    }else if(str == "RATE_ONLY" || str == "rate_only" || str == "rateOnly"){
+        return EmitterHelpers::TelemetryLevel::RATE_ONLY;
+    }else if(str == "PAPI_BREAKDOWN" || str == "papi_breakdown" || str == "papiBreakdown"){
+        return EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN;
+    }else if(str == "PAPI_COMPUTE_ONLY" || str == "papi_compute_only" || str == "papiComputeOnly"){
+        return EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY;
+    }else if(str == "PAPI_RATE_ONLY" || str == "papi_rate_only" || str == "papiRateOnly"){
+        return EmitterHelpers::TelemetryLevel::PAPI_RATE_ONLY;
+    }else if(str == "IO_BREAKDOWN" || str == "io_breakdown" || str == "ioBreakdown"){
+        return EmitterHelpers::TelemetryLevel::IO_BREAKDOWN;
+    }else if(str == "IO_RATE_ONLY" || str == "io_rate_only" || str == "ioRateOnly"){
+        return EmitterHelpers::TelemetryLevel::IO_RATE_ONLY;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown TelemetryLevel: " + str));
+    }
+
+    //IO_BREAKDOWN, ///<Telemetry is only taken/reported in the I/O thread.  Telemetry is broken down into phases.
+    //        IO_RATE_ONLY ///<Telemetry is only taken/reported in the I/O thread and only rate is only reported
+}
+std::string EmitterHelpers::telemetryLevelToString(EmitterHelpers::TelemetryLevel level){
+    switch(level){
+        case EmitterHelpers::TelemetryLevel::NONE:
+            return "NONE";
+        case EmitterHelpers::TelemetryLevel::BREAKDOWN:
+            return "BREAKDOWN";
+        case EmitterHelpers::TelemetryLevel::RATE_ONLY:
+            return "RATE_ONLY";
+        case EmitterHelpers::TelemetryLevel::PAPI_BREAKDOWN:
+            return "PAPI_BREAKDOWN";
+        case EmitterHelpers::TelemetryLevel::PAPI_COMPUTE_ONLY:
+            return "PAPI_COMPUTE_ONLY";
+        case EmitterHelpers::TelemetryLevel::PAPI_RATE_ONLY:
+            return "PAPI_RATE_ONLY";
+        case EmitterHelpers::TelemetryLevel::IO_BREAKDOWN:
+            return "IO_BREAKDOWN";
+        case EmitterHelpers::TelemetryLevel::IO_RATE_ONLY:
+            return "IO_RATE_ONLY";
+        default:
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown TelemetryLevel"));
+    }
 }

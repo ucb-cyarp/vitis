@@ -173,7 +173,7 @@ CExpr WrappingCounter::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         throw std::runtime_error(ErrorHelpers::genErrorStr("C Emit Error - Delay Support for Vector Types has Not Yet Been Implemented", getSharedPointer()));
     }
 
-    return CExpr(cStateVar.getCVarName(imag) + "==0", CExpr::ExprType::SCALAR_EXPR); //This is a variable name therefore inform the cEmit function
+    return CExpr(cStateVar.getCVarName(imag) + "==0", CExpr::ExprType::SCALAR_EXPR);
 }
 
 void WrappingCounter::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {

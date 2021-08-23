@@ -55,6 +55,7 @@ namespace CommunicationEstimator {
                                           std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                           int srcPartition, int dstPartition,
                                           int initialState, int bytesPerSample, int bytesPerBlock,
+                                          double bytesPerBaseRateSample,
                                           bool removeCrossingsWithInitCond);
 };
 

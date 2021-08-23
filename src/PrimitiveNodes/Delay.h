@@ -135,8 +135,8 @@ public:
      * @param parent The parent of this node in the hierarchy
      * @param dialect The dialect of the GraphML file being imported
      */
-    static void populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::string simulinkInitCondName,
-                                              std::string simulinkDelayLenName,
+    static void populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::string simulinkDelayLenName,
+                                              std::string simulinkInitCondName,
                                               int id, std::string name,
                                               std::map<std::string, std::string> dataKeyValueMap,
                                               std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
@@ -175,6 +175,12 @@ public:
     bool hasCombinationalPath() override;
 
     std::vector<Variable> getCStateVars() override;
+
+    /**
+     * @brief Get the initial circular buffer index location
+     * @return
+     */
+    virtual int getCircBufferInitialIdx();
 
     //When include current value (allocateExtraSpace in Delay) is true, getting the next state and updating the state
     //are partially superfluous because the current value has already been copied into the array by cEmitExpr (so long
@@ -226,7 +232,7 @@ public:
 
 protected:
     void decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
-    void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
+    virtual void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
 
     /**
      * @brief Returns the buffer length, accounting for if an extra element is required and if the buffer allocation is rounded up to a power of 2
@@ -251,29 +257,22 @@ protected:
     void propagatePropertiesHelper();
 
     /**
-     * @brief Get the buffer offset when extra elements are allocated for a circular buffer and earliestFirst == false
-     * Note, for other cases, an empty string is returned
-     * @return
-     */
-    std::string getBufferOffset();
-
-    /**
      * @brief For circular buffers with additional elements for returning unit stride arrays, get the index of the second copy of the element at the given index
      *
      * @warning result is invalid if circular buffer is not used and implementation of circular buffers with extra elements is not used
      *
-     * @param firstIndexWithOffset The index of the first element, including any relevant Circular buffer offset from extra elements
+     * @param firstIndex The index of the first element
      * @return
      */
-    std::string getSecondIndex(std::string firstIndexWithOffset);
+    std::string getSecondIndex(std::string firstIndex);
 
     /**
      * @brief For circular buffers of the CircularBufferType::PLUS_DELAY_LEN_M1, returns the check to determine if a second write is necessary
      *
-     * @param indexWithoutOffset the index of the first copy of the element in the circular buffer without any added offsets
+     * @param index the index of the first copy of the element in the circular buffer
      * @return
      */
-    std::string getSecondWriteCheck(std::string indexWithoutOffset);
+    std::string getSecondWriteCheck(std::string firstIndex);
 };
 
 /*! @} */

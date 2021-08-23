@@ -1,12 +1,14 @@
 //
-// Created by Christopher Yarp on 8/2/20.
+// Created by Christopher Yarp on 6/2/21.
 //
 
-#ifndef VITIS_SELECT_H
-#define VITIS_SELECT_H
+#ifndef VITIS_RESHAPE_H
+#define VITIS_RESHAPE_H
 
 #include "PrimitiveNode.h"
 #include "GraphCore/NodeFactory.h"
+
+#include <vector>
 
 /**
  * \addtogroup PrimitiveNodes Primitives
@@ -14,32 +16,38 @@
 */
 
 /**
- * @brief Represent the selecting (slicing) of vectors/arrays.
- * The first port contains the vector to select from, the second port dictates what to select
+ * @brief Represent the reshaping of vectors/arrays.  The number of input elements should match the number of output elements.
+ *
+ * The order of the elements stored in memory remains the same.
+ *
+ * A second input port can be used as a reference for the target dimensions
  */
-class Select : public PrimitiveNode{
+class Reshape : public PrimitiveNode {
     friend NodeFactory;
 
 public:
-    enum class SelectMode{
-        OFFSET_LENGTH, ///<The second input port gives the offset which is the beginning of the selected segment and the length is set statically in outputLen.  The selection is a contiguous segment of the origional array
-        INDEX_VECTOR ///<The second input port is a vector of indexes to select
+    enum class ReshapeMode{
+        VEC_1D, ///<Transform to 1D Vector
+        ROW_VEC, ///< Transform to 2D Row Vector
+        COL_VEC, ///< Transform to 1D Col Vector
+        MANUAL, ///< Transform to Dimensions Specified
+        REF_INPUT ///< Transform to Dimensions of 2nd Reference Input
     };
 
-    static SelectMode parseSelectModeStr(std::string str);
-    static std::string selectModeToStr(SelectMode mode);
+    static ReshapeMode parseReshapeMode(std::string str);
+    static std::string reshapeModeToStr(ReshapeMode mode);
 
 private:
-    std::vector<SelectMode> modes;///<The mode for determining how the subsequent input port(s) controls the selection
-    std::vector<int> outputLens; ///<When mode is OFFSET_LENGTH, this is the length of the selection for the given dimension.  Defined as a property so that it is guaranteed to be statically set (allowing the output dimensions to be statically determined).  The size of this vector should match that of the modes vector.  Any value is allowed for dimensions which use INDEX_VECTOR select mode
+    ReshapeMode mode; ///<The reshape mode
+    std::vector<int> targetDimensions; ///<The target dimensions.  Populated on import if Manual mode or populated based on port dimensions for other modes
 
     //==== Constructors ====
     /**
-     * @brief Constructs an empty Select node
+     * @brief Constructs an empty Reshape node
      *
      * @note To construct from outside of hierarchy, use factories in @ref NodeFactory
      */
-    Select();
+    Reshape();
 
     /**
      * @brief Constructs an empty Select node with a given parent.  This node is not added to the children list of the parent.
@@ -48,7 +56,7 @@ private:
      *
      * @param parent parent node
      */
-    explicit Select(std::shared_ptr<SubSystem> parent);
+    explicit Reshape(std::shared_ptr<SubSystem> parent);
 
     /**
      * @brief Constructs a new node with a shallow copy of parameters from the original node.  Ports are not copied and neither is the parent reference.  This node is not added to the children list of the parent.
@@ -60,20 +68,20 @@ private:
      * @warning Because pointer (this) is passed to ports, nodes must be allocated on the heap and not moved.  All interaction should be via pointers.
      *
      * @param parent parent node
-     * @param orig The origional node from which a shallow copy is being made
+     * @param orig The original node from which a shallow copy is being made
      */
-    Select(std::shared_ptr<SubSystem> parent, Select* orig);
+    Reshape(std::shared_ptr<SubSystem> parent, Reshape* orig);
 
 public:
     //====Getters/Setters====
-    std::vector<SelectMode> getModes() const;
-    void setModes(const std::vector<SelectMode> &modes);
-    std::vector<int> getOutputLens() const;
-    void setOutputLens(const std::vector<int> &outputLens);
+    ReshapeMode getMode() const;
+    void setMode(ReshapeMode mode);
+    std::vector<int> getTargetDimensions() const;
+    void setTargetDimensions(const std::vector<int> &targetDimensions);
 
     //====Factories====
     /**
-     * @brief Creates a Concatenate node from a GraphML Description
+     * @brief Creates a Reshape node from a GraphML Description
      *
      * @note This function does not add the node to the design or to the nodeID/pointer map
      *
@@ -84,9 +92,11 @@ public:
      * @param dialect The dialect of the GraphML file being imported
      * @return a pointer to the new delay node
      */
-    static std::shared_ptr<Select> createFromGraphML(int id, std::string name,
-                                                          std::map<std::string, std::string> dataKeyValueMap,
-                                                          std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+    static std::shared_ptr<Reshape> createFromGraphML(int id, std::string name,
+                                                     std::map<std::string, std::string> dataKeyValueMap,
+                                                     std::shared_ptr<SubSystem> parent, GraphMLDialect dialect);
+
+    void propagateProperties() override;
 
     //==== Emit Functions ====
     std::set<GraphMLParameter> graphMLParameters() override;
@@ -102,13 +112,12 @@ public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     /**
-     * @brief Emits a C expression for the Concatenate
+     * @brief Emits a C expression for the Reshape
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag) override;
-
 };
 
 /*! @} */
 
-#endif //VITIS_SELECT_H
+#endif //VITIS_RESHAPE_H

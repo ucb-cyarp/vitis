@@ -81,7 +81,12 @@ void Delay::populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::stri
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - Delay", node));
     }
 
-    int delayVal = std::stoi(delayStr);
+    int delayVal;
+    if(dataKeyValueMap.at("block_function") == "VectorTappedDelay" || dataKeyValueMap.at("block_function") == "TappedDelayWithReset") {
+        delayVal = std::stoi(delayStr)-1; //Vector Tapped Delay and TappedDelayWithReset (both Laminar Library Blocks) Depth is the delay+1
+    }else{
+        delayVal = std::stoi(delayStr);
+    }
     node->setDelayValue(delayVal);
 
     std::vector<NumericValue> initialConds = NumericValue::parseXMLString(initialConditionStr);
@@ -262,6 +267,12 @@ bool Delay::hasState() {
     }
 }
 
+int Delay::getCircBufferInitialIdx() {
+    //For the standard delay, the circular buffer is always initialized to 0
+
+    return 0;
+}
+
 std::vector<Variable> Delay::getCStateVars() {
     std::vector<Variable> vars;
 
@@ -274,7 +285,7 @@ std::vector<Variable> Delay::getCStateVars() {
         if(usesCircularBuffer()){
             //Declare the circular buffer offset var
             //This is initialized to be 0 at the start
-            NumericValue offsetInitVal = NumericValue((long) 0);
+            NumericValue offsetInitVal = NumericValue((long) getCircBufferInitialIdx());
             DataType offsetDT = DataType(false, false, false, (int) ceil(log2(arrayLen)), 0,
                                          {1}).getCPUStorageType();
             std::string offsetVarName = name+"_n"+GeneralHelper::to_string(id)+"_circBufHeadInd";
@@ -303,6 +314,11 @@ std::vector<Variable> Delay::getCStateVars() {
 }
 
 CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) {
+    bool hasRstPort = inputPorts.size() > 1;
+    if(hasRstPort){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Async reset line only supported with tapped delays with passthrough"));
+    }
+
     if(delayValue == 0){
         //NOTE: allocateExtraSpace has no effect with a delayValue == 0
         //If delay = 0, simply pass through
@@ -399,6 +415,8 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
 }
 
 void Delay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
+    //TODO: Implement Rst input
+
     DataType inputDT = getInputPort(0)->getDataType(); //This is the datatype of the input and does not include any extra dimension for the buffer
 
     if(delayValue == 0){
@@ -787,7 +805,11 @@ bool Delay::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new_nodes,
 }
 
 bool Delay::hasCombinationalPath() {
-    return false; //This is a pure state element
+    if(delayValue > 0) {
+        return false; //This is a pure state element
+    }else{
+        return true; //This is a passthrough
+    }
 }
 
 bool Delay::isEarliestFirst() const {
@@ -884,11 +906,12 @@ void Delay::assignInputToBuffer(std::string insertPositionIn, std::vector<std::s
         input_Im = cStateInputVar.getCVarName(true);
     }
 
-    std::string circBufferExtraLenOffset = getBufferOffset();
+    //Note: for the circular buffer, the new item is placed at the cursor (with the given offset)
+    //It used to be that there was an offset when earliestFirst was false and redundant writing (either DOUBLE_LEN,
+    //or PLUS_DELAY_LEN_M1 were used).  Neither DOUBLE_LEN or PLUS_DELAY_LEN_M1 are allowed for standard delays.
+    //Therefore, this modification should not effect standard delay operation.  Tapped delay overrides functions to
+    //handle DOUBLE_LEN or PLUS_DELAY_LEN_M1 with !earliestFirst.
     std::string insertPosition = insertPositionIn;
-    if(!circBufferExtraLenOffset.empty()) {
-        insertPosition = "(" + insertPositionIn + ")+" + circBufferExtraLenOffset;
-    }
 
     //==== Do the first assignment ====
     std::string assignTo_Re = cStateVar.getCVarName(false) + "[" + insertPosition + "]";
@@ -985,11 +1008,12 @@ Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, s
 
     DataType inputDT = getInputPort(0)->getDataType();
 
-    std::string circBufferExtraLenOffset = getBufferOffset();
+    //Note: for the circular buffer, the new item is placed at the cursor (with the given offset)
+    //It used to be that there was an offset when earliestFirst was false and redundant writing (either DOUBLE_LEN,
+    //or PLUS_DELAY_LEN_M1 were used).  Neither DOUBLE_LEN or PLUS_DELAY_LEN_M1 are allowed for standard delays.
+    //Therefore, this modification should not effect standard delay operation.  Tapped delay overrides functions to
+    //handle DOUBLE_LEN or PLUS_DELAY_LEN_M1 with !earliestFirst.
     std::string insertPosition = insertPositionIn;
-    if(!circBufferExtraLenOffset.empty()){
-        insertPosition = "(" + insertPositionIn + ")+" + circBufferExtraLenOffset;
-    }
 
     //==== Do the first assignment ====
     std::string assignTo = cStateVar.getCVarName(imag) + "[" + insertPosition + "]";
@@ -1125,13 +1149,13 @@ std::vector<NumericValue> Delay::getExportableInitCondsHelper() {
     std::vector<NumericValue> initConds;
     if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
         //Remove the extra value for the extra space
+        int elements = getInputPort(0)->getDataType().numberOfElements();
         if(earliestFirst){
             //Remove from the beginning
-            int elements = getInputPort(0)->getDataType().numberOfElements();
             initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin()+elements, initCondsAfterCircularCorrection.end());
         }else{
             //remove from the end
-            int initCondLen = initCondsAfterCircularCorrection.size();
+            int initCondLen = initCondsAfterCircularCorrection.size()-elements;
             initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin(), initCondsAfterCircularCorrection.begin()+initCondLen);
         }
     }else{
@@ -1243,45 +1267,31 @@ int Delay::getBufferAllocatedLen() {
     return stdBufferLen;
 }
 
-std::string Delay::getBufferOffset() {
-    std::string circBufferExtraLenOffset = "";
-    if(usesCircularBuffer() && circularBufferType != CircularBufferType::NO_EXTRA_LEN && !earliestFirst){
-        if(circularBufferType == CircularBufferType::DOUBLE_LEN){
-            circBufferExtraLenOffset = GeneralHelper::to_string(getBufferLength()); //Do not get the allocated length, get the length of the buffer without the circular buffer extra space
-        }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
-            int fifoLen = delayValue;
-            if(allocateExtraSpace){
-                fifoLen++;
-            }
-            circBufferExtraLenOffset = GeneralHelper::to_string(fifoLen-1); //the extra length added was fifoLen-1
-        }else{
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown CircularBufferType", getSharedPointer()));
-        }
-    }
-
-    return circBufferExtraLenOffset;
-}
-
-std::string Delay::getSecondIndex(std::string firstIndexWithOffset) {
+std::string Delay::getSecondIndex(std::string firstIndex) {
     std::string insertPositionSecond = "";
     if(earliestFirst){
-        insertPositionSecond = firstIndexWithOffset + "+" + GeneralHelper::to_string(getBufferLength()); //Need the buffer length without extra circular buffer elements
+        insertPositionSecond = firstIndex + "+" + GeneralHelper::to_string(getBufferLength()); //Need the buffer length without extra circular buffer elements
     }else{
-        insertPositionSecond = firstIndexWithOffset + "-" + GeneralHelper::to_string(getBufferLength()); //Need the buffer length without extra circular buffer elements
+        //This is actually correct for circular buffer because the second write is behind the current ptr
+        //However, this mode was not used until recently and is not implemented for non-tapped delays since there is no need to provide consistent stride 1 access to multiple elements
+        insertPositionSecond = firstIndex + "-" + GeneralHelper::to_string(getBufferLength()); //Need the buffer length without extra circular buffer elements
     }
 
     return insertPositionSecond;
 }
 
-std::string Delay::getSecondWriteCheck(std::string indexWithoutOffset) {
+std::string Delay::getSecondWriteCheck(std::string firstIndex) {
     int fifoLen = delayValue;
     if(allocateExtraSpace){
         fifoLen++;
     }
 
     if(earliestFirst){
-        return "if(" + indexWithoutOffset + "<" + GeneralHelper::to_string(fifoLen-1) + "){"; //Need the orig insert position
+        return "if(" + firstIndex + "<" + GeneralHelper::to_string(fifoLen-1) + "){"; //Need the orig insert position
     }else{
-        return "if(" + indexWithoutOffset + ">" + GeneralHelper::to_string(getBufferLength() - fifoLen) + "){"; //Need the orig insert position.  Also need buffer length without extra circular buffer elements
+        //We only write when the first index is > than its initial position
+        //Ie, we don't write in the case where the first index is is in its initial location because that value would
+        //never be used.  However, all the other positions are used by the wraparound.
+        return "if(" + firstIndex + ">" + GeneralHelper::to_string(getCircBufferInitialIdx()) + "){";
     }
 }

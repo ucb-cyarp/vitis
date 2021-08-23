@@ -87,7 +87,7 @@ function param_val_str = anyToString(param_val)
         param_val_str = [param_val_str, ']'];
         
     elseif isnumeric(param_val)
-        param_val_str = num2str(param_val);
+        param_val_str = num2str(param_val, 17); %Need 17 digits to represent double.  See https://en.cppreference.com/w/cpp/types/numeric_limits/max_digits10
     elseif islogical(param_val)
         if(param_val)
             param_val_str = 'true';

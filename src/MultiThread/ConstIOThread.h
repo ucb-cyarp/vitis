@@ -27,7 +27,11 @@ namespace ConstIOThread {
      * @param fifoHeaderFile
      * @param threadDebugPrint
      */
-    void emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
+    void emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                            std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path,
+                            std::string fileNamePrefix, std::string designName, unsigned long blockSize,
+                            std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint,
+                            PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior);
 
 };
 

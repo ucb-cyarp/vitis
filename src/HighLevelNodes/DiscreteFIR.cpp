@@ -11,6 +11,8 @@
 #include "MediumLevelNodes/Gain.h"
 #include "PrimitiveNodes/Product.h"
 
+#include <iostream>
+
 DiscreteFIR::DiscreteFIR() {
 
 }
@@ -222,7 +224,12 @@ DiscreteFIR::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<s
         tappedDelayNode->setInitCondition(initVals);
         tappedDelayNode->setDelayValue(numCoefs - 1);
         tappedDelayNode->setAllocateExtraSpace(true); //This passes the current value through for TappedDelay
-        tappedDelayNode->setEarliestFirst(true); //The coefs are arranged in the standard order with earliest first
+        if (coefSource == CoefSource::FIXED) {
+            tappedDelayNode->setEarliestFirst(false); //Oldest First is preferred in the Laminar execution model because it does not require reversing the order of samples when unrolling
+        }else{
+            tappedDelayNode->setEarliestFirst(true); //The coefs are arranged in the standard order with earliest first
+            std::cerr << ErrorHelpers::genWarningStr("The Laminar Execution Model when Unrolling Favors FIR Filters Where the Coefficients Are Provided With the Oldest as the First Term.  This is opposite to the standard convention and it is advisable to replace FIR Filters with Adjustable Coefficients with Tapped Delay Lines in Oldest First mode and Coefficients in Reverse Order.  Do not compute complex conj in dot product if signals complex", getSharedPointer()) << std::endl;
+        }
         new_nodes.push_back(tappedDelayNode);
 
         //Rewire Input to TappedDelay
@@ -257,7 +264,10 @@ DiscreteFIR::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<s
         if (coefSource == CoefSource::FIXED) {
             std::shared_ptr<Constant> coefNode = NodeFactory::createNode<Constant>(expandedNode);
             coefNode->setName("Coefs");
-            coefNode->setValue(coefs);
+            //Reverse the order of coefs when the Inner Product is in oldest first mode.  This helps with Laminar unrolling because samples can be directly copied from input buffers without being reversed
+            std::vector<NumericValue> coefsReversed = coefs;
+            std::reverse(coefsReversed.begin(), coefsReversed.end());
+            coefNode->setValue(coefsReversed);
             new_nodes.push_back(coefNode);
 
             //-- Determine Datatype from numeric values --

@@ -12,7 +12,12 @@
 #include "MultiThreadEmitterHelpers.h"
 #include "General/EmitterHelpers.h"
 
-void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path, std::string fileNamePrefix, std::string designName, unsigned long blockSize, std::string fifoHeaderFile, bool threadDebugPrint, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
+void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
+                                       std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                       std::string path, std::string fileNamePrefix,
+                                       std::string designName, unsigned long blockSize,
+                                       std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint,
+                                       PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports
@@ -40,6 +45,9 @@ void ConstIOThread::emitConstIOThreadC(std::vector<std::shared_ptr<ThreadCrossin
     }
     includesHFile.insert("#include \"" + GeneralHelper::to_string(VITIS_TYPE_NAME) + ".h\"");
     includesHFile.insert("#include \"" + fifoHeaderFile + "\"");
+    if(!fifoSupportFile.empty()){
+        includesHFile.insert("#include \"" + fifoSupportFile + "\"");
+    }
 
     //Include any external include statements required by nodes in the design
     for(int i = 0; i<inputFIFOs.size(); i++){

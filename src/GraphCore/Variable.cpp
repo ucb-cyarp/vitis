@@ -179,3 +179,60 @@ void Variable::setOverrideType(const std::string &overrideType) {
     Variable::overrideType = overrideType;
 }
 
+std::vector<std::string> Variable::getResetConst(bool alignTo, std::string alignment) {
+    std::vector<std::string> rstConst;
+    if(initValue.size()>1) {
+        Variable rstVar = *this;
+        rstVar.setName(rstVar.getName() + "_rstVal");
+        rstVar.inStateStructure = false;
+
+        std::string realRstDecl = "const " + rstVar.getCVarDecl(false, true, true, true, false,
+                alignTo, alignment) + ";";
+        rstConst.push_back(realRstDecl);
+
+        if(dataType.isComplex()){
+            std::string imagRstDecl = "const " + rstVar.getCVarDecl(true, true, true, true, false,
+                                                                    alignTo, alignment) + ";";
+            rstConst.push_back(imagRstDecl);
+        }
+    }
+
+    return rstConst;
+}
+
+std::vector<std::string> Variable::genReset() {
+    std::vector<std::string> rstExpr;
+
+    if(initValue.size() <= 0){
+        std::cerr << "Warning: Attempted to reset variable with no initial condition: " + name << std::endl;
+    }else if(initValue.size() == 1){
+        rstExpr.push_back(getCVarName(false) + " = " + initValue[0].toStringComponent(false, dataType) + ";");
+        if(dataType.isComplex()){
+            rstExpr.push_back(getCVarName(true) + " = " + initValue[0].toStringComponent(true, dataType) + ";");
+        }
+    }else{
+        Variable rstVar = *this;
+        rstVar.setName(rstVar.getName() + "_rstVal");
+        rstVar.inStateStructure = false;
+
+        //Create nested loops for a given array
+        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                EmitterHelpers::generateVectorMatrixForLoops(dataType.getDimensions());
+
+        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+        rstExpr.insert(rstExpr.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+        rstExpr.push_back(getCVarName(false) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + rstVar.getCVarName(false) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";");
+
+        if(dataType.isComplex()){
+            rstExpr.push_back(getCVarName(true) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + rstVar.getCVarName(true) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";");
+        }
+
+        rstExpr.insert(rstExpr.end(), forLoopClose.begin(), forLoopClose.end());
+    }
+
+    return rstExpr;
+}
+

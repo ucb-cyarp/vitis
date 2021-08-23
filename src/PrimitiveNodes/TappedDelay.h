@@ -75,7 +75,7 @@ private:
      * @param parent parent node
      * @param orig The origional node from which a shallow copy is being made
      */
-    TappedDelay(std::shared_ptr<SubSystem> parent, TappedDelay* orig);
+    TappedDelay(std::shared_ptr<SubSystem> parent, TappedDelay *orig);
 
 public:
     //==== Factories ====
@@ -98,18 +98,20 @@ public:
     //==== Emit Functions ====
     bool hasCombinationalPath() override;
 
-    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
+                    bool imag) override;
 
     //Declars the parameters
     std::set<GraphMLParameter> graphMLParameters() override;
 
-    xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type) override ;
+    xercesc::DOMElement *
+    emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *graphNode, bool include_block_node_type) override;
 
     std::string typeNameStr() override;
 
-    std::string labelStr() override ;
+    std::string labelStr() override;
 
-    void validate() override ;
+    void validate() override;
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
@@ -119,6 +121,15 @@ public:
 
     std::vector<NumericValue> getExportableInitConds() override;
 
+    //The following functions are only overriden for oldest first circular buffer implementions
+    //In this case, the cicular buffer pointer becomes loacated to the insertion point in the array.  It is initialized to be in the middle of the array.  Indexing is performed by subtracting from the pointer and does not handle the wraparound well when not double buffered
+    //If delayLen-1, it is positioned at delayLen-1
+    void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
+                          std::shared_ptr<StateUpdate> stateUpdateSrc) override;
+
+    void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) override;
+
+    int getCircBufferInitialIdx() override;
 };
 
 /*! @} */

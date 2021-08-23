@@ -102,6 +102,8 @@ protected:
     std::vector<Context> context; ///<A stack of contexts this node resides in.  The most specific context has the highest index.  Pushes onto the back of the stack and pops from the back of the stack.
     std::vector<std::shared_ptr<StateUpdate>> stateUpdateNodes; ///<A reference to the state update node for this delay
 
+    std::vector<std::string> origLocation; ///<A vector representing the origional location of this node on import.  Useful for maintaining tracability to orig design after context encapsulation and partitioning
+
     //==== Constructors (Protected to force use of factory - required to handle  ====
 
     /**
@@ -1042,6 +1044,28 @@ public:
      */
     std::string getErrorReportContextStr();
 
+    std::vector<std::string> getOrigLocation() const;
+
+    void setOrigLocation(const std::vector<std::string> &origLocation);
+
+    /**
+     * @brief Set the original location based on where the node currently sits in the design
+     * Should be run shortly after import
+     */
+    void setOrigLocation();
+
+
+    /**
+     * @brief Get the fully qualified human readable name of the node in its original location in the design
+     *
+     * A typical fully qualified name would be "subsysName/nodeName"
+     *
+     * @param sanitize If true, replaces newlines with spaces in returned string.  Otherwise, will not replace newlines in returned string.
+     * @param delim the demimitor string (default '/')
+     *
+     * @return Fully qualified human readable name of the node as a std::string
+     */
+    virtual std::string getFullyQualifiedOrigName(bool sanitize = true, std::string delim = "/");
 };
 
 /*! @} */

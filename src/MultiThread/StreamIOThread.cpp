@@ -17,10 +17,20 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
                                          std::string path, std::string fileNamePrefix, std::string designName,
                                          StreamType streamType, unsigned long blockSize, std::string fifoHeaderFile,
+                                         std::string fifoSupportFile,
                                          int32_t ioFifoSize, //The size of the FIFO in blocks for the shared memory FIFO
                                          bool threadDebugPrint, bool printTelem,
+                                         EmitterHelpers::TelemetryLevel telemLevel,
+                                         int telemReportFreqBlockFreq, double telemReportPeriodSeconds,
+                                         std::string telemDumpFilePrefix, bool telemAvg,
                                          PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
                                          std::string streamNameSuffix) {
+
+    bool collectTelem = EmitterHelpers::ioShouldCollectTelemetry(telemLevel);
+    bool collectBreakdownTelem = EmitterHelpers::ioTelemetryBreakdown(telemLevel);
+
+    unsigned long blockSizeBase = blockSize;
+
     //Emit a thread for handeling the I/O
 
     //Note, a single input FIFO may correspond to multiple MasterOutput ports
@@ -179,7 +189,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     std::ofstream ioThread;
     ioThread.open(path+"/"+fileName+".c", std::ofstream::out | std::ofstream::trunc);
 
-    if(printTelem){
+    if(collectTelem){
         ioThread << "#ifndef _GNU_SOURCE" << std::endl;
         ioThread << "#define _GNU_SOURCE //For clock_gettime" << std::endl;
         ioThread << "#endif" << std::endl;
@@ -205,8 +215,12 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     if(streamType == StreamType::SOCKET || streamType == StreamType::PIPE) {
         includesCFile.insert("#include \"" + fileNamePrefix + "_filestream_helpers.h\""); //For File I/O helpers
     }
-    if(printTelem){
+    if(collectTelem){
         includesCFile.insert("#include \"" + fileNamePrefix + "_telemetry_helpers.h\"");
+    }
+
+    if(!fifoSupportFile.empty()){
+        includesCFile.insert("#include \"" + fifoSupportFile + "\"");
     }
 
     //Include any external include statements required by nodes in the design
@@ -228,11 +242,30 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     ioThread << threadFctnDecl << "{" << std::endl;
 
-    if(printTelem){
+    if(collectTelem){
         ioThread << "timespec_t timeResolution;" << std::endl;
         ioThread << "clock_getres(CLOCK_MONOTONIC, &timeResolution);" << std::endl;
         ioThread << "double timeResolutionDouble = timespecToDouble(&timeResolution);" << std::endl;
-        ioThread << "printf(\"Time Resolution: %8.6e\\n\", timeResolutionDouble);" << std::endl;
+        if(printTelem) {
+            ioThread << "printf(\"Time Resolution: %8.6e\\n\", timeResolutionDouble);" << std::endl;
+        }
+
+        if(!telemDumpFilePrefix.empty()){
+            ioThread << "FILE* telemDumpFile = fopen(\"" << telemDumpFilePrefix << "IO.csv\", \"w\");" << std::endl;
+
+            //Write Header Row
+            ioThread << "fprintf(telemDumpFile, \"TimeStamp_s,TimeStamp_ns,Rate_msps";
+            if(collectBreakdownTelem){
+                ioThread << ",timeReadingExtFIFO_s,timeWaitingForFIFOsToCompute_s,timeWritingFIFOsToCompute_s,timeWaitingForFIFOsFromCompute_s,timeReadingFIFOsFromCompute_s,timeWritingExtFIFO_s";
+            }
+
+            ioThread << ",TotalTime_s";
+
+//            if(collectPAPI){
+//                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
+//            }
+            ioThread << "\\n\");" << std::endl;
+        }
     }
 
     //Copy shared variables from the input argument structure
@@ -492,10 +525,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
     }
 
-    //Insert timer init code
-    double printDuration = 1; //TODO: Add option for this
-
-    if(printTelem) {
+    if(collectTelem) {
         ioThread << "//Init timer" << std::endl;
         ioThread << "uint64_t rxSamples = 0;" << std::endl;
         ioThread << "timespec_t startTime;" << std::endl;
@@ -506,15 +536,17 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &lastPrint);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
-        ioThread << "double printDuration = " << printDuration << ";" << std::endl;
-        ioThread << "double timeTotal = 0;" << std::endl;
-        ioThread << "double timeReadingExtFIFO = 0;" << std::endl;
-        ioThread << "double timeWaitingForFIFOsToCompute = 0;" << std::endl;
-        ioThread << "double timeWritingFIFOsToCompute = 0;" << std::endl;
-        ioThread << "double timeWaitingForFIFOsFromCompute = 0;" << std::endl;
-        ioThread << "double timeReadingFIFOsFromCompute = 0;" << std::endl;
-        ioThread << "double timeWritingExtFIFO = 0;" << std::endl;
+        if(collectBreakdownTelem) {
+            ioThread << "double timeTotal = 0;" << std::endl;
+            ioThread << "double timeReadingExtFIFO = 0;" << std::endl;
+            ioThread << "double timeWaitingForFIFOsToCompute = 0;" << std::endl;
+            ioThread << "double timeWritingFIFOsToCompute = 0;" << std::endl;
+            ioThread << "double timeWaitingForFIFOsFromCompute = 0;" << std::endl;
+            ioThread << "double timeReadingFIFOsFromCompute = 0;" << std::endl;
+            ioThread << "double timeWritingExtFIFO = 0;" << std::endl;
+        }
         ioThread << "bool collectTelem = false;" << std::endl;
+        ioThread << "int telemCheckCount = 0;" << std::endl;
     }
 
     ioThread << std::endl;
@@ -568,7 +600,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     //Allocate temp Memory for linux pipe read
     //++++ External Input to Compute ++++
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t readingFromExtStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
@@ -667,9 +699,9 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         //This read is blocking so can set the receive status unconditionally
         ioThread << extInputBufferFilledName << " = true;" << std::endl;
 
-        //Only counts the data received for the one of the bundles TODO: Change when multirate implemented
-        if(printTelem && it == masterInputBundles.begin()) {
-            ioThread << "rxSamples += " << blockSize << ";" << std::endl;
+        //Only counts the data received for the one of the bundles
+        if(collectTelem && it == masterInputBundles.begin()) {
+            ioThread << "rxSamples += " << blockSizeBase << ";" << std::endl;
         }
 
         if(threadDebugPrint) {
@@ -682,15 +714,16 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
     //each metric has undergone the same number of cycles
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t readingFromExtStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStop);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         //Emit timer reporting
+        ioThread << "if(telemCheckCount > " << telemReportFreqBlockFreq << "){" << std::endl;
         ioThread << "timespec_t currentTime;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &currentTime);" << std::endl;
@@ -698,37 +731,101 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "double duration = difftimespec(&currentTime, &lastPrint);" << std::endl;
         ioThread << std::endl;
         ioThread << "//Display Telemetry" << std::endl;
-        ioThread << "if(duration >= printDuration){" << std::endl;
+        ioThread << "if(duration >= " << telemReportPeriodSeconds << "){" << std::endl;
         ioThread << "lastPrint = currentTime;" << std::endl;
         ioThread << "double durationSinceStart = difftimespec(&currentTime, &startTime);" << std::endl;
         ioThread << "double rateMSps = ((double)rxSamples)/durationSinceStart/1000000;" << std::endl;
-        ioThread << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
-        ioThread << "printf(\"Current " << designName << " Rate: %10.5f\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting/Reading/Shuffle I/O FIFOs: %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting For FIFOs to Compute:      %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWriting FIFOs to Compute:          %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting For FIFOs from Compute:    %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tReading FIFOs from Compute:        %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tWaiting/Shuffle/Writing I/O FIFOs: %10.5f (%8.4f%%)\\n\"" << std::endl;
-        ioThread << "\"\\tTelemetry/Misc:                    %10.5f (%8.4f%%)\\n\", " << std::endl;
-        ioThread << "rateMSps, ";
-        ioThread << "timeReadingExtFIFO, timeReadingExtFIFO/durationSinceStart*100, ";
-        ioThread << "timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/durationSinceStart*100, ";
-        ioThread << "timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/durationSinceStart*100, ";
-        ioThread << "timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/durationSinceStart*100, ";
-        ioThread << "timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/durationSinceStart*100, ";
-        ioThread << "timeWritingExtFIFO, timeWritingExtFIFO/durationSinceStart*100, ";
-        ioThread << "durationTelemMisc, durationTelemMisc/durationSinceStart*100);" << std::endl;
+        if(collectBreakdownTelem) {
+            ioThread << "double durationTelemMisc = durationSinceStart-timeTotal;" << std::endl;
+        }
+
+        if(printTelem) {
+            ioThread << "printf(\"Current " << designName << " Rate: %10.5f\\n\"" << std::endl;
+            if (collectBreakdownTelem) {
+                ioThread << "\"\\tWaiting/Reading/Shuffle I/O FIFOs: %10.5f (%8.4f%%)\\n\"" << std::endl;
+                ioThread << "\"\\tWaiting For FIFOs to Compute:      %10.5f (%8.4f%%)\\n\"" << std::endl;
+                ioThread << "\"\\tWriting FIFOs to Compute:          %10.5f (%8.4f%%)\\n\"" << std::endl;
+                ioThread << "\"\\tWaiting For FIFOs from Compute:    %10.5f (%8.4f%%)\\n\"" << std::endl;
+                ioThread << "\"\\tReading FIFOs from Compute:        %10.5f (%8.4f%%)\\n\"" << std::endl;
+                ioThread << "\"\\tWaiting/Shuffle/Writing I/O FIFOs: %10.5f (%8.4f%%)\\n\"" << std::endl;
+                ioThread << "\"\\tTelemetry/Misc:                    %10.5f (%8.4f%%)\\n\"" << std::endl;
+            }
+            ioThread << ", rateMSps";
+            if (collectBreakdownTelem) {
+                ioThread << ", timeReadingExtFIFO, timeReadingExtFIFO/durationSinceStart*100, ";
+                ioThread << "timeWaitingForFIFOsToCompute, timeWaitingForFIFOsToCompute/durationSinceStart*100, ";
+                ioThread << "timeWritingFIFOsToCompute, timeWritingFIFOsToCompute/durationSinceStart*100, ";
+                ioThread << "timeWaitingForFIFOsFromCompute, timeWaitingForFIFOsFromCompute/durationSinceStart*100, ";
+                ioThread << "timeReadingFIFOsFromCompute, timeReadingFIFOsFromCompute/durationSinceStart*100, ";
+                ioThread << "timeWritingExtFIFO, timeWritingExtFIFO/durationSinceStart*100, ";
+                ioThread << "durationTelemMisc, durationTelemMisc/durationSinceStart*100";
+            }
+            ioThread << ");" << std::endl;
+        }
+
+        if (!telemDumpFilePrefix.empty()) {
+            //Write the telemetry to the file
+            //The file includes the timestamp at the time it was written.  This is used to align telemetry from multiple threads
+            //The partition number is included in the filename and is not written to the file
+            ioThread << "fprintf(telemDumpFile, \"%ld,%ld,%e";
+            if(collectBreakdownTelem){
+                ioThread << ",%e,%e,%e,%e,%e,%e,%e";
+            }
+            ioThread << ",%e";
+
+//            if(collectPAPI) {
+//                cFile << ",%lld,%lld,%lld,%lld,%lld";
+//            }
+            ioThread << "\\n\", currentTime.tv_sec, currentTime.tv_nsec, rateMSps";
+
+            if(collectBreakdownTelem){
+                ioThread << ", timeReadingExtFIFO, timeWaitingForFIFOsToCompute,"
+                            "timeWritingFIFOsToCompute, timeWaitingForFIFOsFromCompute, "
+                            "timeReadingFIFOsFromCompute, timeWritingExtFIFO, durationTelemMisc";
+            }
+
+            ioThread << ", durationSinceStart";
+
+//            if(collectPAPI) {
+//                cFile << ",clock_cycles,instructions_retired,floating_point_operations_retired,vector_instructions_retired,l1_data_cache_accesses";
+//            }
+            ioThread << ");" << std::endl;
+
+            //flush the file
+            ioThread << "fflush(telemDumpFile);" << std::endl;
+            ioThread << std::endl;
+        }
+
+        if (!telemAvg) {
+            //Reset the counters for the next collection interval.
+            ioThread << "startTime = currentTime;" << std::endl;
+            ioThread << "rxSamples = 0;" << std::endl;
+            if(collectBreakdownTelem) {
+                ioThread << "timeTotal = 0;" << std::endl;
+                ioThread << "timeReadingExtFIFO = 0;" << std::endl;
+                ioThread << "timeWaitingForFIFOsToCompute = 0;" << std::endl;
+                ioThread << "timeWritingFIFOsToCompute = 0;" << std::endl;
+                ioThread << "timeWaitingForFIFOsFromCompute = 0;" << std::endl;
+                ioThread << "timeReadingFIFOsFromCompute = 0;" << std::endl;
+                ioThread << "timeWritingExtFIFO = 0;" << std::endl;
+            }
+        }
+        ioThread << "}" << std::endl;
+        ioThread << "telemCheckCount = 0;" << std::endl;
+        ioThread << "}else{" << std::endl;
+        ioThread << "telemCheckCount++;" << std::endl;
         ioThread << "}" << std::endl;
 
-        //Now, finish timeReadingExtFIFO
-        ioThread << "double readingFromExtDuration = difftimespec(&readingFromExtStop, &readingFromExtStart);" << std::endl;
-        ioThread << "timeReadingExtFIFO += readingFromExtDuration;" << std::endl;
-        ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
+        if(collectBreakdownTelem) {
+            //Now, finish timeReadingExtFIFO
+            ioThread << "double readingFromExtDuration = difftimespec(&readingFromExtStop, &readingFromExtStart);" << std::endl;
+            ioThread << "timeReadingExtFIFO += readingFromExtDuration;" << std::endl;
+            ioThread << "timeTotal += readingFromExtDuration;" << std::endl;
+        }
     }
 
     //Copying to the  is also part of reading from the external input
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStart);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -754,7 +851,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "}" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFromExtStop);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -765,7 +862,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
@@ -784,7 +881,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << ";" << std::endl;
 
-    if (printTelem) {
+    if (collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
@@ -797,7 +894,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "if(toComputeFIFOFilled_all){" << std::endl;
     //Check if Room in Output FIFOs
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStart);" << std::endl;
@@ -807,7 +904,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "//Check if room in FIFOs to compute" << std::endl;
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, false, false, fifoIndexCachingBehavior); //Only need a pthread_testcancel check on one FIFO check since this is nonblocking
 
-    if (printTelem) {
+    if (collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsToComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsToComputeStop);" << std::endl;
@@ -819,7 +916,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     ioThread << "if(outputFIFOsReady){" << std::endl;
 
-    if (printTelem) {
+    if (collectBreakdownTelem) {
         ioThread << "timespec_t writingFIFOsToComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStart);" << std::endl;
@@ -839,7 +936,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << toComputeFIFOFilledName << " = false;" << std::endl;
     }
 
-    if (printTelem) {
+    if (collectBreakdownTelem) {
         ioThread << "timespec_t writingFIFOsToComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingFIFOsToComputeStop);" << std::endl;
@@ -862,7 +959,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << std::endl; //Close if data available to write
 
     //Check input FIFOs
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
@@ -881,7 +978,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
     ioThread << ";" << std::endl;
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStop);" << std::endl;
@@ -896,7 +993,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //TODO: In the future make access to each FIFO independent (ie. if a FIFO is ready and data is available, write it even if other FIFOs are not ready or do not have data.  The current issue is that a given FIFO may have data from more than 1 external input
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t waitingForFIFOsFromComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStart);" << std::endl;
@@ -906,7 +1003,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "//Check data available from compute" << std::endl;
     ioThread << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, false, false, fifoIndexCachingBehavior); //pthread_testcancel check here
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &waitingForFIFOsFromComputeStop);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -920,7 +1017,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     //Read input FIFOs
     ioThread << "//Read data from compute" << std::endl;
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t readingFIFOsFromComputeStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStart);" << std::endl;
@@ -938,7 +1035,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << fromComputeFIFOFilledName << " = true;" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t readingFIFOsFromComputeStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &readingFIFOsFromComputeStop);" << std::endl;
@@ -956,7 +1053,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     ioThread << "}" << std::endl; //End if buffer space available
 
     //Copy output to tmp variable if possible (considered part of writing to ExtFIFO)
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t writingExtFIFOStart;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStart);" << std::endl;
@@ -981,7 +1078,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     ioThread << std::endl;
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "timespec_t writingExtFIFOStop;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
@@ -992,7 +1089,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
     }
 
     //Write external FIFOs
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStart);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -1091,7 +1188,7 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "}" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectBreakdownTelem) {
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &writingExtFIFOStop);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
@@ -1104,23 +1201,23 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
         ioThread << "printf(\"I/O Output Sent\\n\");" << std::endl;
     }
 
-    if(printTelem) {
+    if(collectTelem) {
         ioThread << "if(!collectTelem){" << std::endl;
         ioThread << "//Reset timer after processing first samples.  Removes startup time from telemetry" << std::endl;
         ioThread << "rxSamples = 0;" << std::endl;
-        ioThread << "rxSamples = 0;" << std::endl;
-        ioThread << "startTime;" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "clock_gettime(CLOCK_MONOTONIC, &startTime);" << std::endl;
         ioThread << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         ioThread << "lastPrint = startTime;" << std::endl;
-        ioThread << "timeTotal = 0;" << std::endl;
-        ioThread << "timeReadingExtFIFO = 0;" << std::endl;
-        ioThread << "timeWaitingForFIFOsToCompute = 0;" << std::endl;
-        ioThread << "timeWritingFIFOsToCompute = 0;" << std::endl;
-        ioThread << "timeWaitingForFIFOsFromCompute = 0;" << std::endl;
-        ioThread << "timeReadingFIFOsFromCompute = 0;" << std::endl;
-        ioThread << "timeWritingExtFIFO = 0;" << std::endl;
+        if(collectBreakdownTelem) {
+            ioThread << "timeTotal = 0;" << std::endl;
+            ioThread << "timeReadingExtFIFO = 0;" << std::endl;
+            ioThread << "timeWaitingForFIFOsToCompute = 0;" << std::endl;
+            ioThread << "timeWritingFIFOsToCompute = 0;" << std::endl;
+            ioThread << "timeWaitingForFIFOsFromCompute = 0;" << std::endl;
+            ioThread << "timeReadingFIFOsFromCompute = 0;" << std::endl;
+            ioThread << "timeWritingExtFIFO = 0;" << std::endl;
+        }
         ioThread << "collectTelem = true;" << std::endl;
         ioThread << "}" << std::endl;
     }
@@ -1199,6 +1296,10 @@ void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaste
 
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown stream type during stream I/O emit"));
+    }
+
+    if(collectTelem && !telemDumpFilePrefix.empty()){
+        ioThread << "fclose(telemDumpFile);" << std::endl;
     }
 
     //Done reading

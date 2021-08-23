@@ -315,6 +315,26 @@ namespace EmitterHelpers {
                               std::map<std::shared_ptr<ContextRoot>, int> &subContextEmittedCount, int partition,
                               const std::vector<Context> &nodeContext, std::vector<Context> &lastEmittedContext,
                               std::vector<std::string> &contextStatements);
+
+    enum class TelemetryLevel{
+        NONE, ///<No telemetry collection
+        BREAKDOWN, ///<Telemetry taken with a breakdown of how much time is spent in each stage of execution
+        RATE_ONLY, ///<Telemetry taken which only reports rate
+        PAPI_BREAKDOWN, ///<Telemetry taken with a breakdown of how much time is spent in each stage of execution (PAPI counters collected for entire thread execution - collected during telemetry reporting)
+        PAPI_COMPUTE_ONLY, ///<Telemetry taken with a breakdown of how much time is spent in each stage of execution (PAPI counters collected durring the duration of the compute function only - excludes other portions of thread)
+        PAPI_RATE_ONLY, ///<Telemetry taken which only reports rate (PAPI counters collected for entire thread execution - collected during telemetry reporting)
+        IO_BREAKDOWN, ///<Telemetry is only taken/reported in the I/O thread.  Telemetry is broken down into phases.
+        IO_RATE_ONLY ///<Telemetry is only taken/reported in the I/O thread and only rate is only reported
+    };
+
+    bool shouldCollectTelemetry(TelemetryLevel level);
+    bool usesPAPI(TelemetryLevel level);
+    bool papiComputeOnly(TelemetryLevel level);
+    bool telemetryBreakdown(TelemetryLevel level);
+    TelemetryLevel parseTelemetryLevelStr(std::string str);
+    std::string telemetryLevelToString(TelemetryLevel level);
+    bool ioShouldCollectTelemetry(TelemetryLevel level);
+    bool ioTelemetryBreakdown(TelemetryLevel level);
 };
 
 /*! @} */

@@ -3,6 +3,7 @@
 //
 
 #include "ContextContainer.h"
+#include "General/ErrorHelpers.h"
 
 Context ContextContainer::getContainerContext() const{
     return containerContext;
@@ -65,4 +66,19 @@ std::string ContextContainer::labelStr(){
     label += "\nFunction: " + typeNameStr();
 
     return label;
+}
+
+std::string ContextContainer::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
+    std::shared_ptr<Node> asNode = GeneralHelper::isType<ContextRoot, Node>(containerContext.getContextRoot());
+
+    if(asNode){
+        std::string origName = asNode->getFullyQualifiedOrigName(sanitize, delim);
+        if(!origName.empty()){
+            origName += delim;
+        }
+        origName += typeNameStr();
+        return origName;
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Context Root was not a node", getSharedPointer()));
+    }
 }

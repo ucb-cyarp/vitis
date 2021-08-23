@@ -43,6 +43,7 @@
 #include "PrimitiveNodes/InnerProduct.h"
 #include "PrimitiveNodes/TappedDelay.h"
 #include "PrimitiveNodes/Select.h"
+#include "PrimitiveNodes/Reshape.h"
 #include "MediumLevelNodes/Gain.h"
 #include "MediumLevelNodes/CompareToConstant.h"
 #include "MediumLevelNodes/ThresholdSwitch.h"
@@ -240,6 +241,12 @@ std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, Gra
                 clkDomain->discoverClockDomainParameters();
             }
         }
+
+        //Should not be necessary to set original locations in this way.  They should be set during node creation
+//        //Get original names
+//        for(auto node = nodes.begin(); node != nodes.end(); node++){
+//            (*node)->setOrigLocation();
+//        }
 
         //Validate nodes (get the node vector again in case nodes were added)
         nodes = design->getNodes();
@@ -1069,7 +1076,7 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkMultiPortSwitch::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DiscreteFIR" || blockFunction == "DiscreteFir"){ //Vitis name is DiscreteFIR, Simulink name is DiscreteFir
         newNode = DiscreteFIR::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "TappedDelay"){ //Vitis & Simulink name is TappedDelay
+    }else if(blockFunction == "TappedDelay" || blockFunction == "TappedDelay" || blockFunction == "VectorTappedDelay" || blockFunction == "TappedDelayWithReset"){ //Vitis & Simulink name is TappedDelay
         newNode = TappedDelay::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "ComplexToRealImag"){
         newNode = ComplexToRealImag::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
@@ -1157,6 +1164,8 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "SimulinkBitShift" || blockFunction == "BitShift"){ //--Vitis name is SimulinkBitShift. Simulink Name is Bit Shift
         newNode = SimulinkBitShift::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
+    }else if(blockFunction == "Reshape" || blockFunction == "BitShift"){ //--Vitis name is Reshape. Simulink Name is Reshape
+        newNode = Reshape::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown block type: " + blockFunction, parent->getFullyQualifiedName() + "/" + name));
     }
@@ -1367,7 +1376,6 @@ int GraphMLImporter::importEdges(std::vector<xercesc::DOMNode *> &edgeNodes, Des
                 dimensions.push_back(simulinkDim[dim]);
                 if(simulinkDim[dim] != 1){
                     allOnes = false;
-                    break;
                 }
             }
 

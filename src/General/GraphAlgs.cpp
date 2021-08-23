@@ -584,12 +584,14 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
         for(auto it = discoveredNodes.begin(); it != discoveredNodes.end(); it++){
             std::shared_ptr<Node> candidateNode = *it;
             std::cerr << ErrorHelpers::genErrorStr(candidateNode->getFullyQualifiedName(true) + " ID: " + GeneralHelper::to_string(candidateNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(candidateNode->directInDegree()) + " TotalInDeg: " + GeneralHelper::to_string(candidateNode->inDegree())) <<std::endl;
+            std::cerr << ErrorHelpers::genErrorStr("{Orig Location: " + candidateNode->getFullyQualifiedOrigName(true) + "}") << std::endl;
             std::set<std::shared_ptr<Node>> connectedInputNodesPtrOrder = candidateNode->getConnectedInputNodes();
             std::set<std::shared_ptr<Node>> connectedInputNodes; //Order by ID for output
             connectedInputNodes.insert(connectedInputNodesPtrOrder.begin(), connectedInputNodesPtrOrder.end());
             for(auto connectedInputNodeIt = connectedInputNodes.begin(); connectedInputNodeIt != connectedInputNodes.end(); connectedInputNodeIt++){
                 std::shared_ptr<Node> connectedInputNode = *connectedInputNodeIt;
                 std::cerr << ErrorHelpers::genErrorStr("\tConnected to " + (connectedInputNode)->getFullyQualifiedName(true) + " ID: " + GeneralHelper::to_string(connectedInputNode->getId()) + " DirectInDeg: " + GeneralHelper::to_string(connectedInputNode->directInDegree()) + " InDeg: " + GeneralHelper::to_string(connectedInputNode->inDegree())) << std::endl;
+                std::cerr << ErrorHelpers::genErrorStr("\t{Orig Location: " + connectedInputNode->getFullyQualifiedOrigName(true) + "}") << std::endl;
                 if(std::find(nodesToSort.begin(), nodesToSort.end(), connectedInputNode) == nodesToSort.end()){
                     std::cerr << "\t\tNot found in nodes to sort list" << std::endl;
                 }

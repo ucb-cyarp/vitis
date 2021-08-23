@@ -222,6 +222,7 @@ xercesc::DOMElement *Node::emitGraphMLBasics(xercesc::DOMDocument *doc, xercesc:
 
     GraphMLHelper::addDataNode(doc, nodeElement, "block_partition_num", GeneralHelper::to_string(partitionNum));
     GraphMLHelper::addDataNode(doc, nodeElement, "block_sched_order", GeneralHelper::to_string(schedOrder));
+    GraphMLHelper::addDataNode(doc, nodeElement, "orig_location", getFullyQualifiedOrigName());
 
     //Add to graph node
     graphNode->appendChild(nodeElement);
@@ -539,7 +540,7 @@ std::set<std::string> Node::getExternalIncludes(){
     return std::set<std::string>();
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder) {
+Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder), origLocation(orig->origLocation) {
 
 }
 
@@ -1385,4 +1386,48 @@ int Node::getOutputPartition(){
     }
 
     return dstPartition;
+}
+
+std::vector<std::string> Node::getOrigLocation() const {
+    return origLocation;
+}
+
+void Node::setOrigLocation(const std::vector<std::string> &origLocation) {
+    Node::origLocation = origLocation;
+}
+
+void Node::setOrigLocation(){
+    origLocation = std::vector<std::string>();
+
+    std::shared_ptr<Node> cursor = parent;
+    while(cursor){
+        origLocation.insert(origLocation.begin(), cursor->getName());
+        cursor = cursor->parent;
+    }
+}
+
+std::string Node::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
+    std::string fullName;
+
+    for(int i = 0; i<origLocation.size(); i++)
+    {
+        std::string componentName = origLocation[i];
+
+        if(sanitize){
+            componentName = GeneralHelper::replaceAll(componentName, '\n', ' ');
+        }
+
+        fullName += componentName;
+        fullName += delim;
+    }
+
+    std::string componentName = getName();
+
+    if(sanitize){
+        componentName = GeneralHelper::replaceAll(componentName, '\n', ' ');
+    }
+
+    fullName += componentName;
+
+    return fullName;
 }

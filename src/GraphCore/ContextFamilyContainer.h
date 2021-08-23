@@ -76,7 +76,14 @@ public:
     std::shared_ptr<ContextContainer> getSubContextContainer(unsigned long subContext);
 
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
-    void shallowCloneWithChildren(std::shared_ptr<SubSystem> parent, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode) override;
+
+    /**
+     * @brief Copies the context family container relationships.  This includes the sub context links and sibbling links
+     *
+     * @warning This should be done after all context family containers in the design have been cloned.  Otherwise, nullptrs may be used since a clone  of the sibling node may not exist yet.
+     * @param origToCopyNode
+     */
+    void cloneContextFamilyContainerRelationships(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode);
 
     std::set<GraphMLParameter> graphMLParameters() override;
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
@@ -99,6 +106,8 @@ public:
     void rewireArcsToContextFamilyContainerAndRecurse(std::vector<std::shared_ptr<Arc>> &arcs_to_delete);
 
     std::string typeNameStr() override;
+
+    std::string getFullyQualifiedOrigName(bool sanitize, std::string delim) override;
 };
 
 /*! @} */
