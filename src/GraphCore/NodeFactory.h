@@ -6,23 +6,10 @@
 #define VITIS_NODEFACTORY_H
 
 #include <memory>
-#include <MasterNodes/MasterOutput.h>
-#include <MasterNodes/MasterInput.h>
-#include <MultiRate/RateChange.h>
-#include <MultiRate/Upsample.h>
-#include <MultiRate/Repeat.h>
-#include <MultiRate/Downsample.h>
-#include <MultiRate/ClockDomain.h>
-#include <MasterNodes/MasterNode.h>
 
 #include "Node.h"
 #include "SubSystem.h"
-#include "EnableNode.h"
-#include "GraphMLTools/GraphMLHelper.h"
 #include "EnabledSubSystem.h"
-#include "EnabledExpandedNode.h"
-#include "EnableInput.h"
-#include "EnableOutput.h"
 
 /**
 * \addtogroup GraphCore Graph Core

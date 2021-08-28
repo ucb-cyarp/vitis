@@ -7,6 +7,7 @@
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/TappedDelay.h"
 #include "General/GraphAlgs.h"
+#include "GraphCore/ExpandedNode.h"
 #include <iostream>
 
 void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,

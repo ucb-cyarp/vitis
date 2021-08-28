@@ -17,6 +17,7 @@
 #include "MasterNodes/MasterInput.h"
 #include "MasterNodes/MasterUnconnected.h"
 #include "TopologicalSortParameters.h"
+#include "GraphCore/ContextFamilyContainer.h"
 
 #define VITIS_CONTEXT_ABSORB_BARRIER_NAME "VITIS_CONTEXT_ABSORB_BARRIER"
 

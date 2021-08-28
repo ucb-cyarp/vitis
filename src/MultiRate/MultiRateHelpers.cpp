@@ -5,6 +5,7 @@
 #include "MultiRateHelpers.h"
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
+#include "General/GraphAlgs.h"
 #include "General/ErrorHelpers.h"
 #include "ClockDomain.h"
 #include "GraphCore/Node.h"

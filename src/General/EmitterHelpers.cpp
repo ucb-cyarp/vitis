@@ -10,6 +10,9 @@
 #include "GeneralHelper.h"
 #include "ErrorHelpers.h"
 #include "GraphCore/StateUpdate.h"
+#include "MasterNodes/MasterInput.h"
+#include "MasterNodes/MasterOutput.h"
+#include "MasterNodes/MasterUnconnected.h"
 #include <iostream>
 #include <fstream>
 

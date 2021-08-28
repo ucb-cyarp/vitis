@@ -10,6 +10,8 @@
 #include "MultiThreadEmitterHelpers.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include "MasterNodes/MasterOutput.h"
+#include "MasterNodes/MasterInput.h"
 
 void StreamIOThread::emitStreamIOThreadC(std::shared_ptr<MasterInput> inputMaster,
                                          std::shared_ptr<MasterOutput> outputMaster,

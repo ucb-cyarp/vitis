@@ -33,6 +33,8 @@ class MasterUnconnected;
 #include "CExpr.h"
 #include "Context.h"
 #include "SchedParams.h"
+#include "GraphMLTools/GraphMLHelper.h"
+#include "General/GeneralHelper.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>

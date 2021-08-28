@@ -4,6 +4,7 @@
 
 #include "Reshape.h"
 #include "General/ErrorHelpers.h"
+#include "General/EmitterHelpers.h"
 
 Reshape::ReshapeMode Reshape::getMode() const {
     return mode;
