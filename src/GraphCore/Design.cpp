@@ -3244,34 +3244,19 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         telemDumpPrefix = fileName+"_"+telemDumpPrefix;
     }
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Expanded File: " << path << "/" << fileName
-//                  << "_expandedGraph.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_expandedGraph.graphml", *this);
-//    }
-
-    //The code below is adapted from the single threaded emitter
-
     //Change the I/O masters to be in partition -2
     //This is a special partition.  Even if they I/O exists on the same node as a process thread, want to handle it seperatly
     inputMaster->setPartitionNum(IO_PARTITION_NUM);
     outputMaster->setPartitionNum(IO_PARTITION_NUM);
     visMaster->setPartitionNum(IO_PARTITION_NUM);
 
-    //Propagate
+    //==== Propagate Properties from Subsystems ====
     if(propagatePartitionsFromSubsystems){
         propagatePartitionsFromSubsystemsToChildren();
     }
 
-    prune(true); //TODO: Change to false if vis re-included
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_prunedGraph.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_prunedGraph.graphml", *this);
-//    }
+    //==== Prune ====
+    prune(true);
 
     //After pruning, disconnect the terminator master and the unconnected master
     //The remaining nodes should be used for other things since they were not pruned
@@ -3281,11 +3266,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Note what nodes and ports are disconnected
 
     pruneUnconnectedArcs(true);
-
-    //Print Nodes
-//    for(int i = 0; i<nodes.size(); i++){
-//        std::cout << "Partition " << nodes[i]->getPartitionNum() << ", " << nodes[i]->getFullyQualifiedName() << std::endl;
-//    }
 
     //=== Handle Clock Domains ===
     //Should do this after all pruning has taken place (and all node disconnects have taken place)
@@ -3307,30 +3287,15 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //This also converts RateChangeNodes to Input or Output implementations.
     //This is done before other operations since these operations replace the objects because the class is changed to a subclass
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_afterClockDomainSpecilization.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSpecilization.graphml", *this);
-//    }
-
     //AfterSpecialization, create support nodes for clockdomains, particularly DownsampleClockDomains
     createClockDomainSupportNodes(clockDomains, false, false); //Have not done context discovery & marking yet so do not request context inclusion
     assignNodeIDs();
     assignArcIDs();
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pruned File: " << path << "/" << fileName
-//                  << "_afterClockDomainSupportNodes.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_afterClockDomainSupportNodes.graphml", *this);
-//    }
-
     //Check the ClockDomain rates are appropriate
     MultiRateHelpers::validateClockDomainRates(clockDomains);
 
-    //==== Proceeed with Context Discovery ====
-
+    //==== Proceed with Context Discovery ====
     //This is an optimization pass to widen the enabled subsystem context
     expandEnabledSubsystemContexts();
     //Quick check to make sure vis node has no outgoing arcs (required for createEnabledOutputsForEnabledSubsysVisualization).
@@ -3339,24 +3304,25 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         throw std::runtime_error(ErrorHelpers::genErrorStr("Visualization Master is Not Expected to Have an Out Degree > 0, has " + GeneralHelper::to_string(visMaster->outDegree())));
     }
 
-// TODO: Re-enable vis node later?
-//    createEnabledOutputsForEnabledSubsysVisualization();
+    // TODO: Re-enable vis node later?
+    //    createEnabledOutputsForEnabledSubsysVisualization();
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
     //Cleanup empty branches of the hierarchy after nodes moved under enabled subsystem contexts
-//    cleanupEmptyHierarchy("it was empty or all underlying nodes were moved");
+    //cleanupEmptyHierarchy("it was empty or all underlying nodes were moved");
 
+    //==== Partitioning ====
     //TODO: Partition Here
+    //      Currently done manually
 
+    //==== Context Encapsulation Preparation (Organizing Contexts and Dealing with Contexts that Cross Partitions) ====
     //Assign EnableNodes to partitions do before encapsulation and Context/StateUpdate node creation, but after EnabledSubsystem expansion so that EnableNodes are moved/created/deleted as appropriate ahead of time
     placeEnableNodesInPartitions();
 
-    //TODO: Modify to not stop at FIFOs with no initial state when finding Mux contexts.  FIFOs with initial state are are treated as containing delays.  FIFOs without initial state treated like wires.
-    //Do this after FIFO insertion so that FIFOs are properly marked
+    //TODO: If FIFO Insertion Moved to Before this Point:
+    //      Modify to not stop at FIFOs with no initial state when finding Mux contexts.  FIFOs with initial state are are treated as containing delays.  FIFOs without initial state treated like wires.
     discoverAndMarkContexts();
-//        assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
-//        assignArcIDs();
 
     //Replicate ContextRoot Drivers (if should be replicated) for each partition
     //Do this after ContextDiscovery and Marking but before encapsulation
@@ -3368,16 +3334,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
     //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
     //TODO: Modify to check for ContextRootDrivers per partition
-    //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts˚
+    //orderConstrainZeroInputNodes(); //Do this after the contexts being marked since this constraint should not have an impact on contexts
 
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraph_preEncapsulate.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preEncapsulate.graphml", *this);
-//    }
-
+    //==== Encapsulate Contexts ====
     //TODO: fix encapsuleate to duplicate driver arc for each ContextFamilyContainer in other partitions
     //to the given partition and add an out
     encapsulateContexts(); //TODO: Modify to only insert FIFOs for contextDecisionDrivers when replication was not requested.  If replication was requr
@@ -3385,14 +3344,9 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignArcIDs();
 
     //Cleanup empty branches of the hierarchy after nodes moved under enabled subsystem contexts
-//    cleanupEmptyHierarchy("all underlying nodes were moved durring context encapsulation");
+    //cleanupEmptyHierarchy("all underlying nodes were moved durring context encapsulation");
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraph_postEncapsulate.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_postEncapsulate.graphml", *this);
-//    }
+    //==== Discover Partitions with Single Clock Domain ====
 
     //Detect partitions with only single clock domain (and no rate change nodes)
     std::map<int, std::pair<int, int>> partitionSingleClockDomainRatesNotBase;
@@ -3482,26 +3436,22 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         addRemoveNodesAndArcs(emptyNodes, nodesToRemove, emptyArcs, arcsToRemove);
     }
 
+    //==== Create Context Variable Update Nodes ====
+
     //TODO: investigate moving
-    //*** Creating context variable update nodes can be moved to after partitioning since it should inherit the partition
+    //*** Creating context variable update nodes can be done after partitioning since it should inherit the partition
     //of its context master (in the case of Mux).  Note that includeContext should be set to false
     createContextVariableUpdateNodes(true); //Create after expanding the subcontext so that any movement of EnableInput and EnableOutput nodes (is placed in the same partition as the ContextRoot)
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-    //*** FIFO insert Here (before state variable updates created)
+    //==== Insert and Configure FIFOs (but do not ingest Delays) ====
+    //** Done before state variable updates created
     //Also should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
     //Insert FIFOs into the crossings.  Note, the FIFO's partition should reside in the upstream partition of the arc(s) it is being placed in the middle of.
     //They should also reside inside of the source context family container
     //
     //This should also be done after encapsulation as the driver arcs of contexts are duplicated for each ContextFamilyContainer
-
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraph_preFIFOInsert.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOInsert.graphml", *this);
-//    }
 
     //Discover arcs crossing partitions and what partition crossings can be grouped together
     std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> partitionCrossings = getGroupableCrossings();
@@ -3551,7 +3501,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Set FIFO length and block size here (do before delay ingest)
     for(int i = 0; i<fifoVec.size(); i++){
         fifoVec[i]->setFifoLength(fifoLength);
-//        fifoVec[i]->setBlockSize(blockSize); //TODO: Remove this when setAndValidateFifoBlockSizes implemented below
     }
 
     //Since FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChange output),
@@ -3561,12 +3510,15 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     MultiRateHelpers::setFIFOClockDomains(fifoVec);
     MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
 
+    //==== Retime ====
     //TODO: Retime Here
+    //      Not currently implemented
 
-    //Ingest Delays Here (TODO: only adjacent delays for now, extend)
+    //==== FIFO Delay Ingest ====
     //Should be before state update nodes created since FIFOs can absorb delay nodes (which should not create state update nodes)
     //Currently, only nodes that are soley connected to FIFOs are absorbed.  It is possible to absorb other nodes but delay matching
     //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
+    //TODO: only adjacent delays for now, extend
     {
         std::vector<std::shared_ptr<Node>> new_nodes;
         std::vector<std::shared_ptr<Node>> deleted_nodes;
@@ -3579,8 +3531,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs();
     assignArcIDs();
 
+    //==== Merge FIFOs ====
     //Clock domain was already set for each FIFO above and will be used in the FIFO merge
-
     //      Add FIFO merge here (so long as on demand / lazy eval FIFOs in conditional execution regions are not considered)
     //      All ports need the same number of initial conditions.  May need to resize initial conditions
     //      Doing this after delay absorption because it currently is only implemented for a single set of input ports
@@ -3593,10 +3545,6 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //      To make this easier to work with with, insert the FIFO into the context of all the inputs if they are all the same
     //      otherwise, put it outside the contexts
 
-    //Export GraphML (for debugging)
-//    std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//              << "_scheduleGraph_preFIFOMerge.graphml" << std::endl;
-//    GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraph_preFIFOMerge.graphml", *this);
 
     //TODO: There is currently a problem when ignoring contexts due to scheduling nodes connected to the FIFOs
     {
@@ -3615,6 +3563,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     assignNodeIDs();
     assignArcIDs();
 
+    //==== Report FIFOs ====
     std::cout << std::endl;
     std::cout << "========== FIFO Report ==========" << std::endl;
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
@@ -3639,7 +3588,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
     std::cout << std::endl;
 
-
+    //==== Report Communication (and check for communication deadlocks) ====
     //Report Communication before StateUpdate nodes inserted to avoid false positive errors when detecting arcs to state update nodes
     //in the input partition of a ThreadCrossingFIFO
     std::string graphMLCommunicationInitCondFileName = "";
@@ -3660,30 +3609,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     //Check for deadlock among partitions
     CommunicationEstimator::checkForDeadlock(*this, designName, path);
 
-//    {
-//        std::vector<std::shared_ptr<Node>> new_nodes;
-//        std::vector<std::shared_ptr<Node>> deleted_nodes;
-//        std::vector<std::shared_ptr<Arc>> new_arcs;
-//        std::vector<std::shared_ptr<Arc>> deleted_arcs;
-//
-//        fifoMap = MultiThreadEmitterHelpers::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, true);
-//        addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
-//    }
-//    assignNodeIDs();
-//    assignArcIDs();
-//
-//    std::cout << std::endl;
-//    std::cout << "========== FIFO Report (After Merge) ==========" << std::endl;
-//    for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
-//        std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
-//        for(int i = 0; i<fifoVec.size(); i++) {
-//            std::cout << "FIFO: " << fifoVec[i]->getName() << " Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getBlockSize()) << ", Initial Conditions (Elements): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size() << std::endl;
-//        }
-//    }
-//    std::cout << std::endl;
-
-    //TODO Refactor into functions?
-    //Need to rebuild fifoVec, inputFIFOs, and outputFIFOs, since merging may have occured
+    //==== FIFO Merge Cleanup ====
+    //Need to rebuild fifoVec, inputFIFOs, and outputFIFOs, since merging may have occurred
     fifoVec.clear();
     inputFIFOs.clear();
     outputFIFOs.clear();
@@ -3699,52 +3626,25 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
         outputFIFOsRef.insert(outputFIFOsRef.end(), it->second.begin(), it->second.end());
     }
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraphBeforeStateUpdate.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphBeforeStateUpdate.graphml", *this);
-//    }
-
+    //==== Create State Update Nodes ====
     //Create state update nodes after delay absorption to avoid creating dependencies that would inhibit delay absorption
     createStateUpdateNodes(true); //Done after EnabledSubsystem Contexts are expanded to avoid issues with deleting and re-wiring EnableOutputs
     assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     assignArcIDs();
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraphAfterStateUpdate.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphAfterStateUpdate.graphml", *this);
-//    }
-
-    //TODO: Validate deadlock free (no cycles with 0 initial fifo state, disallow context driver "cycles")
-
-    //TODO: Validate in general.  Note, validation has to change since it is now OK for some output ports to be disconnected (or unconnected master need to be left connected and arcs to/from it should be ignored when inserting FIFOs and checking sheduling)
+    //==== Check All Nodes have an ID ====
     if(!MultiThreadEmitterHelpers::checkNoNodesInIO(nodes)){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Nodes exist in the I/O partition of the design which are not FIFOs"));
     }
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Pre-Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraphPreSchedule.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreSchedule.graphml", *this);
-//    }
-
-    //Schedule the partitions
+    //==== Schedule Operations within Partitions ===
     scheduleTopologicalStort(schedParams, false, true, designName, path, printSched, true); //Pruned before inserting state update nodes
 
-//    if(emitGraphMLSched) {
-//        //Export GraphML (for debugging)
-//        std::cout << "Emitting GraphML Schedule File: " << path << "/" << fileName
-//                  << "_scheduleGraphPreValidation.graphml" << std::endl;
-//        GraphMLExporter::exportGraphML(path + "/" + fileName + "_scheduleGraphPreValidation.graphml", *this);
-//    }
-
-    //Verify
+    //Verify the schedule
     verifyTopologicalOrder(false, schedType);
 
+    //==== Report Schedule and Partition Information ====
+    //Emit the schedule (as a graph)
     std::string graphMLSchedFileName = "";
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
@@ -3771,7 +3671,7 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     }
 
     //Get the ClockDomainRates in each partition (to report)
-//    std::map<int, std::set<std::pair<int, int>>> partitionClockDomainRates = findPartitionClockDomainRates();
+    // std::map<int, std::set<std::pair<int, int>>> partitionClockDomainRates = findPartitionClockDomainRates();
 
     std::cout << "Partition Node Count Report:" << std::endl;
     ComputationEstimator::printComputeInstanceTable(counts, names);
@@ -3781,6 +3681,8 @@ void Design::emitMultiThreadedC(std::string path, std::string fileName, std::str
     std::cout << "Partition Communication Report:" << std::endl;
     CommunicationEstimator::printComputeInstanceTable(commWorkloads);
     std::cout << std::endl;
+
+    //==== Emit Design ====
 
     //Emit Types
     EmitterHelpers::stringEmitTypeHeader(path);
