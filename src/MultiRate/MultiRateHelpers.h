@@ -30,40 +30,6 @@ namespace MultiRateHelpers {
     std::set<std::shared_ptr<Node>> getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch);
 
     /**
-     * @brief Finds nodes of a specified type in a clock domain by searching within subsystems (including Enabled Subsystems)
-     *
-     * Nested ClockDomains are included in the list but nodes within them are not included in the list
-     *
-     * @param nodesToSearch
-     * @tparam T only adds nodes of type T to the list
-     * @return
-     */
-    template <typename T>
-    std::set<std::shared_ptr<T>> getNodesInClockDomainHelperFilter(const std::set<std::shared_ptr<Node>> nodesToSearch){
-        std::set<std::shared_ptr<T>> foundNodes;
-
-        for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
-            if(GeneralHelper::isType<Node, T>(*it)){
-                std::shared_ptr<T> asT = std::static_pointer_cast<T>(*it);
-                foundNodes.insert(asT);
-            }
-
-            if(GeneralHelper::isType<Node, ClockDomain>(*it)){
-                //This is a ClockDomain, add it to the list but do not proceed into it
-            }else if(GeneralHelper::isType<Node, SubSystem>(*it)){
-                //This is another type of subsystem, add it to the list and proceed to search inside
-                std::shared_ptr<SubSystem> asSubSystem = std::static_pointer_cast<SubSystem>(*it);
-                std::set<std::shared_ptr<Node>> innerNodes = getNodesInClockDomainHelper(asSubSystem->getChildren());
-
-                foundNodes.insert(innerNodes.begin(), innerNodes.end());
-            }
-            //Otherwise, this is a standard node which is just added to the list if it is the correct type
-        }
-
-        return foundNodes;
-    }
-
-    /**
      * @brief Find the clock domain that this node is a part of.
      *
      * If there are multiple nested clock domains, it finds the most specific clock domain it is a part of (ie. the

@@ -278,7 +278,18 @@ set(COMMON_SRCS
         src/Estimators/PartitionCrossing.cpp
         src/Estimators/PartitionCrossing.h
         src/MultiThread/LocklessInPlaceThreadCrossingFIFO.cpp
-        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h)
+        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h
+        src/Blocking/BlockingDomain.cpp
+        src/Blocking/BlockingDomain.h
+        src/Blocking/BlockingBoundary.cpp
+        src/Blocking/BlockingBoundary.h
+        src/Blocking/BlockingInput.cpp
+        src/Blocking/BlockingInput.h
+        src/Blocking/BlockingOutput.cpp
+        src/Blocking/BlockingOutput.h
+        src/Blocking/BlockingHelpers.cpp
+        src/Blocking/BlockingHelpers.h
+        )
 
 #Add Include Directories for Project Srcs
 include_directories(src)

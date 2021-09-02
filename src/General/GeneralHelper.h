@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include <memory>
 #include <sstream>
 #include <algorithm>
@@ -286,6 +287,17 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
      * @return
      */
     std::vector<int> parseIntVecStr(std::string str);
+
+    template <typename KeyType, typename ContainerType>
+    bool contains(KeyType key, ContainerType &container){
+        return std::find(container.begin(), container.end(), key) != container.end();
+    }
+
+    template <typename KeyType>
+    bool contains(KeyType key, std::set<KeyType> &container){
+        return container.find(key) != container.end();
+    }
+
 };
 
 /*! @} */

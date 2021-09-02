@@ -212,6 +212,99 @@ namespace GraphAlgs {
      */
     std::shared_ptr<SubSystem> findMostSpecificCommonAncestorParent(std::shared_ptr<SubSystem> parent, std::shared_ptr<Node> b);
 
+    /**
+     * @brief Finds nodes of a specified type in a domain by searching within subsystems (including Enabled Subsystems)
+     *
+     * Nested domains of the same type as the domain being searched (DomainNodeType) are included in the list but nodes within them are not included in the list
+     *
+     * @param nodesToSearch
+     * @tparam FilterNodeType only adds nodes of this type to the list
+     * @tparam DomainNodeType the domain being searched in (assumed to be a subclass of subsystem)
+     * @return
+     */
+    template <typename DomainNodeType, typename FilterNodeType>
+    std::set<std::shared_ptr<FilterNodeType>> getNodesInDomainHelperFilter(const std::set<std::shared_ptr<Node>> nodesToSearch){
+        std::set<std::shared_ptr<FilterNodeType>> foundNodes;
+
+        for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
+            if(GeneralHelper::isType<Node, FilterNodeType>(*it)){
+                std::shared_ptr<FilterNodeType> asT = std::static_pointer_cast<FilterNodeType>(*it);
+                foundNodes.insert(asT);
+            }
+
+            if(GeneralHelper::isType<Node, DomainNodeType>(*it)){
+                //This is DomainNodeType, add it to the list (if it is the right type - done above) but do not proceed into it
+            }else if(GeneralHelper::isType<Node, SubSystem>(*it)){
+                //This is another type of subsystem, add it to the list (if it is the correct type - done above) and proceed to search inside
+                std::shared_ptr<SubSystem> asSubSystem = std::static_pointer_cast<SubSystem>(*it);
+                std::set<std::shared_ptr<FilterNodeType>> innerNodes = getNodesInDomainHelperFilter<DomainNodeType, FilterNodeType>(asSubSystem->getChildren());
+
+                foundNodes.insert(innerNodes.begin(), innerNodes.end());
+            }
+            //Otherwise, this is a standard node which is just added to the list if it is the correct type (done above)
+        }
+
+        return foundNodes;
+    }
+
+    /**
+     * @brief Finds the domain (of the specified type) that the node resides in
+     *
+     * If there are multiple nested domains, it finds the most specific domain it is a part of (ie. the
+     * one it is a leaf node in)
+     *
+     * @tparam DomainType
+     * @param node
+     * @return the Domain the node is under or nullptr if it is in the base domain
+     */
+    template <typename DomainType>
+    std::shared_ptr<DomainType> findDomain(std::shared_ptr<Node> node){
+        std::shared_ptr<DomainType> domain = nullptr;
+        std::shared_ptr<Node> cursor = node;
+
+        while(cursor != nullptr){
+            std::shared_ptr<SubSystem> parent = cursor->getParent();
+
+            if(GeneralHelper::isType<Node, DomainType>(parent)){
+                domain = std::static_pointer_cast<DomainType>(parent);
+                cursor = nullptr;
+            }else if(GeneralHelper::isType<Node, ContextFamilyContainer>(parent)){
+                std::shared_ptr<ContextFamilyContainer> parentAsContextFamilyContainer = std::dynamic_pointer_cast<ContextFamilyContainer>(parent);
+                //Encapsulation has already occurred, check if the context driver of this ContextFamilyContainer
+                //is a Domain
+
+                //Also, since a Domain is placed inside of the ContextFamilyContainer, check that the context driver
+                //is not this node
+
+                std::shared_ptr<ContextRoot> parentContextRoot = parentAsContextFamilyContainer->getContextRoot();
+
+                std::shared_ptr<ContextRoot> cursorAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(cursor);
+                if(cursorAsContextRoot != nullptr && cursorAsContextRoot == parentContextRoot){
+                    //The parent is the context Family container for the cursor
+                    //Continue going up
+                    cursor = parent;
+                }else{
+                    //Check if the parent ContextRoot is a domain
+                    std::shared_ptr<DomainType> parentContextRootAsDomain = GeneralHelper::isType<ContextRoot, DomainType>(parentContextRoot);
+
+                    if(parentContextRootAsDomain){
+                        //The Parent ContextFamilyContainer context root is a Domain
+                        domain = parentContextRootAsDomain;
+                        cursor = nullptr;
+                    }else{
+                        //The ContextFamilyContainer is for something else, keep going up
+                        cursor = parent;
+                    }
+                }
+            }
+            else{
+                cursor = parent;
+            }
+        }
+
+        return domain;
+    }
+
 };
 
 /*! @} */

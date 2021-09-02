@@ -19,54 +19,11 @@
 
 std::set<std::shared_ptr<Node>>
 MultiRateHelpers::getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch) {
-    return getNodesInClockDomainHelperFilter<Node>(nodesToSearch);
+    return GraphAlgs::getNodesInDomainHelperFilter<ClockDomain, Node>(nodesToSearch);
 }
 
 std::shared_ptr<ClockDomain> MultiRateHelpers::findClockDomain(std::shared_ptr<Node> node) {
-    std::shared_ptr<ClockDomain> clkDomain = nullptr;
-    std::shared_ptr<Node> cursor = node;
-
-    while(cursor != nullptr){
-        std::shared_ptr<SubSystem> parent = cursor->getParent();
-
-        if(GeneralHelper::isType<Node, ClockDomain>(parent)){
-            clkDomain = std::static_pointer_cast<ClockDomain>(parent);
-            cursor = nullptr;
-        }else if(GeneralHelper::isType<Node, ContextFamilyContainer>(parent)){
-            std::shared_ptr<ContextFamilyContainer> parentAsContextFamilyContainer = std::dynamic_pointer_cast<ContextFamilyContainer>(parent);
-            //Encapsulation has already occured, check if the context driver of this ContextFamilyContainer
-            //is a ClockDomain
-
-            //Also, since a ClockDomain is placed inside of the ContextFamilyContainer, check that the context driver
-            //is not this node
-
-            std::shared_ptr<ContextRoot> parentContextRoot = parentAsContextFamilyContainer->getContextRoot();
-
-            std::shared_ptr<ContextRoot> cursorAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(cursor);
-            if(cursorAsContextRoot != nullptr && cursorAsContextRoot == parentContextRoot){
-                //The parent is the context Family container for the cursor
-                //Continue going up
-                cursor = parent;
-            }else{
-                //Check if the parent ContextRoot is a clock domain
-                std::shared_ptr<ClockDomain> parentContextRootAsClkDomain = GeneralHelper::isType<ContextRoot, ClockDomain>(parentContextRoot);
-
-                if(parentContextRootAsClkDomain){
-                    //The ParentContextFamilyContainer is for a clock domain
-                    clkDomain = parentContextRootAsClkDomain;
-                    cursor = nullptr;
-                }else{
-                    //The ContextFamilyContainer is for something else, keep going up
-                    cursor = parent;
-                }
-            }
-        }
-        else{
-            cursor = parent;
-        }
-    }
-
-    return clkDomain;
+    return GraphAlgs::findDomain<ClockDomain>(node);
 }
 
 bool MultiRateHelpers::isOutsideClkDomain(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
