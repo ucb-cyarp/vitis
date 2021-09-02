@@ -1,2 +1,3 @@
 dockerBuild.log
+dockerBuildBase.log
 lastBuiltTag.log

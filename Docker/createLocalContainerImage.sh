@@ -29,11 +29,11 @@ timestamp=$(date +%F_%H-%M-%S)
 
 #Build the container image
 cd $scriptSrc
-echo "docker build -t laminar-remote-cpp-env-local:${timestamp} -f Dockerfile.CLion.remote-cpp-env ."
-docker build --progress=plain -t laminar-remote-cpp-env-local:${timestamp} -f Dockerfile.CLion.remote-cpp-env . 2>&1 | tee dockerBuild.log
+echo "docker build -t laminar-remote-cpp-env-local:${timestamp} -f Dockerfile ."
+docker build --progress=plain -t "laminar-remote-cpp-env-local:${timestamp}" -f Dockerfile . 2>&1 | tee dockerBuild.log
 
 echo "docker tag laminar-remote-cpp-env-local:${timestamp} laminar-remote-cpp-env-local:latest"
-docker tag laminar-remote-cpp-env-local:${timestamp} laminar-remote-cpp-env-local:latest
+docker tag "laminar-remote-cpp-env-local:${timestamp}" laminar-remote-cpp-env-local:latest
 
 echo "${timestamp}" > lastBuiltTag.log
 
