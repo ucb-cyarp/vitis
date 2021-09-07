@@ -8,7 +8,7 @@
 #include "GraphCore/Design.h"
 #include "General/TopologicalSortParameters.h"
 
-@/**
+/**
  * \addtogroup Scheduling Schedulers
  * @brief Functions for scheduling operations
  *
