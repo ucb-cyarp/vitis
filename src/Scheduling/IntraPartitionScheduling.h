@@ -8,6 +8,13 @@
 #include "GraphCore/Design.h"
 #include "General/TopologicalSortParameters.h"
 
+@/**
+ * \addtogroup Scheduling Schedulers
+ * @brief Functions for scheduling operations
+ *
+ * @{
+ */
+
 /**
  * @brief Functions for scheduling nodes within a design which are executed on a single CPU.
  *
@@ -66,5 +73,6 @@ namespace IntraPartitionScheduling {
     std::vector<std::shared_ptr<Node>> topologicalSortDestructive(Design &design, std::string designName, std::string dir, TopologicalSortParameters params, int partitionNum);
 };
 
+/*! @} */
 
 #endif //VITIS_INTRAPARTITIONSCHEDULING_H
