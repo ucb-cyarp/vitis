@@ -9,10 +9,14 @@
 #include "GraphCore/Design.h"
 
 /**
- * \addtogroup Emitter Emitter Emitter Helpers and Functions
+ * \addtogroup Emitter Emitter Helpers and Functions
+ * @brief Helpers and functions for emitting a design
  * @{
  */
 
+/**
+ * @brief Contains helper methods for Single-Thread Target Emitters
+ */
 namespace SingleThreadEmit {
     /**
      * @brief Emits the benchmarking drivers for the design

@@ -10,10 +10,15 @@
 #include "GraphCore/Design.h"
 
 /**
- * \addtogroup Passes Passes Design Passes
+ * \addtogroup Passes Design Passes/Transforms
+ *
+ * @brief A group of compiler passes which operate over a design.
  * @{
  */
 
+/**
+ * @brief A collection of more general passes/transforms over a design
+ */
 namespace DesignPasses {
     /**
      * @brief Discovers nodes with state in the design and creates state update nodes for them.

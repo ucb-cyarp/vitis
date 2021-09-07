@@ -21,7 +21,9 @@
 #include "PrimitiveNodes/Mux.h"
 
 /**
- * \addtogroup Passes Passes Design Passes
+ * \addtogroup Passes Design Passes/Transforms
+ *
+ * @brief A group of compiler passes which operate over a design.
  * @{
  */
 

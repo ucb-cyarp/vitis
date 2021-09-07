@@ -11,10 +11,14 @@
 #include "General/TopologicalSortParameters.h"
 
 /**
- * \addtogroup Flows Compiler Flows for Translating a Design to the Desired Output
+ * \addtogroup Flows Compiler Flows
+ * @brief Compiler flows for translating a design to the desired output
  * @{
  */
 
+/**
+ * @brief Flow for generating a single-threaded C implementation of a given design
+ */
 namespace SingleThreadGenerator {
     /**
      * @brief Generates a Single Threaded Version of the Design as a C program

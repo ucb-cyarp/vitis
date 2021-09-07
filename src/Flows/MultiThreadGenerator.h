@@ -9,10 +9,14 @@
 #include "General/TopologicalSortParameters.h"
 
 /**
- * \addtogroup Flows Compiler Flows for Translating a Design to the Desired Output
+ * \addtogroup Flows Compiler Flows
+ * @brief Compiler flows for translating a design to the desired output
  * @{
  */
 
+/**
+ * @brief Flow for generating a multi-threaded C implementation of a given design
+ */
 namespace MultiThreadGenerator {
     /**
      * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C

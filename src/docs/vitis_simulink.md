@@ -21,7 +21,8 @@
     version.
     
 ## Limited Support:
-* Vectors: Vector operations are currently expanded by the simulink to GraphML export script into primitive (width 1) operations.  Vector ports are not yet supported.
+* Vectors: Vector operations are currently expanded by the simulink to GraphML export script into primitive (width 1) 
+  operations.  Vector ports are not yet supported.
 
 ## Simulink Export Only Support
 * Fixed Point numbers are only supported by the simulink export script.  Fixed point operations are not yet implemented 

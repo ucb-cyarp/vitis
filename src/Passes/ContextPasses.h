@@ -10,10 +10,15 @@
 #include "GraphCore/Design.h"
 
 /**
- * \addtogroup Passes Passes Design Passes
+ * \addtogroup Passes Design Passes/Transforms
+ *
+ * @brief A group of compiler passes which operate over a design.
  * @{
  */
 
+/**
+ * @brief A collection of passes/transforms focused on contextual execution within the design
+ */
 namespace ContextPasses {
     /**
      * @brief Discover and mark contexts for nodes in the design (ie. sets the context stack of nodes).

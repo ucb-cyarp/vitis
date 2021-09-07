@@ -28,7 +28,8 @@ class MasterOutput;
 class ClockDomain;
 
 /**
- * \addtogroup Emitter Emitter Emitter Helpers and Functions
+ * \addtogroup Emitter Emitter Helpers and Functions
+ * @brief Helpers and functions for emitting a design
  * @{
  */
 
@@ -36,7 +37,7 @@ class ClockDomain;
 #define BLOCK_IND_VAR_PREFIX "blkInd"
 
 /**
- * @brief Contains helper methods for Multi-Threaded Emitters
+ * @brief Contains helper methods for Multi-Threaded Target Emitters
  */
 namespace MultiThreadEmit {
     /**

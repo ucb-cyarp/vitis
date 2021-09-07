@@ -8,6 +8,11 @@
 #include "GraphCore/Design.h"
 #include "General/TopologicalSortParameters.h"
 
+/**
+ * @brief Functions for scheduling nodes within a design which are executed on a single CPU.
+ *
+ * Ensures predecessor nodes are executed before nodes which are dependent on their results.
+ */
 namespace IntraPartitionScheduling {
     /**
      * @brief Schedule the nodes using topological sort.

@@ -2,41 +2,42 @@
 
 ## Multithreaded
 
-Entry Point: Design::emitMultiThreadedC
+Entry Point: MultiThreadGenerator::emitMultiThreadedC
 
 1. Set Partition of I/O Masters:
 
    Set to IO_PARTITION_NUM
    
-2. Propogate Partition from Subsystems:
+2. Propagate Partition from Subsystems:
 
    Propagate the partition number from subsystems to their child nodes.  This is because, on import, only the subsystems
-   contain the partition numbers.  However, each node needs to have its parititiion explicitally set.  This is done in
+   contain the partition numbers.  However, each node needs to have its partition explicitly set.  This is done in
    Design::propagatePartitionsFromSubsystemsToChildren()
    
 3. Pruning (**Optimization Pass**):
    
    The graph is pruned of unused paths and nodes.  The visualization node is currently unimplemented and is included in 
    list of nodes to prune.
+   Provided by DesignPasses::prune
 
 4. Unconnected Node and Terminator Disconnect:
    
    Disconnect any remaining nodes from the unconnected and terminator MasterNodes.  Since this occurs after the prune 
-   stage, all of the nodes in the design are used.  However, some of their output ports may not be used.  Disconnecting 
-   the arcs avoids unnecessary inter-partition FIFO inference for 
+   stage, all the nodes in the design are used.  However, some of their output ports may not be used.  Disconnecting 
+   the arcs avoids unnecessary inter-partition FIFO inference.
    
-5. EnabledSubSystem Contect Expansion (**Optimization Pass**):
+5. EnabledSubSystem Context Expansion (**Optimization Pass**):
 
    Expand enabled subsystems contexts to include combinational nodes at the subsystem boundaries.
-   provided by Design::expandEnabledSubsystemContexts
+   Provided by ContextPasses::expandEnabledSubsystemContexts
    
 6. Discover and Mark Contexts:
    Provided by Design::discoverAndMarkContexts.  This discovers nodes within contexts (ie. 
    within enabled subsystems or within mux mutually exclusive paths).  Part of this pass can be viewed as an 
    **optimization pass** because the mutually exclusive contexts for Muxes are made as large as possible (operation 
-   conducted by Mux::discoverAndMarkMuxContextsAtLevel.  Because contexts can be nested, 
-   Design::discoverAndMarkContexts calls EnabledSubSystem::discoverAndMarkContexts to perform context discovery in nested
-   contexts
+   conducted by Mux::discoverAndMarkMuxContextsAtLevel.  Because contexts can be nested,
+   ContextPasses::discoverAndMarkContexts calls EnabledSubSystem::discoverAndMarkContexts to perform context discovery 
+   in nested contexts
    
 7. Encapsulate Contexts:
    
@@ -46,10 +47,10 @@ Entry Point: Design::emitMultiThreadedC
    contexts.
    
    Nodes within ContextFamilyContainers are scheduled together to avoid unnecessary duplicate conditionals
-   (ie. it tries to keep all the operators in a context within a single if/else block).  In the scheduler, this manifits
-   as ContextFamilyContainers being treated like BlackBoxes.  All of the arcs in and out of the context are elevated to
-   the ContextFamilyContainer from the perspective of the scheduler.  The node is scheduled as a single entitity.
-   Since the nodes inside of the Context need to be scheduled themselves, the scheduler is recursively run on the
+   (ie. it tries to keep all the operators in a context within a single if/else block).  In the scheduler, this 
+   manifests as ContextFamilyContainers being treated like BlackBoxes.  All of the arcs in and out of the context are 
+   elevated to the ContextFamilyContainer from the perspective of the scheduler.  The node is scheduled as a single 
+   entity. Since the nodes inside of the Context need to be scheduled themselves, the scheduler is recursively run on the
    contents of the ContextFamilyContainer.
    
    Note that it is not strictly speaking a requirement that the entire ContextFamilyContainer be scheduled together,
@@ -70,8 +71,8 @@ Entry Point: Design::emitMultiThreadedC
    Creates ContextVariableUpdate nodes which are used to update the context variable(s) of context root nodes.  The most
    concrete example is that the output of a Mux must be updated by one of the mutually exclusive input contexts in each
    itteration.  This is done after EnabledSubSystem expansion so that any movement of the EnableOutput and EnableInput
-   nodes is considered when placing the ContextVariableUpdate nodes.  This is handled by 
-   Design::createContextVariableUpdateNodes
+   nodes is considered when placing the ContextVariableUpdate nodes.  This is handled by
+   ContextPasses::createContextVariableUpdateNodes
    
 9. Discover Partition Crossings:
 
@@ -91,24 +92,24 @@ Entry Point: Design::emitMultiThreadedC
     Delays that are next to FIFOs are absorbed to become initial conditions in the FIFO.  This is 
     important when there is a loop between partitions.  This initial stat allows the design to execute without
     deadlocking (assuming enough state was ingested).  Note that delay ingestion is also limited by the length of the 
-    FIFO.  This pass is performed by MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs
+    FIFO.  This pass is performed by MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs
     
 12. Create StateUpdate Nodes
 
     State update nodes are created for each node which contains state.  They signify when the state can be updated.
     From a circuits perspective, this is the registering of a flip-flop on a clock edge.  However, in software, there is
-    some additional freedom.  The state update can actualy occur any time the current state is no longer in use.  
-    Ordering constraint arcs are often used to force these nodes to be scheduled after all nodes depdendnt on the state
-    element have been scheduled.  This is accomplished by Design::createStateUpdateNodes
+    some additional freedom.  The state update can actually occur any time the current state is no longer in use.  
+    Ordering constraint arcs are often used to force these nodes to be scheduled after all nodes dependent on the state
+    element have been scheduled.  This is accomplished by DesignPasses::createStateUpdateNodes
     
 13. Intra-Partition Scheduling
 
     Each partition is scheduled (separately) using a topological sort algorithm.  By scheduling, I am referring to 
     determining the order in which operations in each partition are emitted.  Several different heuristics are available
     for the topological sort algorithm.  Because topological sort algorithms are natural to implement destructively, 
-    they are performed on a copy of the design which is taken right before scheduling.  The scheduling is performed by 
-    Design::scheduleTopologicalStort.  The scheduler currently works hierarchically with nodes within contexts being 
-    scheduled together.
+    they are performed on a copy of the design which is taken right before scheduling.  The scheduling is performed by
+    IntraPartitionScheduling::scheduleTopologicalStort.  The scheduler currently works hierarchically with nodes within 
+    contexts being scheduled together.
     
     **Warning: UpsampleClockDomains currently rely on all of their nodes being scheduled together (ie not being split up).
     This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
@@ -141,7 +142,7 @@ Entry Point: Design::emitMultiThreadedC
        the emitted partition's compute function.  The compute function also contains an inner loop which loops over
        the samples in a block.  A reset function is also emitted for each partition.  The partition emit is handled by
        MultiThreadEmitterHelpers::emitPartitionThreadC.  The actual emitting of operators (Nodes) within the partition 
-       is handled within this function by MultiThreadEmitterHelpers::emitSelectOpsSchedStateUpdateContext
+       is handled within this function by MultiThreadEmit::emitSelectOpsSchedStateUpdateContext
        
     e. Emit Telemetry Helpers (if requested): Emits helper files for telemetry recording if requested.  Also emits the
        telemetry config JSON file to be used by VitisTelemetryDash
