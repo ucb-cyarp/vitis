@@ -9,7 +9,8 @@
 
 #include "PartitionNode.h"
 #include "PartitionCrossing.h"
-#include "MultiThread/MultiThreadEmitterHelpers.h"
+#include "Emitter/MultiThreadEmit.h"
+#include "Scheduling/IntraPartitionScheduling.h"
 
 #include <iostream>
 
@@ -318,9 +319,8 @@ void CommunicationEstimator::checkForDeadlock(Design &operatorGraph, std::string
 
     std::exception err;
     try {
-        communicationGraph.scheduleTopologicalStort(TopologicalSortParameters(), false, false,
-                                                    designName+"partitionLoop", path, false,
-                                                    false);
+        IntraPartitionScheduling::scheduleTopologicalStort(communicationGraph, TopologicalSortParameters(), false, false,
+                                                           designName+"partitionLoop", path, false,false);
     }catch(const std::exception &e){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Detected Deadlock Condition Between Partitions\n" + std::string(e.what())));
     }

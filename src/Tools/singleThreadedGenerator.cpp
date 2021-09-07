@@ -12,6 +12,9 @@
 #include "GraphMLTools/GraphMLDialect.h"
 #include "General/ErrorHelpers.h"
 #include "General/FileIOHelpers.h"
+#include "General/TopologicalSortParameters.h"
+#include "Flows/SingleThreadGenerator.h"
+#include "Emitter/SingleThreadEmit.h"
 
 int main(int argc, char* argv[]) {
     SchedParams::SchedType sched = SchedParams::SchedType::TOPOLOGICAL_CONTEXT;
@@ -167,7 +170,7 @@ int main(int argc, char* argv[]) {
 
     //Emit C
     try{
-        design->generateSingleThreadedC(outputDir, designName, sched, topoParams, blockSize, emitGraphMLSched, printNodeSched);
+        SingleThreadGenerator::generateSingleThreadedC(*design, outputDir, designName, sched, topoParams, blockSize, emitGraphMLSched, printNodeSched);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;
@@ -184,7 +187,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Emitting Makefile: " << outputDir << "/Makefile_" << designName << "_mem" << std::endl;
 
     try{
-        design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName, blockSize);
+        SingleThreadEmit::emitSingleThreadedCBenchmarkingDrivers(*design, outputDir, designName, designName, blockSize);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

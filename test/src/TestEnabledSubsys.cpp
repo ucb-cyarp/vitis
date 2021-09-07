@@ -15,6 +15,9 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include "GraphMLTools/GraphMLExporter.h"
 #include "GraphCore/SchedParams.h"
+#include "General/TopologicalSortParameters.h"
+#include "Flows/SingleThreadGenerator.h"
+#include "Emitter/SingleThreadEmit.h"
 
 #include "GraphTestHelper.h"
 #include "SimpleDesignValidator.h"
@@ -131,7 +134,7 @@ std::cout << "Emitting C File: " << mainCFileLoc << std::endl;
 
 {
 SCOPED_TRACE("Emitting C");
-design->generateSingleThreadedC(outputDir, designName, sched, topoParams, false, false, 1);
+SingleThreadGenerator::generateSingleThreadedC(*design, outputDir, designName, sched, topoParams, false, false, 1);
 }
 
 std::cout << "Emitting CPP File: " << benchmarkHFileLoc << std::endl;
@@ -148,7 +151,7 @@ std::cout << "Emitting Makefile: " << memBenchmarkMakefileNoPCMLoc << std::endl;
 
 {
 SCOPED_TRACE("Emitting Benchmarks");
-design->emitSingleThreadedCBenchmarkingDrivers(outputDir, designName, designName, 1);
+SingleThreadEmit::emitSingleThreadedCBenchmarkingDrivers(*design, outputDir, designName, designName, 1);
 }
 
 //Cleanup and Erase Exported Files

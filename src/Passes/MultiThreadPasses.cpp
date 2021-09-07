@@ -2,7 +2,7 @@
 // Created by Christopher Yarp on 10/4/19.
 //
 
-#include "MultiThreadTransformHelpers.h"
+#include "MultiThreadPasses.h"
 
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/TappedDelay.h"
@@ -10,7 +10,7 @@
 #include "GraphCore/ExpandedNode.h"
 #include <iostream>
 
-void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
+void MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
                                                               std::vector<std::shared_ptr<Node>> &new_nodes,
                                                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                               std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -69,7 +69,7 @@ void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pa
                 //TODO: Refactor into absorption?  Tricky because there may be a chain of delays.  Possibly when re-timer is implemented
                 //The number of initial conditions in the FIFO must be a multiple of the block size
                 //remove the remainder from the FIFO and insert into a delay at the input
-                MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes,
+                MultiThreadPasses::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes,
                                                                                       deleted_nodes, new_arcs,
                                                                                       deleted_arcs, printActions);
             }else{
@@ -83,8 +83,8 @@ void MultiThreadTransformHelpers::absorbAdjacentDelaysIntoFIFOs(std::map<std::pa
     }
 }
 
-MultiThreadTransformHelpers::AbsorptionStatus
-MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+MultiThreadPasses::AbsorptionStatus
+MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                               int inputPartition,
                                                               std::vector<std::shared_ptr<Node>> &new_nodes,
                                                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -220,8 +220,8 @@ MultiThreadTransformHelpers::absorbAdjacentInputDelayIfPossible(std::shared_ptr<
     return AbsorptionStatus::NO_ABSORPTION;
 }
 
-MultiThreadTransformHelpers::AbsorptionStatus
-MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
+MultiThreadPasses::AbsorptionStatus
+MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                int outputPartition,
                                                                std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -384,7 +384,7 @@ MultiThreadTransformHelpers::absorbAdjacentOutputDelayIfPossible(std::shared_ptr
     return AbsorptionStatus::NO_ABSORPTION;
 }
 
-void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+void MultiThreadPasses::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                          std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -407,7 +407,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::
     int numElementsToMove = numPrimitiveElementsToMove/numberElementsPerInput;
 
     if(numElementsToMove > 0){
-        MultiThreadTransformHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadPasses::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 
         if (printActions) {
             std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
@@ -416,7 +416,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsForBlockSize(std::
     }
 }
 
-void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
+void MultiThreadPasses::reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                                    int tgtSizeBlocks,
                                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -440,7 +440,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSizeBlocks(std::
     int numElementsToMove = fifoInitialConditions.size() - tgtSizeBlocks*elementsPer*blkSize;
 
     if(numElementsToMove > 0){
-        MultiThreadTransformHelpers::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadPasses::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
 
         if (printActions) {
             std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
@@ -449,7 +449,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSizeBlocks(std::
     }
 }
 
-void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
+void MultiThreadPasses::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
                                                              int numElementsToMove, //These are the number of elements in the FIFO (not in initial conditions array) and can be scalars, vectors, or matricies
                                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
@@ -591,7 +591,7 @@ void MultiThreadTransformHelpers::reshapeFIFOInitialConditions(std::shared_ptr<T
     }
 }
 
-void MultiThreadTransformHelpers::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition){
+void MultiThreadPasses::propagatePartitionsFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int partition){
     for(auto it = nodes.begin(); it != nodes.end(); it++){
         //Do this first since expanded nodes are also subsystems
         std::shared_ptr<ExpandedNode> asExpandedNode = GeneralHelper::isType<Node, ExpandedNode>(*it);
@@ -625,7 +625,7 @@ void MultiThreadTransformHelpers::propagatePartitionsFromSubsystemsToChildren(st
     }
 }
 
-void MultiThreadTransformHelpers::mergeFIFOs(
+void MultiThreadPasses::mergeFIFOs(
         std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> &fifoMap,
         std::vector<std::shared_ptr<Node>> &nodesToAdd,
         std::vector<std::shared_ptr<Node>> &nodesToRemove,
@@ -717,7 +717,7 @@ void MultiThreadTransformHelpers::mergeFIFOs(
 
                 //Reshape the FIFOs
                 for(auto fifo : fifosToMerge){
-                    MultiThreadTransformHelpers::reshapeFIFOInitialConditionsToSizeBlocks(fifo, minInitialConditionsBlocks, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+                    MultiThreadPasses::reshapeFIFOInitialConditionsToSizeBlocks(fifo, minInitialConditionsBlocks, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
                 }
 
                 //Actually Merge the FIFOs in this set
@@ -821,4 +821,12 @@ void MultiThreadTransformHelpers::mergeFIFOs(
             fifoMap[partitionCrossing] = newCrossingFIFOs;
         }
     }
+}
+
+void MultiThreadPasses::propagatePartitionsFromSubsystemsToChildren(Design &design){
+    std::vector<std::shared_ptr<Node>> topLevelNodes = design.getTopLevelNodes();
+    std::set<std::shared_ptr<Node>> topLevelNodeSet;
+    topLevelNodeSet.insert(topLevelNodes.begin(), topLevelNodes.end());
+
+    propagatePartitionsFromSubsystemsToChildren(topLevelNodeSet, -1);
 }

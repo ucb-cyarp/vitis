@@ -223,10 +223,10 @@ set(COMMON_SRCS
         src/HighLevelNodes/DiscreteFIR.h
         src/PrimitiveNodes/TappedDelay.cpp
         src/PrimitiveNodes/TappedDelay.h
-        src/MultiThread/MultiThreadEmitterHelpers.cpp
-        src/MultiThread/MultiThreadEmitterHelpers.h
-        src/MultiThread/MultiThreadTransformHelpers.cpp
-        src/MultiThread/MultiThreadTransformHelpers.h
+        src/Emitter/MultiThreadEmit.cpp
+        src/Emitter/MultiThreadEmit.h
+        src/Passes/MultiThreadPasses.cpp
+        src/Passes/MultiThreadPasses.h
         src/MultiThread/ThreadCrossingFIFO.cpp
         src/MultiThread/ThreadCrossingFIFO.h
         src/MultiThread/StreamIOThread.cpp
@@ -289,7 +289,22 @@ set(COMMON_SRCS
         src/Blocking/BlockingOutput.h
         src/Blocking/BlockingHelpers.cpp
         src/Blocking/BlockingHelpers.h
-        )
+        src/Emitter/SingleThreadEmit.cpp
+        src/Emitter/SingleThreadEmit.h
+        src/Emitter/MultiThreadEmit.cpp
+        src/Emitter/MultiThreadEmit.h
+        src/Passes/ContextPasses.cpp
+        src/Passes/ContextPasses.h
+        src/Passes/DesignPasses.cpp
+        src/Passes/DesignPasses.h
+        src/Passes/DomainPasses.cpp
+        src/Passes/DomainPasses.h
+        src/Flows/SingleThreadGenerator.cpp
+        src/Flows/SingleThreadGenerator.h
+        src/Flows/MultiThreadGenerator.cpp
+        src/Flows/MultiThreadGenerator.h
+        src/Scheduling/IntraPartitionScheduling.cpp
+        src/Scheduling/IntraPartitionScheduling.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

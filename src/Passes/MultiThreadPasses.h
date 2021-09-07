@@ -2,8 +2,8 @@
 // Created by Christopher Yarp on 10/4/19.
 //
 
-#ifndef VITIS_MULTITHREADTRANSFORMHELPERS_H
-#define VITIS_MULTITHREADTRANSFORMHELPERS_H
+#ifndef VITIS_MULTITHREADPASSES_H
+#define VITIS_MULTITHREADPASSES_H
 
 #include <map>
 #include <vector>
@@ -13,20 +13,22 @@
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
-#include "ThreadCrossingFIFO.h"
+#include "MultiThread/ThreadCrossingFIFO.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 #include "MultiRate/RateChange.h"
+#include "GraphCore/Design.h"
+#include "PrimitiveNodes/Mux.h"
 
 /**
- * \addtogroup MultiThread Multi-Thread Support
+ * \addtogroup Passes Passes Design Passes
  * @{
  */
 
 /**
  * @brief A helper class containing methods for transforming a design for multi-thread emit
  */
-namespace MultiThreadTransformHelpers {
+namespace MultiThreadPasses {
     /**
      * @brief Class used to report if a delay was fully absorbed, partially absorbed, or not absorbed
      */
@@ -344,9 +346,11 @@ namespace MultiThreadTransformHelpers {
                     std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                     std::vector<std::shared_ptr<Node>> &addToTopLevel,
                     bool ignoreContexts, bool verbose);
+
+    void propagatePartitionsFromSubsystemsToChildren(Design &design);
 };
 
 /*! @} */
 
 
-#endif //VITIS_MULTITHREADTRANSFORMHELPERS_H
+#endif //VITIS_MULTITHREADPASSES_H

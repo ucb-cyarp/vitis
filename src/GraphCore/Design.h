@@ -12,12 +12,10 @@
 
 #include "GraphMLParameter.h"
 #include "General/GeneralHelper.h"
-#include "General/TopologicalSortParameters.h"
 #include "Variable.h"
-#include "SchedParams.h"
 #include "MultiThread/ThreadCrossingFIFOParameters.h"
 #include "MultiThread/PartitionParams.h"
-#include "MultiThread/MultiThreadEmitterHelpers.h"
+#include "Emitter/MultiThreadEmit.h"
 
 #include <xercesc/dom/DOM.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -78,6 +76,9 @@ public:
     void addNode(std::shared_ptr<Node> node);
     void addTopLevelNode(std::shared_ptr<Node> node);
     void addArc(std::shared_ptr<Arc> arc);
+    void addTopLevelContextRoot(std::shared_ptr<ContextRoot> contextRoot);
+    void removeTopLevelNode(std::shared_ptr<Node> node);
+    void removeTopLevelContextRoot(std::shared_ptr<ContextRoot> contextRoot);
 
     /**
      * @brief Re-number node IDs
@@ -142,6 +143,29 @@ public:
                                std::vector<std::shared_ptr<Arc>> &new_arcs,
                                std::vector<std::shared_ptr<Arc>> &deleted_arcs);
 
+    //Note, STL types take 2 classes in their template, the class contained and an allocator.  Need to declare the template template type to have 2 classes
+    //Need to include allocators for both nodes and arcs.  Unfortunately, sets, which are also used in the program, have 3 template parameters.  So,
+    //the same template template will no work for both std::vector and std::set
+    //For now, will just create 2 duplicate functions, one for vectors and one for sets
+
+    /**
+     * @brief This utility functions adds/removes nodes and arcs supplied in arrays
+     *
+     * New nodes are added before old nodes are deleted
+     * New nodes with parent set to nullptr are added as top level nodes
+     *
+     * New arcs are added before old arcs are deleted
+     *
+     * @param new_nodes set of nodes to add to the design
+     * @param deleted_nodes set of nodes to remove from the design
+     * @param new_arcs set of arcs to add to the design
+     * @param deleted_arcs set of arcs to remove from the design
+     */
+    void addRemoveNodesAndArcs(std::set<std::shared_ptr<Node>> &new_nodes,
+                               std::set<std::shared_ptr<Node>> &deleted_nodes,
+                               std::set<std::shared_ptr<Arc>> &new_arcs,
+                               std::set<std::shared_ptr<Arc>> &deleted_arcs);
+
     /**
      * @brief Check if any of the nodes in the design can be expanded
      * @return true if any node in the design can be expanded, false if all nodes cannot be expanded
@@ -187,6 +211,9 @@ public:
     void setNodes(const std::vector<std::shared_ptr<Node>> nodes);
     std::vector<std::shared_ptr<Arc>> getArcs() const;
     void setArcs(const std::vector<std::shared_ptr<Arc>> arcs);
+    std::vector<std::shared_ptr<ContextRoot>> getTopLevelContextRoots() const;
+    void setTopLevelContextRoots(const std::vector<std::shared_ptr<ContextRoot>> topLevelContextRoots);
+
 
     /**
      * @brief Copy a design
@@ -210,74 +237,6 @@ public:
      * @param node node to remove from design
      */
     void removeNode(std::shared_ptr<Node> node);
-
-    /**
-     * @brief Prunes the design
-     *
-     * Removes unused nodes from the graph.
-     *
-     * Tracks nodes with 0 out degree (when connections to the Unconnected and Terminated masters are not counted)
-     *
-     * The unused and terminated masters are not removed during pruning.  However, nodes connected to them may be removed.
-     *
-     * Ports that are left unused are connected to the Unconnected master node
-     *
-     * @param includeVisMaster If true, will add the Vis master to the set of nodes that are not considered when calculating output degree.
-     *
-     * @return number of nodes removed from the graph
-     */
-    unsigned long prune(bool includeVisMaster = true);
-
-    /**
-     * @brief Schedule the nodes using topological sort.
-     *
-     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
-     * @param prune if true, prune the design before scheduling.  Pruned nodes will not be scheduled but will also not be removed from the origional graph.
-     * @param rewireContexts if true, arcs between a node outside a context to a node inside a context are rewired to the context itself (for scheduling, the origional is left untouched).  If false, no rewiring operation is made for scheduling
-     *
-     * @param designName the name of the design (used when dumping a partially scheduled graph in the event an error is encountered)
-     * @param dir the directory to dump any error report files into
-     * @param printNodeSched if true, print the node schedule to the console
-     * @param schedulePartitions if true, each partition in the design is scheduled seperatly
-     *
-     * @warning: UpsampleClockDomains currently rely on all of their nodes being scheduled together (ie not being split up).
-     * This currently is provided by the hierarchical implementation of the scheduler.  However, if this were to be changed
-     * later, a method for having vector intermediates would be required.
-     *
-     * @return the number of nodes pruned (if prune is true)
-     */
-    unsigned long scheduleTopologicalStort(TopologicalSortParameters params, bool prune, bool rewireContexts, std::string designName, std::string dir, bool printNodeSched, bool schedulePartitions);
-
-    /**
-     * @brief Topological sort the current graph.
-     *
-     * @warning This destroys the graph by removing arcs from the nodes.
-     * It is reccomended to run on a copy of the graph and to back propagate the results
-     *
-     * @param designName name of the design used in the working graph export at part of the file name
-     * @param dir location to export working graph in the event of a cycle or error
-     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
-     *
-     * @return A vector of nodes arranged in topological order
-     */
-    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params);
-
-    /**
-     * @brief Topological sort of a given partition in the the current graph.
-     *
-     * @warning This does not schedule the output node except for partition -2 (I/O)
-     *
-     * @warning This destroys the graph by removing arcs from the nodes.
-     * It is reccomended to run on a copy of the graph and to back propagate the results
-     *
-     * @param designName name of the design used in the working graph export at part of the file name
-     * @param dir location to export working graph in the event of a cycle or error
-     * @param params the parameters used by the scheduler (ex. what heuristic to use, random seed (if applicable))
-     * @param partition the partitions
-     *
-     * @return A vector of nodes arranged in topological order
-     */
-    std::vector<std::shared_ptr<Node>> topologicalSortDestructive(std::string designName, std::string dir, TopologicalSortParameters params, int partitionNum);
 
     /**
      * @brief Verify that the graph has topological ordering
@@ -363,111 +322,7 @@ public:
      */
     std::string getCOutputStructDefn(int blockSize = 1);
 
-    /**
-     * @brief Generates a Single Threaded Version of the Design as a C program
-     *
-     * Depending on the scheduler specified, this function will prune, schedule, and emit
-     *
-     * @param outputDir the output directory for the C files
-     * @param designName the design name to be used as the C file names
-     * @param schedType the type of scheduler to use when generating the C program
-     * @param topoSortParams the parameters used by the topological scheduler if applicable (ex. what heuristic to use, random seed)
-     * @param blockSize the size of the blocks (in samples) processed in each call to the generated C function
-     * @param emitGraphMLSched if true, emit a GraphML file with the computed schedule as a node parameter
-     * @param printNodeSched if true, print the node schedule to the console
-     */
-    void generateSingleThreadedC(std::string outputDir, std::string designName, SchedParams::SchedType schedType, TopologicalSortParameters topoSortParams, unsigned long blockSize, bool emitGraphMLSched, bool printNodeSched);
 
-    /**
-     * @brief Emits operators using the bottom up emitter
-     * @param cFile the cFile to emit tp
-     * @param nodesWithState nodes with state in the design
-     * @param schedType the specific scheduler used
-     */
-    void emitSingleThreadedOpsBottomUp(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesWithState, SchedParams::SchedType schedType);
-
-    /**
-     * @brief Emits operators using the schedule emitter
-     * @param cFile the cFile to emit to
-     * @param nodesWithState nodes with state in the design
-     */
-    void emitSingleThreadedOpsSched(std::ofstream &cFile, SchedParams::SchedType schedType);
-
-    /**
-     * @brief Emits operators using the schedule emitter.  This emitter is context aware and supports emitting scheduled state updates
-     * @param cFile the cFile to emit to
-     * @param blockSize the size of the block (in samples) that are processed in each call to the function
-     * @param indVarName the variable that specifies the index in the block that is being computed
-     */
-    void emitSingleThreadedOpsSchedStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, int blockSize = 1, std::string indVarName = "");
-
-    /**
-     * @brief Emits the design as a single threaded C function
-     *
-     * @note Design expansion and validation should be run before calling this function
-     *
-     * @note To avoid dead code being emitted, prune the design before calling this function
-     *
-     * @param path path to where the output files will be generated
-     * @param fileName name of the output files (.h and a .c file will be created)
-     * @param designName The name of the design (used as the function name)
-     * @param schedType Schedule type
-     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function
-     */
-    void emitSingleThreadedC(std::string path, std::string fileName, std::string designName, SchedParams::SchedType schedType, unsigned long blockSize);
-
-    /**
-     * @brief Emits the design as a series of C functions.  Each (clock domain in) each partition is emitted as a C
-     * function.  A function is created for each thread which includes the intra-thread scheduler.  This scheduler is
-     * responsible for calling the partition functions as appropriate.  The scheduler also has access to the input and
-     * output FIFOs for the thread and checks the inputs for the empty state and the outputs for the full state to decide
-     * if functions should be executed.  A setup function will also be created which allocates the inter-thread
-     * FIFOs, creates the threads, binds them to cores, and them starts execution.  Seperate function will be created
-     * that enqueue data onto the input FIFOs (when not full) and dequeue data off the output FIFOs (when not empty).
-     * Blocking and non-blocking variants of these functions will be created.  Benchmarking code should call the setup
-     * function then interact with the input/output FIFO functions.  This will require the use of a core.
-     *
-     * @note (For framework devloper) The conditional statement about whether or not a context excutes needs to be made in each context it exists
-     * in.
-     *
-     * @note Partitioning should have already occurred before calling this function.
-     *
-     * @note Design expansion and validation should be run before calling this function
-     *
-     * @note To avoid dead code being emitted, prune the design before calling this function
-     *
-     * @param path path to where the output files will be generated
-     * @param fileName name of the output files (.h and a .c file will be created)
-     * @param designName The name of the design (used as the function name)
-     * @param schedType Schedule type
-     * @param fifoLength the length of the FIFOs in blocks
-     * @param blockSize the block size
-     * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
-     * @param partitionMap a vector indicating the mapping of partitions to logical CPUs.  The first element is the I/O thread.  The subsequent entries are for partitions 0, 1, 2, .... If an empty array, I/O thread is placed on CPU0 and the other partitions are placed on the CPU that equals their partition number (ex. partition 1 is placed on CPU1)
-     * @param threadDebugPrint if true, inserts print statements into the generated code which indicate the progress of the different threads as they execute
-     * @param ioFifoSize the I/O FIFO size in blocks to allocate (only used for shared memory FIFO I/O)
-     * @param printTelem if true, telemetry is printed
-     * @param telemDumpPrefix if not empty, specifies a file prefix into which telemetry from each compute thread is dumped
-     * @param telemLevel the level of telemetry collected
-     * @param telemCheckBlockFreq the number of blocks between checking if the telemetry duration has elapsed.  Used to reduce how often the timer is checked
-     * @param telemReportPeriodSec the (inexact) period in seconds between telemetry being reported.  Inexact because how often the reporting timer is checked is governed by telemCheckBlockFreq
-     * @param memAlignment the aligment (in bytes) used for FIFO buffer allocation
-     * @param useSCHEDFIFO if true, pthreads are created which will request to be run with the max RT priority under the linux SCHED_FIFO scheduler
-     * @param fifoIndexCachingBehavior indicates when FIFOs check the head/tail pointers and when they rely on a priori information first
-     * @param fifoDoubleBuffer indicates what FIFO double buffering behavior to use
-     * @param pipeNameSuffix defines as a suffix to be appended to the names of POSIX Pipes or Shared Memory streams
-     */
-    void emitMultiThreadedC(std::string path, std::string fileName, std::string designName,
-                            SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
-                            ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType,
-                            bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize,
-                            bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap,
-                            bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
-                            EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
-                            unsigned long memAlignment, bool useSCHEDFIFO,
-                            PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                            MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer,
-                            std::string pipeNameSuffix);
     //TODO: update fifoLength to be set on a per FIFO basis
 
     /*
@@ -527,127 +382,6 @@ public:
      *      - Output FIFO as part of function.  Stall if empty.
      *      - Output FIFO as part of function.  Check for space before function executes.  Allows scheduled write to occur interleaved with computation
      */
-
-    /**
-     * @brief Emits the benchmarking drivers for the design
-     *
-     * @note Design expansion and validation should be run before calling this function
-     *
-     * @param path path to where the output files will be generated
-     * @param fileName base name of the output files (.h and a .c file will be created)
-     * @param designName The name of the design (used as the function name)
-     * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
-     */
-    void emitSingleThreadedCBenchmarkingDrivers(std::string path, std::string fileName, std::string designName, int blockSize);
-
-    /**
-     * @brief Emits the benchmarking drivers (constant arguments) for the design
-     *
-     * @note Design expansion and validation should be run before calling this function
-     *
-     * @param path path to where the output files will be generated
-     * @param fileName base name of the output files (.h and a .c file will be created)
-     * @param designName The name of the design (used as the function name)
-     * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
-     */
-    void emitSingleThreadedCBenchmarkingDriverConst(std::string path, std::string fileName, std::string designName, int blockSize);
-
-    /**
-     * @brief Emits the benchmarking drivers (memory arguments) for the design
-     *
-     * @note Design expansion and validation should be run before calling this function
-     *
-     * @param path path to where the output files will be generated
-     * @param fileName base name of the output files (.h and a .c file will be created)
-     * @param designName The name of the design (used as the function name)
-     * @param blockSize the size of the block (in samples) that is processed in each call to the generated function
-     */
-    void emitSingleThreadedCBenchmarkingDriverMem(std::string path, std::string fileName, std::string designName, int blockSize);
-
-    /**
-     * @brief Expands the enabled subsystems in the design to include combinational logic at the inputs and outputs of enabled subsystems
-     *
-     * This is an *optimization pass* that can be conducted before code emit.
-     *
-     * Note that expansion occurs hierarchically starting with the highest level and expanding any enabled subsystem within
-     */
-    void expandEnabledSubsystemContexts();
-
-    /**
-     * @brief It is possible that a design may want to visualize nodes inside of an enabled subsystem.  These nodes
-     * do not typically have EnableOutput ports associated with them.  This function creates the appropriate EnableOutput
-     * nodes for these visualizations.
-     *
-     * @note Only rewires standard arcs (not order constraint in arcs)
-     *
-     * @warning This function should be called after EnabledSubsystems are expanded but before state update nodes
-     * are created as it does not check for the case where the visualization node becomes an ordered predecessor of a
-     * state update node
-     */
-    void createEnabledOutputsForEnabledSubsysVisualization();
-
-    /**
-     * @brief Discover and mark contexts for nodes in the design (ie. sets the context stack of nodes).
-     *
-     * Propogates enabled subsystem contexts to its nodes (and recursively to nested enabled subsystems.
-     *
-     * Finds mux contexts under the top level and under each enabled subsystem
-     *     Muxes are searched within the top level and within any subsystem.
-     *
-     *     Once all the Muxes within the top level (or within the level of the enabled subsystem are discovered)
-     *     their contexts are found.  For each mux, we sum up the number of contexts which contain that given mux.
-     *     Hierarchy is discovered by tracing decending layers of the hierarchy tree based on the number of contexts
-     *     a mux is in.
-     *
-     * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxes
-     * have been handled)
-     *
-     * Also updates the topLevelContextRoots for discovered context nodes
-     *
-     */
-    void discoverAndMarkContexts();
-
-    /**
-     * @brief Encapsulate contexts inside ContextContainers and ContextFamilyContainers for the purpose of scheduling
-     * and inter-thread dependency handling for contexts
-     *
-     * Nodes should exist in the lowest level context they are a member of.
-     *
-     * Also moves the context roots for the ContextFamilyContainers inside the ContextFamilyContainer
-     */
-    void encapsulateContexts();
-
-    void propagatePartitionsFromSubsystemsToChildren();
-
-    /**
-     * @brief Discovers nodes with state in the design and creates state update nodes for them.
-     *
-     * The state update nodes have a ordering dependency with all of the nodes that are connected via out arcs from the
-     * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
-     * when the next state update variable is assigned).
-     *
-     * @note This function updates the context of the the state update to mirror the context of the primary node.
-     *
-     * @note It appears that inserting these nodes before context discovery could result in some nodes being erroniously
-     * left out of discoverd contexts.  For example, in mux context, nodes that are directly dependent on state will have
-     * an order constraint arc to the StateUpdate node for the particular state element.  This StateUpdate is not reachable
-     * from the mux and will therefore cause the node to not be included in the mux context even if it should be.  It
-     * is therefore reccomended to insert the state update nodes after context discovery but before scheduling
-     *
-     * @param includeContext if true, the state update node is included in the same context (and partition) as the root node
-     */
-    void createStateUpdateNodes(bool includeContext);
-
-    /**
-     * @brief Discovers contextRoots in the design and creates ContextVariableUpdate update nodes for them.
-     *
-     * The state update nodes have a ordering dependency with all of the nodes that are connected via out arcs from the
-     * nodes with state elements.  They are also dependent on the primary node being scheduled first (this is typically
-     * when the next state update variable is assigned).
-     *
-     * @param includeContext if true, inserts the new contect varaible update nodes into the subcontext they reside in, otherwise does not (handled in a later step)
-     */
-    void createContextVariableUpdateNodes(bool includeContext = false);
 
     /**
      * @brief Find nodes with state in the design
@@ -737,155 +471,9 @@ public:
 
     //TODO: Validate that mux contexts do not contain state elements
 
-    /**
-     * @brief OrderConstraint Nodes with Zero Inputs in Contexts
-     *
-     * This is to prevent nodes with 0 inputs in a context from being scheduled before the context drivers are computed
-     *
-     * @note Apply this after partitioning, replicating context drivers, and the creation of partition specific context drivers
-     *
-     * @note This is only needed if ContextFamilyNodes are not scheduled as a single unit.
-     *
-     */
-    void orderConstrainZeroInputNodes(); //TODO: Use if scheduler changed to no longer schedule contexts as a single unit
-
-    /**
-     * @brief "Rewires" arcs that go between nodes in different contexts to be between contexts themselves (used primarily for scheduling)
-     *
-     * Goes through the array of the arcs in a design and rewires arcs that are between a nodes in different contexts.
-     *
-     * If the src node is at or above the dst node in the context hierarchy, then the src is not rewired. (Equiv to: dst node is at or below the src node -> src not rewired)
-     * If the dst node is at or above the src node in the context hierarchy, then the dst is not rewired. (Equiv to: src node is at or below the dst node -> dst not rewired)
-     *
-     * Putting it another way
-     * If the src node is either below the dst node node in the hierarchy or outside the dst node's hierarchy stack, then the src is rewired.
-     * If the dst node is either below the src node node in the hierarchy or outside the dst node's hierarchy stack, then the dst is rewired.
-     *
-     * When rewiring the src, it is set to 1 context below the lowest common context of the src and dst on the src side.
-     * When rewiring the dst, it is set to 1 context below the lowest common context of the src and dst on the dst side.
-     *
-     * @note: During encapsulation, which should occure before this is called, the context root driver arcs are
-     * added as order constraint arcs for each ContextFamilyContainer created for a given ContextRoot.
-     * For scheduling purposes, these order constraint arcs are what should be considered when scheduling rather
-     * than the original context driver.  So, the origional context driver is disconnected by this function.
-     *
-     * @note This function does not actually rewire existing arcs but creates a new arcs representing how the given
-     * arcs should be rewired.  The two returned vectors have a 1-many relationship between an arc to be rewired and the arcs
-     * representing the result of that rewiring.  To rewire, simply disconnect the arcs from the origArcs vector.  The
-     * arcs returned in contextArcs are already added to the design.
-     *
-     * Alternativly, the origArcs can be kept and used in the scheduler.  This may be helpful when deciding on whether
-     * or not a context should be scheduled in the next iteration of the scheduler
-     *
-     */
-    void rewireArcsToContexts(std::vector<std::shared_ptr<Arc>> &origArcs, std::vector<std::vector<std::shared_ptr<Arc>>> &contextArcs);
-
-    /**
-     * @brief Gets the ContextFamilyContainer for the provided context root if one exists (is in the ContextRoot's map of ContextFamilyContainers).
-     *
-     * If the ContextFamilyContainer does not exist for the given partition, one is created and is added to the ContextRoot's map of ContextFamilyContainers.
-     * The existing ContextFamilyContainers for the given ContextRoot have their sibling maps updated.  The new ContextFamilyContainer has its sibling map set
-     * to include all other ContextFamilyContainers belonging to the given ContextRoot
-     *
-     * When the ContextFamilyContainer is created, an order constraint arc from the context driver is created.  This ensures that the context driver
-     * will be available in each partition that the context resides in (so long as FIFO insertion occurs after this point).
-     *
-     * @note In cases where a ContexRoot has multiple driver arcs that all come from the same source port (ex. EnabledSubsystems
-     * where each EnableInput and EnableOutput has a driver arc), only a single order constraint port is created.
-     *
-     * @warning The created ContextFamilyContainer does not have its parent set.  This needs to be performed outside of this helper function
-     *
-     * @param contextRoot
-     * @param partition
-     * @return
-     */
-    std::shared_ptr<ContextFamilyContainer> getContextFamilyContainerCreateIfNotNoParent(std::shared_ptr<ContextRoot> contextRoot, int partition);
-
     std::set<int> listPresentPartitions();
 
-    /**
-     * @brief This searches the graph for subsystems which have no children (either because they were empty or all of their children had been moved) and can be removed.  Upon removal, it parent subsystem is also checked
-     *
-     * Note, subsystems that are context roots are not removed
-     *
-     * @return
-     */
-    void cleanupEmptyHierarchy(std::string reason);
-
-    /**
-     * @brief Replicates context root drivers if requested by the ContextRoot
-     *
-     * New driver arcs will be created as OrderConstraint arcs to the ContextRoot.
-     *
-     * The driver will have a duplicate copy created for the pariton it is in.  However,
-     * a new OrderConstraint arc will be created for that same partition.
-     *
-     * @warning: This currently only support replicating a single node with no inputs
-     * and a single output arc to the context root
-     *
-     * @warning: This should be done after context discovery but before encapsulation
-     */
-    void replicateContextRootDriversIfRequested();
-
-    /**
-     * @brief Specialize ClockDomains into UpsampleClockDomains or DownsampleClockDomains
-     *
-     * @returns a new vector of ClockDomain nodes since new nodes are created to replace each clock domain durring specialization.  Already specialized ClockDomains are returned unchanged
-     */
-    std::vector<std::shared_ptr<ClockDomain>> specializeClockDomains(std::vector<std::shared_ptr<ClockDomain>> clockDomains);
-
-    /**
-     * @brief Creates support nodes for ClockDomains
-     */
-    void createClockDomainSupportNodes(std::vector<std::shared_ptr<ClockDomain>> clockDomains, bool includeContext, bool includeOutputBridgingNodes);
-
-    /**
-     * @brief Find ClockDomains in design
-     */
-    std::vector<std::shared_ptr<ClockDomain>> findClockDomains();
-
-    /**
-     * @brief Resets the clock domain links in the design master nodes
-     */
-    void resetMasterNodeClockDomainLinks();
-
-    /**
-     * @brief Finds the clock domain rates for each partition in the design
-     * @return
-     */
-    std::map<int, std::set<std::pair<int, int>>> findPartitionClockDomainRates();
-
     void validateNodes();
-
-    /**
-     * @brief Places EnableNodes that are not in any partition into a partition.
-     * It will attempt to place EnableInput and EnableOutput nodes to be in the same partitions as the nodes they are
-     * connected to within the enabled subsystem.  If EnableInputs go to multiple partitions, replicas will be created
-     * for each destination partition
-     *
-     * This will potentially help avoid issues where partition cycles could
-     * occur if the EnableInput and EnableOutput nodes took the partitions of the nodes outside of the enabled subsystem.
-     * A case where this can occur is where partition A is used to compute the enable signal in context B and another
-     * value from context A is passed to the EnabledSubsystem C.  In this case, there would be a cyclic dependency between
-     * Partition A->B->A since the input port of the EnabledSubsystem would be placed in partition A.
-     *
-     * It is possible to be more intelligent solution with placement by checking for cycles when assigning EnableNodes to
-     * partitions.
-     * TODO: Implement a more intelligent scheme.
-     *
-     * The EnabledSubsystem node itself is checked to see if it is in a partition.  If not, it is placed in the same partition
-     * as its first enable input.  If no enable inputs exist, it is placed in the partition of the first enable output.
-     * Even though the EnabledSubsystem node itself is not used post encapsulation, it is not deleted because that node
-     * contains the logic for generating the various context checks.  Placing it in a partition avoids a ContextContainer
-     * being created for partition -1 (unassigned)
-     */
-    void placeEnableNodesInPartitions();
-
-    /**
-     * @brief Disconnect arcs to the unconnected, terminated, or vis masters
-     * @param removeVisArcs if true, removes arcs connected to the vis masters.  If false, leaves these arcs alone
-     */
-    void pruneUnconnectedArcs(bool removeVisArcs);
 };
 
 /*! @} */

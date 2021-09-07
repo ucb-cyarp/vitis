@@ -2,16 +2,16 @@
 // Created by Christopher Yarp on 9/3/19.
 //
 
-#ifndef VITIS_MULTITHREADEMITTERHELPERS_H
-#define VITIS_MULTITHREADEMITTERHELPERS_H
+#ifndef VITIS_MULTITHREADEMIT_H
+#define VITIS_MULTITHREADEMIT_H
 
 #include <vector>
 #include <memory>
 #include "GraphCore/NumericValue.h"
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
-#include "PartitionParams.h"
-#include "ThreadCrossingFIFOParameters.h"
+#include "MultiThread/PartitionParams.h"
+#include "MultiThread/ThreadCrossingFIFOParameters.h"
 #include "General/EmitterHelpers.h"
 #include <set>
 #include <map>
@@ -28,7 +28,7 @@ class MasterOutput;
 class ClockDomain;
 
 /**
- * \addtogroup MultiThread Multi-Thread Support
+ * \addtogroup Emitter Emitter Emitter Helpers and Functions
  * @{
  */
 
@@ -38,7 +38,7 @@ class ClockDomain;
 /**
  * @brief Contains helper methods for Multi-Threaded Emitters
  */
-namespace MultiThreadEmitterHelpers {
+namespace MultiThreadEmit {
     /**
      * @brief Determines the type of double buffering scheme used for
      */
@@ -448,4 +448,4 @@ namespace MultiThreadEmitterHelpers {
 
 /*! @} */
 
-#endif //VITIS_MULTITHREADEMITTERHELPERS_H
+#endif //VITIS_MULTITHREADEMIT_H
