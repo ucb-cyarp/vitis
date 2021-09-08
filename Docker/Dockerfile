@@ -1,0 +1,38 @@
+# Template from https://raw.githubusercontent.com/JetBrains/clion-remote/master/Dockerfile.remote-cpp-env
+# Following tutorial at https://blog.jetbrains.com/clion/2020/01/using-docker-with-clion/
+# With additional details at https://www.jetbrains.com/help/clion/remote-projects-support.html
+#
+# CLion remote docker environment (How to build docker container, run and stop it)
+#
+# Build and run:
+#   docker build -t clion/remote-cpp-env:0.5 -f Dockerfile.CLion.remote-cpp-env .
+#   docker run -d --cap-add sys_ptrace -p127.0.0.1:2222:22 --name clion_remote_env clion/remote-cpp-env:0.5
+#   ssh-keygen -f "$HOME/.ssh/known_hosts" -R "[localhost]:2222"
+#
+# stop:
+#   docker stop clion_remote_env
+#
+# ssh credentials (test user):
+#   user
+#   clion
+#
+#   Authentication: ssh key: id_rsa_clionContainer.pub
+#   Copy your own pubkey here
+
+# Updated to based off of Mar 25 revision of the example file.  Includes using ubuntu:20.04, installing tzdata, and set terminal to bash
+
+FROM cyarp/laminar-clion-dev-imgs:latest
+
+RUN adduser --gecos "" --disabled-password clion
+COPY id_rsa_clionContainer.pub /tmp
+RUN chmod +r /tmp/id_rsa_clionContainer.pub; \
+    su - clion -c "mkdir ~/.ssh"; \
+    su - clion -c "chmod 700 ~/.ssh"; \
+    su - clion -c "touch ~/.ssh/authorized_keys"; \
+    su - clion -c "chmod 600 ~/.ssh/authorized_keys"; \
+    su - clion -c "cat /tmp/id_rsa_clionContainer.pub >> ~/.ssh/authorized_keys"; \
+    rm /tmp/id_rsa_clionContainer.pub;
+
+RUN usermod -s /bin/bash clion
+
+CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]
