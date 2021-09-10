@@ -18,21 +18,24 @@ jobs:
     runs-on: ubuntu-18.04
     
     steps:
+    - name: Install Dependencies
+      shell: bash
+      run: sudo apt install clang gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
+
     #Not checking out the vitis repo, we are checking out the cyclopsDemo repository and will checkout the vitis submodule with the appropriate commit    
     - name: Checkout cyclopsDemo
       uses: actions/checkout@v2
       with:
         repository: ucb-cyarp/cyclopsDemo
         token: ${{ secrets.READONLY_PAT }}
-        submodules: recursive
+        #Will checkout submodules seperatly
+        submodules: false
         path: ${{github.workspace}}/cyclopsDemo
-        #Needed so laminar/vitis submodule is fully cloned
-        fetch-depth: 0
         
-    - name: Install Dependencies
+    - name: Checkout demo submodules with full depth
       shell: bash
-      run: sudo apt install clang gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
-
+      run: ${{github.workspace}}/cyclopsDemo && git submodule update --init --depth 0 
+        
     - name: Checkout version of laminar/vitis under test
       shell: bash
       run: cd ${{github.workspace}}/cyclopsDemo/submodules/vitis && git checkout ${{github.sha}}
