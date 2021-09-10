@@ -15,12 +15,12 @@ jobs:
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     
     steps:
     - name: Install Dependencies
       shell: bash
-      run: sudo apt install clang-11 gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
+      run: sudo apt install clang-12 gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
 
     #Not checking out the vitis repo, we are checking out the cyclopsDemo repository and will checkout the vitis submodule with the appropriate commit    
     - name: Checkout cyclopsDemo
