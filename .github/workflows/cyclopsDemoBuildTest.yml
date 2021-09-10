@@ -1,0 +1,54 @@
+name: Cyclops Demo Build Test
+
+#The purpose of this workflow is to test that the cyclops demo can be built with the changes to vitis.
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally
+    # well on Windows or Mac.  You can convert this to a matrix build if you need
+    # cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - name: Install Dependencies
+      shell: bash
+      run: sudo apt install clang-12 gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
+
+    #Not checking out the vitis repo, we are checking out the cyclopsDemo repository and will checkout the vitis submodule with the appropriate commit    
+    - name: Checkout cyclopsDemo
+      uses: actions/checkout@v2
+      with:
+        repository: ucb-cyarp/cyclopsDemo
+        token: ${{ secrets.READONLY_PAT }}
+        #Will checkout submodules seperatly
+        submodules: recursive
+        path: ${{github.workspace}}/cyclopsDemo
+        
+    - name: Remove cyclopsDemo Submodule for vitis
+      shell: bash
+      run: rm -rf ${{github.workspace}}/cyclopsDemo/submodules/vitis
+        
+    - name: Checkout version of laminar/vitis under test
+      uses: actions/checkout@v2
+      with:
+        path: ${{github.workspace}}/cyclopsDemo/submodules/vitis
+      
+    - name: Build cyclopsDemo
+      shell: bash
+      run: cd ${{github.workspace}}/cyclopsDemo/build && ./build.sh
+      
+    - name: Check Demo Built
+      shell: bash
+      run: >
+        test -f ${{github.workspace}}/cyclopsDemo/build/cOut_rev1BB_receiver/benchmark_rx_demo_io_posix_shared_mem && 
+        test -f ${{github.workspace}}/cyclopsDemo/build/cOut_rev1BB_transmitter/benchmark_tx_demo_io_posix_shared_mem &&
+        test -f ${{github.workspace}}/cyclopsDemo/submodules/cyclopsASCIILink-sharedMem/build/cyclopsASCIILink &&
+        test -f ${{github.workspace}}/cyclopsDemo/dummyAdcDacSharedMemFIFO/build/dummyAdcDacSharedMemFIFO
