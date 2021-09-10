@@ -25,6 +25,7 @@ jobs:
         repository: ucb-cyarp/cyclopsDemo
         token: ${{ secrets.READONLY_PAT }}
         submodules: recursive
+        path: ${{github.workspace}}/cyclopsDemo
         
     - name: Install Dependencies
       shell: bash
