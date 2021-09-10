@@ -20,7 +20,7 @@ jobs:
     steps:
     - name: Install Dependencies
       shell: bash
-      run: sudo apt install clang-10 gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
+      run: sudo apt install clang-11 gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
 
     #Not checking out the vitis repo, we are checking out the cyclopsDemo repository and will checkout the vitis submodule with the appropriate commit    
     - name: Checkout cyclopsDemo
