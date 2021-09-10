@@ -34,7 +34,7 @@ jobs:
         
     - name: Checkout demo submodules with full depth
       shell: bash
-      run: cd ${{github.workspace}}/cyclopsDemo && git submodule update --init --depth 0 
+      run: cd ${{github.workspace}}/cyclopsDemo && git submodule update --init
         
     - name: Checkout version of laminar/vitis under test
       shell: bash
