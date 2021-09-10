@@ -20,7 +20,7 @@ jobs:
     steps:
     - name: Install Dependencies
       shell: bash
-      run: sudo apt install clang gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
+      run: sudo apt install clang-10 gcc g++ cmake libboost-all-dev libxerces-c-dev graphviz doxygen libpapi-dev
 
     #Not checking out the vitis repo, we are checking out the cyclopsDemo repository and will checkout the vitis submodule with the appropriate commit    
     - name: Checkout cyclopsDemo
@@ -32,7 +32,7 @@ jobs:
         submodules: recursive
         path: ${{github.workspace}}/cyclopsDemo
         
-    - name: Remove cyclopsDemoSubmodule for vitis
+    - name: Remove cyclopsDemo Submodule for vitis
       shell: bash
       run: rm -rf ${{github.workspace}}/cyclopsDemo/submodules/vitis
         
@@ -45,7 +45,7 @@ jobs:
       shell: bash
       run: cd ${{github.workspace}}/cyclopsDemo/build && ./build.sh
       
-    - name: Check Demo Buit
+    - name: Check Demo Built
       shell: bash
       run: >
         test -f ${{github.workspace}}/cyclopsDemo/build/cOut_rev1BB_receiver/benchmark_rx_demo_io_posix_shared_mem && 
