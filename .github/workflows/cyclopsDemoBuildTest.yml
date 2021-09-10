@@ -26,6 +26,8 @@ jobs:
         token: ${{ secrets.READONLY_PAT }}
         submodules: recursive
         path: ${{github.workspace}}/cyclopsDemo
+        #Needed so laminar/vitis submodule is fully cloned
+        fetch-depth: 0
         
     - name: Install Dependencies
       shell: bash
