@@ -84,6 +84,18 @@ void Design::setTerminatorMaster(const std::shared_ptr<MasterOutput> terminatorM
     Design::terminatorMaster = terminatorMaster;
 }
 
+std::set<std::shared_ptr<Node>> Design::getMasterNodes() const {
+    std::set<std::shared_ptr<Node>> masterNodes;
+
+    masterNodes.insert(inputMaster);
+    masterNodes.insert(outputMaster);
+    masterNodes.insert(visMaster);
+    masterNodes.insert(unconnectedMaster);
+    masterNodes.insert(terminatorMaster);
+
+    return masterNodes;
+}
+
 std::vector<std::shared_ptr<Node>> Design::getTopLevelNodes() const {
     return topLevelNodes;
 }

@@ -600,6 +600,12 @@ public:
     std::set<std::shared_ptr<Arc>> getOutputArcs();
 
     /**
+ * @brief Get a list of nodes connected to output arcs (direct and order constraint) from this node
+ * @return list of dependent nodes 1 degree away
+ */
+    std::set<std::shared_ptr<Node>> getDependentNodes1Degree();
+
+    /**
      * @brief Get the full hierarchical path of this node in GraphML format
      *
      * A typical GraphML formatted hierarchy would be "n1::n2::n3"

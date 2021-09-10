@@ -712,3 +712,256 @@ std::shared_ptr<SubSystem> GraphAlgs::findMostSpecificCommonAncestorParent(std::
         return hierarchyA[common];
     }
 }
+
+std::set<std::set<std::shared_ptr<Node>>> GraphAlgs::findStronglyConnectedComponentsTarjanRecursive(std::vector<std::shared_ptr<Node>> nodesToSearch){
+    //First, we will create a map for the node properties used during the traversal and initialize their values
+    std::map<std::shared_ptr<Node>, int> num;
+    std::map<std::shared_ptr<Node>, int> lowLink;
+    std::map<std::shared_ptr<Node>, bool> inStack;
+
+    for(const std::shared_ptr<Node> &node : nodesToSearch){
+        num[node] = 0;
+        lowLink[node] = 0;
+        inStack[node] = false;
+    }
+
+    std::vector<std::shared_ptr<Node>> stack;
+
+    std::set<std::set<std::shared_ptr<Node>>> connectedComponents;
+    int idx = 1;
+
+
+    for(const std::shared_ptr<Node> node : nodesToSearch){
+        //Check if the node has already been traversed by a recursive call
+        if(num[node] == 0){
+            tarjanStronglyConnectedComponentRecursiveWork(node, num, lowLink, stack, inStack, idx, connectedComponents);
+        }
+    }
+
+    return connectedComponents;
+}
+
+
+void GraphAlgs::tarjanStronglyConnectedComponentRecursiveWork(std::shared_ptr<Node> node,
+                                          std::map<std::shared_ptr<Node>, int> &num,
+                                          std::map<std::shared_ptr<Node>, int> &lowLink,
+                                          std::vector<std::shared_ptr<Node>> &stack,
+                                          std::map<std::shared_ptr<Node>, bool> &inStack,
+                                          int &idx,
+                                          std::set<std::set<std::shared_ptr<Node>>> &connectedComponents){
+    lowLink[node] = idx;
+    num[node] = idx;
+    idx++;
+
+    stack.push_back(node);
+    inStack[node] = true;
+
+    std::set<std::shared_ptr<Arc>> outArcs = node->getOutputArcs();
+    for(const std::shared_ptr<Arc> &outArc : outArcs){
+        std::shared_ptr<Node> dstNode = outArc->getDstPort()->getParent();
+
+        //TODO: Remove check
+        if(!GeneralHelper::contains(dstNode, num)){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected node found during Strongly Connected Component"));
+        }
+
+        if(num[dstNode]==0){
+            //Dst node not visited, recurse on it
+            tarjanStronglyConnectedComponentRecursiveWork(dstNode, num, lowLink, stack, inStack, idx, connectedComponents);
+            lowLink[node] = lowLink[node] < lowLink[dstNode] ? lowLink[node] : lowLink[dstNode]; //Update the lowLink of this node based on the lowLink of the dstNode
+        }else if(num[dstNode] < num[node]){
+            //Found an arc back to a node which has already been traversed (ie. is not in the spanning tree defined by the DFS search).  Called a frond or a cross edge in the orig paper
+            if(inStack[dstNode]){
+                //If it in the stack, it could potentially be the root of the DFS subtree that defines a strongly connected component
+                lowLink[node] = lowLink[node] < num[dstNode] ? lowLink[node] : num[dstNode];
+                //Note: multiple descriptions of the algorithm (including the original) mix lowLink and num here.  It is intentional
+            }
+        }
+
+        if(num[node] == lowLink[node]){
+            //node is the root of a strongly connected component (root of the subtree in the DFS tree defining the strongly connected component)
+            //Dump the strongly connected component
+            std::set<std::shared_ptr<Node>> scc;
+
+            while(!stack.empty() && num[stack[stack.size()-1]] >= num[node]){
+                std::shared_ptr<Node> nodeInSCC = stack[stack.size()-1];
+                scc.insert(nodeInSCC);
+                stack.pop_back();
+                inStack[nodeInSCC] = false;
+            }
+
+            //No need to add "node" explicitly as it was added to the stack earlier
+            connectedComponents.insert(scc);
+        }
+
+    }
+
+}
+
+/**
+ * @brief This contains the logic for when a node is visited during the DFS Traversal of Targan's algorithm.  A node can be visited in 2 cases
+ * The first time the node is traversed either by the first call to the recursive Tarjan function or that the node is the direct descendant of a node
+ * Subsequent times, if the node placed additional nodes on the DFS stack which were its children, it was because a descendant node finished.
+ * At this point, there are either more direct descendants to travers or the node has no more children and is complete.
+ *
+ * The Tarjan algorithm is intrinsically recursive and this function effectively implements recursion with its own stack
+ * (using std::vector where storage is allocated on the heap).  This should avoid overrunning the call stack with large designs
+ * Because of this, you may still see references to recursion in the comments of the function.  In this case, it is referring
+ * to the effective recursion through the DFS traversal and backtracking using the explicitly defined DFS stack.
+ *
+ *
+ * @return if this node has finished evaluating (removed itself from the DFS stack) returns a pointer to its node, otherwise returns a nullptr
+ */
+std::shared_ptr<Node> GraphAlgs::tarjanStronglyConnectedComponentNonRecursiveWorkDFSTraverse(std::vector<DFS_Entry> &dfsStack,
+                                                                 std::shared_ptr<Node> backTrackedNode,
+                                                               std::map<std::shared_ptr<Node>, int> &num,
+                                                               std::map<std::shared_ptr<Node>, int> &lowLink,
+                                                               std::vector<std::shared_ptr<Node>> &stack,
+                                                               std::map<std::shared_ptr<Node>, bool> &inStack,
+                                                               int &idx,
+                                                               std::set<std::set<std::shared_ptr<Node>>> &connectedComponents,
+                                                               std::set<std::shared_ptr<Node>> &excludeNodes){
+    //Working on the top of the dfs stack
+    DFS_Entry &currentNode = dfsStack[dfsStack.size()-1];
+
+    if(!currentNode.traversedBefore){
+        //Perform the entry logic of the Tarjan Algorithm
+        lowLink[currentNode.node] = idx;
+        num[currentNode.node] = idx;
+        idx++;
+        stack.push_back(currentNode.node);
+        inStack[currentNode.node] = true;
+        currentNode.traversedBefore = true;
+    }else{
+        //We are returning to this node after back tracking in DFS.  The last node traversed was placed on the stack by this node
+        //and we need to perform the appropriate lowLink update
+
+        //TODO: remove this check
+        if(backTrackedNode == nullptr || !GeneralHelper::contains(backTrackedNode, currentNode.childrenToSearch)){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected backtrack node while finding Strongly Connected Components"));
+        }
+
+        //TODO: Remove check
+        if(!GeneralHelper::contains(backTrackedNode, num)){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected node found during Strongly Connected Component"));
+        }
+
+        lowLink[currentNode.node] = lowLink[currentNode.node] < lowLink[backTrackedNode] ? lowLink[currentNode.node] : lowLink[backTrackedNode]; //Update the lowLink of this node based on the lowLink of the dstNode
+
+        //Remove node from list of children to search
+        currentNode.childrenToSearch.erase(backTrackedNode);
+    }
+
+    bool traversingChild = false;
+    while(!currentNode.childrenToSearch.empty()){
+        //We still have children to process
+
+        std::shared_ptr<Node> child = *currentNode.childrenToSearch.begin();
+
+        if(GeneralHelper::contains(child, excludeNodes)){
+            //The child node was in the list of nodes to exclude/ignore
+            //For example, the master nodes should typically be ignored and will often not be included in the nodes
+            //to search.  However, nodes may be connected to these masters, especially the output masters
+
+            //Just remove it from the child list
+            currentNode.childrenToSearch.erase(child);
+        }else {
+            //TODO: Remove check
+            if(!GeneralHelper::contains(child, num)){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected child node found during Strongly Connected Component"));
+            }
+
+            //The action required for the child in Tarjan's algorithm
+            if (num[child] == 0) {
+                //Need to traverse this node (recursive call of Tarjan)
+                //Put it on the DFS stack and break out of this loop.  Leave it in the children to be searched list
+                //The processing for this node will finish when DFS backtracks.  At that point, processing for other children
+                //will continue
+
+                dfsStack.emplace_back(child, child->getDependentNodes1Degree());
+                traversingChild = true;
+                break;
+            } else {
+                if (num[child] < num[currentNode.node]) {
+                    if (inStack[child]) {
+                        lowLink[currentNode.node] =
+                                lowLink[currentNode.node] < num[child] ? lowLink[currentNode.node] : num[child];
+                    }
+                }
+
+                //Node processed without a recursive traversal
+                currentNode.childrenToSearch.erase(child);
+
+                //Don't need to break out of the loop in this case
+            }
+        }
+    }
+
+    //Are we done processing this node (ie. have all children been processed)
+    std::shared_ptr<Node> nodeToReturn = nullptr;
+    if(currentNode.childrenToSearch.empty() && !traversingChild){ //Do not do this if a new node is being traversed.  Need to handle the backtrack from that child first
+        //Check if this is the root of a strongly connected component and pop off Tarjan stack
+        if(num[currentNode.node] == lowLink[currentNode.node]){
+            //node is the root of a strongly connected component (root of the subtree in the DFS tree defining the strongly connected component)
+            //Dump the strongly connected component
+            std::set<std::shared_ptr<Node>> scc;
+
+            while(!stack.empty() && num[stack[stack.size()-1]] >= num[currentNode.node]){
+                std::shared_ptr<Node> nodeInSCC = stack[stack.size()-1];
+                scc.insert(nodeInSCC);
+                stack.pop_back();
+                inStack[nodeInSCC] = false;
+            }
+
+            //No need to add "node" explicitly as it was added to the Tarjan stack earlier
+            connectedComponents.insert(scc);
+        }
+
+        //Remove this node from the dfs stack and return it as the backtrack node
+        nodeToReturn = currentNode.node;
+        dfsStack.pop_back();
+    }
+
+    return nodeToReturn;
+}
+
+std::set<std::set<std::shared_ptr<Node>>> GraphAlgs::findStronglyConnectedComponents(std::vector<std::shared_ptr<Node>> nodesToSearch, std::set<std::shared_ptr<Node>> &excludeNodes){
+    //First, we will create a map for the node properties used during the traversal and initialize their values
+    std::map<std::shared_ptr<Node>, int> num;
+    std::map<std::shared_ptr<Node>, int> lowLink;
+    std::map<std::shared_ptr<Node>, bool> inStack;
+
+    for(const std::shared_ptr<Node> &node : nodesToSearch){
+        num[node] = 0;
+        lowLink[node] = 0;
+        inStack[node] = false;
+    }
+
+    std::vector<std::shared_ptr<Node>> stack;
+
+    std::set<std::set<std::shared_ptr<Node>>> connectedComponents;
+    int idx = 1;
+
+    std::vector<DFS_Entry> dfsStack;
+
+    for(const std::shared_ptr<Node> &node : nodesToSearch){
+        //Check if the node has already been traversed by a recursive call
+        if(num[node] == 0){
+            std::shared_ptr<Node> backTrackNode = nullptr;
+            dfsStack.emplace_back(node, node->getDependentNodes1Degree());
+            while(!dfsStack.empty()){
+                backTrackNode = tarjanStronglyConnectedComponentNonRecursiveWorkDFSTraverse(dfsStack,
+                                                                                            backTrackNode,
+                                                                                            num,
+                                                                                            lowLink,
+                                                                                            stack,
+                                                                                            inStack,
+                                                                                            idx,
+                                                                                            connectedComponents,
+                                                                                            excludeNodes);
+            }
+        }
+    }
+
+    return connectedComponents;
+}

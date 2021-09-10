@@ -205,6 +205,7 @@ public:
     void setUnconnectedMaster(const std::shared_ptr<MasterUnconnected> unconnectedMaster);
     std::shared_ptr<MasterOutput> getTerminatorMaster() const;
     void setTerminatorMaster(const std::shared_ptr<MasterOutput> terminatorMaster);
+    std::set<std::shared_ptr<Node>> getMasterNodes() const;
     std::vector<std::shared_ptr<Node>> getTopLevelNodes() const;
     void setTopLevelNodes(const std::vector<std::shared_ptr<Node>> topLevelNodes);
     std::vector<std::shared_ptr<Node>> getNodes() const;

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <algorithm>
@@ -295,6 +296,11 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
 
     template <typename KeyType>
     bool contains(KeyType key, std::set<KeyType> &container){
+        return container.find(key) != container.end();
+    }
+
+    template <typename KeyType, typename ValType>
+    bool contains(KeyType key, std::map<KeyType, ValType> &container){
         return container.find(key) != container.end();
     }
 

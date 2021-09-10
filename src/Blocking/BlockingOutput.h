@@ -10,9 +10,16 @@
 
 /**
  * \addtogroup Blocking Blocking Support Nodes
+ * @brief Nodes to support blocked sample processing
+ *
  * @{
  */
 
+/**
+ * @brief Node representing data exiting a blocking domain
+ *
+ * Handles indexing data for datatype dimensionality changes between inside and outside of the blocking domain
+ */
 class BlockingOutput : public BlockingBoundary {
     friend NodeFactory;
 

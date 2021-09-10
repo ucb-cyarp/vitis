@@ -1204,6 +1204,17 @@ std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
     return arcs;
 }
 
+std::set<std::shared_ptr<Node>> Node::getDependentNodes1Degree(){
+    std::set<std::shared_ptr<Node>> nodes;
+    std::set<std::shared_ptr<Arc>> outputArcs = getOutputArcs();
+
+    for(const std::shared_ptr<Arc> &arc : outputArcs){
+        nodes.insert(arc->getDstPort()->getParent());
+    }
+
+    return nodes;
+}
+
 std::string Node::getErrorReportContextStr(){
     return getFullyQualifiedName(true, "/");
 }

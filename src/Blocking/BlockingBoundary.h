@@ -10,9 +10,14 @@
 
 /**
  * \addtogroup Blocking Blocking Support Nodes
+ * @brief Nodes to support blocked sample processing
+ *
  * @{
  */
 
+/**
+ * @brief Node representing data entering/exiting a blocking domain
+ */
 class BlockingBoundary : public Node {
     friend class NodeFactory;
 

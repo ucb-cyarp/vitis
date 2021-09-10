@@ -22,7 +22,8 @@ public:
         SCALAR_EXPR, ///<The expression is a scalar expression which is not a simple variable name (ex. a+b)
         SCALAR_VAR, ///<The expression is a scalar variable name.  It does not need to be dereferenced to be used
         ARRAY, ///<The expression is a pointer to the head of an array.  Pointers to single elements are arrays with length 1
-        CIRCULAR_BUFFER_ARRAY ///<The expression is a pointer to the head of a circular buffer.  An offset the current front of the buffer is provided with all indexing being referenced from that point.  The length is used to handle wraparound when indexing
+        CIRCULAR_BUFFER_ARRAY, ///<The expression is a pointer to the head of a circular buffer.  An offset the current front of the buffer is provided with all indexing being referenced from that point.  The length is used to handle wraparound when indexing
+        CIRCULAR_BUFFER_HANKEL_COMPRESSED ///< A generalization of the Hankel Matrix (elements along skew diagonal of matrix are the same) so that >2 dimensions can be supported.  Effectively generalizes CIRCULAR_BUFFER_ARRAY for sub-blocking.
     };
 
 private:

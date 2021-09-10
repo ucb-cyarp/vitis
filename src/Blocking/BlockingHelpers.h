@@ -11,6 +11,8 @@
 
 /**
  * \addtogroup Blocking Blocking Support Nodes
+ * @brief Nodes to support blocked sample processing
+ *
  * @{
  */
 

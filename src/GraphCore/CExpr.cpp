@@ -71,18 +71,47 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
             str += EmitterHelpers::generateIndexOperationWODereference(indexExprs);
         }
         return str;
-    }else if(exprType==ExprType::CIRCULAR_BUFFER_ARRAY){
-        if(indexExprs.size() != 1){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("When indexing in to a circular buffer, a single index expression is expected"));
+    }else if(exprType==ExprType::CIRCULAR_BUFFER_ARRAY) {
+        if (indexExprs.size() != 1) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "When indexing in to a circular buffer, a single index expression is expected"));
         }
 
         std::string indStr = "(" + offsetVar + "+" + indexExprs[0] + ")%" + GeneralHelper::to_string(vecLen);
+        std::vector<std::string> indexStrVec= {indStr};
 
         std::string str = expr;
-        if(deref){
-            str += "[" + indStr + "]";
-        }else{
-            str += "+(" + indStr + ")";
+        if (deref) {
+            str += EmitterHelpers::generateIndexOperation(indexStrVec);
+        } else {
+            str += EmitterHelpers::generateIndexOperationWODereference(indexStrVec);
+        }
+        return str;
+    }else if(exprType==ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED){
+        //For the CIRCULAR_BUFFER_HANKEL_COMPRESSED, the outer dimension indexes into the buffer (relative to the circular buffer offset variable)
+        //In essence, it is a second offset.
+        //@warning The result is only valid for a single value of the outer index.  ie. this does not create a new array with elements sliced off
+
+        //Because of this, the first index in indexExprs is handled differently than the rest.
+
+        //As an example, take tapped delay operating on scalar samples.  It produces a vector which is accessed via the offset from the head of the circular buffer
+        //If the TappedDelay is sub-blocked, a matrix is produced with [row][col].  Each row is a vector representing the tapped delay at that moment (defined by the index of the row)
+        //The matrix has a symmetry where each cell along the skew-diagonal is the same - called a Hankel Matrix.
+        //Instead of storing the result of the TappedDelay as a 2D matrix with the redundant elements, it is stored as a
+        //single vector with the row index serving as an offset.  This returns a vector for the given row with the correct
+        //starting element.  The column index returns the element at the specified row,col in the matrix.
+
+        //To get an individual element of the matrix, supply the full index to this function.
+        //To get just the row of the vector, this function should be called with just 1 index.
+
+        std::vector<std::string> indexStrVec = indexExprs;
+        indexStrVec[0] = "(" + offsetVar + "+" + indexExprs[0] + ")%" + GeneralHelper::to_string(vecLen);
+
+        std::string str = expr;
+        if (deref) {
+            str += EmitterHelpers::generateIndexOperation(indexStrVec);
+        } else {
+            str += EmitterHelpers::generateIndexOperationWODereference(indexStrVec);
         }
         return str;
     }else{

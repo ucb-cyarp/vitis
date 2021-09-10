@@ -291,3 +291,14 @@ GraphTestHelper::verifyConnection(Design &design, std::shared_ptr<Node> src, int
 
     checkCount++; //Increment the number of arcs which have been checked
 }
+
+std::shared_ptr<Node> GraphTestHelper::findNodeByName(Design &design, std::string name){
+    std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
+    for(const std::shared_ptr<Node> &node : nodes){
+        if(node->getName() == name){
+            return node;
+        }
+    }
+
+    return nullptr;
+}

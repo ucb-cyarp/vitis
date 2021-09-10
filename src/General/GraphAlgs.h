@@ -156,6 +156,65 @@ namespace GraphAlgs {
                                                                          );
 
     /**
+     * @brief Helper struct for finding Strongly Connected Components
+     */
+    struct DFS_Entry{
+        std::shared_ptr<Node> node;
+        std::set<std::shared_ptr<Node>> childrenToSearch;
+        bool traversedBefore;
+        DFS_Entry() : traversedBefore(false) {}
+        DFS_Entry(std::shared_ptr<Node> node, std::set<std::shared_ptr<Node>> childrenToSearch) : node(node), childrenToSearch(childrenToSearch), traversedBefore(false) {}
+    };
+
+    /**
+     * @brief Finds the strongly connected components present in the graph.
+     *
+     * Uses the Strongly Connected Components Algorithm by Tarjan as Described in
+     * "Guide to Graph Algorithms: Sequential, Parallel, and Distributed" by K. Erciyes
+     * based on the original paper "Depth-First Search and Linear Graph Algorithms" by Robert Tarjan
+     *
+     * This is one of several linear time algorithms for finding strongly connected components
+     * and is notable for its use of a single DFS traversal instead of 2 in the case of the Kosaraju algorithm
+     * which also requires reversing the directions of edges in the graph.
+     *
+     * @warning There should be no reachable nodes from nodes in nodesToSearch which are not in nodesToSearch
+     *
+     * @param nodesToSearch a list of nodes to find strongly connected components in
+     * @param excludeNodes a list of nodes to exclude when traversing the graph.  Useful for excluding the master nodes which are typically not included in the nodes to search and should be ignored
+     * @return a set of connected components (represented by a set of nodes)
+     */
+    std::set<std::set<std::shared_ptr<Node>>> findStronglyConnectedComponents(std::vector<std::shared_ptr<Node>> nodesToSearch, std::set<std::shared_ptr<Node>> &excludeNodes);
+
+    /**
+     * @brief Recursive description of the Strongly Connected Components Algorithm by Tarjan as Described in
+     * "Guide to Graph Algorithms: Sequential, Parallel, and Distributed" by K. Erciyes
+     * based on the original paper "Depth-First Search and Linear Graph Algorithms" by Robert Tarjan
+     *
+     * @note Use findStronglyConnectedComponents for a non-recursive discription of the same algorithm
+     * @param nodesToSearch
+     * @return
+     */
+    std::set<std::set<std::shared_ptr<Node>>> findStronglyConnectedComponentsTarjanRecursive(std::vector<std::shared_ptr<Node>> nodesToSearch);
+
+    std::shared_ptr<Node> tarjanStronglyConnectedComponentNonRecursiveWorkDFSTraverse(std::vector<DFS_Entry> &dfsStack,
+                                                                                      std::shared_ptr<Node> backTrackedNode,
+                                                                                      std::map<std::shared_ptr<Node>, int> &num,
+                                                                                      std::map<std::shared_ptr<Node>, int> &lowLink,
+                                                                                      std::vector<std::shared_ptr<Node>> &stack,
+                                                                                      std::map<std::shared_ptr<Node>, bool> &inStack,
+                                                                                      int &idx,
+                                                                                      std::set<std::set<std::shared_ptr<Node>>> &connectedComponents,
+                                                                                      std::set<std::shared_ptr<Node>> &excludeNodes);
+
+    void tarjanStronglyConnectedComponentRecursiveWork(std::shared_ptr<Node> node,
+                                              std::map<std::shared_ptr<Node>, int> &num,
+                                              std::map<std::shared_ptr<Node>, int> &lowLink,
+                                              std::vector<std::shared_ptr<Node>> &stack,
+                                              std::map<std::shared_ptr<Node>, bool> &inStack,
+                                              int &idx,
+                                              std::set<std::set<std::shared_ptr<Node>>> &connectedComponents);
+
+    /**
      * @brief Recursively finds nodes in a hierarchy starting from a list of provided nodes.  Subsystems are searched.  ContexFamilyNodes & EnabledSubsystems are included but are not recursed into
      * @param nodesToSearch a list of nodes to search
      * @return a list of found nodes
