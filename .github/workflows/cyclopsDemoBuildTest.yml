@@ -29,16 +29,17 @@ jobs:
         repository: ucb-cyarp/cyclopsDemo
         token: ${{ secrets.READONLY_PAT }}
         #Will checkout submodules seperatly
-        submodules: false
+        submodules: recursive
         path: ${{github.workspace}}/cyclopsDemo
         
-    - name: Checkout demo submodules with full depth
+    - name: Remove cyclopsDemoSubmodule for vitis
       shell: bash
-      run: cd ${{github.workspace}}/cyclopsDemo && git submodule update --init
+      run: rm -rf ${{github.workspace}}/cyclopsDemo/submodules/vitis
         
     - name: Checkout version of laminar/vitis under test
-      shell: bash
-      run: cd ${{github.workspace}}/cyclopsDemo/submodules/vitis && git checkout ${{github.sha}}
+      uses: actions/checkout@v2
+      with:
+        path: ${{github.workspace}}/cyclopsDemo/submodules/vitis
       
     - name: Build cyclopsDemo
       shell: bash
