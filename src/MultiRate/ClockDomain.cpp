@@ -17,13 +17,13 @@
 
 #include <iostream>
 
-ClockDomain::ClockDomain() {
+ClockDomain::ClockDomain() : useVectorSamplingMode(false) {
 }
 
-ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent) : SubSystem(parent) {
+ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent) : SubSystem(parent), useVectorSamplingMode(false) {
 }
 
-ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) : SubSystem(parent, orig), upsampleRatio(orig->upsampleRatio), downsampleRatio(orig->downsampleRatio) {
+ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) : SubSystem(parent, orig), upsampleRatio(orig->upsampleRatio), downsampleRatio(orig->downsampleRatio), useVectorSamplingMode(orig->useVectorSamplingMode) {
     //Do not copy the pointers to the RateChange nodes.  This is handled by the shallowCloneWithChildren
 }
 
@@ -33,6 +33,7 @@ void ClockDomain::populateParametersExceptRateChangeNodes(std::shared_ptr<ClockD
     schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
     downsampleRatio = orig->getDownsampleRatio();
+    useVectorSamplingMode = orig->isUsingVectorSamplingMode();
 
     ioInput = orig->getIoInput();
     ioOutput = orig->getIoOutput();
@@ -341,6 +342,10 @@ void ClockDomain::validate() {
         if(rateChangeOfNode.first != upsampleRatio || rateChangeOfNode.second != downsampleRatio){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected rate change: " + (*it)->getFullyQualifiedName(), getSharedPointer()));
         }
+
+        if((*it)->isUsingVectorSamplingMode() != useVectorSamplingMode){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected useVectorSamplingMode", getSharedPointer()));
+        }
     }
 
     //Check that all output rate change blocks have the appropriate rate changes
@@ -350,11 +355,15 @@ void ClockDomain::validate() {
         if(rateChangeOfNode.second != upsampleRatio || rateChangeOfNode.first != downsampleRatio){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected rate change: " + (*it)->getFullyQualifiedName(), getSharedPointer()));
         }
+
+        if((*it)->isUsingVectorSamplingMode() != useVectorSamplingMode){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected useVectorSamplingMode", getSharedPointer()));
+        }
     }
 }
 
 void ClockDomain::discoverClockDomainParameters() {
-    //Reset the paraeters to allow re-discovery to occure
+    //Reset the parameters to allow re-discovery to occur
     upsampleRatio = 1;
     downsampleRatio = 1;
     rateChangeIn.clear();
@@ -397,6 +406,8 @@ void ClockDomain::discoverClockDomainParameters() {
 
         std::set<std::shared_ptr<Arc>> srcArcs = (*rcNode)->getDirectInputArcs();
         std::set<std::shared_ptr<Arc>> dstArcs = (*rcNode)->getDirectOutputArcs();
+
+        useVectorSamplingMode = (*rcNode)->isUsingVectorSamplingMode();
 
         if(srcArcs.size() == 0){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot determine if rate change node is input or output due to having no source arc", *rcNode));
@@ -696,4 +707,30 @@ void ClockDomain::addClockDomainLogicSuppressedPartition(int partitionNum) {
 
 void ClockDomain::setClockDomainDriver(std::shared_ptr<Arc>) {
 
+}
+
+bool ClockDomain::isUsingVectorSamplingMode() const {
+    return useVectorSamplingMode;
+}
+
+void ClockDomain::setUseVectorSamplingMode(bool useVectorSamplingMode) {
+    ClockDomain::useVectorSamplingMode = useVectorSamplingMode;
+}
+
+void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode) {
+    ClockDomain::useVectorSamplingMode = useVectorSamplingMode;
+
+    //Update rate change nodes
+    for(const std::shared_ptr<RateChange> &rateChangeNode : rateChangeIn){
+        rateChangeNode->setUseVectorSamplingMode(useVectorSamplingMode);
+    }
+
+    for(const std::shared_ptr<RateChange> &rateChangeNode : rateChangeOut){
+        rateChangeNode->setUseVectorSamplingMode(useVectorSamplingMode);
+    }
+}
+
+void ClockDomain::resetIOPorts(){
+    ioInput.clear();
+    ioOutput.clear();
 }

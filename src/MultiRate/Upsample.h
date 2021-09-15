@@ -79,7 +79,7 @@ protected:
      * @param doc
      * @param graphNode
      */
-    void emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement* thisNode);
+    void emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement* thisNode) override;
 
 public:
     //====Getters/Setters====

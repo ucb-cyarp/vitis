@@ -126,6 +126,17 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     design.assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     design.assignArcIDs();
 
+    //TODO: Insert blocking and sub-blocking logic here?  Done before context, encpsulation, and FIFO insertion and may effectivly replace determining if a partition has a single clock domain
+    //      Done after context discovery because that is when mux contexts are identified but encapsulation has not yet occured
+    //      Because it is done after context discovery, sub-blocking needs to update the context stack for nodes
+    //
+    //      When handling clock domains under the blocking domain, if they are set to process in a vector fashion, the counter logic should be supporessed
+    //      This should remove the need to check if a partition only operates at a certain clock rate.
+    //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
+    DomainPasses::blockAndSubBlockDesign(design, blockSize, 1);
+
+    //TODO: Validate design after blocking and sub-blocking domains inserted
+
     //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
     //TODO: re-introduce orderConstrainZeroInputNodes if the entire enable context is not scheduled hierarchically
@@ -145,7 +156,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //==== Discover Partitions with Single Clock Domain ====
     //TODO: Refactor into function
 
-    //Detect partitions with only single clock domain (and no rate change nodes)
+    //Detect partitions with only single clock domain (and no rate change nodes) //TODO: Update to also consider blocking domains.  May be able
     std::map<int, std::pair<int, int>> partitionSingleClockDomainRatesNotBase;
     {
         std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
@@ -305,8 +316,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //FIFOs connected to the input master should have their rate set based on the port rate of the input master.
     //FIFOs connected to the output master should have their rate properly set based on the ClockDomain they are in, especially
     //since any FIFO connected to a RateChange output will be placed in the next context up.
-    MultiRateHelpers::setFIFOClockDomains(fifoVec);
-    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true);
+    MultiRateHelpers::setFIFOClockDomains(fifoVec); //TODO: Update to also consider blocking domains
+    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true); //TODO: Update to also consider blocking domains
 
     //==== Retime ====
     //TODO: Retime Here

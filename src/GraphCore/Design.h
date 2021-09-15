@@ -475,6 +475,11 @@ public:
     std::set<int> listPresentPartitions();
 
     void validateNodes();
+
+    /**
+     * @brief Clears the discovered context info.  Includes clearing the top level context list, as well as running through the nodes in the design, clearing context sets and context stacks.
+     */
+    void clearContextDiscoveryInfo();
 };
 
 /*! @} */

@@ -18,6 +18,9 @@ class UpsampleOutput : public Upsample {
 
 private:
     Variable stateVar; ///<The state variable for the latch/output
+
+    //TODO: Add mode switch for Reduction through datatype subsampling?
+
 protected:
     /**
      * @brief Default constructor

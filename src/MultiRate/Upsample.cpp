@@ -21,9 +21,7 @@ Upsample::Upsample(std::shared_ptr<SubSystem> parent, Upsample *orig) : RateChan
 }
 
 void Upsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Upsample> orig) {
-    name = orig->getName();
-    partitionNum = orig->getPartitionNum();
-    schedOrder = orig->getSchedOrder();
+    populateParametersFromRateChangeNode(orig);
     upsampleRatio = orig->getUpsampleRatio();
     initCond = orig->getInitCond();
 }
@@ -39,8 +37,7 @@ void Upsample::setUpsampleRatio(int upsampleRatio) {
 void Upsample::populateUpsampleParametersFromGraphML(int id, std::string name,
                                                    std::map<std::string, std::string> dataKeyValueMap,
                                                    GraphMLDialect dialect) {
-    setId(id);
-    setName(name);
+    populateRateChangeParametersFromGraphML(id, name, dataKeyValueMap, dialect);
 
     if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //==== Check Supported Config (Only if Simulink Import)====
@@ -70,6 +67,7 @@ void Upsample::populateUpsampleParametersFromGraphML(int id, std::string name,
 }
 
 void Upsample::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement *thisNode) {
+    RateChange::emitGraphMLProperties(doc, thisNode);
     GraphMLHelper::addDataNode(doc, thisNode, "UpsampleRatio", GeneralHelper::to_string(upsampleRatio));
     GraphMLHelper::addDataNode(doc, thisNode, "InitCond", NumericValue::toString(initCond));
 }
@@ -85,7 +83,7 @@ Upsample::createFromGraphML(int id, std::string name, std::map<std::string, std:
 }
 
 std::set<GraphMLParameter> Upsample::graphMLParameters() {
-    std::set<GraphMLParameter> parameters;
+    std::set<GraphMLParameter> parameters = RateChange::graphMLParameters();
 
     //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
     parameters.insert(GraphMLParameter("UpsampleRatio", "string", true));

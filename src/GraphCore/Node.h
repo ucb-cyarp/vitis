@@ -727,6 +727,8 @@ public:
      * - Medium Level Blocks to Primitive Operations
      *     - Gain
      *
+     * @note Typically, the original node is included in the deleted nodes list
+     *
      * @param new_nodes A vector which will be filled with the new nodes created during expansion
      * @param deleted_nodes A vector which will be filled with the nodes deleted during expansion
      * @param new_arcs A vector which will be filled with the new arcs created during expansion
@@ -842,6 +844,47 @@ public:
      * @return true if the node contains state elements, false if it does not contain state elements
      */
     virtual bool hasState();
+
+    /**
+     * @brief Indicates if the node can possibly break a blocking dependency
+     *
+     * Is similar to hasState() && !hasCombinationalPath() when not considering blocking
+     *
+     * @note Currently, only Delays can break a blocking dependency and only under specific sub-blocking lengths
+     *
+     * @param
+     * @return
+     */
+    virtual bool canBreakBlockingDependency(int localSubBlockingLength);
+
+    /**
+     * @brief Instructs the node to specialize itself for blocking
+     *
+     * For most node, this just places the node in a blocking domain
+     *
+     * @warning This should only be called if the node is not part of a set of node which need to be placed in the same
+     *          sub blocking domain
+     *
+     * @warning This should be called before order constraint arcs are inserted (or inserting state update or context
+     *
+     *
+     * @warning Note the comments for localBlockingLength and localSubBlockingLength.  When sub-blocking, the inner
+     * sub-blocking domains (under the global blocking domain) use what we would refer to as the sub-blocking length
+     * as the blocking length.  They typically set the sub-blocking length to 1.  This is a result of using the same
+     * construct for both the global blocking and the sub-blocking.  The sub-blocking length determines how many values
+     * are passed to the interior of the blocking domain.
+     *
+     * @param localBlockingLength this is the length of the blocks given to the sub blocking domain.  For simple sub-blocking (one level under the FIFO level blocking), this is typically the *sub-blocking* length after accounting for clock domains
+     * @param localSubBlockingLength this is the length of the blocks within the sub-blocking domain.  Unless complicated, multi-level, sub-blocking is being performed, this is typically 1
+     * @param contextDiscoveryAlreadyHappened if true, context discovery has already happened and, if a BlockingDomain is inserted, the node needs to extend the context stack for the node
+     */
+    virtual void specializeForBlocking(int localBlockingLength,
+                                       int localSubBlockingLength,
+                                       std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel);
 
     /**
      * @brief Identifies if the node contains a path that is combinational

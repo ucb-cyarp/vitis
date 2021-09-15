@@ -117,6 +117,18 @@ public:
     void emitCContextCloseLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int subContextNumber, int partitionNum) override;
 
     bool shouldReplicateContextDriver() override; //No need since there should not be any
+
+    /**
+     * @brief Discover and mark contexts for nodes at and within this blocking domain
+     *
+     * Propagates blocking domain contexts to its nodes (and recursively to nested enabled subsystems).
+     *
+     * This function is almost identical to EnabledSubsystem::discoverAndMarkContexts
+     *
+     * @param contextStack the context stack up to this node
+     * @return nodes in the context
+     */
+    std::vector<std::shared_ptr<Node>> discoverAndMarkContexts(std::vector<Context> contextStack);
 };
 
 /*! @} */

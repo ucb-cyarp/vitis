@@ -15,6 +15,7 @@
 #include "GraphMLTools/GraphMLExporter.h"
 #include "MultiRate/RateChange.h"
 #include "MultiRate/DownsampleClockDomain.h"
+#include "Blocking/BlockingDomain.h"
 
 #include <iostream>
 #include <random>
@@ -267,6 +268,7 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                           std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
+                                          std::vector<std::shared_ptr<BlockingDomain>> &discoveredBlockingDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
 
     for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
@@ -279,15 +281,19 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
         }else if(GeneralHelper::isType<Node, ClockDomain>(*it) != nullptr){//Check this first because ClockDomains are SubSystems
             std::shared_ptr<ClockDomain> foundClkDomain = std::dynamic_pointer_cast<ClockDomain>(*it);
             if(!foundClkDomain->isSpecialized()){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("When discovering contexts, found an unspecialized ClockDomain.  Specialization into UpsampleClockDomain or DownsampleClockDomain should occure before context discovery", foundClkDomain));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When discovering contexts, found an unspecialized ClockDomain.  Specialization into UpsampleClockDomain or DownsampleClockDomain should occur before context discovery", foundClkDomain));
             }
             discoveredClockDomains.push_back(foundClkDomain);
-        }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr){//Check this first because EnabledSubSystems are SubSystems
+        }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr) {//Check this first because EnabledSubSystems are SubSystems
             discoveredEnabledSubSystems.push_back(std::dynamic_pointer_cast<EnabledSubSystem>(*it));
+        }else if(GeneralHelper::isType<Node, BlockingDomain>(*it) != nullptr){
+            discoveredBlockingDomains.push_back(std::dynamic_pointer_cast<BlockingDomain>(*it));
+        }else if(GeneralHelper::isType<Node, ContextRoot>(*it) != nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("During Context Discovery a ContextRoot was discovered where discovery behavior has not yet been specified", *it));
         }else if(GeneralHelper::isType<Node, SubSystem>(*it) != nullptr){
             std::shared_ptr<SubSystem> subSystem = std::dynamic_pointer_cast<SubSystem>(*it);
             subSystem->discoverAndUpdateContexts(contextStack, discoveredMux, discoveredEnabledSubSystems,
-                                                 discoveredClockDomains, discoveredGeneral);
+                                                 discoveredClockDomains, discoveredBlockingDomains, discoveredGeneral);
         }else{
             discoveredGeneral.push_back(*it);
         }
@@ -510,10 +516,13 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 } else if (GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr) {
                     //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
                 } else if (GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot) != nullptr) {
-                    //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
+                    //Scheduling this should be redundant as all nodes in the downsample clock domain should be scheduled as part of a context
                     //However, the context drivers go directly to the DownsampleClockDomain so it needs to be explicitally scheduled
                     //even though it does not emit any actual c
                     schedule.push_back(GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot)); //Schedule the Mux node (context root)
+                } else if (GeneralHelper::isType<ContextRoot, BlockingDomain>(contextRoot) != nullptr) {
+                    //Scheduling this should be redundant as all nodes in the blocking domain subsystem should be scheduled as part of a context
+                    //BlockingDomains behave very similarly to enabled subsystems when it comes to scheduling
                 }else {
                     throw std::runtime_error(ErrorHelpers::genErrorStr(
                             "When scheduling, a context root was encountered which is not yet implemented"));

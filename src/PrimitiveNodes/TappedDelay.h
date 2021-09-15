@@ -130,6 +130,8 @@ public:
     void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) override;
 
     int getCircBufferInitialIdx() override;
+
+    //TODO: add specialization for
 };
 
 /*! @} */

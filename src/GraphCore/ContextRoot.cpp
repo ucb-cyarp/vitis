@@ -118,3 +118,7 @@ void ContextRoot::setDummyReplica(int partition, std::shared_ptr<DummyReplica> d
 bool ContextRoot::allowFIFOAbsorption(){
     return false;
 }
+
+void ContextRoot::clearNodesInSubContexts() {
+    nodesInSubContexts.clear();
+}

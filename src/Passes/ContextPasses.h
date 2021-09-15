@@ -23,14 +23,14 @@ namespace ContextPasses {
     /**
      * @brief Discover and mark contexts for nodes in the design (ie. sets the context stack of nodes).
      *
-     * Propogates enabled subsystem contexts to its nodes (and recursively to nested enabled subsystems.
+     * Propagates enabled subsystem contexts to its nodes (and recursively to nested enabled subsystems.
      *
      * Finds mux contexts under the top level and under each enabled subsystem
      *     Muxes are searched within the top level and within any subsystem.
      *
      *     Once all the Muxes within the top level (or within the level of the enabled subsystem are discovered)
      *     their contexts are found.  For each mux, we sum up the number of contexts which contain that given mux.
-     *     Hierarchy is discovered by tracing decending layers of the hierarchy tree based on the number of contexts
+     *     Hierarchy is discovered by tracing descending layers of the hierarchy tree based on the number of contexts
      *     a mux is in.
      *
      * Since contexts stop at enabled subsystems, the process begins again with any enabled subsystem within (after muxes

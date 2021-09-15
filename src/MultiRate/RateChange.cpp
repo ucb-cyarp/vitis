@@ -52,3 +52,45 @@ bool RateChange::isSpecialized() {
 bool RateChange::isInput() {
     return false;
 }
+
+bool RateChange::isUsingVectorSamplingMode() const {
+    return useVectorSamplingMode;
+}
+
+void RateChange::setUseVectorSamplingMode(bool useVectorSamplingMode) {
+    RateChange::useVectorSamplingMode = useVectorSamplingMode;
+}
+
+void RateChange::populateParametersFromRateChangeNode(std::shared_ptr<RateChange> orig) {
+    name = orig->getName();
+    partitionNum = orig->getPartitionNum();
+    schedOrder = orig->getSchedOrder();
+    useVectorSamplingMode = orig->isUsingVectorSamplingMode();
+}
+
+void RateChange::populateRateChangeParametersFromGraphML(int id, std::string name,
+                                                         std::map<std::string, std::string> dataKeyValueMap,
+                                                         GraphMLDialect dialect) {
+    setId(id);
+    setName(name);
+
+    if (dialect == GraphMLDialect::VITIS) {
+        //This is a vitis/laminar only parameter
+        useVectorSamplingMode = GeneralHelper::parseBool(dataKeyValueMap.at("UseVectorSamplingMode"));
+    } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
+        useVectorSamplingMode = false;
+    } else {
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - RateChange", getSharedPointer()));
+    }
+}
+
+std::set<GraphMLParameter> RateChange::graphMLParameters() {
+    std::set<GraphMLParameter> graphMLParameters = Node::graphMLParameters();
+    graphMLParameters.emplace("UseVectorSamplingMode", "bool", true);
+
+    return Node::graphMLParameters();
+}
+
+void RateChange::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement *thisNode) {
+    GraphMLHelper::addDataNode(doc, thisNode, "UseVectorSamplingMode", GeneralHelper::to_string(useVectorSamplingMode));
+}

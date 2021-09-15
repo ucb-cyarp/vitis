@@ -24,6 +24,8 @@
 class DownsampleInput : public Downsample {
 friend class NodeFactory;
 
+//TODO: Add mode switch for Reduction through datatype subsampling?
+
 protected:
     //==== Constructors ====
     /**

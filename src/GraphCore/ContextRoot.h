@@ -48,7 +48,7 @@ public:
     void addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node);
 
     /**
-     * @brief Gets a vector of nodes in the specified sub-context (but not in sub-contexts)
+     * @brief Gets a vector of nodes in the specified sub-context (but not in nested contexts)
      * @param subContext the sub-context to get the list of nodes for
      * @return a copy of the sub-context nodes vector
      */
@@ -81,6 +81,8 @@ public:
     std::shared_ptr<DummyReplica> getDummyReplica(int partition);
 
     void setDummyReplica(int partition, std::shared_ptr<DummyReplica> dummyReplica);
+
+    void clearNodesInSubContexts();
 
     /**
      * @brief Gets the arc(s) that drive the decision for the context

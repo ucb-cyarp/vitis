@@ -19,6 +19,8 @@ friend class NodeFactory;
 private:
     std::shared_ptr<Arc> contextDriver;///<The Context driver arc for this DownsampleClockDomain which is created by DownsampleClockDomain::createSupportNodes
 
+    //TODO: Add mode switch for Reduction through datatype subsampling?
+
     /**
      * @brief Default constructor
      */

@@ -1217,3 +1217,17 @@ void Design::validateNodes() {
         node->validate();
     }
 }
+
+void Design::clearContextDiscoveryInfo(){
+    topLevelContextRoots.clear();
+
+    for(const std::shared_ptr<Node> &node : nodes){
+        std::vector<Context> emptyContext;
+        node->setContext(emptyContext);
+
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(node);
+        if(asContextRoot){
+            asContextRoot->clearNodesInSubContexts();
+        }
+    }
+}

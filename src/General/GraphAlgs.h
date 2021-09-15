@@ -24,6 +24,7 @@
 //Forward Declare
 class EnabledSubSystem;
 class EnabledNode;
+class BlockingDomain;
 
 /**
  * \addtogroup General General Helper Classes
@@ -121,6 +122,7 @@ namespace GraphAlgs {
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                           std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
+                                          std::vector<std::shared_ptr<BlockingDomain>> &discoveredBlockingDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 
     /**
@@ -263,7 +265,7 @@ namespace GraphAlgs {
     std::shared_ptr<SubSystem> findMostSpecificCommonAncestor(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
 
     /**
-     * @brief Similar to findMostSpecificCommonAncestor except that parent is considered as a subsystem and is allowd to be
+     * @brief Similar to findMostSpecificCommonAncestor except that parent is considered as a subsystem and is allowed to be
      * the common parent.  Helps when finding the common parent of several different nodes
      * @param parent
      * @param b

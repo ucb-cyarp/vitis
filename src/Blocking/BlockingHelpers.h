@@ -62,6 +62,16 @@ namespace BlockingHelpers {
      */
     std::vector<int> blockingDomainDimensionReduce(std::vector<int> outerDimensions, int subBlockingLength);
 
+    void createBlockingDomainHelper(std::set<std::shared_ptr<Node>> nodesToMove,
+                                    std::set<std::shared_ptr<Arc>> arcsIntoDomain,
+                                    std::set<std::shared_ptr<Arc>> arcsOutOfDomain,
+                                    std::shared_ptr<SubSystem> blockingDomainParent,
+                                    int blockingLength,
+                                    int subBlockingLength,
+                                    std::string blockingName,
+                                    std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                    std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                    std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel);
 };
 
 /*! @} */

@@ -6,6 +6,7 @@
 #include "General/ErrorHelpers.h"
 #include "BlockingHelpers.h"
 #include "GraphCore/Variable.h"
+#include "GraphCore/ContextHelper.h"
 
 BlockingDomain::BlockingDomain() : blockingLen(1), subBlockingLen(1) {
 
@@ -323,5 +324,12 @@ void BlockingDomain::removeBlockInput(std::shared_ptr<BlockingInput> blockInput)
 
 void BlockingDomain::removeBlockOutput(std::shared_ptr<BlockingOutput> blockOutput) {
     blockOutputs.erase(std::remove(blockOutputs.begin(), blockOutputs.end(), blockOutput), blockOutputs.end());
+}
+
+std::vector<std::shared_ptr<Node>> BlockingDomain::discoverAndMarkContexts(std::vector<Context> contextStack) {
+    //Return all nodes in context (including ones from recursion)
+    std::shared_ptr<BlockingDomain> thisAsBlockingDomain = std::dynamic_pointer_cast<BlockingDomain>(getSharedPointer());
+
+    return ContextHelper::discoverAndMarkContexts_SubsystemContextRoots(contextStack, thisAsBlockingDomain);
 }
 

@@ -7,11 +7,13 @@
 #include "PrimitiveNodes/Mux.h"
 #include "General/ErrorHelpers.h"
 #include "GraphCore/DummyReplica.h"
+#include "Blocking/BlockingDomain.h"
 
 void ContextPasses::discoverAndMarkContexts(Design &design) {
     std::vector<std::shared_ptr<Mux>> discoveredMuxes;
     std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
     std::vector<std::shared_ptr<ClockDomain>> discoveredClockDomains;
+    std::vector<std::shared_ptr<BlockingDomain>> discoveredBlockingDomains;
     std::vector<std::shared_ptr<Node>> discoveredGeneral;
 
     //The top level context stack has no entries
@@ -19,7 +21,7 @@ void ContextPasses::discoverAndMarkContexts(Design &design) {
 
     //Discover contexts at the top layer (and below non-enabled subsystems).  Also set the contexts of these top level nodes
     GraphAlgs::discoverAndUpdateContexts(design.getTopLevelNodes(), initialStack, discoveredMuxes, discoveredEnabledSubsystems,
-                                         discoveredClockDomains, discoveredGeneral);
+                                         discoveredClockDomains, discoveredBlockingDomains, discoveredGeneral);
 
     //Add context nodes (muxes, enabled subsystems, and clock domains) to the topLevelContextRoots list
     for(unsigned long i = 0; i<discoveredMuxes.size(); i++){
@@ -35,20 +37,27 @@ void ContextPasses::discoverAndMarkContexts(Design &design) {
         }
         design.addTopLevelContextRoot(clkDomainAsContextRoot);
     }
+    for(const std::shared_ptr<BlockingDomain> &blockingDomain : discoveredBlockingDomains){
+        design.addTopLevelContextRoot(blockingDomain);
+    }
 
     //Get and mark the Mux contexts
     Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
 
-    //Recursivly call on the discovered enabled subsystems
+    //Recursively call on the discovered enabled subsystems
     for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++) {
         discoveredEnabledSubsystems[i]->discoverAndMarkContexts(initialStack);
     }
 
-    //Recursivly call on the discovered clock domains
+    //Recursively call on the discovered clock domains
     for(unsigned long i = 0; i<discoveredClockDomains.size(); i++) {
         discoveredClockDomains[i]->discoverAndMarkContexts(initialStack);
     }
 
+    //Recursively call on discovered blocking domains
+    for(const std::shared_ptr<BlockingDomain> &blockingDomain : discoveredBlockingDomains) {
+        blockingDomain->discoverAndMarkContexts(initialStack);
+    }
 }
 
 void ContextPasses::expandEnabledSubsystemContexts(Design &design){

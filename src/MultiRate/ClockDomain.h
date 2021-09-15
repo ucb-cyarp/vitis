@@ -35,6 +35,7 @@ protected:
     std::set<std::shared_ptr<InputPort>> ioOutput; ///<The set of I/O ports that directly connect to the outputs of nodes in this clock domain.  These should be MasterOutput Ports
 
     std::set<int> suppressClockDomainLogicForPartitions; ///<A set of partitions where it was determined that the only nodes are in this clock domain and no rate change nodes are included.  The clock domain counter logic is suppressed for these partitions and is handled by adjusting the compute outer loop
+    bool useVectorSamplingMode; ///<If true, uses vector sampling instead of a counter and conditional to implement the clock domain.  Set by inspecting rate change nodes
 
     /**
      * @brief Default constructor
@@ -104,6 +105,12 @@ public:
     std::set<int> getSuppressClockDomainLogicForPartitions() const;
     void setSuppressClockDomainLogicForPartitions(const std::set<int> &suppressClockDomainLogicForPartitions);
     void addClockDomainLogicSuppressedPartition(int partitionNum);
+
+    bool isUsingVectorSamplingMode() const;
+    void setUseVectorSamplingMode(bool useVectorSamplingMode);
+
+    void setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode);
+
 
     /**
      * @brief Copy parameters from another clock domain except for the lists of RateChange nodes
@@ -236,6 +243,11 @@ public:
      * @note createSupportNodes should be used in place of this.  This is used when setting some partitions to not emit clock domain logic
      */
     virtual void setClockDomainDriver(std::shared_ptr<Arc> newDriver);
+
+    /**
+     * @brief Resets the sets of discovered Master I/O ports connected to nodes in this clock domain
+     */
+    void resetIOPorts();
 
 };
 
