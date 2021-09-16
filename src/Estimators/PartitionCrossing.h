@@ -18,9 +18,7 @@
 class PartitionCrossing : public Arc {
 private:
     int initStateCountBlocks;
-    int bytesPerSample;
     int bytesPerBlock;
-    double bytesPerBaseRateSample; ///<Bytes per sample adjusted for the clock domain of the
 
     //==== Constructors ====
     /**

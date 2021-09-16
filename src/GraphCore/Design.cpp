@@ -784,16 +784,6 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
             std::shared_ptr<Node> copyDummyOf = origToCopyNode[std::dynamic_pointer_cast<Node>(origDummyOf)];
             copyNodeAsDummyReplica->setDummyOf(std::dynamic_pointer_cast<ContextRoot>(copyDummyOf));
         }
-
-        if(GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodeCopies[i]) != nullptr){
-            std::shared_ptr<ThreadCrossingFIFO> copyNodeAsThreadCrossingFIFO = std::static_pointer_cast<ThreadCrossingFIFO>(nodeCopies[i]);
-            std::shared_ptr<ThreadCrossingFIFO> origNodeAsThreadCrossingFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(copyToOrigNode[copyNodeAsThreadCrossingFIFO]);
-            std::vector<std::shared_ptr<ClockDomain>> origClockDomains = origNodeAsThreadCrossingFIFO->getClockDomains();
-            for(int j = 0; j<origClockDomains.size(); j++) {
-                std::shared_ptr<ClockDomain> cloneClockDomain = std::dynamic_pointer_cast<ClockDomain>(origToCopyNode[origClockDomains[j]]);
-                copyNodeAsThreadCrossingFIFO->setClockDomain(j, cloneClockDomain);
-            }
-        }
     }
 
     //==== Copy arcs ====

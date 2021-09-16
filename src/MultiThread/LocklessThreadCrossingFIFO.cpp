@@ -591,20 +591,18 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
 
     //It should be validated at this point that all ports have the same number of initial conditions
     for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
-        int blockSize = getBlockSizeCreateIfNot(portNum);
         int subElementsPer = getInputPort(portNum)->getDataType().numberOfElements();
         std::vector<int> dimensions = getInputPort(portNum)->getDataType().getDimensions();
         std::vector<NumericValue> initConds = getInitConditionsCreateIfNot(portNum);
 
         for(int i = 0; i<initConds.size(); i+=subElementsPer){
-            int blockInd = i/(blockSize * subElementsPer);
-            int elementInd = (i/subElementsPer)%blockSize;
+            int elementInd = i/subElementsPer;
 
-            if(initConds.size() > fifoLength * blockSize * subElementsPer != 0){
+            if(initConds.size() > fifoLength * subElementsPer != 0){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must <= the length of the FIFO>", getSharedPointer()));
             }
 
-            if(initConds.size() % (blockSize * subElementsPer) != 0){
+            if(initConds.size() % subElementsPer != 0){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("The number of initial conditions in a FIFO must be a multiple of its block size", getSharedPointer()));
             }
 
@@ -616,34 +614,17 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
                     subElementIdx = EmitterHelpers::generateIndexOperation(internalIdxs);
                 }
 
-                if (blockSize == 1) {
+                cStatementQueue.push_back(
+                        getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(elementInd + 1) +
+                        "].port" + GeneralHelper::to_string(portNum) + "_real" + subElementIdx + " = " +
+                        GeneralHelper::to_string(initConds[i+j].toStringComponent(false, arrayNumericType)) +
+                        ";");
+                if (arrayNumericType.isComplex()) {
                     cStatementQueue.push_back(
-                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
-                            "].port" + GeneralHelper::to_string(portNum) + "_real" + subElementIdx + " = " +
-                            GeneralHelper::to_string(initConds[i+j].toStringComponent(false, arrayNumericType)) +
+                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(elementInd + 1) +
+                            "].port" + GeneralHelper::to_string(portNum) + "_imag" + subElementIdx + " = " +
+                            GeneralHelper::to_string(initConds[i+j].toStringComponent(true, arrayNumericType)) +
                             ";");
-                    if (arrayNumericType.isComplex()) {
-                        cStatementQueue.push_back(
-                                getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
-                                "].port" + GeneralHelper::to_string(portNum) + "_imag" + subElementIdx + " = " +
-                                GeneralHelper::to_string(initConds[i+j].toStringComponent(true, arrayNumericType)) +
-                                ";");
-                    }
-                } else {
-                    cStatementQueue.push_back(
-                            getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
-                            "].port" + GeneralHelper::to_string(portNum) + "_real[" +
-                            GeneralHelper::to_string(elementInd) + "]" + subElementIdx + " = " +
-                            GeneralHelper::to_string(initConds[i+j].toStringComponent(false, arrayNumericType)) +
-                            ";");
-                    if (arrayNumericType.isComplex()) {
-                        cStatementQueue.push_back(
-                                getCArrayPtr().getCVarName(false) + "[" + GeneralHelper::to_string(blockInd + 1) +
-                                "].port" + GeneralHelper::to_string(portNum) + "_imag[" +
-                                GeneralHelper::to_string(elementInd) + "]" + subElementIdx + " = " +
-                                GeneralHelper::to_string(initConds[i+j].toStringComponent(true, arrayNumericType)) +
-                                ";");
-                    }
                 }
             }
         }
@@ -658,7 +639,7 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     //Write pointer initialized to (init.size()+1)%arrayLength = (init.size()+1)%(fifoLength+1)
     //Should be validated at this point that all ports have the same number of init conditions (blocks)
     int arrayLength=fifoLength+1;
-    int writeInd = (getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()+1)%arrayLength; //This index is in terms of blocks.  All ports should have same number of initial conditions (blocks)
+    int writeInd = (getInitConditionsCreateIfNot(0).size()/getInputPort(0)->getDataType().numberOfElements()+1)%arrayLength; //This index is in terms of blocks.  All ports should have same number of initial conditions (blocks)
     cStatementQueue.push_back("atomic_init(" + getCWriteOffsetPtr().getCVarName(false) + ", " + GeneralHelper::to_string(writeInd) + ");");
     cStatementQueue.push_back("if(!atomic_is_lock_free(" + getCWriteOffsetPtr().getCVarName(false) + ")){");
     cStatementQueue.push_back("printf(\"Warning: An atomic FIFO offset (" + getCWriteOffsetPtr().getCVarName(false) + ") was expected to be lock free but is not\\n\");");

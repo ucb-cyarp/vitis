@@ -198,7 +198,8 @@ void SubSystem::specializeForBlocking(int localBlockingLength, int localSubBlock
                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                       std::vector<std::shared_ptr<Arc>> &arcsToRemove,
-                                      std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel) {
+                                      std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                      std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
     //Do nothing
 }
 

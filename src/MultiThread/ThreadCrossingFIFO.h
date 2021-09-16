@@ -38,21 +38,13 @@
 class ThreadCrossingFIFO : public Node {
     friend NodeFactory;
 protected:
-    int fifoLength; ///<The length of this FIFO (in blocks)
+    int fifoLength; ///<The length of this FIFO (in blocks - assuming datatype dimensions were expanded durring blocking)
     std::vector<std::vector<NumericValue>> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size.  The outer vector is across input/output port pairs.  The inner vector contains the initial conditions for the given port pair.
-    std::vector<int> blockSizes; ///<The block sizes (in elements) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to the
     std::vector<Variable> cStateVars; ///<The C variables from which values are read.  There is one per input/output port pair
     std::vector<Variable> cStateInputVars; ///<the C temporary variables holding data to be writen.  There is one per input/output pair
 
-    //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
-    //Special casing may be preferrable for now
-    std::vector<std::string> cBlockIndexVarInputNames; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
-    std::vector<std::string> cBlockIndexVarOutputNames; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
-
     std::vector<bool> cStateVarsInitialized;
     std::vector<bool> cStateInputVarsInitialized;
-
-    std::vector<std::shared_ptr<ClockDomain>> clockDomains; ///<The clock domains that this FIFO is associated with.  Each port can be in a different clock domain.  Because the FIFO exists in the context of the source, FIFOs connected to the MasterInput will not be in the context of the clock domain they belong to
 
     ThreadCrossingFIFOParameters::CopyMode copyMode;
 
@@ -107,12 +99,6 @@ public:
     int getFifoLength() const;
     void setFifoLength(int fifoLength);
 
-    std::vector<std::shared_ptr<ClockDomain>> getClockDomains() const;
-    void setClockDomains(const std::vector<std::shared_ptr<ClockDomain>> &clockDomain);
-
-    std::shared_ptr<ClockDomain> getClockDomainCreateIfNot(int portNum);
-    void setClockDomain(int portNum, std::shared_ptr<ClockDomain> clockDomain);
-
     std::vector<std::vector<NumericValue>> getInitConditions() const;
     void setInitConditions(const std::vector<std::vector<NumericValue>> &initConditions);
 
@@ -142,16 +128,6 @@ public:
     std::vector<NumericValue> getInitConditionsCreateIfNot(int port);
     void setInitConditionsCreateIfNot(int port, const std::vector<NumericValue> &initConditions);
 
-    std::vector<std::string> getCBlockIndexVarInputNames() const;
-    void setCBlockIndexVarInputNames(const std::vector<std::string> &cBlockIndexVarInputNames);
-    std::string getCBlockIndexVarInputNameCreateIfNot(int portNum);
-    void setCBlockIndexVarInputName(int portNum, const std::string &cBlockIndexVarName);
-
-    std::vector<std::string> getCBlockIndexVarOutputNames() const;
-    void setCBlockIndexVarOutputNames(const std::vector<std::string> &cBlockIndexVarOutputName);
-    std::string getCBlockIndexVarOutputNameCreateIfNot(int portNum);
-    void setCBlockIndexVarOutputName(int portNum, const std::string &cBlockIndexVarName);
-
     /**
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
      * @return the initialized cStateVar for this FIFO
@@ -163,32 +139,11 @@ public:
     void setCStateVar(int port, const Variable &cStateVar);
 
     /**
-     * @brief Gets the cStateVar for this FIFO and expands it by the block size of the port.
-     * If it has not yet been initialized, it will be initialized at this point
-     *
-     * @param port the port to get the cStateVar for
-     * @return
-     */
-    Variable getCStateVarExpandedForBlockSize(int port);
-
-    /**
      * @brief Gets the cStateInputVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
      * @return the initialized cStateInputVar for this FIFO
      */
     Variable getCStateInputVar(int port);
     void setCStateInputVar(int port, const Variable &cStateInputVar);
-
-    Variable getCStateInputVarExpandedForBlockSize(int port);
-
-    std::vector<int> getBlockSizes() const;
-    int getBlockSizeCreateIfNot(int portNum);
-    /**
-     * @brief Gets the number of elements in a block across all ports
-     * @return
-     */
-    int getTotalBlockSizeAllPorts();
-    void setBlockSizes(const std::vector<int> &blockSizes);
-    void setBlockSize(int portNum, int blockSize);
 
     //====Factories====
     //createFromGraphML needs to be implemented in non-abstract decendents of this class

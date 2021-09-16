@@ -66,12 +66,9 @@ void MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, in
                     }
                 }
 
-                //TODO: Refactor into absorption?  Tricky because there may be a chain of delays.  Possibly when re-timer is implemented
-                //The number of initial conditions in the FIFO must be a multiple of the block size
-                //remove the remainder from the FIFO and insert into a delay at the input
-                MultiThreadPasses::reshapeFIFOInitialConditionsForBlockSize(fifoPtrs[i], new_nodes,
-                                                                                      deleted_nodes, new_arcs,
-                                                                                      deleted_arcs, printActions);
+                //No longer reshape FIFO initial conditions to be multiples of the block size.  This should now be handled
+                //by delay specialization producing delays that are multiples of the block size.  Delays less than the block
+                //size are placed in blocking domains and cannot be merged into the FIFO
             }else{
                 if (printActions) {
                     std::cout << "Skipped Delay Absorption for FIFO since it is in a context: "
@@ -99,7 +96,7 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
     //Check if FIFO full
     //Note: The dimensions of the input must be taken into account
     int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
-    if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSizeCreateIfNot(0)*(fifo->getFifoLength() - 1)) {
+    if(fifo->getInitConditions().size() < elementsPerInput*(fifo->getFifoLength() - 1)) {
         //There is still room
 
         std::set<std::shared_ptr<Arc>> inputArcs = fifo->getInputPortCreateIfNot(0)->getArcs();
@@ -148,7 +145,7 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
                     int numberInitCondsInSrc = srcDelay->getDelayValue() * elementsPerInput;
 
-                    if (numberInitCondsInSrc + fifoInitConds.size() <= fifo->getBlockSizeCreateIfNot(0) * elementsPerInput * (fifo->getFifoLength() - 1)) {
+                    if (numberInitCondsInSrc + fifoInitConds.size() <= elementsPerInput * (fifo->getFifoLength() - 1)) {
                         //Can absorb complete delay
                         fifoInitConds.insert(fifoInitConds.end(), delayInitConds.begin(),
                                              delayInitConds.begin() + numberInitCondsInSrc);  //Because this is at the input to the FIFO, the initial conditions are appended.
@@ -186,7 +183,7 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
                         //Partial absorption (due to size)
                         //We already checked that there is room
 
-                        int numToAbsorb = fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+                        int numToAbsorb = elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
 
                         if(numToAbsorb % elementsPerInput != 0){
                             throw std::runtime_error(ErrorHelpers::genErrorStr("Error absorbing delay into FIFO, the number of initial conditions to absorb is not a multiple of the number of elements per input", fifo));
@@ -236,7 +233,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
 
     int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
     //Check if FIFO full
-    if (fifo->getInitConditions().size() < fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1)) {
+    if (fifo->getInitConditions().size() < elementsPerInput*(fifo->getFifoLength() - 1)) {
         //There is still room in the FIFO
 
         //Check if the FIFO has order constraint outputs
@@ -298,7 +295,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
 
                 //Find how many can be absorbed into the FIFO
                 std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
-                int roomInFifo = fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
+                int roomInFifo = elementsPerInput*(fifo->getFifoLength() - 1) - fifoInitConds.size();
                 int numToAbsorb = std::min(roomInFifo, (int) longestPostfix.size());
                 //Note that the number to absorb must be a multiple of elementsPerInput
                 //Remove any remainder
@@ -384,40 +381,8 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
     return AbsorptionStatus::NO_ABSORPTION;
 }
 
-void MultiThreadPasses::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                                         std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                                         std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                                         std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                                         std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                                                         bool printActions){
-    //TODO: For now, we will restrict delay absorption to be when there is a single input and output port.
-    //FIFO bundling happens after this point
-    if(fifo->getInputPorts().size() != 1 || fifo->getOutputPorts().size() != 1){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, initial condition reshaping is only supported with FIFOs that have a single input and output port" , fifo));
-    }
-
-    //TODO: will need to be specialized for each port
-    std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
-    int numberElementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements();
-    int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSizeCreateIfNot(0)*numberElementsPerInput);
-
-    if(numPrimitiveElementsToMove % numberElementsPerInput != 0){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Error when reshaping FIFO size.  The number of initial condition primitive elements to move is not a multiple of the number of primitive elements per input", fifo));
-    }
-    int numElementsToMove = numPrimitiveElementsToMove/numberElementsPerInput;
-
-    if(numElementsToMove > 0){
-        MultiThreadPasses::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
-
-        if (printActions) {
-            std::cout << "FIFO Initial Conditions Reshaped: " << fifo->getFullyQualifiedName() << " [ID:" << fifo->getId() << "]"
-                      << " " << numElementsToMove << " initial conditions moved into delay at input" << std::endl;
-        }
-    }
-}
-
-void MultiThreadPasses::reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                                   int tgtSizeBlocks,
+void MultiThreadPasses::reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                                   int tgtSize,
                                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
@@ -431,13 +396,12 @@ void MultiThreadPasses::reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr
 
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
     int elementsPer = fifo->getInputPort(0)->getDataType().numberOfElements();
-    int blkSize = fifo->getBlockSizeCreateIfNot(0);
 
-    if(tgtSizeBlocks > fifoInitialConditions.size()/elementsPer/blkSize){
+    if(tgtSize > fifoInitialConditions.size()/elementsPer){
         throw std::runtime_error(ErrorHelpers::genErrorStr("For Initial Condition reshaping, target initial condition size must be <= the current initial condition size" , fifo));
     }
 
-    int numElementsToMove = fifoInitialConditions.size() - tgtSizeBlocks*elementsPer*blkSize;
+    int numElementsToMove = fifoInitialConditions.size() - tgtSize*elementsPer;
 
     if(numElementsToMove > 0){
         MultiThreadPasses::reshapeFIFOInitialConditions(fifo, numElementsToMove, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
@@ -691,7 +655,7 @@ void MultiThreadPasses::mergeFIFOs(
             for(auto fifosToMerge : fifoSetToMerge) {
 
                 //Find the minimum number of initial conditions across the FIFOs in the group
-                int minInitialConditionsBlocks = -1;
+                int minInitialConditionsElements = -1;
                 for(auto fifo : fifosToMerge){
                     for(int portNum = 0; portNum<fifo->getInputPorts().size(); portNum++) {
                         if (fifo->getInputPorts().size() > 1) {
@@ -700,16 +664,15 @@ void MultiThreadPasses::mergeFIFOs(
                                     fifo));
                         }
 
-                        int initialConditionBlocks = fifo->getInitConditionsCreateIfNot(portNum).size() /
-                                                     fifo->getInputPort(portNum)->getDataType().numberOfElements() /
-                                                     fifo->getBlockSizeCreateIfNot(portNum);
+                        int initialConditionElements = fifo->getInitConditionsCreateIfNot(portNum).size() /
+                                                       fifo->getInputPort(portNum)->getDataType().numberOfElements();
 
-                        if (minInitialConditionsBlocks < 0) {
+                        if (minInitialConditionsElements < 0) {
                             //Initialize
-                            minInitialConditionsBlocks = initialConditionBlocks;
+                            minInitialConditionsElements = initialConditionElements;
                         } else {
-                            if (initialConditionBlocks < minInitialConditionsBlocks) {
-                                minInitialConditionsBlocks = initialConditionBlocks;
+                            if (initialConditionElements < minInitialConditionsElements) {
+                                minInitialConditionsElements = initialConditionElements;
                             }
                         }
                     }
@@ -717,7 +680,7 @@ void MultiThreadPasses::mergeFIFOs(
 
                 //Reshape the FIFOs
                 for(auto fifo : fifosToMerge){
-                    MultiThreadPasses::reshapeFIFOInitialConditionsToSizeBlocks(fifo, minInitialConditionsBlocks, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+                    MultiThreadPasses::reshapeFIFOInitialConditionsToSize(fifo, minInitialConditionsElements, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
                 }
 
                 //Actually Merge the FIFOs in this set
@@ -748,12 +711,6 @@ void MultiThreadPasses::mergeFIFOs(
 
                         //Transfer Init Condition
                         fifoToMergeInto->setInitConditionsCreateIfNot(newPortNum, fifoToMergeFrom->getInitConditionsCreateIfNot(oldPortNum));
-
-                        //Transfer Block Size
-                        fifoToMergeInto->setBlockSize(newPortNum, fifoToMergeFrom->getBlockSizeCreateIfNot(oldPortNum));
-
-                        //Transfer Clock Domain
-                        fifoToMergeInto->setClockDomain(newPortNum, fifoToMergeFrom->getClockDomainCreateIfNot(oldPortNum));
                     }
 
                     //Merge the other properties of this FIFO

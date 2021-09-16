@@ -88,12 +88,11 @@ bool EstimatorCommon::NodeOperationComparatorByName::operator()(const EstimatorC
     return comp(a, b);
 }
 
-EstimatorCommon::InterThreadCommunicationWorkload::InterThreadCommunicationWorkload(int numBytesPerSample,
-        int numBytesPerBlock, int numFIFOs) : numBytesPerSample(numBytesPerSample),
-        numBytesPerBlock(numBytesPerBlock), numFIFOs(numFIFOs) {
+EstimatorCommon::InterThreadCommunicationWorkload::InterThreadCommunicationWorkload(int numBytesPerBlock, int numFIFOs) :
+    numBytesPerBlock(numBytesPerBlock), numFIFOs(numFIFOs) {
 }
 
 EstimatorCommon::InterThreadCommunicationWorkload::InterThreadCommunicationWorkload() :
-    numBytesPerSample(0), numBytesPerBlock(0), numFIFOs(0){
+    numBytesPerBlock(0), numFIFOs(0){
 
 }

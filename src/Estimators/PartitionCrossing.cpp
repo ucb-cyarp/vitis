@@ -14,14 +14,6 @@ void PartitionCrossing::setInitStateCountBlocks(int initStateCountBlocks) {
     PartitionCrossing::initStateCountBlocks = initStateCountBlocks;
 }
 
-int PartitionCrossing::getBytesPerSample() const {
-    return bytesPerSample;
-}
-
-void PartitionCrossing::setBytesPerSample(int bytesPerSample) {
-    PartitionCrossing::bytesPerSample = bytesPerSample;
-}
-
 int PartitionCrossing::getBytesPerBlock() const {
     return bytesPerBlock;
 }
@@ -30,14 +22,14 @@ void PartitionCrossing::setBytesPerBlock(int bytesPerBlock) {
     PartitionCrossing::bytesPerBlock = bytesPerBlock;
 }
 
-PartitionCrossing::PartitionCrossing() : Arc(), initStateCountBlocks(0), bytesPerSample(0), bytesPerBlock(0) {
+PartitionCrossing::PartitionCrossing() : Arc(), initStateCountBlocks(0), bytesPerBlock(0) {
 
 }
 
 PartitionCrossing::PartitionCrossing(std::shared_ptr<OutputPort> srcPort, std::shared_ptr<InputPort> dstPort,
                                      DataType dataType, double sampleTime) : Arc(srcPort, dstPort, dataType,
                                                                                  sampleTime), initStateCountBlocks(0),
-                                                                                 bytesPerSample(0), bytesPerBlock(0) {
+                                                                                 bytesPerBlock(0) {
 
 }
 
@@ -68,26 +60,14 @@ xercesc::DOMElement *PartitionCrossing::emitGraphML(xercesc::DOMDocument *doc, x
 
     //Add the Block Size and Initial State Parameters
     GraphMLHelper::addDataNode(doc, arcXMLNode, "partition_crossing_init_state_count_blocks", GeneralHelper::to_string(initStateCountBlocks));
-    GraphMLHelper::addDataNode(doc, arcXMLNode, "partition_crossing_bytes_per_sample", GeneralHelper::to_string(bytesPerSample));
     GraphMLHelper::addDataNode(doc, arcXMLNode, "partition_crossing_bytes_per_block", GeneralHelper::to_string(bytesPerBlock));
-    GraphMLHelper::addDataNode(doc, arcXMLNode, "partition_crossing_bytes_per_base_rate_sample", GeneralHelper::to_string(bytesPerBaseRateSample));
 
     return arcXMLNode;
 }
 
 std::string PartitionCrossing::labelStr() {
     std::string label = "Init State Count Blocks: " + GeneralHelper::to_string(initStateCountBlocks)
-                      + "\nBytes Per Sample: " + GeneralHelper::to_string(bytesPerSample)
-                      + "\nBytes Per Block: " + GeneralHelper::to_string(bytesPerBlock)
-                      + "\nBytes Per Base Rate Sample: " + GeneralHelper::to_string(bytesPerBaseRateSample);
+                      + "\nBytes Per Block: " + GeneralHelper::to_string(bytesPerBlock);
 
     return label;
-}
-
-double PartitionCrossing::getBytesPerBaseRateSample() const {
-    return bytesPerBaseRateSample;
-}
-
-void PartitionCrossing::setBytesPerBaseRateSample(double bytesPerBaseRateSample) {
-    PartitionCrossing::bytesPerBaseRateSample = bytesPerBaseRateSample;
 }

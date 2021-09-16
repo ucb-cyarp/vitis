@@ -19,6 +19,7 @@
 #include "MultiRate/RateChange.h"
 #include "GraphCore/Design.h"
 #include "PrimitiveNodes/Mux.h"
+#include "Blocking/BlockingOutput.h"
 
 /**
  * \addtogroup Passes Design Passes/Transforms
@@ -93,6 +94,7 @@ namespace MultiThreadPasses {
                 std::shared_ptr<SubSystem> fifoParent;
 
                 std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcPort->getParent());
+                std::shared_ptr<BlockingOutput> srcAsBlockingOutput = GeneralHelper::isType<Node, BlockingOutput>(srcPort->getParent());
                 std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcPort->getParent());
                 std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcPort->getParent());
                 std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcPort->getParent());
@@ -106,13 +108,15 @@ namespace MultiThreadPasses {
 
                 //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
                 //TODO: Come up with a more general way of performing this
-                if(srcAsEnableOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+                if(srcAsEnableOutput != nullptr || srcAsBlockingOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
                     if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
                         fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
 
                         // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
                         // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
                         // during encapsulation
+
+                        //Should also be placed outside of BlockingDomain context of the BlockingOutput which is driving it
                     }
 
                     //Check for encapsulation
@@ -267,28 +271,8 @@ namespace MultiThreadPasses {
                                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                                 bool printActions = true);
 
-    /**
-     * @brief The number of initial conditions (in elements) must be an integer multiple of the block size of the FIFO
-     *
-     * This function takes the remaining initial conditions and moves them to a delay node at the input of the FIFO
-     *
-     * @param fifo
-     * @param new_nodes
-     * @param deleted_nodes
-     * @param new_arcs
-     * @param deleted_arcs
-     * @param printActions
-     * @return
-     */
-    void reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                         std::vector<std::shared_ptr<Node>> &new_nodes,
-                                                         std::vector<std::shared_ptr<Node>> &deleted_nodes,
-                                                         std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                                         std::vector<std::shared_ptr<Arc>> &deleted_arcs,
-                                                         bool printActions = true);
-
-    void reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                                   int targetSizeBlocks,
+    void reshapeFIFOInitialConditionsToSize(std::shared_ptr<ThreadCrossingFIFO> fifo,
+                                                   int targetSize,
                                                    std::vector<std::shared_ptr<Node>> &new_nodes,
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,

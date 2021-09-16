@@ -41,7 +41,6 @@ CommunicationEstimator::reportCommunicationWorkload(
     std::map<std::pair<int, int>, EstimatorCommon::InterThreadCommunicationWorkload> workload;
 
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
-        int bytesPerSample = 0;
         int bytesPerTransaction = 0;
         int numFIFOs = it->second.size();
 
@@ -50,15 +49,13 @@ CommunicationEstimator::reportCommunicationWorkload(
 
             for(int j = 0; j<ports.size(); j++){
                 DataType portDT = ports[j]->getDataType();
-                int bits = getCommunicationBitsForType(portDT);
-
+                int bits = getCommunicationBitsForType(portDT); //This is now bits per block.  FIFO types are now the block type
                 int bytes = bits/8;
-                bytesPerSample += bytes;
-                bytesPerTransaction += bytes*it->second[i]->getBlockSizeCreateIfNot(j);
+                bytesPerTransaction += bytes;
             }
         }
 
-        EstimatorCommon::InterThreadCommunicationWorkload commWorkload(bytesPerSample, bytesPerTransaction, numFIFOs);
+        EstimatorCommon::InterThreadCommunicationWorkload commWorkload(bytesPerTransaction, numFIFOs);
 
         workload[it->first] = commWorkload;
     }
@@ -71,21 +68,18 @@ void CommunicationEstimator::printComputeInstanceTable(
 
     std::string partitionFromLabel  = "From Partition";
     std::string partitionToLabel = "To Partition";
-    std::string bytesPerSampleLabel = "Bytes Per Sample";
     std::string bytesPerBlockLabel = "Bytes Per Block";
     std::string numFIFOsLabel = "# FIFOs";
 
     //Used for formatting
     size_t maxPartitionFromLen = partitionFromLabel.size();
     size_t maxPartitionToLen = partitionToLabel.size();
-    size_t maxBytesPerSampleLen = bytesPerSampleLabel.size();
     size_t maxBytesPerBlockLen = bytesPerBlockLabel.size();
     size_t maxNumFIFOsLen = numFIFOsLabel.size();
 
     for(auto it = commWorkload.begin(); it != commWorkload.end(); it++){
         maxPartitionFromLen = std::max(maxPartitionFromLen, GeneralHelper::to_string(it->first.first).size());
         maxPartitionToLen = std::max(maxPartitionToLen, GeneralHelper::to_string(it->first.second).size());
-        maxBytesPerSampleLen = std::max(maxBytesPerSampleLen, GeneralHelper::to_string(it->second.numBytesPerSample).size());
         maxBytesPerBlockLen = std::max(maxBytesPerBlockLen, GeneralHelper::to_string(it->second.numBytesPerBlock).size());
         maxNumFIFOsLen = std::max(maxNumFIFOsLen, GeneralHelper::to_string(it->second.numFIFOs).size());
     }
@@ -95,19 +89,16 @@ void CommunicationEstimator::printComputeInstanceTable(
     //Print the header
     std::string partitionFromFormatStr = "%" + GeneralHelper::to_string(maxPartitionFromLen) + "d";
     std::string partitionToFormatStr = " | %" + GeneralHelper::to_string(maxPartitionToLen) + "d";
-    std::string bytesPerSampleFormatStr = " | %" + GeneralHelper::to_string(maxBytesPerSampleLen) + "d";
     std::string bytesPerBlockFormatStr = " | %" + GeneralHelper::to_string(maxBytesPerBlockLen) + "d";
     std::string numFIFOsFormatStr = " | %" + GeneralHelper::to_string(maxNumFIFOsLen) + "d";
 
     std::string partitionFromLabelFormatStr = "%" + GeneralHelper::to_string(maxPartitionFromLen) + "s";
     std::string partitionToLabelFormatStr = " | %" + GeneralHelper::to_string(maxPartitionToLen) + "s";
-    std::string bytesPerSampleLabelFormatStr = " | %" + GeneralHelper::to_string(maxBytesPerSampleLen) + "s";
     std::string bytesPerBlockLabelFormatStr = " | %" + GeneralHelper::to_string(maxBytesPerBlockLen) + "s";
     std::string numFIFOsLabelFormatStr = " | %" + GeneralHelper::to_string(maxNumFIFOsLen) + "s";
 
     printf(partitionFromLabelFormatStr.c_str(), partitionFromLabel.c_str());
     printf(partitionToLabelFormatStr.c_str(), partitionToLabel.c_str());
-    printf(bytesPerSampleLabelFormatStr.c_str(), bytesPerSampleLabel.c_str());
     printf(bytesPerBlockLabelFormatStr.c_str(), bytesPerBlockLabel.c_str());
     printf(numFIFOsLabelFormatStr.c_str(), numFIFOsLabel.c_str());
 
@@ -117,7 +108,6 @@ void CommunicationEstimator::printComputeInstanceTable(
     for(auto it = commWorkload.begin(); it != commWorkload.end(); it++){
         printf(partitionFromFormatStr.c_str(), it->first.first);
         printf(partitionToFormatStr.c_str(), it->first.second);
-        printf(bytesPerSampleFormatStr.c_str(), it->second.numBytesPerSample);
         printf(bytesPerBlockFormatStr.c_str(), it->second.numBytesPerBlock);
         printf(numFIFOsFormatStr.c_str(), it->second.numFIFOs);
 
@@ -150,12 +140,8 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
     std::map<int, std::shared_ptr<PartitionNode>> partitionNodeMap;
     std::map<std::pair<int, int>, int> minInitialState; //The pair is the tuple (partitionFrom, partitionTo)
     std::vector<std::pair<std::pair<int, int>, int>> initialStates; //The pair is the tuple (partitionFrom, partitionTo)
-    std::map<std::pair<int, int>, int> totalBytesPerSample;
-    std::vector<std::pair<std::pair<int, int>, int>> bytesPerSample; //The pair is the tuple (partitionFrom, partitionTo)
     std::map<std::pair<int, int>, int> totalBytesPerBlock;
     std::vector<std::pair<std::pair<int, int>, int>> bytesPerBlock; //The pair is the tuple (partitionFrom, partitionTo)
-    std::map<std::pair<int, int>, double> totalBytesPerBaseRateSample;
-    std::vector<std::pair<std::pair<int, int>, double>> bytesPerBaseRateSample; //The pair is the tuple (partitionFrom, partitionTo)
 
     for(const std::shared_ptr<ThreadCrossingFIFO> &fifo : partitionCrossingFIFOs){
         int srcPartition = fifo->getPartitionNum(); //The FIFO is in the src domain
@@ -171,25 +157,16 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
         }
 
         int minInitialStateBlocks = 0;
-        int fifoTotalBytesPerSample = 0;
-        double fifoTotalBytesPerBaseRateSample = 0;
         int fifoTotalBytesPerBlock = 0;
 
         for(int i = 0; i<fifo->getInputPorts().size(); i++){
             int portTotalBytesPerSample = getCommunicationBitsForType(fifo->getOutputPort(i)->getDataType())/8;
-            fifoTotalBytesPerSample += portTotalBytesPerSample;
-            std::pair<int, int> portRate = std::pair<int, int>(1, 1);
-            std::shared_ptr<ClockDomain> portClockDomain = fifo->getClockDomainCreateIfNot(i);
-            if(portClockDomain){
-                portRate = portClockDomain->getRateRelativeToBase();
-            }
-            fifoTotalBytesPerBaseRateSample += ((double) portTotalBytesPerSample*portRate.first)/portRate.second;
-            fifoTotalBytesPerBlock += portTotalBytesPerSample*fifo->getBlockSizeCreateIfNot(i);
+            fifoTotalBytesPerBlock += portTotalBytesPerSample;
 
             //Note, the initial conditions are stored as an array of scalar numbers, need to know the number of elements at the port per sample (ie. the number of elements in an input/output vector to the port or 1 if scalar)
             //To get the number of cycles of initial condition in the FIFO, take the length of the scalar array and divide by the length of the
             int initialConditionElements = fifo->getInitConditions().empty() ? 0 : (fifo->getInitConditions()[i].size()/fifo->getOutputPort(i)->getDataType().numberOfElements());
-            int initialStateBlocks = initialConditionElements/fifo->getBlockSizeCreateIfNot(i);
+            int initialStateBlocks = initialConditionElements;
             if(i==0){
                 minInitialStateBlocks = initialStateBlocks;
             }else{
@@ -208,21 +185,15 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
             if(minInitialState.find(std::pair<int, int>(srcPartition, dstPartition)) == minInitialState.end()){
                 //If the entry in the map (key = src->dst partition) does not exist yet, simply create it and set the value
                 minInitialState[std::pair<int, int>(srcPartition, dstPartition)] = minInitialStateBlocks;
-                totalBytesPerSample[std::pair<int, int>(srcPartition, dstPartition)] = fifoTotalBytesPerSample;
                 totalBytesPerBlock[std::pair<int, int>(srcPartition, dstPartition)] = fifoTotalBytesPerBlock;
-                totalBytesPerBaseRateSample[std::pair<int, int>(srcPartition, dstPartition)] = fifoTotalBytesPerBaseRateSample;
             }else{
                 //Take the min initial state of all the FIFOs going from src->dst partition, sum up the other metrics
                 minInitialState[std::pair<int, int>(srcPartition, dstPartition)] = std::min(minInitialState[std::pair<int, int>(srcPartition, dstPartition)], minInitialStateBlocks);
-                totalBytesPerSample[std::pair<int, int>(srcPartition, dstPartition)] += fifoTotalBytesPerSample;
                 totalBytesPerBlock[std::pair<int, int>(srcPartition, dstPartition)] += fifoTotalBytesPerBlock;
-                totalBytesPerBaseRateSample[std::pair<int, int>(srcPartition, dstPartition)] += fifoTotalBytesPerBaseRateSample;
             }
         }else{
             initialStates.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), minInitialStateBlocks));
-            bytesPerSample.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), fifoTotalBytesPerSample));
             bytesPerBlock.push_back(std::pair<std::pair<int, int>, int>(std::pair<int, int>(srcPartition, dstPartition), fifoTotalBytesPerBlock));
-            bytesPerBaseRateSample.push_back(std::pair<std::pair<int, int>, double>(std::pair<int, int>(srcPartition, dstPartition), fifoTotalBytesPerBaseRateSample));
         }
     }
 
@@ -234,25 +205,21 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
         for(const auto & crossing : minInitialState){
             std::pair<int, int> partitions = crossing.first;
             int initialState = crossing.second;
-            int bytesPerSampleLoc = totalBytesPerSample[partitions];
             int bytesPerBlockLoc = totalBytesPerBlock[partitions];
-            double bytesPerBaseRateSampleLoc = totalBytesPerBaseRateSample[partitions];
 
             communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, partitions.first,
-                                             partitions.second, initialState, bytesPerSampleLoc, bytesPerBlockLoc,
-                                             bytesPerBaseRateSampleLoc, removeCrossingsWithInitCond);
+                                             partitions.second, initialState, bytesPerBlockLoc,
+                                             removeCrossingsWithInitCond);
         }
     }else{
         for(int i = 0; i < initialStates.size(); i++){
             std::pair<int, int> partitions = initialStates[i].first;
             int initialState = initialStates[i].second;
-            int bytesPerSampleLoc = bytesPerSample[i].second;
             int bytesPerBlockLoc = bytesPerBlock[i].second;
-            double bytesPerBaseRateSampleLoc = bytesPerBaseRateSample[i].second;
 
             communicationGraphCreationHelper(partitionNodeMap, nodesToAdd, arcsToAdd, partitions.first,
-                                             partitions.second, initialState, bytesPerSampleLoc, bytesPerBlockLoc,
-                                             bytesPerBaseRateSampleLoc, removeCrossingsWithInitCond);
+                                             partitions.second, initialState, bytesPerBlockLoc,
+                                             removeCrossingsWithInitCond);
         }
     }
 
@@ -268,8 +235,7 @@ void CommunicationEstimator::communicationGraphCreationHelper(std::map<int, std:
                                                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
                                                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                                               int srcPartition, int dstPartition,
-                                                              int initialState, int bytesPerSample, int bytesPerBlock,
-                                                              double bytesPerBaseRateSample,
+                                                              int initialState, int bytesPerBlock,
                                                               bool removeCrossingsWithInitCond) {
     if(!removeCrossingsWithInitCond || initialState == 0) {
         std::shared_ptr<PartitionNode> srcPartNode;
@@ -294,9 +260,7 @@ void CommunicationEstimator::communicationGraphCreationHelper(std::map<int, std:
                 srcPartNode->getOrderConstraintOutputPortCreateIfNot(),
                 dstPartNode->getOrderConstraintInputPortCreateIfNot(), DataType());
         crossingArc->setInitStateCountBlocks(initialState);
-        crossingArc->setBytesPerSample(bytesPerSample);
         crossingArc->setBytesPerBlock(bytesPerBlock);
-        crossingArc->setBytesPerBaseRateSample(bytesPerBaseRateSample);
         arcsToAdd.push_back(crossingArc);
     }
 }

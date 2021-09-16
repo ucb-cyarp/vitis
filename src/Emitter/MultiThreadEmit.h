@@ -291,7 +291,7 @@ namespace MultiThreadEmit {
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
      * @param outputMaster a pointer to the output master of the design being emitted
-     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function.  This is the size for the base rate.
+     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function.  This is the size for the base rate.  Used for telemetry reporting
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
      * @param fifoSupportFile the filename of the FIFO support file
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
@@ -309,14 +309,13 @@ namespace MultiThreadEmit {
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path,
                               std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
-                              std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
+                              std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSizeBase,
                               std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint,
                               bool printTelem, EmitterHelpers::TelemetryLevel telemLevel,
                               int telemReportFreqBlockFreq, double reportPeriodSeconds,
                               std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
                               PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                              ComputeIODoubleBufferType doubleBuffer,
-                              bool singleClkDomain, std::pair<int, int> singleRate);
+                              ComputeIODoubleBufferType doubleBuffer);
 
     /**
      * @brief Defines the structure containing the state for a particular partition
@@ -353,7 +352,7 @@ namespace MultiThreadEmit {
      */
     std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                         int blockSize, std::string stateTypeName,
+                                                         std::string stateTypeName,
                                                          ComputeIODoubleBufferType doubleBuffer);
 
     /**
@@ -368,7 +367,7 @@ namespace MultiThreadEmit {
     std::string getCallPartitionComputeCFunction(std::string computeFctnName,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                 int blockSize, bool fifoInPlace, std::string stateStructParam,
+                                                 bool fifoInPlace, std::string stateStructParam,
                                                  ComputeIODoubleBufferType doubleBuffer,
                                                  std::string inputFIFOSuffix,
                                                  std::string outputFIFOSuffix,
@@ -390,18 +389,11 @@ namespace MultiThreadEmit {
      */
     std::vector<std::string> computeIODoubleBufferEmit(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                        std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                       std::pair<int, int> filterRate,
-                                                       std::string counterVarName,
-                                                       std::string indexVarName,
                                                        ComputeIODoubleBufferType doubleBuffer);
 
 
     std::vector<std::string> computeIODoubleBufferEmitHelper(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos,
-                                                             std::pair<int, int> filterRate,
-                                                             std::string counterVarName,
-                                                             std::string indexVarName,
                                                              ComputeIODoubleBufferType doubleBuffer,
-                                                             bool &openedCounterCheck, //This variable is modified inside the function.  It is also read.  It denotes if the downsample check had been previously emitted.  If it is emitted in this function, it will be set to true
                                                              bool input);
 
     /**
@@ -414,7 +406,7 @@ namespace MultiThreadEmit {
      * @param blockSize the size of the block (in samples) that are processed in each call to the function
      * @param indVarName the variable that specifies the index in the block that is being computed
      */
-    void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "");
+    void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster);
 
     //Checks that the only nodes that are in the I/O partition are ThreadCrossingFIFOs or subsystems
     bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
