@@ -13,6 +13,7 @@
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include "Passes/MultiThreadPasses.h"
 
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
                  roundCircularBufferToPowerOf2(true), circularBufferType(CircularBufferType::NO_EXTRA_LEN){
@@ -139,14 +140,6 @@ std::shared_ptr<Delay> Delay::createFromGraphML(int id, std::string name,
 }
 
 void Delay::propagateProperties(){
-    //The specified order for initial conditions is that the value at index[0] will be displayed first.
-    //This works directly if the oldest value (the one to be output next by the delay) is at index 0
-    //In other words, it works when earliestFirst is not true.
-    //If earliestFirst is true, the initial conditions should be flipped
-    if(earliestFirst) {
-        std::reverse(initCondition.begin(), initCondition.end());
-    }
-
     propagatePropertiesHelper();
 }
 
@@ -163,9 +156,7 @@ std::set<GraphMLParameter> Delay::graphMLParameters() {
 void Delay::emitGraphMLDelayParams(xercesc::DOMDocument *doc, xercesc::DOMElement *xmlNode) {
     GraphMLHelper::addDataNode(doc, xmlNode, "DelayLength", GeneralHelper::to_string(delayValue));
 
-    std::vector<NumericValue> initConds = getExportableInitConds();
-
-    GraphMLHelper::addDataNode(doc, xmlNode, "InitialCondition", NumericValue::toString(initConds));
+    GraphMLHelper::addDataNode(doc, xmlNode, "InitialCondition", NumericValue::toString(initCondition));
 }
 
 xercesc::DOMElement *
@@ -190,11 +181,8 @@ std::string Delay::labelStr() {
     std::string label = Node::labelStr();
 
     label += "\nFunction: " + typeNameStr() +
-             "\nDelayLength: " + GeneralHelper::to_string(delayValue);
-
-    std::vector<NumericValue> initConds = getExportableInitConds();
-
-    label += "\nInitialCondition: " + NumericValue::toString(initConds);
+             "\nDelayLength: " + GeneralHelper::to_string(delayValue) +
+             "\nInitialCondition: " + NumericValue::toString(initCondition);
 
     return label;
 }
@@ -231,19 +219,15 @@ void Delay::validate() {
         expectedSize = arraySize*inType.numberOfElements();
     }
 
-    if (delayValue != 0 && expectedSize != initCondition.size()){
+    std::vector<NumericValue> reshapedInitCond = getInitConditionsReshapedForConfig();
+    if (delayValue != 0 && expectedSize != reshapedInitCond.size()){
         throw std::runtime_error(ErrorHelpers::genErrorStr(
                 "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
                 "), Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
-                "), Init Condition Vector (" +
-                GeneralHelper::to_string(initCondition.size()) +
+                "), Reshaped Init Condition Vector (" +
+                GeneralHelper::to_string(reshapedInitCond.size()) +
                 ") does not match the expected initial condition length (" + GeneralHelper::to_string(expectedSize) +
                 ")", getSharedPointer()));
-    }
-
-    //TODO: Remove after updating FIFO delay absorption to handle earliest first
-    if(earliestFirst){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Standard Delay nodes do not currently support earliestFirst", getSharedPointer()));
     }
 
     //TODO: Add error check for extra length circular buffers in standard delay node
@@ -304,7 +288,7 @@ std::vector<Variable> Delay::getCStateVars() {
         }
 
         std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";
-        Variable var = Variable(varName, stateType, initCondition, false, true); //The initial condition was reversed from the input if earliestFirst is selected
+        Variable var = Variable(varName, stateType, getInitConditionsReshapedForConfig(), false, true); //The initial condition was reversed from the input if earliestFirst is selected
         cStateVar = var;
         //Complex variable will be made if needed by the design code based on the data type
         vars.push_back(var);
@@ -1087,84 +1071,64 @@ Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, s
     }
 }
 
-std::vector<NumericValue> Delay::getExportableInitConds() {
-    std::vector<NumericValue> initConds = getExportableInitCondsHelper();
-
-    //The specified order for initial conditions is that the value at index[0] will be displayed first.
-    //This works directly if the oldest value (the one to be output next by the delay) is at index 0
-    //In other words, it works when earliestFirst is not true.
-    //If earliestFirst is true, the initial conditions should be flipped
-    //We now need to reverse that flip
-    if(earliestFirst) {
-        std::reverse(initConds.begin(), initConds.end());
-    }
-
-    return initConds;
+bool Delay::canBreakBlockingDependency(int localSubBlockingLength){
+    return delayValue >= localSubBlockingLength;
 }
 
-std::vector<NumericValue> Delay::getExportableInitCondsHelper() {
-    int origArrayLen = delayValue;
-    if(allocateExtraSpace){
-        origArrayLen++;
+void Delay::specializeForBlocking(int localBlockingLength,
+                                  int localSubBlockingLength,
+                                  std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                  std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                  std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                  std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                  std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                  std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+    //TODO: Refactor?
+    if(localSubBlockingLength != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When specializing for blocking, currently expect the sub-blocking length to be 1.  This is consistent with inserting sub-blocking domains ", getSharedPointer()));
     }
 
-    //Need to undo any additional values inserted for handling circular buffers, the extra element, or supporting earliest first
-    //before emitting
+    int delayRemainder = delayValue%localBlockingLength;
+    int separateDelay = delayValue/localBlockingLength;
 
-    //Undo alternate circular buffer extra elements
-    std::vector<NumericValue> initCondsAfterCircularAlternateImplCorrection;
-    if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::DOUBLE_LEN){
-        //Copy one half of the initial conditions
-        for(unsigned long i = 0; i<getBufferLength()*getInputPort(0)->getDataType().numberOfElements(); i++){
-            initCondsAfterCircularAlternateImplCorrection.push_back(initCondition[i]);
+    if(delayValue<localBlockingLength){
+        //Just wrap the delay
+        Node::specializeForBlocking(localBlockingLength, localSubBlockingLength, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel, arcsWithDeferredBlockingExpansion);
+    }else {
+        if (delayRemainder > 0) {
+            //Create a new delay and move the remaining initial conditions to it
+
+            std::shared_ptr<Delay> leftoverDelay = splitDelay(nodesToAdd, arcsToAdd, separateDelay*localBlockingLength);
+
+            //Call the new delay's specialization function which will force wrapping.  This will set arcsWithDeferredBlockingExpansion for the arcs connected to the
+            leftoverDelay->specializeForBlocking(localBlockingLength, localSubBlockingLength, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel, arcsWithDeferredBlockingExpansion);
         }
-    }else if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
-        if(earliestFirst){
-            //Extra elements are at the end of the buffer, copy the first part
-            for(unsigned long i = 0; i<getBufferLength()*getInputPort(0)->getDataType().numberOfElements(); i++){
-                initCondsAfterCircularAlternateImplCorrection.push_back(initCondition[i]);
+
+        if (separateDelay > 0) {
+            //If the delay had to be split, the delay length was already adjusted to separateDelay*localBlockingLength;
+            //It now needs to be reduced to separateDelay with the arcs in and out expanded by localBlockingLength
+
+            //Need this delay configured to not be earliest first (ie. last first) for indexing in the blocking domains
+            //The delay should read from the front of the array, new values stored at the end
+            if(earliestFirst){
+                earliestFirst = false;
             }
-        }else{
-            //extra elements are at the start (and there are fifoLen-1 extra elements), copy the latter elements
-            for(unsigned long i = 0; i<getBufferLength()*getInputPort(0)->getDataType().numberOfElements(); i++){
-                initCondsAfterCircularAlternateImplCorrection.push_back(initCondition[i+(origArrayLen-1)*getInputPort(0)->getDataType().numberOfElements()]);
+
+            //Correct the initial conditions before changing the delay and datatype.  With !earliestFirst, initial conditions
+            //are in the standard order with the first value to be displayed in initConditions[0]
+            //When blocking, the resulting type will have values arranged in ascending order, which is the order that BlockingInput and BlockingOutput expect
+            delayValue = separateDelay;
+
+            //For the arcs into an out of the delay, mark them for dimension expansion by the local blocking length
+            std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+            std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
+            arcs.insert(outArcs.begin(), outArcs.end());
+            for(const std::shared_ptr<Arc> arc : arcs){
+                arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
             }
         }
-    }else{
-        initCondsAfterCircularAlternateImplCorrection = initCondition;
     }
-
-    //Undo circular buffer power of 2 roundup
-    std::vector<NumericValue> initCondsAfterCircularCorrection;
-    if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
-        //Undo extra elements for the circular buffer
-        int targetCount = getInputPort(0)->getDataType().numberOfElements() * origArrayLen;
-        for(int i = 0; i<targetCount; i++){
-            initCondsAfterCircularCorrection.push_back(initCondsAfterCircularAlternateImplCorrection[i]);
-        }
-    }else{
-        initCondsAfterCircularCorrection = initCondsAfterCircularAlternateImplCorrection;
-    }
-
-    std::vector<NumericValue> initConds;
-    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
-        //Remove the extra value for the extra space
-        int elements = getInputPort(0)->getDataType().numberOfElements();
-        if(earliestFirst){
-            //Remove from the beginning
-            initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin()+elements, initCondsAfterCircularCorrection.end());
-        }else{
-            //remove from the end
-            int initCondLen = initCondsAfterCircularCorrection.size()-elements;
-            initConds.insert(initConds.begin(), initCondsAfterCircularCorrection.begin(), initCondsAfterCircularCorrection.begin()+initCondLen);
-        }
-    }else{
-        initConds = initCondsAfterCircularCorrection;
-    }
-
-    return initConds;
 }
-
 
 void Delay::propagatePropertiesHelper() {
     //Check if broadcasting scalar initial condition is required
@@ -1180,72 +1144,7 @@ void Delay::propagatePropertiesHelper() {
         }
     }
 
-    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
-        //Need to add initial conditions for the extra elements
-        //It does not really matter as this extra element is only used by TappedDelay to pass the current value
-        int elements = getInputPort(0)->getDataType().numberOfElements();
-
-        std::vector<NumericValue> extraPosInit;
-        for(int i = 0; i<elements; i++){
-            extraPosInit.push_back(initCondition[i]);
-        }
-
-        if(earliestFirst){
-            //Insert initial conditions at the front (this is where the current value would go)
-            initCondition.insert(initCondition.begin(), extraPosInit.begin(), extraPosInit.end());
-        }else{
-            //Insert initial conditions at the end (this is where the current value would go)
-            initCondition.insert(initCondition.end(), extraPosInit.begin(), extraPosInit.end());
-        }
-    }
-
-    int origArrayLen = delayValue;
-    if(allocateExtraSpace){
-        origArrayLen++;
-    }
-
-    if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
-        //May need to add additional initial conditions when rounded up to a power of 2
-        int allocatedSize = getBufferLength()*getInputPort(0)->getDataType().numberOfElements();
-
-        //Will insert the extra elements at the end of the buffer.  Does not matter what they are since they will be overwritten
-        int initialCount = getInputPort(0)->getDataType().numberOfElements() * origArrayLen;
-
-        if(initialCount != initCondition.size()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected initial condition size when adding new initial values for circular buffer", getSharedPointer()));
-        }
-
-        for(unsigned long i = initialCount; i<allocatedSize; i++){
-            initCondition.push_back(NumericValue((long) 0));
-        }
-    }
-
-    if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::DOUBLE_LEN){
-        //Replicate all init conds
-        //Does not matter if earliest first or not, need 2 copies of the initial conditions
-        int initCondOrigSizeOrig = initCondition.size();
-        for(unsigned long i = 0; i<initCondOrigSizeOrig; i++){
-            initCondition.push_back(initCondition[i]);
-        }
-    }else if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
-        //Replicate some init conds
-        int addedElements = getInputPort(0)->getDataType().numberOfElements()*(origArrayLen-1);
-        if(earliestFirst){
-            //Extra space is at the end of the array.  Number of additional elements is delayLen-1 (+1 if allocate extra space)
-            for(unsigned long i = 0; i<addedElements; i++){
-                initCondition.push_back(initCondition[i]);
-            }
-        }else{
-            //Extra space is at the beginning of the array
-            std::vector<NumericValue> initCondTmp;
-            for(unsigned long i = 0; i<addedElements; i++){
-                initCondTmp.push_back(initCondition[initCondition.size()-1-addedElements+i]);
-            }
-            initCondTmp.insert(initCondTmp.end(), initCondition.begin(), initCondition.end());
-
-            initCondition = initCondTmp;
-        }
-    }
+    //Do not perform any modifications apart from expansion
 }
 
 int Delay::getBufferAllocatedLen() {
@@ -1294,4 +1193,152 @@ std::string Delay::getSecondWriteCheck(std::string firstIndex) {
         //never be used.  However, all the other positions are used by the wraparound.
         return "if(" + firstIndex + ">" + GeneralHelper::to_string(getCircBufferInitialIdx()) + "){";
     }
+}
+
+std::shared_ptr<Delay>
+Delay::splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                  int targetDelayLength) {
+    if(targetDelayLength > delayValue){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot split delay when target delay is > than current delay", getSharedPointer()));
+    }
+    if(targetDelayLength == delayValue){
+        //No splitting required.  Take no action
+        return nullptr;
+    }
+
+    DataType dt = getInputPort(0)->getDataType();
+    int subElementsPerElement = dt.numberOfElements();
+
+    //Split the delay
+    int delayToMove = delayValue - targetDelayLength;
+
+    //Create the new delay node
+    std::shared_ptr<Delay> leftoverDelay = NodeFactory::shallowCloneNode<Delay>(parent, this); //Create a copy of this node (so that we get config for free)
+    leftoverDelay->setName(leftoverDelay->getName() + "_splitLeftover");
+    if(!context.empty()){
+        leftoverDelay->setContext(context);
+        context[context.size()-1].getContextRoot()->addSubContextNode(context[context.size()-1].getSubContext(), leftoverDelay);
+    }
+    nodesToAdd.push_back(leftoverDelay);
+
+    //Configure this delay
+    delayValue = targetDelayLength;
+    //Reshape the initial conditions - remove the initial conditions that will be displayed later
+    //Initial conditions are now always in the standard DSP notation order where initCond[0] is displayed first
+    //So, remove from the back of the array (the later values)
+    initCondition.erase(initCondition.begin()+targetDelayLength*subElementsPerElement, initCondition.end());
+
+    //TODO: Configure the new delay node
+    leftoverDelay->delayValue = delayToMove;
+    //Keep the values at the end of the array
+    //Remove from the front
+    leftoverDelay->initCondition.erase(leftoverDelay->initCondition.begin(), leftoverDelay->initCondition.begin()+targetDelayLength*subElementsPerElement);
+
+    //Wire the delays
+    std::shared_ptr<Arc> origArc = *getInputPort(0)->getArcs().begin();
+    origArc->setDstPortUpdateNewUpdatePrev(leftoverDelay->getInputPortCreateIfNot(0));
+    std::shared_ptr<Arc> arc = Arc::connectNodes(leftoverDelay->getOutputPortCreateIfNot(0), getInputPort(0), origArc->getDataType(), origArc->getSampleTime());
+    arcsToAdd.push_back(arc);
+
+    return leftoverDelay;
+}
+
+std::vector<NumericValue> Delay::reverseInitConds(std::vector<NumericValue> &initConds) {
+    //std::reverse works as long as the datatype is scalar
+    //Reverse the order of the blocks but not the items in the blocks
+    DataType dt = getInputPort(0)->getDataType();
+    int subElementsPerElement = dt.numberOfElements();
+
+    std::vector<NumericValue> reversedInitCond;
+
+    for(int elementBase = initConds.size() - subElementsPerElement; elementBase >= 0; elementBase -= subElementsPerElement){
+        for(int subElement = 0; subElement<subElementsPerElement; subElement++){
+            reversedInitCond.push_back(initConds[elementBase + subElement]);
+        }
+    }
+
+    return reversedInitCond;
+}
+
+std::vector<NumericValue> Delay::getInitConditionsReshapedForConfig() {
+    std::vector<NumericValue> initCondReshaped = initCondition;
+
+    if(allocateExtraSpace && delayValue > 0){ //allocateExtraSpace only has an effect if the delay value > 0
+        //Need to add initial conditions for the extra elements
+        //It does not really matter as this extra element is only used by TappedDelay to pass the current value
+        int elements = getInputPort(0)->getDataType().numberOfElements();
+
+        std::vector<NumericValue> extraPosInit;
+        for(int i = 0; i<elements; i++){
+            extraPosInit.push_back(initCondReshaped[i]);
+        }
+
+        if(earliestFirst){
+            //Insert initial conditions at the front (this is where the current value would go)
+            initCondReshaped.insert(initCondReshaped.begin(), extraPosInit.begin(), extraPosInit.end());
+        }else{
+            //Insert initial conditions at the end (this is where the current value would go)
+            initCondReshaped.insert(initCondReshaped.end(), extraPosInit.begin(), extraPosInit.end());
+        }
+    }
+
+    int origArrayLen = delayValue;
+    if(allocateExtraSpace){
+        origArrayLen++;
+    }
+
+    if(delayValue > 0 && usesCircularBuffer() && roundCircularBufferToPowerOf2){
+        //May need to add additional initial conditions when rounded up to a power of 2
+        int allocatedSize = getBufferLength()*getInputPort(0)->getDataType().numberOfElements();
+
+        //Will insert the extra elements at the end of the buffer.  Does not matter what they are since they will be overwritten
+        int initialCount = getInputPort(0)->getDataType().numberOfElements() * origArrayLen;
+
+        if(initialCount != initCondReshaped.size()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected initial condition size when adding new initial values for circular buffer", getSharedPointer()));
+        }
+
+        for(unsigned long i = initialCount; i<allocatedSize; i++){
+            initCondReshaped.push_back(NumericValue((long) 0));
+        }
+    }
+
+    if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::DOUBLE_LEN){
+        //Replicate all init conds
+        //Does not matter if earliest first or not, need 2 copies of the initial conditions
+        int initCondOrigSizeOrig = initCondReshaped.size();
+        for(unsigned long i = 0; i<initCondOrigSizeOrig; i++){
+            initCondReshaped.push_back(initCondReshaped[i]);
+        }
+    }else if(delayValue > 0 && usesCircularBuffer() && circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
+        //Replicate some init conds
+        int addedElements = getInputPort(0)->getDataType().numberOfElements()*(origArrayLen-1);
+        if(earliestFirst){
+            //Extra space is at the end of the array.  Number of additional elements is delayLen-1 (+1 if allocate extra space)
+            for(unsigned long i = 0; i<addedElements; i++){
+                initCondReshaped.push_back(initCondReshaped[i]);
+            }
+        }else{
+            //Extra space is at the beginning of the array
+            std::vector<NumericValue> initCondTmp;
+            for(unsigned long i = 0; i<addedElements; i++){
+                initCondTmp.push_back(initCondReshaped[initCondReshaped.size()-1-addedElements+i]);
+            }
+            initCondTmp.insert(initCondTmp.end(), initCondReshaped.begin(), initCondReshaped.end());
+
+            initCondReshaped = initCondTmp;
+        }
+    }
+
+    //The specified order for initial conditions is that the value at index[0] will be displayed first.
+    //This works directly if the oldest value (the one to be output next by the delay) is at index 0
+    //In other words, it works when earliestFirst is not true.
+    //If earliestFirst is true, the initial conditions should be flipped
+    //We now need to reverse that flip
+    if(earliestFirst) {
+        std::vector<NumericValue> reversedInitCond = reverseInitConds(initCondReshaped);
+        initCondReshaped = reversedInitCond;
+    }
+
+    return initCondReshaped;
 }

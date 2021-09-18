@@ -24,6 +24,18 @@ std::shared_ptr<BlockingDomain> BlockingHelpers::findBlockingDomain(std::shared_
     return GraphAlgs::findDomain<BlockingDomain>(node);
 }
 
+bool BlockingHelpers::isOutsideBlockingDomain(std::shared_ptr<BlockingDomain> a, std::shared_ptr<BlockingDomain> b){
+    return GraphAlgs::isOutsideDomain(a, b);
+}
+
+bool BlockingHelpers::isBlockingDomainOrOneLvlNested(std::shared_ptr<BlockingDomain> a, std::shared_ptr<BlockingDomain> b){
+    return GraphAlgs::isDomainOrOneLvlNested(a, b);
+}
+
+bool BlockingHelpers::areWithinOneBlockingDomainOfEachOther(std::shared_ptr<BlockingDomain> a, std::shared_ptr<BlockingDomain> b){
+    return GraphAlgs::areWithinOneDomainOfEachOther(a, b);
+}
+
 std::vector<std::shared_ptr<BlockingDomain>> BlockingHelpers::findBlockingDomainStack(std::shared_ptr<Node> node){
     std::vector<std::shared_ptr<BlockingDomain>> stack;
 

@@ -141,7 +141,7 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
 
                     //NOTE: The number of initial conditions can be expanded beyond the delay amount if circular buffer is used
                     //Use getExportableInitConds to get the intiail conditions without extra elements
-                    std::vector<NumericValue> delayInitConds = srcDelay->getExportableInitConds();
+                    std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();;
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
                     int numberInitCondsInSrc = srcDelay->getDelayValue() * elementsPerInput;
 
@@ -269,7 +269,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                     auto it = fifoOutputArcs.begin();
                     std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                     std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode);
-                    longestPostfix = dstDelay->getExportableInitConds();
+                    longestPostfix = dstDelay->getInitCondition();
 
                     //NOTE: The number of initial conditions can be expanded beyond the delay amount if circular buffer is used
                     //Use get getExportableInitConds to avoid added initial conditions for circular buffer or extra array element
@@ -283,7 +283,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                         std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                         std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode); //We already checked that this cast could be made in the loop above
 
-                        longestPostfix = GeneralHelper::longestPostfix(longestPostfix, dstDelay->getExportableInitConds());
+                        longestPostfix = GeneralHelper::longestPostfix(longestPostfix, dstDelay->getInitCondition());
 
                         if(longestPostfix.empty()){
                             //The longest postfix is empty, no need to keep searching, we can't merge
@@ -316,7 +316,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                     std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                     std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode); //We already checked that this cast could be made in the loop above
 
-                    std::vector<NumericValue> delayInitConditions = dstDelay->getExportableInitConds();
+                    std::vector<NumericValue> delayInitConditions = dstDelay->getInitCondition();
                     if(delayInitConditions.size() < numToAbsorb){
                         throw std::runtime_error(ErrorHelpers::genErrorStr("Found a delay with an unexpected number of initial conditions durring FIFO delay absorption", dstDelay));
                     }else if(delayInitConditions.size() == numToAbsorb){
@@ -351,7 +351,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                         foundPartial = true;
 
                         //Update the delay initial condition and delay value
-                        std::vector<NumericValue> delayInitConds = dstDelay->getExportableInitConds();
+                        std::vector<NumericValue> delayInitConds = dstDelay->getInitCondition();
                         //Remove from the tail of the initial conditions (fifo is behind it)
                         delayInitConds.erase(delayInitConds.end()-numToAbsorb, delayInitConds.end());
                         dstDelay->setInitCondition(delayInitConds);

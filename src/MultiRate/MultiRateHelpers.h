@@ -43,7 +43,7 @@ namespace MultiRateHelpers {
     /**
      * @brief Check if ClockDomain a is outside of ClockDomain b
      *
-     * ClockDomain a is outside of ClockDomain b if ClockDomain b is not eqivalent to or nested under ClockDomain a
+     * ClockDomain a is outside of ClockDomain b if ClockDomain b is not equivalent to or nested under ClockDomain a
      *
      * Either ClockDomain a or b can be nullptr
      *

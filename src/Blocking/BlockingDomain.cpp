@@ -172,11 +172,13 @@ void BlockingDomain::validate() {
             //BlockingBoundary nodes verify their connections are into/out of the Blocking domain as part of their validation functions
         }else{
             //All connections should be to nodes inside of the blocking domain, including those to BlockingBoundary nodes which should also be in the blocking domain
+            //Note, can also be from nested blocking domain
             std::set<std::shared_ptr<Arc>> inArcs = node->getInputArcs();
             for(const std::shared_ptr<Arc> &inArc : inArcs){
                 std::shared_ptr<Node> srcNode = inArc->getSrcPort()->getParent();
                 std::shared_ptr<BlockingDomain> srcDomain = BlockingHelpers::findBlockingDomain(srcNode);
-                if(srcDomain != getSharedPointer()){
+                std::shared_ptr<BlockingDomain> thisAsBlockingDomain = std::dynamic_pointer_cast<BlockingDomain>(getSharedPointer());
+                if(BlockingHelpers::isOutsideBlockingDomain(srcDomain, thisAsBlockingDomain)){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Node in BlockingDomain (" + node->getFullyQualifiedName() + ") is connected to node outside of BlockingDomain (" + srcNode->getFullyQualifiedName() + ")", getSharedPointer()));
                 }
             }
@@ -185,7 +187,8 @@ void BlockingDomain::validate() {
             for(const std::shared_ptr<Arc> &outArc : outArcs){
                 std::shared_ptr<Node> dstNode = outArc->getDstPort()->getParent();
                 std::shared_ptr<BlockingDomain> dstDomain = BlockingHelpers::findBlockingDomain(dstNode);
-                if(dstDomain != getSharedPointer()){
+                std::shared_ptr<BlockingDomain> thisAsBlockingDomain = std::dynamic_pointer_cast<BlockingDomain>(getSharedPointer());
+                if(BlockingHelpers::isOutsideBlockingDomain(dstDomain, thisAsBlockingDomain)){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Node in BlockingDomain (" + node->getFullyQualifiedName() + ") is connected to node outside of BlockingDomain (" + dstNode->getFullyQualifiedName() + ")", getSharedPointer()));
                 }
             }

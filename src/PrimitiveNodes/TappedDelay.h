@@ -119,8 +119,6 @@ public:
 
     void propagateProperties() override;
 
-    std::vector<NumericValue> getExportableInitConds() override;
-
     //The following functions are only overriden for oldest first circular buffer implementions
     //In this case, the cicular buffer pointer becomes loacated to the insertion point in the array.  It is initialized to be in the middle of the array.  Indexing is performed by subtracting from the pointer and does not handle the wraparound well when not double buffered
     //If delayLen-1, it is positioned at delayLen-1
@@ -131,7 +129,7 @@ public:
 
     int getCircBufferInitialIdx() override;
 
-    //TODO: add specialization for
+    std::shared_ptr<Delay> splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength) override;
 };
 
 /*! @} */

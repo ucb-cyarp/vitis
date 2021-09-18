@@ -27,62 +27,16 @@ std::shared_ptr<ClockDomain> MultiRateHelpers::findClockDomain(std::shared_ptr<N
 }
 
 bool MultiRateHelpers::isOutsideClkDomain(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
-
-    //Check if a is outside of clock domain b
-
-    //Traverse up a's ClockDomain hierarchy and see if b shows up
-
-    std::shared_ptr<ClockDomain> cursor = a;
-
-    bool done = false;
-
-    while(!done){
-        if(cursor == b){
-            //Found a place in the hierarchy of a where b appears, it is in
-            //Need to check this before nullptr since a and b can either or both be nullptrs.
-            //If B is a nullptr, a is nested under it as nullptr represents the base clock domain
-            return false;
-        }else if(cursor == nullptr) {
-            //Already convered the equivalency check which handles the case wben b is nullptr
-            //At this point, the entire clock domain hierarchy of a has been traversed
-            done = true;
-        }else{
-            //Traverse up the hierarchy
-            cursor = findClockDomain(cursor); //When run on a clock domain node, this find the clock domain it is nested in
-        }
-    }
-
-    //Did not find clock domain b in the clock domain hierarchy of a, so a is outside of b
-    return true;
+    return GraphAlgs::isOutsideDomain(a, b);
 }
 
 bool MultiRateHelpers::isClkDomainOrOneLvlNested(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
-    //Check if ClockDomain a is equal to ClockDomain b or is a ClockDomain directly nested within clock domain b (one level below)
-    if(a == b){
-        return true;
-    }
-
-    if(a != nullptr){
-        std::shared_ptr<ClockDomain> oneLvlUp = findClockDomain(a); //When run on the clock domain nodes, this finds the clock domain it is nested under
-        return oneLvlUp == b;
-    }
-
-    return false;
+    return GraphAlgs::isDomainOrOneLvlNested(a, b);
 }
 
 bool
 MultiRateHelpers::areWithinOneClockDomainOfEachOther(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
-    if(a == b){
-        return true;
-    }
-
-    //We do not actually need to check if a or b are nullptr because findClockDomain will return nullptr
-    //This will result in a redundant check
-    std::shared_ptr<ClockDomain> outerA = findClockDomain(a);
-    std::shared_ptr<ClockDomain> outerB = findClockDomain(b);
-
-    return outerA == outerB || a == outerB || outerA == b;
-
+    return GraphAlgs::areWithinOneDomainOfEachOther(a, b);
 }
 
 std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputPort>>> MultiRateHelpers::validateRateChangeInput_SetMasterRates(std::shared_ptr<RateChange> rc, bool setMasterRates) {

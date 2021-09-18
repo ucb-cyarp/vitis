@@ -366,6 +366,94 @@ namespace GraphAlgs {
         return domain;
     }
 
+    /**
+     * @brief Check if Domain a is outside of Domain b
+     *
+     * Domain a is outside of Domain b if Domain b is not equivalent to or nested under Domain a
+     *
+     * Either Domain a or b can be nullptr
+     *
+     * @param a
+     * @param b
+     * @return true if Domain a is outside of Domain b
+     */
+    template<typename DomainType>
+    bool isOutsideDomain(std::shared_ptr<DomainType> a, std::shared_ptr<DomainType> b){
+        //Check if a is outside of domain b
+
+        //Traverse up a's Domain hierarchy and see if b shows up
+
+        std::shared_ptr<DomainType> cursor = a;
+
+        bool done = false;
+
+        while(!done){
+            if(cursor == b){
+                //Found a place in the hierarchy of a where b appears, it is in
+                //Need to check this before nullptr since a and b can either or both be nullptrs.
+                //If B is a nullptr, a is nested under it as nullptr represents the base clock domain
+                return false;
+            }else if(cursor == nullptr) {
+                //Already covered the equivalency check which handles the case when b is nullptr
+                //At this point, the entire clock domain hierarchy of a has been traversed
+                done = true;
+            }else{
+                //Traverse up the hierarchy
+                cursor = findDomain<DomainType>(cursor); //When run on a  domain node, this find the clock domain it is nested in
+            }
+        }
+
+        //Did not find domain b in the clock domain hierarchy of a, so a is outside of b
+        return true;
+    }
+
+    /**
+     * @brief Check if Domain a is equal to Domain b or is a Domain directly nested within domain b (one level below)
+     * @param a
+     * @param b
+     * @return true if Domain a is equal to Domain b or is a Domain directly nested within domain b (one level below)
+     */
+    template<typename DomainType>
+    bool isDomainOrOneLvlNested(std::shared_ptr<DomainType> a, std::shared_ptr<DomainType> b){
+        //Check if Domain a is equal to Domain b or is a Domain directly nested within domain b (one level below)
+        if(a == b){
+            return true;
+        }
+
+        if(a != nullptr){
+            std::shared_ptr<DomainType> oneLvlUp = findDomain<DomainType>(a); //When run on the clock domain nodes, this finds the clock domain it is nested under
+            return oneLvlUp == b;
+        }
+
+        return false;
+    }
+
+    /**
+     * @brief Checks if the domains are within one level of each other
+     *
+     * Ie. if Domain a and Domain b are the same.
+     *     if Domain a's outer domain is the outer domain of b
+     *     if Domain a's outer domain is b
+     *     if Domain b's outer domain is a
+     *
+     * @param a
+     * @param b
+     * @return
+     */
+    template<typename DomainType>
+    bool areWithinOneDomainOfEachOther(std::shared_ptr<DomainType> a, std::shared_ptr<DomainType> b){
+        if(a == b){
+            return true;
+        }
+
+        //We do not actually need to check if a or b are nullptr because findClockDomain will return nullptr
+        //This will result in a redundant check
+        std::shared_ptr<DomainType> outerA = findDomain<DomainType>(a);
+        std::shared_ptr<DomainType> outerB = findDomain<DomainType>(b);
+
+        return outerA == outerB || a == outerB || outerA == b;
+    }
+
 };
 
 /*! @} */

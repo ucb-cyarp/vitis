@@ -45,6 +45,41 @@ namespace BlockingHelpers {
     std::shared_ptr<BlockingDomain> findBlockingDomain(std::shared_ptr<Node> node);
 
     /**
+     * @brief Check if BlockingDomain a is outside of BlockingDomain b
+     *
+     * BlockingDomain a is outside of BlockingDomain b if BlockingDomain b is not equivalent to or nested under BlockingDomain a
+     *
+     * Either BlockingDomain a or b can be nullptr
+     *
+     * @param a
+     * @param b
+     * @return true if BlockingDomain a is outside of BlockingDomain b
+     */
+    bool isOutsideBlockingDomain(std::shared_ptr<BlockingDomain> a, std::shared_ptr<BlockingDomain> b);
+
+    /**
+     * @brief Check if BlockingDomain a is equal to BlockingDomain b or is a BlockingDomain directly nested within clock domain b (one level below)
+     * @param a
+     * @param b
+     * @return true if BlockingDomain a is equal to BlockingDomain b or is a BlockingDomain directly nested within clock domain b (one level below)
+     */
+    bool isBlockingDomainOrOneLvlNested(std::shared_ptr<BlockingDomain> a, std::shared_ptr<BlockingDomain> b);
+
+    /**
+     * @brief Checks if the clock domains are within one level of each other
+     *
+     * Ie. if BlockingDomain a and BlockingDomain b are the same.
+     *     if BlockingDomain a's outer domain is the outer domain of b
+     *     if BlockingDomain a's outer domain is b
+     *     if BlockingDomain b's outer domain is a
+     *
+     * @param a
+     * @param b
+     * @return
+     */
+    bool areWithinOneBlockingDomainOfEachOther(std::shared_ptr<BlockingDomain> a, std::shared_ptr<BlockingDomain> b);
+
+    /**
      * @brief Find the blocking domain hierarchy that this node is a part of.
      *
      * The first entry is the outer blocking domain and the last entry is the most specific blocking domain this node is a part of

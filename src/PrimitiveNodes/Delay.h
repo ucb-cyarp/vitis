@@ -89,6 +89,23 @@ protected:
      */
     Delay(std::shared_ptr<SubSystem> parent, Delay* orig);
 
+    /**
+     * @brief Reverses init conditions, primarily used when handling earliest first.
+     *
+     * Is aware of non-scalar types and
+     *
+     * @param Initial conditions to reverse (does not use the member variable to allow other modifications to initial conditions for allocation additional space)
+     * @return Returns intitial conditions reversed
+     */
+    std::vector<NumericValue> reverseInitConds(std::vector<NumericValue> &initConds);
+
+    /**
+     * @brief There are several different options for the delay including earliestFirst, allocate extra space, round up allocation, ...
+     * Each of these options requires initial conditions to be re-shaped when
+     * @return
+     */
+    std::vector<NumericValue> getInitConditionsReshapedForConfig();
+
 public:
     //====Getters/Setters====
     int getDelayValue() const;
@@ -225,10 +242,23 @@ public:
     bool usesCircularBuffer();
 
     /**
-     * @brief This function returns initial conditions without modifications for circular buffers or extra element, or reversing
+     * @brief The delay can break a sub-blocking dependency if the delay is >= the sub-blocking length
+     *
+     * If the delay is > sub-blocking length & is not a multiple of the sub-blocking length, it is split into 2 delays
+     *
+     * @param localSubBlockingLength
      * @return
      */
-    virtual std::vector<NumericValue> getExportableInitConds();
+    bool canBreakBlockingDependency(int localSubBlockingLength) override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
 
 protected:
     void decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
@@ -247,8 +277,6 @@ protected:
 
     void assignInputToBuffer(std::string insertPosition, std::vector<std::string> &cStatementQueue);
     void assignInputToBuffer(CExpr src, std::string insertPosition, bool imag, std::vector<std::string> &cStatementQueue);
-
-    std::vector<NumericValue> getExportableInitCondsHelper();
 
     /**
      * @brief Split from propagateProperties so the same logic can be used in both the Delay and TappedDelay nodes.
@@ -273,6 +301,20 @@ protected:
      * @return
      */
     std::string getSecondWriteCheck(std::string firstIndex);
+
+    /**
+     * @brief Splits a delay into 2 nodes.
+     *
+     * The given node is adjusted to the targetDelayLength.  A new delay node is created with the remaining delay.
+     *
+     * New delay is created before the current delay
+     *
+     * @param nodesToAdd
+     * @param arcsToAdd
+     * @param targetDelayLength
+     * @return a pointer to the new delay which was created.  nullptr if no new delay was created
+     */
+    virtual std::shared_ptr<Delay> splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength);
 };
 
 /*! @} */

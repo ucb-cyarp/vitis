@@ -371,11 +371,6 @@ bool TappedDelay::hasInternalFanout(int inputPort, bool imag) {
     return Node::hasInternalFanout(inputPort, imag);
 }
 
-std::vector<NumericValue> TappedDelay::getExportableInitConds() {
-    //Do not reverse initial conditions in TappedDelay
-    return getExportableInitCondsHelper();
-}
-
 void TappedDelay::propagateProperties() {
     //Do not reverse initial conditions in TappedDelay
     propagatePropertiesHelper();
@@ -462,4 +457,8 @@ int TappedDelay::getCircBufferInitialIdx() {
         return Delay::getCircBufferInitialIdx();
     }
 
+}
+
+std::shared_ptr<Delay> TappedDelay::splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength){
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot split tapped delay", getSharedPointer()));
 }
