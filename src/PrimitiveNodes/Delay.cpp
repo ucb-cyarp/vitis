@@ -109,6 +109,11 @@ void Delay::populatePropertiesFromGraphML(std::shared_ptr<Delay> node, std::stri
 
     node->setInitCondition(initialConds);
 
+    //Note: Simulink initial conditions for TappedDelay are always presented in the same order, regardless of the
+    //      setting of earliestFirst.  Internally, if earliestFirst is true, we reverse the order of the provided initial conditions.
+    //      To preserve compatibility with simulink, the initial conditions will be reversed during import if earliestFirst is true.
+    //      Done in TappedDelay class.
+
     //The following are parameters used for TappedDelay, which is an extension of Delay.  They are set to default values for standard delays and are not saved/imported for standard delays.
     //These defaults are overwritten in TappedDelay import and are also exported by TappedDelay.
     node->earliestFirst = false;

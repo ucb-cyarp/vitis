@@ -53,6 +53,11 @@ TappedDelay::createFromGraphML(int id, std::string name, std::map<std::string, s
             std::string orderStr = dataKeyValueMap.at("DelayOrder");
             if (orderStr == "Newest") {
                 newNode->earliestFirst = true;
+                //Note: Simulink initial conditions for TappedDelay are always presented in the same order, regardless of the
+                //      setting of earliestFirst.  Internally, if earliestFirst is true, we reverse the order of the provided initial conditions.
+                //      To preserve compatibility with simulink, the initial conditions will be reversed during import if earliestFirst is true.
+                newNode->initCondition = newNode->reverseInitConds(newNode->initCondition);
+
             } else if (orderStr == "Oldest") {
                 newNode->earliestFirst = false;
             } else {
