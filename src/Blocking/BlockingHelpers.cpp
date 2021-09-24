@@ -52,7 +52,7 @@ std::vector<std::shared_ptr<BlockingDomain>> BlockingHelpers::findBlockingDomain
 }
 
 std::vector<int> BlockingHelpers::blockingDomainDimensionReduce(std::vector<int> outerDimensions, int subBlockingLength){
-    int outerDim = outerDimensions[outerDimensions.size() - 1];
+    int outerDim = outerDimensions[0];
     if(subBlockingLength>outerDim){
         throw std::runtime_error(ErrorHelpers::genErrorStr("sub-blocking length must be less than the outer dimension"));
     }

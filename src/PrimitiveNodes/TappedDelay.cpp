@@ -82,7 +82,12 @@ TappedDelay::createFromGraphML(int id, std::string name, std::map<std::string, s
 }
 
 bool TappedDelay::hasCombinationalPath() {
-    return allocateExtraSpace;
+    if(transactionBlockSize == 1){
+        return allocateExtraSpace;
+    }else{
+        //The block size is at least 2.  The output is dependent on the input (at least the first entry if delay = 1).
+        return true;
+    }
 }
 
 std::set<GraphMLParameter> TappedDelay::graphMLParameters() {
@@ -154,6 +159,16 @@ void TappedDelay::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Requires a Delay of at least 1", getSharedPointer()));
     }
 
+    //For now, we will assume that, for block sizes > 1, circular buffers are being used with double array.  earliestFirst=false
+    //allocation.
+    //TODO: Implement other variants
+    if(transactionBlockSize > 1 && (!usesCircularBuffer() || circularBufferType != CircularBufferType::DOUBLE_LEN)){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - With Block Size > 1, only circular buffers with double buffer length are currently supported", getSharedPointer()));
+    }
+    if(transactionBlockSize > 1 && earliestFirst){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - With Block Size > 1, earliestFirst is not supported", getSharedPointer()));
+    }
+
     //Check that input port and the output port have the same type
     DataType outType = getOutputPort(0)->getDataType();
     DataType inType = getInputPort(0)->getDataType();
@@ -176,6 +191,10 @@ void TappedDelay::validate() {
         if(rstType.isComplex()){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Async Reset Ports Should be A Real Type", getSharedPointer()));
         }
+
+        if(transactionBlockSize>1){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Async Reset Not Supported with Block Size > 1", getSharedPointer()));
+        }
     }
 
     if(outTypeDim1 != inTypeDim1){
@@ -190,17 +209,25 @@ void TappedDelay::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Output must be the length of the delay (+1 if current value passed)", getSharedPointer()));
     }
 
+    //Outer dimension of output type should be the block length (unless block length = 1)
+    if(transactionBlockSize > 1){
+        std::vector<int> outDim = outType.getDimensions();
+        if(outDim[0] != transactionBlockSize){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - Output Outer Dimension Should Equal Block Length when Block Length > 1", getSharedPointer()));
+        }
+    }
+
     if(usesCircularBuffer()){
-        int expectedInitCondSize = getBufferAllocatedLen()*inType.numberOfElements();
-        int initConditionSize = initCondition.size();
+        int expectedInitCondSize = getBufferAllocatedLen()*inType.numberOfElements()/transactionBlockSize; //Input should already be scaled by the block size at this point
+        int initConditionSize = getInitConditionsReshapedForConfig().size();
         if (initConditionSize != expectedInitCondSize) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - TappedDelay - Number of initial conditions does not match the allocated size of the circular buffer",
                     getSharedPointer()));
         }
     }else {
-        int expectedInitCondSize = outType.numberOfElements();
-        int initConditionSize = initCondition.size();
+        int expectedInitCondSize = outType.numberOfElements()/transactionBlockSize;
+        int initConditionSize = getInitConditionsReshapedForConfig().size();
         if (initConditionSize != expectedInitCondSize) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - TappedDelay - Number of initial conditions must match the number of elements in the output when operating in shift register mode",
@@ -213,156 +240,193 @@ CExpr
 TappedDelay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                        bool imag) {
 
-    if(usesCircularBuffer()){
-        //Need to pass the current value through if requested.  It is inserted into the extra slot
-        //Instead of inserting from the next state variable, we are inserting from the input (see below)
-        if(allocateExtraSpace) {
-            std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
-            int srcOutPortNum = srcPort->getPortNum();
-            std::shared_ptr<Node> srcNode = srcPort->getParent();
+    if(transactionBlockSize == 1) {
+        if (usesCircularBuffer()) {
+            //Need to pass the current value through if requested.  It is inserted into the extra slot
+            //Instead of inserting from the next state variable, we are inserting from the input (see below)
+            if (allocateExtraSpace) {
+                std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+                int srcOutPortNum = srcPort->getPortNum();
+                std::shared_ptr<Node> srcNode = srcPort->getParent();
 
-            CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+                CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
-            //Reset buffer here if reset pulled
-            //Also reset pointer locations so that initial state is properly aligned
-            bool hasRst = inputPorts.size()>1;
-            if(hasRst){
-                std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
-                int rstOutPortNum = rstPort->getPortNum();
-                std::shared_ptr<Node> rstNode = rstPort->getParent();
-                CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
+                //Reset buffer here if reset pulled
+                //Also reset pointer locations so that initial state is properly aligned
+                bool hasRst = inputPorts.size() > 1;
+                if (hasRst) {
+                    std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
+                    int rstOutPortNum = rstPort->getPortNum();
+                    std::shared_ptr<Node> rstNode = rstPort->getParent();
+                    CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
 
-                //Emit the reset check
-                cStatementQueue.push_back("if(" + rstExpr.getExpr() + "){");
-                //Reset the state vars
-                std::vector<std::string> bufferRst = cStateVar.genReset();
-                cStatementQueue.insert(cStatementQueue.end(), bufferRst.begin(), bufferRst.end());
-                std::vector<std::string> offsetRst = circularBufferOffsetVar.genReset();
-                cStatementQueue.insert(cStatementQueue.end(), offsetRst.begin(), offsetRst.end());
-                cStatementQueue.push_back("}else{");
-                //Else, perform the standard emit where the current input is pulled into the buffer
+                    //Emit the reset check
+                    cStatementQueue.push_back("if(" + rstExpr.getExpr() + "){");
+                    //Reset the state vars
+                    std::vector<std::string> bufferRst = cStateVar.genReset();
+                    cStatementQueue.insert(cStatementQueue.end(), bufferRst.begin(), bufferRst.end());
+                    std::vector<std::string> offsetRst = circularBufferOffsetVar.genReset();
+                    cStatementQueue.insert(cStatementQueue.end(), offsetRst.begin(), offsetRst.end());
+                    cStatementQueue.push_back("}else{");
+                    //Else, perform the standard emit where the current input is pulled into the buffer
+                }
+
+                //For both the earliest first and oldest first versions of tapped delay, the circular buffer is the location to write into
+                std::string insertPosition = circularBufferOffsetVar.getCVarName(false);
+
+                //The function should handle the case where where circular buffers with extra elements are in use
+                assignInputToBuffer(inputExpr, insertPosition, imag, cStatementQueue);
+
+                if (hasRst) {
+                    //Close the reset scope
+                    cStatementQueue.push_back("}");
+                }
             }
 
-            //For both the earliest first and oldest first versions of tapped delay, the circular buffer is the location to write into
-            std::string insertPosition = circularBufferOffsetVar.getCVarName(false);
-
-            //The function should handle the case where where circular buffers with extra elements are in use
-            assignInputToBuffer(inputExpr, insertPosition, imag, cStatementQueue);
-
-            if(hasRst){
-                //Close the reset scope
-                cStatementQueue.push_back("}");
+            //Return the variable
+            int fifoLen = delayValue;
+            if (allocateExtraSpace) {
+                fifoLen++;
             }
+
+            if (circularBufferType == CircularBufferType::NO_EXTRA_LEN) {
+                if (earliestFirst) {
+                    //The most recent value is at the circular buffer cursor position and that is what should be presented first
+                    return CExpr(cStateVar.getCVarName(imag), getBufferLength(),
+                                 circularBufferOffsetVar.getCVarName(false));
+                } else {
+                    //The most revent value is in the circular buffer cursor position.  However, we want to present the oldest value first
+                    //Even though this says there is no extra length allocated, the allocated size can be rounded up to a power of 2.
+                    //We want to return the current cursor position - (fifo len -1).  However, we want to avoid wraparound.
+                    //Note: 0%3=0, (2^8-1)%3 = 255%3 = 0.  So, unless the mod is by a power of 2, we cannot simply live with the wrap
+                    //We, however, can add the buffer length again.
+
+                    //Get an unsigned type that can work with 2x the max index
+                    int numBitsReq = GeneralHelper::numIntegerBits(getBufferLength() * 2 - 1, false);
+                    DataType offsetDt = circularBufferOffsetVar.getDataType();
+                    offsetDt.setTotalBits(numBitsReq);
+                    offsetDt = offsetDt.getCPUStorageType();
+
+                    return CExpr(cStateVar.getCVarName(imag), getBufferLength(),
+                                 "((" + offsetDt.toString(DataType::StringStyle::C, false, false) + ")"
+                                 + circularBufferOffsetVar.getCVarName(false) + "+" +
+                                 GeneralHelper::to_string(getBufferLength() - (fifoLen - 1)) +
+                                 ")");
+                }
+            } else {
+                if (earliestFirst) {
+                    //The returned array is simply the allocated array starting at the current offset of the circular buffer
+                    return CExpr(
+                            "(" + cStateVar.getCVarName(imag) + "+" + circularBufferOffsetVar.getCVarName(false) + ")",
+                            CExpr::ExprType::ARRAY);
+                } else {
+                    return CExpr("(" + cStateVar.getCVarName(imag) + "+" +
+                                 circularBufferOffsetVar.getCVarName(false) + "-" +
+                                 GeneralHelper::to_string(fifoLen - 1) + ")", CExpr::ExprType::ARRAY);
+                }
+            }
+        } else {
+            //We need to pass the current value through if requested
+            if (allocateExtraSpace) {
+                std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+                int srcOutPortNum = srcPort->getPortNum();
+                std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+                CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+
+                //Reset buffer here if reset pulled
+                bool hasRst = inputPorts.size() > 1;
+                if (hasRst) {
+                    std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
+                    int rstOutPortNum = rstPort->getPortNum();
+                    std::shared_ptr<Node> rstNode = rstPort->getParent();
+                    CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
+
+                    //Emit the reset check
+                    cStatementQueue.push_back("if(" + rstExpr.getExpr() + "){");
+                    //Reset the state vars
+                    std::vector<std::string> bufferRst = cStateVar.genReset();
+                    cStatementQueue.insert(cStatementQueue.end(), bufferRst.begin(), bufferRst.end());
+                    cStatementQueue.push_back("}else{");
+                    //Else, perform the standard emit where the current input is pulled into the buffer
+                }
+
+                //It is possible for the input to be a vector, emit a for loop if nessasary
+                DataType inputDT = getInputPort(0)->getDataType();
+
+                //=== Open for Loop ===
+                std::vector<std::string> forLoopIndexVars;
+                std::vector<std::string> forLoopClose;
+                if (!inputDT.isScalar()) {
+                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                            EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+
+                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                    forLoopIndexVars = std::get<1>(forLoopStrs);
+                    forLoopClose = std::get<2>(forLoopStrs);
+
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+                }
+
+                //Because there is a minimum delay of 1, the state variable has at least 2 elements (and can be dereferenced)
+                std::string assignTo = cStateVar.getCVarName(imag) +
+                                       (earliestFirst ? "[0]" : "[" + GeneralHelper::to_string(delayValue) +
+                                                                "]"); //Note not delayValue-1 because the array was extended by 1
+
+                std::string assignToDeref =
+                        assignTo + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
+                std::vector<std::string> emptyArr;
+                std::string assignFromDeref = inputExpr.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars,
+                                                                       true);
+
+                cStatementQueue.push_back(assignToDeref + " = " + assignFromDeref + ";");
+
+                //=== Close for Loop ===
+                if (!inputDT.isScalar()) {
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+                }
+
+                if (hasRst) {
+                    //Close the reset scope
+                    cStatementQueue.push_back("}");
+                }
+            }
+
+            //Return the variable without any dereferencing
+            return CExpr(cStateVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+        }
+    }else{
+        //For now, we will assume that, for block sizes > 1, circular buffers are being used with double array.  earliestFirst=false
+        //allocation.
+        //TODO: Implement other variants
+        if(earliestFirst || !usesCircularBuffer() || circularBufferType != CircularBufferType::DOUBLE_LEN){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - With Block Size > 1, only circular buffers with double buffer length are currently supported", getSharedPointer()));
         }
 
-        //Return the variable
-        int fifoLen = delayValue;
-        if(allocateExtraSpace){
-            fifoLen++;
+        //Block size > 1, need to ingest the input first
+        std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
+        int srcOutPortNum = srcPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcPort->getParent();
+
+        CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
+
+        //Reset buffer here if reset pulled
+        //Also reset pointer locations so that initial state is properly aligned
+        bool hasRst = inputPorts.size() > 1;
+        if(hasRst){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("TappedDelay with sub-blocking does not currently support reset inputs", getSharedPointer()));
         }
 
-        if(circularBufferType == CircularBufferType::NO_EXTRA_LEN) {
-            if(earliestFirst) {
-                //The most recent value is at the circular buffer cursor position and that is what should be presented first
-                return CExpr(cStateVar.getCVarName(imag), getBufferLength(),
-                             circularBufferOffsetVar.getCVarName(false));
-            }else{
-                //The most revent value is in the circular buffer cursor position.  However, we want to present the oldest value first
-                //Even though this says there is no extra length allocated, the allocated size can be rounded up to a power of 2.
-                //We want to return the current cursor position - (fifo len -1).  However, we want to avoid wraparound.
-                //Note: 0%3=0, (2^8-1)%3 = 255%3 = 0.  So, unless the mod is by a power of 2, we cannot simply live with the wrap
-                //We, however, can add the buffer length again.
+        //Write to the location listed by the output buffer
+        std::string insertPosition = circularBufferOffsetVar.getCVarName(false);
 
-                //Get an unsigned type that can work with 2x the max index
-                int numBitsReq = GeneralHelper::numIntegerBits(getBufferLength()*2-1, false);
-                DataType offsetDt = circularBufferOffsetVar.getDataType();
-                offsetDt.setTotalBits(numBitsReq);
-                offsetDt = offsetDt.getCPUStorageType();
+        //The function should handle the case where circular buffers with extra elements are in use
+        assignInputToBuffer(inputExpr, insertPosition, imag, cStatementQueue);
 
-                return CExpr(cStateVar.getCVarName(imag), getBufferLength(),
-                             "((" + offsetDt.toString(DataType::StringStyle::C, false, false) + ")"
-                             + circularBufferOffsetVar.getCVarName(false) + "+" + GeneralHelper::to_string(getBufferLength()-(fifoLen-1)) +
-                             ")");
-            }
-        }else{
-            if(earliestFirst){
-                //The returned array is simply the allocated array starting at the current offset of the circular buffer
-                return CExpr("(" + cStateVar.getCVarName(imag) + "+" + circularBufferOffsetVar.getCVarName(false) + ")", CExpr::ExprType::ARRAY);
-            }else{
-                return CExpr("(" + cStateVar.getCVarName(imag) + "+" +
-                                        circularBufferOffsetVar.getCVarName(false) + "-" +
-                                        GeneralHelper::to_string(fifoLen-1) + ")", CExpr::ExprType::ARRAY);
-            }
-        }
-    }else {
-        //We need to pass the current value through if requested
-        if (allocateExtraSpace) {
-            std::shared_ptr<OutputPort> srcPort = getInputPort(0)->getSrcOutputPort();
-            int srcOutPortNum = srcPort->getPortNum();
-            std::shared_ptr<Node> srcNode = srcPort->getParent();
+        //This works for both passing through the first value or not.
+        return CExpr(cStateVar.getCVarName(imag),
+                     "(" + circularBufferOffsetVar.getCVarName(false) + "-" + GeneralHelper::to_string(delayValue) + ")");
 
-            CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
-
-            //Reset buffer here if reset pulled
-            bool hasRst = inputPorts.size()>1;
-            if(hasRst){
-                std::shared_ptr<OutputPort> rstPort = getInputPort(1)->getSrcOutputPort();
-                int rstOutPortNum = rstPort->getPortNum();
-                std::shared_ptr<Node> rstNode = rstPort->getParent();
-                CExpr rstExpr = rstNode->emitC(cStatementQueue, schedType, rstOutPortNum, false);
-
-                //Emit the reset check
-                cStatementQueue.push_back("if(" + rstExpr.getExpr() + "){");
-                //Reset the state vars
-                std::vector<std::string> bufferRst = cStateVar.genReset();
-                cStatementQueue.insert(cStatementQueue.end(), bufferRst.begin(), bufferRst.end());
-                cStatementQueue.push_back("}else{");
-                //Else, perform the standard emit where the current input is pulled into the buffer
-            }
-
-            //It is possible for the input to be a vector, emit a for loop if nessasary
-            DataType inputDT = getInputPort(0)->getDataType();
-
-            //=== Open for Loop ===
-            std::vector<std::string> forLoopIndexVars;
-            std::vector<std::string> forLoopClose;
-            if (!inputDT.isScalar()) {
-                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                        EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
-
-                std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-                forLoopIndexVars = std::get<1>(forLoopStrs);
-                forLoopClose = std::get<2>(forLoopStrs);
-
-                cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-            }
-
-            //Because there is a minimum delay of 1, the state variable has at least 2 elements (and can be dereferenced)
-            std::string assignTo = cStateVar.getCVarName(imag) +
-                                   (earliestFirst ? "[0]" : "[" + GeneralHelper::to_string(delayValue) +
-                                                            "]"); //Note not delayValue-1 because the array was extended by 1
-
-            std::string assignToDeref =
-                    assignTo + (inputDT.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars));
-            std::vector<std::string> emptyArr;
-            std::string assignFromDeref = inputExpr.getExprIndexed(inputDT.isScalar() ? emptyArr : forLoopIndexVars,
-                                                                   true);
-
-            cStatementQueue.push_back(assignToDeref + " = " + assignFromDeref + ";");
-
-            //=== Close for Loop ===
-            if (!inputDT.isScalar()) {
-                cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
-            }
-
-            if(hasRst){
-                //Close the reset scope
-                cStatementQueue.push_back("}");
-            }
-        }
-
-        //Return the variable without any dereferencing
-        return CExpr(cStateVar.getCVarName(imag), CExpr::ExprType::ARRAY);
     }
 }
 
@@ -370,7 +434,7 @@ bool TappedDelay::hasInternalFanout(int inputPort, bool imag) {
     //The input is used more than once by this node, once for computing the input for the next state,
     //and once for computing the passthough value
     //TODO: Change this so that it is not nessisary to use the value more than once.
-    if(allocateExtraSpace && inputPort == 0){
+    if((allocateExtraSpace || transactionBlockSize>1) && inputPort == 0){
         return true;
     }
     return Node::hasInternalFanout(inputPort, imag);
@@ -407,6 +471,11 @@ void TappedDelay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, Sc
         }
         incrementAndWrapCircularBufferOffset(cStatementQueue);
     }else{
+        //TODO: Implement additional variants
+        if(transactionBlockSize>1){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - TappedDelay - With Block Size > 1, only circular buffers with double buffer length and !earliestFirst are currently supported", getSharedPointer()));
+
+        }
         Delay::emitCStateUpdate(cStatementQueue, schedType, stateUpdateSrc);
     }
 
@@ -419,11 +488,22 @@ void TappedDelay::emitCStateUpdate(std::vector<std::string> &cStatementQueue, Sc
 void TappedDelay::incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) {
     if(usesCircularBuffer() && !earliestFirst) {
         if(circularBufferType == CircularBufferType::DOUBLE_LEN) {
-            //Use mod method
-            cStatementQueue.push_back(circularBufferOffsetVar.getCVarName(false) +
-                                      "=((" + circularBufferOffsetVar.getCVarName(false) + "+1)%" +
-                                      GeneralHelper::to_string(getBufferLength()) + ")" + "+" +
-                                      GeneralHelper::to_string(getBufferLength()) + ";");
+            //Changing this to double check that the bufferLen is a power of 2
+            if(GeneralHelper::isPowOf2(getBufferLength())) {
+                //Use mod method
+                cStatementQueue.push_back(circularBufferOffsetVar.getCVarName(false) +
+                                          "=((" + circularBufferOffsetVar.getCVarName(false) + "+" +
+                                          GeneralHelper::to_string(transactionBlockSize) + ")%" +
+                                          GeneralHelper::to_string(getBufferLength()) + ")+" +
+                                          GeneralHelper::to_string(getBufferLength()) + ";");
+            }else{
+                //Do not use the mod method since it is not a power of 2
+                cStatementQueue.push_back("if(" + circularBufferOffsetVar.getCVarName(false) + ">= " + GeneralHelper::to_string(getBufferAllocatedLen()-transactionBlockSize) + "){");
+                cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "=" + GeneralHelper::to_string(getBufferLength()) + ";");
+                cStatementQueue.push_back("}else{");
+                cStatementQueue.push_back("\t" + circularBufferOffsetVar.getCVarName(false) + "+=" + GeneralHelper::to_string(transactionBlockSize) + ";");
+                cStatementQueue.push_back("}");
+            }
         }else if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
             //Do not use the mod method
             cStatementQueue.push_back("if(" + circularBufferOffsetVar.getCVarName(false) + ">= " + GeneralHelper::to_string(getBufferAllocatedLen()-1) + "){");
@@ -467,3 +547,50 @@ int TappedDelay::getCircBufferInitialIdx() {
 std::shared_ptr<Delay> TappedDelay::splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength){
     throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot split tapped delay", getSharedPointer()));
 }
+
+bool TappedDelay::requiresStandaloneCExprNextState(){
+    if(transactionBlockSize>1){
+        return false;
+    }else{
+        return Delay::requiresStandaloneCExprNextState();
+    }
+
+}
+
+void TappedDelay::specializeForBlocking(int localBlockingLength, int localSubBlockingLength,
+                                        std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                        std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                        std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                        std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                        std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                        std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+
+    //For now, we will assume that, for block sizes > 1, circular buffers are being used with double array.  earliestFirst=false
+    //allocation.
+    //TODO: Implement other variants
+
+    bool hasRst = inputPorts.size() > 1;
+    if(hasRst || earliestFirst || !usesCircularBuffer() || circularBufferType != CircularBufferType::DOUBLE_LEN){
+        //Just wrap the tapped delay i
+        Node::specializeForBlocking(localBlockingLength,
+                                    localSubBlockingLength,
+                                    nodesToAdd,
+                                    nodesToRemove,
+                                    arcsToAdd,
+                                    arcsToRemove,
+                                    nodesToRemoveFromTopLevel,
+                                    arcsWithDeferredBlockingExpansion);
+    }else{
+        //Set the block size of the Tapped Delay and expand the arcs into and out of
+        transactionBlockSize = localBlockingLength;
+
+        //For the arcs into an out of the delay, mark them for dimension expansion by the local blocking length
+        std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+        std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
+        arcs.insert(outArcs.begin(), outArcs.end());
+        for(const std::shared_ptr<Arc> arc : arcs){
+            arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
+        }
+    }
+}
+

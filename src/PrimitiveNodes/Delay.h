@@ -27,6 +27,9 @@
  *
  * @warning earliestFirst is not currently supported for standard Delays (not TappedDelays) due to the current implementation
  *          of delay absorption.  All Delays should be initialized to set earliestFirst to be false for now.
+ *
+ * @warning limited configuration options are currently implemented for transactionBlockSize > 1
+ *          Circular Buffering with Double Buffer Len
  */
 class Delay : public PrimitiveNode{
     friend NodeFactory;
@@ -55,8 +58,9 @@ protected:
     BufferType bufferImplementation; ///<The type of buffer to implement.  This is ignored for delays of 0 or 1
 
     bool earliestFirst; ///<(Perhaps more accurately, most recent first) If true, the new values are stored at the start of the array.  If false, new values are stored at the end of the array.  The default is false.
-    bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  The default is false
+    bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  Has no effect for standard delay when block size >1.  The default is false
     CircularBufferType circularBufferType; ///< If usesCircularBuffer() is true, determines the style of circular buffer.  This primarily controls the allocation of extra space and double writing new values so that a stride-1 buffer can be passed to dependent nodes, avoiding the additional indexing logic required when reading circular buffers
+    int transactionBlockSize; ///< When specializing for sub-blocking, defines how many incoming samples are processed at once.  Defaults to 1.  If the I/O at the delay is expanded for sub-blocking, this is kept as 1.
 
     //==== Constructors ====
     /**
@@ -116,6 +120,8 @@ public:
     void setBufferImplementation(BufferType bufferImplementation);
     CircularBufferType getCircularBufferType() const;
     void setCircularBufferType(CircularBufferType circularBufferType);
+    int getTransactionBlockSize() const;
+    void setTransactionBlockSize(int transactionBlockSize);
 
     //For tappedDelay
     bool isEarliestFirst() const;
@@ -172,8 +178,6 @@ public:
     /**
      * @brief Emits the core parameters for the delay block.  Separated from emitGraphML so that TappedDelay can use it
      *
-     * Undoes initial conditions added for an extra element (used by tapped delay) or for circular buffer with power of 2 allocation
-     *
      * @param doc
      * @param xmlNode
      */
@@ -199,11 +203,11 @@ public:
      */
     virtual int getCircBufferInitialIdx();
 
-    //When include current value (allocateExtraSpace in Delay) is true, getting the next state and updating the state
-    //are partially superfluous because the current value has already been copied into the array by cEmitExpr (so long
-    //as it was called before emitCExprNextState and emitCStateUpdate.  If this node has an output arc at the time of
-    //emit, we will assume this is true and the added logic is not required.
-    bool requiresStandaloneCExprNextState();
+    //When include current value (allocateExtraSpace in Delay) is true (or delay < block size,  block size > 1),
+    //getting the next state and updating the state are partially superfluous because the current value has already
+    // been copied into the array by cEmitExpr (so long as it was called before emitCExprNextState and emitCStateUpdate.
+    // If this node has an output arc at the time of emit, we will assume this is true and the added logic is not required.
+    virtual bool requiresStandaloneCExprNextState();
     void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
@@ -265,7 +269,12 @@ protected:
     virtual void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
 
     /**
-     * @brief Returns the buffer length, accounting for if an extra element is required and if the buffer allocation is rounded up to a power of 2
+     * @brief Returns the buffer length (or buffer_length/2 when double length allocation is used).
+     * It accounts for extra elements if required and if the buffer allocation is rounded up to a power of 2.
+     * This is the length which is used when determining wraparound of the write pointer.
+     *
+     * When blocking, it is forced to be in units of the block size.
+     *
      * @warning it does no account for extra space added for alternate implementations of the circular buffer (DOUBLE_LEN, PLUS_DELAY_LEN_M1) which allow stride 1 arrays to be returned by TappedDelay
      */
     int getBufferLength();

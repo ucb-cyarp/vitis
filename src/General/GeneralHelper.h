@@ -167,6 +167,13 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
      */
     unsigned long twoPow(unsigned long exp);
 
+    /**
+     * @brief Returns true if the integer is a power of 2
+     * @param num
+     * @return
+     */
+    bool isPowOf2(int num);
+
     std::string replaceAll(std::string src, char orig, char repl);
 
     /**

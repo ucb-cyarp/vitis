@@ -19,6 +19,11 @@ CExpr::CExpr(std::string expr, int vecLen, std::string offsetVar) : expr(expr), 
 
 }
 
+CExpr::CExpr(std::string expr, std::string offsetVar) : expr(expr), exprType(ExprType::ARRAY_HANKEL_COMPRESSED), offsetVar(offsetVar) {
+
+}
+
+
 
 std::string CExpr::getExpr() const {
     return expr;
@@ -29,7 +34,11 @@ void CExpr::setExpr(const std::string &expr) {
 }
 
 bool CExpr::isOutputVariable() const {
-    return exprType==ExprType::SCALAR_VAR || exprType==ExprType::ARRAY || exprType==ExprType::CIRCULAR_BUFFER_ARRAY;
+    return exprType==ExprType::SCALAR_VAR ||
+    exprType==ExprType::ARRAY ||
+    exprType==ExprType::CIRCULAR_BUFFER_ARRAY ||
+    exprType==ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED ||
+    exprType==ExprType::ARRAY_HANKEL_COMPRESSED;
 }
 
 CExpr::ExprType CExpr::getExprType() const {
@@ -87,7 +96,7 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
             str += EmitterHelpers::generateIndexOperationWODereference(indexStrVec);
         }
         return str;
-    }else if(exprType==ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED){
+    }else if(exprType==ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED) {
         //For the CIRCULAR_BUFFER_HANKEL_COMPRESSED, the outer dimension indexes into the buffer (relative to the circular buffer offset variable)
         //In essence, it is a second offset.
         //@warning The result is only valid for a single value of the outer index.  ie. this does not create a new array with elements sliced off
@@ -103,11 +112,24 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
 
         //To get an individual element of the matrix, supply the full index to this function.
         //To get just the row of the vector, this function should be called with just 1 index.
-
         std::vector<std::string> indexStrVec = indexExprs;
-        indexStrVec[0] = "(" + offsetVar + "+" + indexExprs[0] + ")%" + GeneralHelper::to_string(vecLen);
+        std::string offset = "(" + offsetVar + "+" + indexExprs[0] + ")%" + GeneralHelper::to_string(vecLen);
+        indexStrVec.erase(indexStrVec.begin()); //Erase the 0th index, it is part of the offset
 
-        std::string str = expr;
+        std::string str = "((" + expr + ") + (" + offset + "))";
+        if (deref) {
+            str += EmitterHelpers::generateIndexOperation(indexStrVec);
+        } else {
+            str += EmitterHelpers::generateIndexOperationWODereference(indexStrVec);
+        }
+        return str;
+    }else if(exprType==ExprType::ARRAY_HANKEL_COMPRESSED){
+        //Same as CIRCULAR_BUFFER_HANKEL_COMPRESSED except does not mod by the vector length
+        std::vector<std::string> indexStrVec = indexExprs;
+        std::string offset = offsetVar + "+" + indexExprs[0];
+        indexStrVec.erase(indexStrVec.begin()); //Erase the 0th index, it is part of the offset
+
+        std::string str = "((" + expr + ") + (" + offset + "))";
         if (deref) {
             str += EmitterHelpers::generateIndexOperation(indexStrVec);
         } else {
@@ -120,5 +142,8 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
 }
 
 bool CExpr::isArrayOrBuffer() const {
-    return exprType == ExprType::ARRAY || exprType == ExprType::CIRCULAR_BUFFER_ARRAY;
+    return exprType == ExprType::ARRAY ||
+    exprType == ExprType::ARRAY_HANKEL_COMPRESSED ||
+    exprType == ExprType::CIRCULAR_BUFFER_ARRAY ||
+    exprType == ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED;
 }

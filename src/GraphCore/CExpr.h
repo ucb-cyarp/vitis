@@ -22,6 +22,7 @@ public:
         SCALAR_EXPR, ///<The expression is a scalar expression which is not a simple variable name (ex. a+b)
         SCALAR_VAR, ///<The expression is a scalar variable name.  It does not need to be dereferenced to be used
         ARRAY, ///<The expression is a pointer to the head of an array.  Pointers to single elements are arrays with length 1
+        ARRAY_HANKEL_COMPRESSED, ///< A generalization of the Hankel Matrix (elements along skew diagonal of matrix are the same) so that >2 dimensions can be supported.  Effectively generalizes ARRAY for sub-blocking.
         CIRCULAR_BUFFER_ARRAY, ///<The expression is a pointer to the head of a circular buffer.  An offset the current front of the buffer is provided with all indexing being referenced from that point.  The length is used to handle wraparound when indexing
         CIRCULAR_BUFFER_HANKEL_COMPRESSED ///< A generalization of the Hankel Matrix (elements along skew diagonal of matrix are the same) so that >2 dimensions can be supported.  Effectively generalizes CIRCULAR_BUFFER_ARRAY for sub-blocking.
     };
@@ -30,7 +31,7 @@ private:
     std::string expr; ///<The C expression, or variable name if
     ExprType exprType; ///<Indicates the type of expression.  If it is a SCALAR_EXPR, Node::cEmit will create a temporary for it if required for fanout
     int vecLen; ///<The vector length if the expression is a circular buffer
-    std::string offsetVar; ///<The variable representing the offset in a circular buffer
+    std::string offsetVar; ///<The variable representing the offset in a circular buffer or hankel array.  If blank, the hankel array is not part of a larger buffer for which an offset is required.
 
 public:
     CExpr();
@@ -42,6 +43,13 @@ public:
      * @param offsetVar the offset variable used to indicate the current head of the buffer
      */
     CExpr(std::string expr, int vecLen, std::string offsetVar); //This is for circular buffer
+
+    /**
+     * @brief When defining hankel array, this allows the offset variable to be specified
+     * @param expr pointer to the front of the buffer
+     * @param offsetVar the offset variable used to indicate the current head of the buffer
+     */
+    CExpr(std::string expr, std::string offsetVar); //This is for ARRAY_HANKEL_COMPRESSED
 
     std::string getExpr() const;
     void setExpr(const std::string &expr);

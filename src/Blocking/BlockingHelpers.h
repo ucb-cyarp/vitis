@@ -90,7 +90,7 @@ namespace BlockingHelpers {
     std::vector<std::shared_ptr<BlockingDomain>> findBlockingDomainStack(std::shared_ptr<Node> node);
 
     /**
-     * @brief Determine the dimentions to be used inside a blocking domain given the dimension(s) outside the domain
+     * @brief Determine the dimensions to be used inside a blocking domain given the dimension(s) outside the domain
      * @param outerDimensions
      * @param subBlockingLength
      * @return

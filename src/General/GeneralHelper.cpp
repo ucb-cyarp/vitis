@@ -238,6 +238,11 @@ std::string GeneralHelper::to_string<double>(const double val){
     return stringStream.str();
 }
 
+bool GeneralHelper::isPowOf2(int num){
+    int bits = (int) (std::ceil(std::log2(num)));
+    return twoPow(bits) == num;
+}
+
 //std::string GeneralHelper::bool_to_string(bool val){
 //    if(val){
 //        return "true";
