@@ -331,7 +331,7 @@ std::vector<Variable> Delay::getCStateVars() {
             if(transactionBlockSize == 1 && GeneralHelper::isPowOf2(getBufferLength())){
                 maxOffSetVal++; //This is to support the mod method when block size = 1 and buffer length is a power of 2.
             }
-            DataType offsetDT = DataType(false, false, false, (int) ceil(log2(maxOffSetVal)), 0, //+Transaction block size so that the wrapping logic can occur with a mux
+            DataType offsetDT = DataType(false, false, false, (int) std::ceil(std::log2(maxOffSetVal)), 0, //+Transaction block size so that the wrapping logic can occur with a mux
                                          {1}).getCPUStorageType();
             std::string offsetVarName = name+"_n"+GeneralHelper::to_string(id)+"_circBufHeadInd";
             Variable offsetVar = Variable(offsetVarName, offsetDT, {offsetInitVal}, false, true);
@@ -1134,13 +1134,13 @@ int Delay::getBufferLength() {
                         shared_from_this()));
             }
 
-            double bufferLenDiv2 = transactionBlockSize * (1 + std::ceil(delayValue / transactionBlockSize));
+            double bufferLenDiv2 = transactionBlockSize * (1 + std::ceil(((double) delayValue) / transactionBlockSize));
             arrayLen = (int) bufferLenDiv2;
 
             //For now, will restrict rounding up to a power of 2 if the nearest power of 2 is not a multiple of the block length
             if (roundCircularBufferToPowerOf2) {
                 //Try rounding the array length up the nearest power of 2
-                double arrayLenRounded = std::round(std::pow(2, std::ceil(log2(arrayLen))));
+                double arrayLenRounded = std::round(std::pow(2, std::ceil(std::log2(arrayLen))));
                 if (((int) arrayLenRounded) % transactionBlockSize == 0) {
                     arrayLen = (int) arrayLenRounded;
                 }
