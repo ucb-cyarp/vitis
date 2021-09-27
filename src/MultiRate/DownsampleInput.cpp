@@ -71,23 +71,37 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
     DataType outputDT = getOutputPort(0)->getDataType();
 
-    //Just return the input expression
+    if(useVectorSamplingMode){
+        //If the input is a scalar, just pass through
+        if (inputDT.isScalar()) {
+            return CExpr(inputExpr.getExpr(),
+                         CExpr::ExprType::SCALAR_EXPR); //This will create a new variable.  If input is a variable, this will create a copy
+        }
 
-    //Create a temporary variable to avoid issue if this node is directly attached to state
-    //at the input.  The state update is placed after this node but the variable from the delay is simply
-    //passed through.  This could cause the state to be update before the result is used.
-    //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
-    //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+        //Otherwise, the input is at least an array
+        if (outputDT.isScalar()){
+            //No array assignment, just get the first element of the input vec
+            std::vector<std::string> indexVec = {"0"};
+            return CExpr(inputExpr.getExprIndexed({indexVec}, true),
+                         CExpr::ExprType::SCALAR_EXPR); //This will create a new variable.  If input is a variable, this will create a copy
+        }
 
-    if(inputDT.isScalar()) {
-        return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR); //This will create a new variable.  If input is a variable, this will create a copy
-    }else{
-        std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_OutMat";
+        //Array in and array out
+        std::vector<int> inputDims = inputDT.getDimensions();
+        int stride = downsampleRatio;
+        //Phase not currently supported, starts at phase 0
+
+        int loopIterations = inputDims[0]/stride;
+        std::vector<int> copyLoopDims = inputDims;
+        copyLoopDims[0] = loopIterations;
+
+        //Create output var
+        std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_Out";
         Variable outputVar = Variable(outName, outputDT);
         cStatementQueue.push_back(outputVar.getCVarDecl(imag, true, true, true, false) + ";");
 
         std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+                EmitterHelpers::generateVectorMatrixForLoops(copyLoopDims);
 
         std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
         std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
@@ -95,12 +109,53 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
         cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
-        std::string assignExpr = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + inputExpr.getExprIndexed(forLoopIndexVars, true) + ";";
+        //Subsample the outer dimension of the
+        std::vector<std::string> srcIndExprs = forLoopIndexVars;
+        srcIndExprs[0] += "*" + GeneralHelper::to_string(stride);
+
+        std::string assignExpr =
+                outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +
+                inputExpr.getExprIndexed(srcIndExprs, true) + ";";
         cStatementQueue.push_back(assignExpr);
 
         cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
         return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+    }else {
+        //Just return the input expression
+
+        //Create a temporary variable to avoid issue if this node is directly attached to state
+        //at the input.  The state update is placed after this node but the variable from the delay is simply
+        //passed through.  This could cause the state to be update before the result is used.
+        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
+        //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
+
+        if (inputDT.isScalar()) {
+            return CExpr(inputExpr.getExpr(),
+                         CExpr::ExprType::SCALAR_EXPR); //This will create a new variable.  If input is a variable, this will create a copy
+        } else {
+            std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_OutMat";
+            Variable outputVar = Variable(outName, outputDT);
+            cStatementQueue.push_back(outputVar.getCVarDecl(imag, true, true, true, false) + ";");
+
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+
+            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+            std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+            std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+            std::string assignExpr =
+                    outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +
+                    inputExpr.getExprIndexed(forLoopIndexVars, true) + ";";
+            cStatementQueue.push_back(assignExpr);
+
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+
+            return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+        }
     }
 }
 

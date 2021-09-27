@@ -34,7 +34,7 @@ protected:
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
     std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers; ///<The corresponding context family containers (if any exists) for this ContextRoot
     std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition; ///<Contains a map of context driver arcs to individual partitions (may be different arcs for each partition).  Likely set in the encapsulateContexts method
-    std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas; ///<A map of DummyReplica nodes for partitions this context root exists in.  These are typicallyt created if ContextDriver replication occurs
+    std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas; ///<A map of DummyReplica nodes for partitions this context root exists in.  These are typically created if ContextDriver replication occurs
 
 public:
     /**

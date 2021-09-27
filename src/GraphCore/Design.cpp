@@ -870,7 +870,11 @@ Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> 
                     }
                     cloneClkDomainDownsample->setContextDriver(copyArc);
                 }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Error when copying driver of clock domain.  No driver", nodes[i]));
+                    if(!origClkDomainDownsample->isUsingVectorSamplingMode()) {
+                        throw std::runtime_error(
+                                ErrorHelpers::genErrorStr("Error when copying driver of clock domain.  No driver",
+                                                          nodes[i]));
+                    }//Clock domains using isUsingVectorSamplingMode are not expected to have a driver
                 }
             }
 

@@ -91,6 +91,12 @@ namespace DomainPasses {
      */
     void blockAndSubBlockDesign(Design &design, int baseBlockingLength, int baseSubBlockingLength);
 
+    /**
+     * @brief Groups node under contexts together with the possible exception of clock domains where blocking domains can be placed inside
+     *
+     * @param nodesAtLevel Nodes at the current level in the design from a context perspective.  Includes nodes in subsystems, including context roots, just not nodes under contexts
+     * @param subBlockingLength
+     */
     void blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Node>> nodesAtLevel,
                                           int subBlockingLength,
                                           std::set<std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingGroups,
@@ -120,7 +126,7 @@ namespace DomainPasses {
                                       std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingEnvelopGroups);
 
     /**
-     * @brief Handles discovering blocking sets for contexts that need all of their nodes to be
+     * @brief Handles discovering blocking sets for contexts that need all of their nodes to be in the same blocking set
      *
      * @warning Context Discovery should be completed before using this function
      *

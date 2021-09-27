@@ -135,6 +135,13 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
     DomainPasses::blockAndSubBlockDesign(design, blockSize, 8);
 
+    if(emitGraphMLSched) {
+        //Export GraphML (for debugging)
+        std::string graphMLAfterBlockingFileName = fileName + "_afterBlocking.graphml";
+        std::cout << "Emitting GraphML Blocking File: " << path << "/" << graphMLAfterBlockingFileName << std::endl;
+        GraphMLExporter::exportGraphML(path + "/" + graphMLAfterBlockingFileName, design);
+    }
+
     design.validateNodes();
 
     //TODO: Validate design after blocking and sub-blocking domains inserted

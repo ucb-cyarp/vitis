@@ -20,19 +20,10 @@ class ContextRoot;
  * @brief This node serves as a dummy node.  It is primarily used for context driver replication.
  *
  * The point of context driver replication is to re-compute the logic driving Contexts across different partitions.
- * However, if the replicated driver arcs are all wired to the original ContectRoot, FIFOs will be automatically inserted
+ * However, if the replicated driver arcs are all wired to the original ContextRoot, FIFOs will be automatically inserted
  * between the partitions.  To combat this, a dummy node representing the ContextRoot in another partition is inserted.
- * The dummy node is encapsulated like the context root durring encapsulation and is scheduled, just like the context root
+ * The dummy node is encapsulated like the context root during encapsulation and is scheduled, just like the context root
  */
-
-//TODO: Add field to context root about replicas <done>
-//TODO: Add dummys to import logic <done>
-//TODO: Add dummys to clone logic including re-populating the ContextRoot dummy field <done>
-//TODO: Add dummys to contextDriver replication.  Can add the arcs to it and have <done>
-//TODO: Add dummys to ContextFamilyContainer <done>
-//TODO: Add to encapsulation to encapsulate replicas <done>
-//TODO: Add to scheduler to schedule replicas like ContextRoots <done>
-//TODO: Change scheduler to schedule ClockDomain context roots because driver is to the ClockDomain and not to the rate change node (like in EnabledSubsystem) <done>
 
 class DummyReplica : public Node {
 friend NodeFactory;

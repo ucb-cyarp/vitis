@@ -180,7 +180,7 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
                 throw std::runtime_error(ErrorHelpers::genErrorStr("For scalar output type, input type is expected to be a vector or scalar", getSharedPointer()));
             }
 
-            std::vector<std::string> indVector = {indexVar.getCVarName(false)};
+            std::vector<std::string> indVector = {indexVar.getCVarName(false) + (subBlockingLen > 1 ? "*" + GeneralHelper::to_string(subBlockingLen) : "")}; //Multiply the index by the sub blocking length.  Th
             std::string inputExprDeref = inputExpr.getExprIndexed(indVector, true);
             return CExpr(inputExprDeref, CExpr::ExprType::SCALAR_EXPR);
         }
@@ -204,7 +204,7 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
         //If the input type is a vector, indexing is offset
         std::vector<std::string> inputIndexVars = forLoopIndexVars;
         if(inputDT.isVector()){
-            inputIndexVars[0] = indexVar.getCVarName(false) + "+" + inputIndexVars[0];
+            inputIndexVars[0] = indexVar.getCVarName(false) + (subBlockingLen > 1 ? "*" + GeneralHelper::to_string(subBlockingLen) : "") + "+" + inputIndexVars[0];
         }else{
             inputIndexVars.insert(inputIndexVars.begin(), indexVar.getCVarName(false));
         }

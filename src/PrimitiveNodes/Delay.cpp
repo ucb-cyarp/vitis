@@ -1576,6 +1576,7 @@ Delay::splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<st
 
     //Create the new delay node
     std::shared_ptr<Delay> leftoverDelay = NodeFactory::shallowCloneNode<Delay>(parent, this); //Create a copy of this node (so that we get config for free)
+    leftoverDelay->setId(-1); //Need to assign this node a new ID
     leftoverDelay->setName(leftoverDelay->getName() + "_splitLeftover");
     if(!context.empty()){
         leftoverDelay->setContext(context);

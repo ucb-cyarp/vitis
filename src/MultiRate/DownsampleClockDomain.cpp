@@ -98,7 +98,11 @@ void DownsampleClockDomain::orderConstrainZeroInputNodes(std::vector<std::shared
 }
 
 bool DownsampleClockDomain::shouldReplicateContextDriver() {
-    return true;
+    if(useVectorSamplingMode){
+        return false;
+    }else {
+        return true;
+    }
 }
 
 int DownsampleClockDomain::getNumSubContexts() const {
@@ -203,20 +207,35 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
 }
 
 std::vector<std::shared_ptr<Arc>> DownsampleClockDomain::getContextDecisionDriver() {
-    return {contextDriver};
+    if(contextDriver){
+        return {contextDriver};
+    }
+    return {};
 }
 
 std::vector<Variable> DownsampleClockDomain::getCContextVars() {
-    //Do not need any additional context vars
+    //When operating in vector mode, repeat and upsample do not need to declare state variables (unless phase != 0 is later supported)
+    //However, they do need their outputs declared outside of the clock domain
+    std::vector<Variable> rateChangeExternVars;
+    for(const std::shared_ptr<RateChange> &rateChange : rateChangeIn){
+        std::vector<Variable> rateChangeVars = rateChange->getVariablesToDeclareOutsideClockDomain();
+        rateChangeExternVars.insert(rateChangeExternVars.end(), rateChangeVars.begin(), rateChangeVars.end());
+    }
+    for(const std::shared_ptr<RateChange> &rateChange : rateChangeOut){
+        std::vector<Variable> rateChangeVars = rateChange->getVariablesToDeclareOutsideClockDomain();
+        rateChangeExternVars.insert(rateChangeExternVars.end(), rateChangeVars.begin(), rateChangeVars.end());
+    }
 
-    return std::vector<Variable>();
+    return rateChangeExternVars;
 }
 
 
 Variable DownsampleClockDomain::getCContextVar(int contextVarIndex) {
     //Do not need any additional context vars
 
-    return Variable();
+    //Even though getCContextVars is traversing sets of the input and output rate change nodes,
+    //The order should be preserved during emit time (pointers should not change)
+    return getCContextVars()[contextVarIndex];
 }
 
 bool DownsampleClockDomain::requiresContiguousContextEmits() {
@@ -229,7 +248,7 @@ void DownsampleClockDomain::emitCContextOpenFirst(std::vector<std::string> &cSta
                                                   SchedParams::SchedType schedType, int subContextNumber,
                                                   int partitionNum) {
     //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
-    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+    if(!useVectorSamplingMode && suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
         //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
         std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
         if (contextDrivers.empty()) {
@@ -261,6 +280,10 @@ void DownsampleClockDomain::emitCContextOpenFirst(std::vector<std::string> &cSta
         }
 
         cStatementQueue.push_back(cExpr);
+    }else if(useVectorSamplingMode){
+        //Will open a scope for the clock domain
+        std::string cExpr = "{";
+        cStatementQueue.push_back(cExpr);
     }
 }
 
@@ -268,7 +291,7 @@ void
 DownsampleClockDomain::emitCContextOpenMid(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                            int subContextNumber, int partitionNum) {
     //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
-    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+    if(!useVectorSamplingMode && suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
         //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
         std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
         if (contextDrivers.empty()) {
@@ -301,6 +324,10 @@ DownsampleClockDomain::emitCContextOpenMid(std::vector<std::string> &cStatementQ
         }
 
         cStatementQueue.push_back(cExpr);
+    }else if(useVectorSamplingMode){
+        //Will open a scope for the clock domain
+        std::string cExpr = "{";
+        cStatementQueue.push_back(cExpr);
     }
 }
 
@@ -308,7 +335,7 @@ void
 DownsampleClockDomain::emitCContextOpenLast(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                             int subContextNumber, int partitionNum) {
     //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
-    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+    if(!useVectorSamplingMode && suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
         //For single threaded operation, this is simply enableDriverPort = getEnableSrc().  However, for multi-threaded emit, the driver arc may come from a FIFO (which can be different depending on the partition)
         std::vector<std::shared_ptr<Arc>> contextDrivers = getContextDriversForPartition(partitionNum);
         if (contextDrivers.empty()) {
@@ -326,6 +353,10 @@ DownsampleClockDomain::emitCContextOpenLast(std::vector<std::string> &cStatement
         }
 
         cStatementQueue.push_back(cExpr);
+    }else if(useVectorSamplingMode){
+        //Will open a scope for the clock domain
+        std::string cExpr = "{";
+        cStatementQueue.push_back(cExpr);
     }
 }
 
@@ -333,7 +364,7 @@ void DownsampleClockDomain::emitCContextCloseFirst(std::vector<std::string> &cSt
                                                    SchedParams::SchedType schedType, int subContextNumber,
                                                    int partitionNum) {
     //Only output of this partition's clock domain logic is not being suppressed (and being handled by adjusting the compute outer loop)
-    if(suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
+    if(!useVectorSamplingMode && suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
         if (subContextNumber != 0 && subContextNumber != 1) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Tried to cluse unexpected context " + GeneralHelper::to_string(subContextNumber),
@@ -341,6 +372,10 @@ void DownsampleClockDomain::emitCContextCloseFirst(std::vector<std::string> &cSt
         }
 
         cStatementQueue.push_back("}");
+    }else if(useVectorSamplingMode){
+        //Will open a scope for the clock domain
+        std::string cExpr = "}";
+        cStatementQueue.push_back(cExpr);
     }
 }
 
@@ -362,4 +397,8 @@ bool DownsampleClockDomain::allowFIFOAbsorption() {
 
 void DownsampleClockDomain::setClockDomainDriver(std::shared_ptr<Arc> newDriver) {
     contextDriver = newDriver;
+}
+
+std::shared_ptr<Arc> DownsampleClockDomain::getClockDomainDriver(){
+    return contextDriver;
 }

@@ -13,6 +13,7 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "GraphCore/DummyReplica.h"
 #include "General/EmitterHelpers.h"
 
 #include <iostream>
@@ -717,7 +718,9 @@ void ClockDomain::setUseVectorSamplingMode(bool useVectorSamplingMode) {
     ClockDomain::useVectorSamplingMode = useVectorSamplingMode;
 }
 
-void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode) {
+void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode,
+                                                                        std::set<std::shared_ptr<Node>> &nodesToRemove,
+                                                                        std::set<std::shared_ptr<Arc>> &arcsToRemove) {
     ClockDomain::useVectorSamplingMode = useVectorSamplingMode;
 
     //Update rate change nodes
@@ -728,9 +731,98 @@ void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool use
     for(const std::shared_ptr<RateChange> &rateChangeNode : rateChangeOut){
         rateChangeNode->setUseVectorSamplingMode(useVectorSamplingMode);
     }
+
+    std::shared_ptr<Arc> clkDomainDriver = getClockDomainDriver();
+    if(clkDomainDriver){
+        std::shared_ptr<Node> clkDomainSrc = clkDomainDriver->getSrcPort()->getParent();
+
+        //TODO: Change if clock domain drivers which are not the standard wrapping counter are later introduced.
+        std::set<std::shared_ptr<Arc>> clkDomainDriverOutArcs = clkDomainSrc->getOutputArcs();
+        for(const std::shared_ptr<Arc> &driverOutArc : clkDomainDriverOutArcs) {
+            if (driverOutArc->getDstPort()->getParent() != getSharedPointer()) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "When setting clock domain to use vector mode, expected clock domain driver to be uniquely allocated to clock domain so it can be removed.",
+                        getSharedPointer()));
+            }
+        }
+        if(!clkDomainSrc->getInputArcs().empty()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When setting clock domain to use vector mode, expected clock domain driver to be a single node", getSharedPointer()));
+        }
+
+        std::set<std::shared_ptr<Arc>> disconnectArcs = clkDomainSrc->disconnectNode();
+
+        nodesToRemove.insert(clkDomainSrc);
+        arcsToRemove = clkDomainDriverOutArcs;
+        arcsToRemove.insert(disconnectArcs.begin(), disconnectArcs.end());
+
+        setClockDomainDriver(nullptr);
+    }
+
+    //Context Driver Replication May have Occurred Before This, remove the replicas if applicable
+    std::shared_ptr<ContextRoot> thisAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(getSharedPointer()); //Only if this clock domain is specialized
+    if(thisAsContextRoot) {
+        std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition = thisAsContextRoot->getContextDriversPerPartition();
+        for (const auto &replicatedDriver: contextDriversPerPartition) {
+            std::vector<std::shared_ptr<Arc>> drivers = replicatedDriver.second;
+
+            for(const std::shared_ptr<Arc> &driver : drivers){
+                if(!GeneralHelper::contains(driver, arcsToRemove)) { //This protects against duplicate removal of an arc
+                    std::shared_ptr<Node> clkDomainSrc = driver->getSrcPort()->getParent();
+
+                    //TODO: Change if clock domain drivers which are not the standard wrapping counter are later introduced.
+                    std::set<std::shared_ptr<Arc>> clkDomainDriverOutArcs = clkDomainSrc->getOutputArcs();
+                    for (const std::shared_ptr<Arc> &driverOutArc: clkDomainDriverOutArcs) {
+                        if (driverOutArc->getDstPort()->getParent() != getSharedPointer() &&
+                            driverOutArc->getDstPort()->getParent() !=
+                            thisAsContextRoot->getDummyReplica(replicatedDriver.first)) {
+                            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                    "When setting clock domain to use vector mode, expected clock domain driver to be uniquely allocated to clock domain so it can be removed.",
+                                    getSharedPointer()));
+                        }
+                    }
+                    if (!clkDomainSrc->getInputArcs().empty()) {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                "When setting clock domain to use vector mode, expected clock domain driver to be a single node",
+                                getSharedPointer()));
+                    }
+
+                    std::set<std::shared_ptr<Arc>> disconnectArcs = clkDomainSrc->disconnectNode();
+
+                    nodesToRemove.insert(clkDomainSrc);
+                    arcsToRemove.insert(clkDomainDriverOutArcs.begin(), clkDomainDriverOutArcs.end());
+                    arcsToRemove.insert(disconnectArcs.begin(), disconnectArcs.end());
+                }
+            }
+        }
+
+        std::map<int, std::vector<std::shared_ptr<Arc>>> emptyContextDriversPerPartition;
+        thisAsContextRoot->setContextDriversPerPartition(emptyContextDriversPerPartition);
+
+        //Remove Dummy Nodes
+
+        std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas = thisAsContextRoot->getDummyReplicas();
+        for(const auto &dummyReplica : dummyReplicas){
+            if(!dummyReplica.second->getInputArcs().empty() || !dummyReplica.second->getOutputArcs().empty()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "When setting clock domain to use vector mode, expected dummy nodes to be disconnected",
+                        getSharedPointer()));
+            }
+
+            nodesToRemove.insert(dummyReplica.second);
+        }
+
+        std::map<int, std::shared_ptr<DummyReplica>> emptyDummyReplicas;
+        thisAsContextRoot->setDummyReplicas(emptyDummyReplicas);
+    }
+
+
 }
 
 void ClockDomain::resetIOPorts(){
     ioInput.clear();
     ioOutput.clear();
+}
+
+std::shared_ptr <Arc> ClockDomain::getClockDomainDriver() {
+    return nullptr;
 }

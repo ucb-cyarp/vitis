@@ -109,8 +109,16 @@ public:
     bool isUsingVectorSamplingMode() const;
     void setUseVectorSamplingMode(bool useVectorSamplingMode);
 
-    void setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode);
-
+    /**
+     * @brief Sets the use vector sampling mode and propagates to clock domain inputs and outputs
+     *
+     * If setting to false, also removes clock domain driver node
+     *
+     * @param useVectorSamplingMode
+     */
+    void setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode,
+                                                               std::set<std::shared_ptr<Node>> &nodesToRemove,
+                                                               std::set<std::shared_ptr<Arc>> &arcsToRemove);
 
     /**
      * @brief Copy parameters from another clock domain except for the lists of RateChange nodes
@@ -243,6 +251,8 @@ public:
      * @note createSupportNodes should be used in place of this.  This is used when setting some partitions to not emit clock domain logic
      */
     virtual void setClockDomainDriver(std::shared_ptr<Arc> newDriver);
+
+    virtual std::shared_ptr<Arc> getClockDomainDriver();
 
     /**
      * @brief Resets the sets of discovered Master I/O ports connected to nodes in this clock domain

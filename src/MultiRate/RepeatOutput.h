@@ -128,6 +128,14 @@ public:
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     bool isSpecialized() override;
+
+    /**
+     * @brief Get the output variable (only used when operating in vector mode)
+     * @return
+     */
+    Variable getVectorModeOutputVariable();
+
+    std::vector<Variable> getVariablesToDeclareOutsideClockDomain() override;
 };
 
 /*! @} */

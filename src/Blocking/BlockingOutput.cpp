@@ -183,7 +183,7 @@ CExpr BlockingOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
             }
 
             //Do not de-reference the input but need to dereference the output
-            std::vector<std::string> outputInd = {indexVar.getCVarName(false)};
+            std::vector<std::string> outputInd = {indexVar.getCVarName(false) + (subBlockingLen > 1 ? "*" + GeneralHelper::to_string(subBlockingLen) : "")};
             cStatementQueue.push_back(outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(outputInd) + "=" + inputExpr.getExpr() + ";");
         }else{
             //Need to loop over data to copy
@@ -201,7 +201,7 @@ CExpr BlockingOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
 
             if(outputDT.isVector()){
                 //There is no extra dimension, the index in the output is offset by the index variable
-                outputIndexVars[0] = indexVar.getCVarName(false) + "+" + outputIndexVars[0];
+                outputIndexVars[0] = indexVar.getCVarName(false) + (subBlockingLen > 1 ? "*" + GeneralHelper::to_string(subBlockingLen) : "") + "+" + outputIndexVars[0];
             }else{
                 outputIndexVars.insert(outputIndexVars.begin(), indexVar.getCVarName(false));
             }

@@ -6,15 +6,15 @@
 #include "General/ErrorHelpers.h"
 #include "MultiRateHelpers.h"
 
-RateChange::RateChange() {
+RateChange::RateChange() : useVectorSamplingMode(false) {
 
 }
 
-RateChange::RateChange(std::shared_ptr<SubSystem> parent) : Node(parent) {
+RateChange::RateChange(std::shared_ptr<SubSystem> parent) : Node(parent), useVectorSamplingMode(false) {
 
 }
 
-RateChange::RateChange(std::shared_ptr<SubSystem> parent, RateChange *orig) : Node(parent, orig) {
+RateChange::RateChange(std::shared_ptr<SubSystem> parent, RateChange *orig) : Node(parent, orig), useVectorSamplingMode(orig->useVectorSamplingMode) {
 
 }
 
@@ -93,4 +93,30 @@ std::set<GraphMLParameter> RateChange::graphMLParameters() {
 
 void RateChange::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement *thisNode) {
     GraphMLHelper::addDataNode(doc, thisNode, "UseVectorSamplingMode", GeneralHelper::to_string(useVectorSamplingMode));
+}
+
+std::vector<Variable> RateChange::getVariablesToDeclareOutsideClockDomain() {
+    return std::vector<Variable>();
+}
+
+void RateChange::specializeForBlocking(int localBlockingLength,
+                                       int localSubBlockingLength,
+                                       std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+    if(useVectorSamplingMode){
+        //Do nothing, the logic is handled internally in the implementations of RateChange
+    }else{
+        Node::specializeForBlocking(localBlockingLength,
+                                    localSubBlockingLength,
+                                    nodesToAdd,
+                                    nodesToRemove,
+                                    arcsToAdd,
+                                    arcsToRemove,
+                                    nodesToRemoveFromTopLevel,
+                                    arcsWithDeferredBlockingExpansion);
+    }
 }

@@ -122,6 +122,14 @@ public:
 
     bool isSpecialized() override;
 
+    /**
+     * @brief Get the output variable (only used when operating in vector mode)
+     * @return
+     */
+    Variable getVectorModeOutputVariable();
+
+    std::vector<Variable> getVariablesToDeclareOutsideClockDomain() override;
+
 };
 
 /*! @} */

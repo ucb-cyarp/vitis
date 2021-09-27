@@ -16,6 +16,9 @@
 #include "RateChange.h"
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include <iostream>
+#include "Downsample.h"
+#include "Upsample.h"
+#include "Repeat.h"
 
 std::set<std::shared_ptr<Node>>
 MultiRateHelpers::getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch) {
@@ -59,6 +62,29 @@ std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputP
     std::shared_ptr<Node> srcNode = srcPort->getParent();
     std::shared_ptr<ClockDomain> srcDomain = findClockDomain(srcNode);
     std::shared_ptr<ClockDomain> rcOuterClockDomain = findClockDomain(rcDomain);
+
+    if(rc->isUsingVectorSamplingMode()){
+        DataType inputDTScaled = rc->getInputPort(0)->getDataType();
+        //Scale the outer dimension
+        std::vector<int> inputDim = inputDTScaled.getDimensions();
+        std::pair<int, int> rateChange = rc->getRateChangeRatio();
+        inputDim[0] *= rateChange.first;
+        inputDim[0] /= rateChange.second;
+        inputDTScaled.setDimensions(inputDim);
+
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDTScaled != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }else{
+        DataType inputDT = rc->getInputPort(0)->getDataType();
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDT != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When not using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }
 
     //Validate input
     {
@@ -144,6 +170,29 @@ std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputP
     std::shared_ptr<OutputPort> srcPort = (*inputArcs.begin())->getSrcPort();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
     std::shared_ptr<ClockDomain> srcDomain = findClockDomain(srcNode);
+
+    if(rc->isUsingVectorSamplingMode()){
+        DataType inputDTScaled = rc->getInputPort(0)->getDataType();
+        //Scale the outer dimension
+        std::vector<int> inputDim = inputDTScaled.getDimensions();
+        std::pair<int, int> rateChange = rc->getRateChangeRatio();
+        inputDim[0] *= rateChange.first;
+        inputDim[0] /= rateChange.second;
+        inputDTScaled.setDimensions(inputDim);
+
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDTScaled != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }else{
+        DataType inputDT = rc->getInputPort(0)->getDataType();
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDT != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When not using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }
 
     //Validate input
     //If it is a master input, it is OK (do not need to check)

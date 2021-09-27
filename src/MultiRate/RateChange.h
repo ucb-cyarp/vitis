@@ -23,10 +23,9 @@
 class RateChange : public Node {
 friend class NodeFactory;
 
-private:
+protected:
     bool useVectorSamplingMode; ///<If true, uses vector sampling instead of a counter and conditional to implement the clock domain
 
-protected:
     /**
      * @brief Default constructor for RateChange
      */
@@ -137,6 +136,16 @@ public:
                                                  GraphMLDialect dialect);
 
     std::set<GraphMLParameter> graphMLParameters() override;
+
+    /**
+     * @brief Gets variables from the node which need to be declared outside of the clock domain which are not state variables.
+     *        This is primarily used for Upsample and Repeat operating in vector mode
+     *        These will be declared as context variables in the clock domain
+     * @return
+     */
+    virtual std::vector<Variable> getVariablesToDeclareOutsideClockDomain();
+
+    void specializeForBlocking(int localBlockingLength, int localSubBlockingLength, std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Node>> &nodesToRemove, std::vector<std::shared_ptr<Arc>> &arcsToAdd, std::vector<std::shared_ptr<Arc>> &arcsToRemove, std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
 };
 
 /*! @} */

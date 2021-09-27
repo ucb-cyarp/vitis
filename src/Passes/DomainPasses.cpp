@@ -19,6 +19,8 @@
 #include "GraphCore/ContextRoot.h"
 #include "Passes/ContextPasses.h"
 
+#include <iostream>
+
 std::vector<std::shared_ptr<ClockDomain>> DomainPasses::specializeClockDomains(Design &design, std::vector<std::shared_ptr<ClockDomain>> clockDomains){
     std::vector<std::shared_ptr<ClockDomain>> specializedDomains;
 
@@ -401,14 +403,14 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
         //When traversing hierarchically, it makes sense to follow a similar behavior that context marking and discovery took
         // * First, create a map of nodes to their strongly connected component set -> requires changing the strongly connected component datastructure
         //   to use smart pointers to sets
-        // * On encountering a contect, assuming it is required for all nodes in the context to be in the same blocking domain
+        // * On encountering a context, assuming it is required for all nodes in the context to be in the same blocking domain
         //   - Create the union of the connected components of nodes contained within it (including nodes in nested contexts) and place the context root in the set
-        //      -- Remove the origional strongly connected component sets and replace them with the union.
+        //      -- Remove the original strongly connected component sets and replace them with the union.
         //      -- Update the node to strongly connected component set mapping
         //   - Create a duplicate of the union set which we will call the moving set
-        //      - remove the nodes under the context which do not need to explicitally be moved (ie. nodes that are under the subsystem if the context is defined by the subsystem)
+        //      - remove the nodes under the context which do not need to explicitly be moved (ie. nodes that are under the subsystem if the context is defined by the subsystem)
         //         - Nodes in mux contexts are not removed from the list because they need to be moved
-        //        These are the nodes which will explicitally be moved under the
+        //        These are the nodes which will explicitly be moved under the
         //   - Repeat for other contexts at this level
         //
         // * On encountering a clock domain
@@ -420,10 +422,13 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
 
         std::set<std::shared_ptr<ClockDomain>> clockDomainsOutsideSubBlocking;
 
-        std::vector<std::shared_ptr<Node>> designTopLevelNodes = design.getTopLevelNodes();
+        //This needs to be all nodes that are not in any context
         std::set<std::shared_ptr<Node>> designTopLevelNodesSet;
-        for (const std::shared_ptr<Node> topLevelNode: designTopLevelNodes) {
-            designTopLevelNodesSet.insert(topLevelNode);
+        std::vector<std::shared_ptr<Node>> nodesInDesign = design.getNodes();
+        for (const std::shared_ptr<Node> &node : nodesInDesign) {
+            if(node->getContext().empty()) {
+                designTopLevelNodesSet.insert(node);
+            }
         }
 
         blockingNodeSetDiscoveryTraverse(designTopLevelNodesSet, baseSubBlockingLength,
@@ -431,6 +436,35 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
                                          nodeToBlockingGroup,
                                          blockingEnvelopGroups,
                                          clockDomainsOutsideSubBlocking);
+
+
+        //Set clockDomainsOutsideSubBlocking to use vector subsampling/supersampling mode
+        //Do this before blocking so that the rate change nodes that operate on vectors are not put in blocking domains
+        //Also remove any driving nodes/arcs that will no longer be needed
+        std::set<std::shared_ptr<Node>> driverNodesToRemove;
+        std::set<std::shared_ptr<Arc>> driverArcsToRemove;
+        for(const std::shared_ptr<ClockDomain> &clkDomain : clockDomainsOutsideSubBlocking){
+            clkDomain->setUseVectorSamplingModeAndPropagateToRateChangeNodes(true, driverNodesToRemove, driverArcsToRemove);
+        }
+        std::set<std::shared_ptr<Node>> emptyNodeSet;
+        std::set<std::shared_ptr<Arc>> emptyArcSet;
+        design.addRemoveNodesAndArcs(emptyNodeSet, driverNodesToRemove, emptyArcSet, driverArcsToRemove);
+        for(const std::shared_ptr<Node> &driverNodeToRemove : driverNodesToRemove){
+            //Remove from blocking groups
+            std::shared_ptr<std::set<std::shared_ptr<Node>>> blockingGroup = nodeToBlockingGroup[driverNodeToRemove];
+            std::shared_ptr<std::set<std::shared_ptr<Node>>> blockingEvelopeGroup = blockingEnvelopGroups[blockingGroup];
+            blockingGroup->erase(driverNodeToRemove);
+            blockingEvelopeGroup->erase(driverNodeToRemove);
+            nodeToBlockingGroup.erase(driverNodeToRemove);
+
+            if(blockingGroup->empty()){
+                if(!blockingEvelopeGroup->empty()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Blocking Env Group to be Empty if Blocking Group is Empty"));
+                }
+                blockingGroups.erase(blockingGroup);
+                blockingEnvelopGroups.erase(blockingGroup);
+            }
+        }
 
         //** Insert the sub-blocking domains
 
@@ -484,11 +518,6 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
                                         baseSubBlockingLength,
                                         arcsWithDeferredBlockingExpansion);
             }
-        }
-
-        //Set clockDomainsOutsideSubBlocking to use vector subsampling/supersampling mode
-        for(const std::shared_ptr<ClockDomain> &clkDomain : clockDomainsOutsideSubBlocking){
-            clkDomain->setUseVectorSamplingModeAndPropagateToRateChangeNodes(true);
         }
     }
 

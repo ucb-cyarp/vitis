@@ -86,6 +86,8 @@ public:
 
     void setClockDomainDriver(std::shared_ptr<Arc> newDriver) override;
 
+    std::shared_ptr<Arc> getClockDomainDriver() override;
+
     //==== Implement Context Root Functions ====
     int getNumSubContexts() const override;
 

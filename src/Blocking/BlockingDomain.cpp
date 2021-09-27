@@ -284,7 +284,7 @@ void BlockingDomain::emitCContextOpenFirst(std::vector<std::string> &cStatementQ
     Variable indVar = getBlockIndVar();
     std::string indVarName = indVar.getCVarName(false);
 
-    std::string cExpr = "for(" + indVar.getCVarDecl() + "=0; " + indVarName + "<" + GeneralHelper::to_string(blockingLen) + "; " + indVarName + "+=" + GeneralHelper::to_string(subBlockingLen) + "){";
+    std::string cExpr = "for(" + indVar.getCVarDecl() + "=0; " + indVarName + "<" + GeneralHelper::to_string(blockingLen/subBlockingLen) + "; " + indVarName + "++){";
     cStatementQueue.push_back(cExpr);
 }
 
