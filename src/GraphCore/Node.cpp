@@ -508,8 +508,7 @@ void Node::specializeForBlocking(int localBlockingLength,
                                  std::vector<std::shared_ptr<Node>> &nodesToRemove,
                                  std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                  std::vector<std::shared_ptr<Arc>> &arcsToRemove,
-                                 std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                 std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+                                 std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel) {
 
     //For now, error out if there are order constraint arcs
     //TODO: Possibly re-evaluate this decision
@@ -529,8 +528,7 @@ void Node::specializeForBlocking(int localBlockingLength,
             "BlockingDomainFor_" + name + "_n" + GeneralHelper::to_string(id),
             nodesToAdd,
             arcsToAdd,
-            nodesToRemoveFromTopLevel,
-            arcsWithDeferredBlockingExpansion);
+            nodesToRemoveFromTopLevel);
 }
 /*
     //For now, error out if there are order constraint arcs

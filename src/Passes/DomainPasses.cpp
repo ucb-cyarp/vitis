@@ -73,6 +73,65 @@ void DomainPasses::resetMasterNodeClockDomainLinks(Design &design) {
     design.getTerminatorMaster()->resetIoClockDomains();
 }
 
+//TODO: Update for sub-blocking
+std::map<int, std::set<std::pair<int, int>>> DomainPasses::findPartitionClockDomainRates(Design &design) {
+    std::map<int, std::set<std::pair<int, int>>> clockDomains;
+
+    //Find clock domains in IO
+    //Only looking at Input, Output, and Visualization.  Unconnected and Terminated are unnessasary
+    std::set<std::pair<int, int>> ioRates;
+    std::vector<std::shared_ptr<MasterNode>> mastersToInclude = {design.getInputMaster(), design.getOutputMaster(), design.getVisMaster()};
+    for(int i = 0; i<mastersToInclude.size(); i++) {
+        std::shared_ptr<MasterNode> master = mastersToInclude[i];
+        std::set<std::shared_ptr<ClockDomain>> inputClockDomains = master->getClockDomains();
+        for (auto clkDomain = inputClockDomains.begin(); clkDomain != inputClockDomains.end(); clkDomain++) {
+            if (*clkDomain == nullptr) {
+                ioRates.emplace(1, 1);
+            } else {
+                ioRates.insert((*clkDomain)->getRateRelativeToBase());
+            }
+        }
+    }
+    clockDomains[IO_PARTITION_NUM] = ioRates;
+
+    {
+        std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
+        for (unsigned long i = 0; i < nodes.size(); i++) {
+            int partition = nodes[i]->getPartitionNum();
+
+            //Do not include clock domains themselves in this
+            if (GeneralHelper::isType<Node, ClockDomain>(nodes[i]) == nullptr) {
+                //Note that FIFOs report their clock domain differently in order to handle the case when they are connected directly to the InputMaster
+                //Each input/output port pair can also have a different clock domain
+                if (GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i])) {
+                    std::shared_ptr<ThreadCrossingFIFO> fifo = std::dynamic_pointer_cast<ThreadCrossingFIFO>(nodes[i]);
+                    for (int portNum = 0; portNum < fifo->getInputPorts().size(); portNum++) {
+                        std::shared_ptr<ClockDomain> clkDomain = fifo->getClockDomainCreateIfNot(portNum);
+
+                        if (clkDomain == nullptr) {
+                            clockDomains[partition].emplace(1, 1);
+                        } else {
+                            std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                            clockDomains[partition].insert(rate);
+                        }
+                    }
+                } else {
+                    std::shared_ptr<ClockDomain> clkDomain = MultiRateHelpers::findClockDomain(nodes[i]);
+
+                    if (clkDomain == nullptr) {
+                        clockDomains[partition].emplace(1, 1);
+                    } else {
+                        std::pair<int, int> rate = clkDomain->getRateRelativeToBase();
+                        clockDomains[partition].insert(rate);
+                    }
+                }
+            }
+        }
+    }
+
+    return clockDomains;
+}
+
 std::pair<bool, int> DomainPasses::findEffectiveSubBlockingLengthForNode(std::shared_ptr<Node> node, int baseSubBlockingLength){
     std::shared_ptr<ClockDomain> clockDomain = MultiRateHelpers::findClockDomain(node);
 
@@ -310,11 +369,6 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
         return;
     }
 
-    //TODO: Before conducting the sub-blocking (if applicable), discover the clock domains associated with the different master
-    //I/O ports.  This information will be used to set the block sizes of the blocking domain
-
-    std::map<std::shared_ptr<Arc>, int> arcsWithDeferredBlockingExpansion;
-
     if(baseSubBlockingLength > 1) {
         //Create Sub-blocking domains
 
@@ -344,7 +398,7 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
         //Translate back to the original design:
         std::set<std::set<std::shared_ptr<Node>>> stronglyConnectedComponents;
 
-        for (const std::set<std::shared_ptr<Node>> &cloneStronglyConnectedComponent: cloneStronglyConnectedComponents) {
+        for (const std::set<std::shared_ptr<Node>> &cloneStronglyConnectedComponent: stronglyConnectedComponents) {
             std::set<std::shared_ptr<Node>> stronglyConnectedComponent;
 
             for (const std::shared_ptr<Node> &cloneNode: cloneStronglyConnectedComponent) {
@@ -493,8 +547,7 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
 
                 //When subblocking, the blocking length of the sub-blocking domain is the local sub-blocking length.  The sub-blocking length is 1
                 (*blockingGroup->begin())->specializeForBlocking(localSubBlockingLength, 1, nodesToAdd, nodesToRemove,
-                                                                 arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel,
-                                                                 arcsWithDeferredBlockingExpansion);
+                                                                 arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel);
 
                 design.addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
 
@@ -515,21 +568,14 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
                 createSubBlockingDomain(design,
                                         *(blockingEnvelopGroups[blockingGroup]),
                                         *blockingGroup,
-                                        baseSubBlockingLength,
-                                        arcsWithDeferredBlockingExpansion);
+                                        baseSubBlockingLength);
             }
         }
     }
 
     //Create outer blocking domain
     //To insert the outer blocking domain, the set is the top level nodes.
-    createGlobalBlockingDomain(design, baseBlockingLength, baseSubBlockingLength, arcsWithDeferredBlockingExpansion);
-
-    for(const auto &arcDeferred : arcsWithDeferredBlockingExpansion){
-        DataType dt = arcDeferred.first->getDataType();
-        dt = dt.expandForBlock(arcDeferred.second);
-        arcDeferred.first->setDataType(dt);
-    }
+    createGlobalBlockingDomain(design, baseBlockingLength, baseSubBlockingLength);
 
     //Need to remove all clock domains from master node ports.  I/O should be communicating with the outer blocking
     resetMasterNodeClockDomainLinks(design);
@@ -550,8 +596,7 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
 void DomainPasses::createSubBlockingDomain(Design &design,
                                            std::set<std::shared_ptr<Node>> nodesToMove,
                                            std::set<std::shared_ptr<Node>> nodesInSubBlockingDomain,
-                                           int baseSubBlockingLength,
-                                           std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+                                           int baseSubBlockingLength){
 
     if(nodesToMove.empty()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Tried to create sub-blocking domain with no nodes"));
@@ -642,8 +687,7 @@ void DomainPasses::createSubBlockingDomain(Design &design,
             "SubBlockingGroup",
             nodesToAdd,
             arcsToAdd,
-            nodesToRemoveFromTopLevel,
-            arcsWithDeferredBlockingExpansion);
+            nodesToRemoveFromTopLevel);
 
     std::vector<std::shared_ptr<Node>> emptyNodeVec;
     std::vector<std::shared_ptr<Arc>> emptyArcVec;
@@ -664,8 +708,7 @@ void DomainPasses::createSubBlockingDomain(Design &design,
 
 void DomainPasses::createGlobalBlockingDomain(Design &design,
                                 int baseBlockingLength,
-                                int baseSubBlockingLength,
-                                std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+                                int baseSubBlockingLength){
 
     //For the global blocking domain, we move all nodes at the top level into the created blocking domain
     std::vector<std::shared_ptr<Node>> topLevelNodes = design.getTopLevelNodes();
@@ -677,6 +720,18 @@ void DomainPasses::createGlobalBlockingDomain(Design &design,
     std::set<std::shared_ptr<Arc>> arcsOutOfDomain = design.getOutputMaster()->getDirectInputArcs();
     std::set<std::shared_ptr<Arc>> visOutArcs = design.getVisMaster()->getDirectInputArcs();
     arcsOutOfDomain.insert(visOutArcs.begin(), visOutArcs.end());
+
+    //need to expand the dimensions of the I/O arcs by the blocking factor
+    for(const std::shared_ptr<Arc> &arc : arcsIntoDomain){
+        DataType dt = arc->getDataType();
+        dt.expandForBlock(baseBlockingLength);
+        arc->setDataType(dt);
+    }
+    for(const std::shared_ptr<Arc> &arc : arcsOutOfDomain){
+        DataType dt = arc->getDataType();
+        dt.expandForBlock(baseBlockingLength);
+        arc->setDataType(dt);
+    }
 
     std::vector<std::shared_ptr<Node>> nodesToAdd;
     std::vector<std::shared_ptr<Arc>> arcsToAdd;
@@ -690,8 +745,7 @@ void DomainPasses::createGlobalBlockingDomain(Design &design,
                                                 "GlobalBlockingGroup",
                                                 nodesToAdd,
                                                 arcsToAdd,
-                                                nodesToRemoveFromTopLevel,
-                                                arcsWithDeferredBlockingExpansion);
+                                                nodesToRemoveFromTopLevel);
 
     std::vector<std::shared_ptr<Node>> emptyNodeVector;
     std::vector<std::shared_ptr<Arc>> emptyArcVector;
@@ -709,15 +763,4 @@ void DomainPasses::createGlobalBlockingDomain(Design &design,
 
     design.assignNodeIDs();
     design.assignArcIDs();
-
-    //need to expand the dimensions of the I/O arcs by the blocking factor
-    //Note, the arcs may have changed after adding BlockingInput and BlockingOutput nodes
-    //Need to do this after blocking insertion because changing the datatype of the arc before adding the blocking
-    //domain can result in an improperly expanded datatype being used inside of the domain
-
-    //This is now done outside of this function via arcsWithDeferredBlockingExpansion
-
-    //TODO: Also need to take into account the clock domain of the nodes connected
-
-
 }

@@ -106,8 +106,7 @@ namespace BlockingHelpers {
                                     std::string blockingName,
                                     std::vector<std::shared_ptr<Node>> &nodesToAdd,
                                     std::vector<std::shared_ptr<Arc>> &arcsToAdd,
-                                    std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                    std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                    std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel);
 };
 
 /*! @} */

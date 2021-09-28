@@ -138,6 +138,16 @@ namespace MultiRateHelpers {
     void validateClockDomainRates(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 
     /**
+     * @brief Sets the clock domain of a thread crossing FIFOs either based on the context it is in or the master I/O
+     * they are connected to
+     *
+     * @warning Is currently only implemented for FIFOs with a single input and output port
+     *
+     * @param threadCrossingFIFOs
+     */
+    void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
+
+    /**
      * @brief Checks the IO block sizes are integers (after accounting for clock domains)
      *
      * @note: This is redundant for MultithreadedEmit because IO is communicated to the compute threads via FIFOs and this check is also performed there
@@ -146,6 +156,19 @@ namespace MultiRateHelpers {
      * @param blockSize
      */
     void checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize);
+
+    /**
+     * @brief Sets the block sizes of FIFOs and validates that they are integer length
+     *
+     * Note that since the IO thread communicates with the compute threads via FIFOs, this sets
+     *
+     * @warning Clock Domains should be set for each FIFO port before calling this function.
+     *
+     * @param threadCrossingFIFOs
+     * @param blockSize
+     * @param setFIFOBlockSize
+     */
+    void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
 
     void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 

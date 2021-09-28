@@ -68,8 +68,8 @@ std::vector<std::shared_ptr<BlackBox>> EmitterHelpers::findBlackBoxes(std::vecto
     return blackBoxes;
 }
 
-void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster,
-                                                          bool checkForPartitionChange) {
+void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize,
+                                                          std::string indVarName, bool checkForPartitionChange) {
     //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
     std::vector<Context> lastEmittedContext;
 
@@ -154,10 +154,22 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
                 int varElements = outputVar.getDataType().numberOfElements();
                 int varBytes = outputVar.getDataType().getCPUStorageType().getTotalBits() / 8;
                 if (!outputVar.getDataType().isScalar()) {
-                    cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << ", " << expr_re << ", "
-                          << varElements * varBytes << ");" << std::endl;
+                    if (blockSize > 1) {
+                        //Can use the
+                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false)
+                              << "[" << indVarName << "], " << expr_re << ", " << varElements * varBytes << ");"
+                              << std::endl;
+                    } else {
+                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << ", " << expr_re << ", "
+                              << varElements * varBytes << ");" << std::endl;
+                    }
                 } else {
-                    cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+                    if (blockSize > 1) {
+                        cFile << "output[0]." << outputVar.getCVarName(false) << "[" << indVarName << "] = " << expr_re
+                              << ";" << std::endl;
+                    } else {
+                        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
+                    }
                 }
 
                 //Emit Imag if Datatype is complex
@@ -176,11 +188,22 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
 
                     //emit the assignment
                     if (!outputVar.getDataType().isScalar()) {
-                        cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << ", " << expr_im << ", "
-                              << varElements * varBytes << ");" << std::endl;
+                        if (blockSize > 1) {
+                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true)
+                                  << "[" << indVarName << "], " << expr_im << ", " << varElements * varBytes << ");"
+                                  << std::endl;
+                        } else {
+                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << ", " << expr_im << ", "
+                                  << varElements * varBytes << ");" << std::endl;
+                        }
                     } else {
-                        cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";"
-                              << std::endl;
+                        if (blockSize > 1) {
+                            cFile << "output[0]." << outputVar.getCVarName(true) << "[" << indVarName << "] = "
+                                  << expr_im << ";" << std::endl;
+                        } else {
+                            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";"
+                                  << std::endl;
+                        }
                     }
                 }
             }

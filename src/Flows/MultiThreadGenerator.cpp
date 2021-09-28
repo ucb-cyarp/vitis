@@ -165,6 +165,95 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //==== Discover Partitions with Single Clock Domain ====
     //TODO: Refactor into function
 
+    //Detect partitions with only single clock domain (and no rate change nodes) //TODO: Update to also consider blocking domains.  May be able
+    std::map<int, std::pair<int, int>> partitionSingleClockDomainRatesNotBase;
+    {
+        std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
+        std::map<int, std::set<std::shared_ptr<ClockDomain>>> partitionsWithSingleClockDomain = MultiRateHelpers::findPartitionsWithSingleClockDomain(nodes);
+        std::vector<std::shared_ptr<Node>> nodesToRemove;
+        std::vector<std::shared_ptr<Arc>> arcsToRemove;
+        for (const auto &partitionClkDomains : partitionsWithSingleClockDomain) {
+            int partition = partitionClkDomains.first;
+            std::set<std::shared_ptr<ClockDomain>> clkDomainsInPartition = partitionClkDomains.second;
+            if (clkDomainsInPartition.empty()) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected ClockDomain set to be non-empty"));
+            }
+            std::pair<int, int> rate = std::pair<int, int>(1, 1);
+            if (*clkDomainsInPartition.begin()) {
+                rate = (*clkDomainsInPartition.begin())->getRateRelativeToBase();
+            }
+
+            partitionSingleClockDomainRatesNotBase[partition] = rate;
+
+            std::cout << ErrorHelpers::genErrorStr(
+                    "Partition " + GeneralHelper::to_string(partition) + " is composed of a single rate (" +
+                    GeneralHelper::to_string(rate.first) + "/" + GeneralHelper::to_string(rate.second) + ")",
+                    VITIS_STD_INFO_PREAMBLE, "") << std::endl;
+
+            //For each clock domain, set the clock domains to suppress output for this partition
+            //Also remove the clock domain drivers for this clock domain in this partition
+            for (const auto &clkDomain : clkDomainsInPartition) {
+                //It is possible for the clock domain to be the base
+                if(clkDomain) {
+                    clkDomain->addClockDomainLogicSuppressedPartition(partition);
+
+                    std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<ClockDomain, ContextRoot>(
+                            clkDomain);
+                    if (asContextRoot) {
+                        std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition = asContextRoot->getContextDriversPerPartition();
+                        std::vector<std::shared_ptr<Arc>> contextDrivers = contextDriversPerPartition[partition];
+                        if (contextDrivers.size() > 1) {
+                            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                    "Expected a single context driver for Clock Domain in partition.", clkDomain));
+                        }
+
+                        if (!contextDrivers.empty()) {
+                            std::shared_ptr<Arc> driverArc = *contextDrivers.begin();
+                            std::shared_ptr<Node> driverNode = driverArc->getSrcPort()->getParent();
+
+                            //Some sanity checks
+                            if (driverNode->getOutputPorts().size() != 1) {
+                                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                        "Expected Clock Domain Driver Node to Have Single Output Port", driverNode));
+                            }
+
+                            if (driverArc->getSrcPort()->getArcs().size() != 1) {
+                                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                        "Expected Clock Domain Driver Node to Have Single Output Arc", driverNode));
+                            }
+
+                            std::vector<std::shared_ptr<Arc>> baseDrivers = asContextRoot->getContextDecisionDriver();
+                            //Sanity check
+                            if (baseDrivers.size() != 1) {
+                                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                        "Expected a single context driver for Clock Domain in partition.", clkDomain));
+                            }
+
+                            contextDriversPerPartition.erase(partition);
+
+                            if ((*baseDrivers.begin())->getSrcPort()->getParent() == driverNode) {
+                                //Set the base decision drivers to be from another partition
+                                //There should be at least one partition with an active driver for the clock domain because
+                                //at least one partition will contain a rate change block
+                                clkDomain->setClockDomainDriver(*(*contextDriversPerPartition.begin()).second.begin());
+                            }
+
+                            std::set<std::shared_ptr<Arc>> driverArcsToRm = driverNode->disconnectNode();
+                            nodesToRemove.push_back(driverNode);
+                            arcsToRemove.insert(arcsToRemove.end(), driverArcsToRm.begin(), driverArcsToRm.end());
+                        }
+
+                        asContextRoot->setContextDriversPerPartition(contextDriversPerPartition);
+                    }
+                }
+            }
+        }
+
+        std::vector<std::shared_ptr<Node>> emptyNodes;
+        std::vector<std::shared_ptr<Arc>> emptyArcs;
+        design.addRemoveNodesAndArcs(emptyNodes, nodesToRemove, emptyArcs, arcsToRemove);
+    }
+
     //==== Create Context Variable Update Nodes ====
 
     //TODO: investigate moving
@@ -232,6 +321,13 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         fifoVec[i]->setFifoLength(fifoLength);
     }
 
+    //Since FIFOs are placed in the src partition and context (unless the src is an EnableOutput or RateChange output),
+    //FIFOs connected to the input master should have their rate set based on the port rate of the input master.
+    //FIFOs connected to the output master should have their rate properly set based on the ClockDomain they are in, especially
+    //since any FIFO connected to a RateChange output will be placed in the next context up.
+    MultiRateHelpers::setFIFOClockDomains(fifoVec); //TODO: Update to also consider blocking domains
+    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true); //TODO: Update to also consider blocking domains
+
     //==== Retime ====
     //TODO: Retime Here
     //      Not currently implemented
@@ -291,7 +387,21 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoVec = it->second;
         for(int i = 0; i<fifoVec.size(); i++) {
-            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements() << std::endl;
+            std::vector<std::shared_ptr<ClockDomain>> clockDomains = fifoVec[i]->getClockDomains();
+            std::string clkDomainDescr = "[";
+            for(int i = 0; i<clockDomains.size(); i++){
+                if(i>0){
+                    clkDomainDescr += ", ";
+                }
+                std::pair<int, int> rate = std::pair<int, int>(1, 1);
+                if(clockDomains[i] != nullptr){ //Clock domain can be null which signifies the base case
+                    rate = clockDomains[i]->getRateRelativeToBase();
+                }
+                clkDomainDescr += GeneralHelper::to_string(rate.first) + "/" + GeneralHelper::to_string(rate.second);
+            }
+            clkDomainDescr += "]";
+
+            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getBlockSizeCreateIfNot(0) << ", Clock Domain(s): " << clkDomainDescr << std::endl;
         }
     }
     std::cout << std::endl;
@@ -427,6 +537,11 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         //Emit each partition (except -2, handle specially)
         if(partitionBeingEmitted->first != IO_PARTITION_NUM) {
             //Note that all I/O into and out of the partitions threads is via thread crossing FIFOs from the IO_PARTITION thread
+            bool singleClockDomain = partitionSingleClockDomainRatesNotBase.find(partitionBeingEmitted->first) != partitionSingleClockDomainRatesNotBase.end();
+            std::pair<int, int> rate = std::pair<int, int>(1, 1);
+            if(singleClockDomain){
+                rate = partitionSingleClockDomainRatesNotBase[partitionBeingEmitted->first];
+            }
 
             MultiThreadEmit::emitPartitionThreadC(partitionBeingEmitted->first, partitionBeingEmitted->second,
                                                   inputFIFOs[partitionBeingEmitted->first], outputFIFOs[partitionBeingEmitted->first],
@@ -435,7 +550,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
                                                   threadDebugPrint, printTelem,
                                                   telemLevel, telemCheckBlockFreq, telemReportPeriodSec,
                                                   telemDumpPrefix, false, papiHelperHFile,
-                                                  fifoIndexCachingBehavior, fifoDoubleBuffer);
+                                                  fifoIndexCachingBehavior, fifoDoubleBuffer, singleClockDomain, rate);
         }
     }
 

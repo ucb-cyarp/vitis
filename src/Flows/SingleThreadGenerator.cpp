@@ -330,7 +330,7 @@ void SingleThreadGenerator::emitSingleThreadedOpsSchedStateUpdateContext(Design 
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
-    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, design.getOutputMaster(), blockSize);
+    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, design.getOutputMaster(), blockSize, indVarName);
 }
 
 void SingleThreadGenerator::emitSingleThreadedC(Design &design, std::string path, std::string fileName, std::string designName, SchedParams::SchedType sched, unsigned long blockSize) {

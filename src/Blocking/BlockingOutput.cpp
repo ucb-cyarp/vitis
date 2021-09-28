@@ -194,9 +194,6 @@ CExpr BlockingOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
             std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
             std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
 
-            //Open for loop for copy
-            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-
             std::vector<std::string> outputIndexVars = forLoopIndexVars;
 
             if(outputDT.isVector()){

@@ -42,6 +42,12 @@ namespace DomainPasses {
     void resetMasterNodeClockDomainLinks(Design &design);
 
     /**
+     * @brief Finds the clock domain rates for each partition in the design
+     * @return
+     */
+    std::map<int, std::set<std::pair<int, int>>> findPartitionClockDomainRates(Design &design);
+
+    /**
      * @brief Determines the effective sub-blocking length present at a node taking into account clock domains
      *
      * This is primarily used to determine if a delay can exist outside of a sub-blocking domain
@@ -148,8 +154,7 @@ namespace DomainPasses {
     void createSubBlockingDomain(Design &design,
                                  std::set<std::shared_ptr<Node>> nodesToMove,
                                  std::set<std::shared_ptr<Node>> nodesInSubBlockingDomain,
-                                 int baseSubBlockingLength,
-                                 std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                 int baseSubBlockingLength);
 
     /**
      * @brief Creates a global blocking domain encircling the whole design.
@@ -163,8 +168,7 @@ namespace DomainPasses {
      */
     void createGlobalBlockingDomain(Design &design,
                                     int baseBlockingLength,
-                                    int baseSubBlockingLength,
-                                    std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                    int baseSubBlockingLength);
 
 
 };
