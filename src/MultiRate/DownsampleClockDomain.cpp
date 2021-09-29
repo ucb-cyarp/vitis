@@ -377,9 +377,13 @@ void DownsampleClockDomain::emitCContextCloseFirst(std::vector<std::string> &cSt
     if(!useVectorSamplingMode && suppressClockDomainLogicForPartitions.find(partitionNum) == suppressClockDomainLogicForPartitions.end()) {
         if (subContextNumber != 0 && subContextNumber != 1) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
-                    "Tried to cluse unexpected context " + GeneralHelper::to_string(subContextNumber),
+                    "Tried to close unexpected context " + GeneralHelper::to_string(subContextNumber),
                     getSharedPointer()));
         }
+
+        //Increment the counter before closing the context
+        std::string counterVar = getExecutionCountVariableName();
+        cStatementQueue.push_back(counterVar + "++;");
 
         cStatementQueue.push_back("}");
     }else if(useVectorSamplingMode){

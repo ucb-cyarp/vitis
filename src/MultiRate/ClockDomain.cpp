@@ -826,3 +826,31 @@ void ClockDomain::resetIOPorts(){
 std::shared_ptr <Arc> ClockDomain::getClockDomainDriver() {
     return nullptr;
 }
+
+bool ClockDomain::requiresDeclaringExecutionCount() {
+    return !isUsingVectorSamplingMode();
+}
+
+Variable ClockDomain::getExecutionCountVariable(int blockSizeBase) {
+    //This variable needs to count the number of iterations of this clock domain
+    std::pair<int, int> rateRelToBase = getRateRelativeToBase();
+
+    double iterationsPerBlock = std::ceil(blockSizeBase*rateRelToBase.first/((double) rateRelToBase.second));
+    int requiredBits = GeneralHelper::numIntegerBits(iterationsPerBlock, false);
+    DataType dt(false, false, false, requiredBits, 0, {1});
+    dt = dt.getCPUStorageType();
+
+    std::string varName = "ClkDomainCount_n" + GeneralHelper::to_string(id);
+
+    NumericValue initVal((long int) 0);
+
+    return Variable(varName, dt, {initVal});
+}
+
+std::string ClockDomain::getExecutionCountVariableName() {
+    std::string varName = "ClkDomainCount_n" + GeneralHelper::to_string(id);
+
+    NumericValue initVal((long int) 0);
+
+    return Variable(varName, DataType()).getCVarName();
+}

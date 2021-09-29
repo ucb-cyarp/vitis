@@ -75,6 +75,15 @@ protected:
      */
     void shallowCloneWithChildrenWork(std::shared_ptr<ClockDomain> clonedNode, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
 
+    /**
+     * @brief Get the name of the count variable (if not operating in vector sampling mode).
+     *
+     * Does not require the block size which getExecutionCountVariable does
+     *
+     * @return
+     */
+    std::string getExecutionCountVariableName();
+
 public:
     //==== Getters & Setters ====
     int getUpsampleRatio() const;
