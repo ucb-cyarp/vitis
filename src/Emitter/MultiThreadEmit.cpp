@@ -1591,18 +1591,21 @@ void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::sh
     //TODO: Create and set counter variables for clock domains not operating in vector mode
     std::vector<std::shared_ptr<ClockDomain>> clockDomainsOrderedByRate;
     clockDomainsOrderedByRate.insert(clockDomainsOrderedByRate.begin(), clockDomainsInPartition.begin(), clockDomainsInPartition.end());
-    bool clkDomainSortFun = [](std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b){ //Lambda function for sorting
-        std::pair<int,int> aRate = a->getRateRelativeToBase();
-        double aRateDouble = ((double) aRate.first) / aRate.second;
-        std::pair<int,int> bRate = b->getRateRelativeToBase();
-        double bRateDouble = ((double) aRate.first) / aRate.second;
+    struct {
+        bool operator() (const std::shared_ptr<ClockDomain> &a,
+                                   const std::shared_ptr<ClockDomain> &b) const {
+            std::pair<int, int> aRate = a->getRateRelativeToBase();
+            double aRateDouble = ((double) aRate.first) / aRate.second;
+            std::pair<int, int> bRate = b->getRateRelativeToBase();
+            double bRateDouble = ((double) aRate.first) / aRate.second;
 
-        if(aRateDouble==bRateDouble){
-            return a->getId()<b->getId();
-        }
-        return aRateDouble<bRateDouble;
-    };
-    std::sort(clockDomainsOrderedByRate.begin(), clockDomainsOrderedByRate.end(), clkDomainSortFun);
+            if (aRateDouble == bRateDouble) {
+                return a->getId() < b->getId();
+            }
+            return aRateDouble < bRateDouble;
+        };
+    } clockDomainCompare;
+    std::sort(clockDomainsOrderedByRate.begin(), clockDomainsOrderedByRate.end(), clockDomainCompare);
 
     bool emittedClockDomainInd = false;
     for(const std::shared_ptr<ClockDomain> &clockDomain : clockDomainsOrderedByRate){
@@ -1623,7 +1626,7 @@ void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::sh
 
     //Emit operators
     if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
-        emitSelectOpsSchedStateUpdateContext(cFile, nodesToEmit, schedType, outputMaster, blockSize, blockIndVar);
+        emitSelectOpsSchedStateUpdateContext(cFile, nodesToEmit, schedType, outputMaster);
     }else{
         throw std::runtime_error("Only TOPOLOGICAL_CONTEXT scheduler varient is supported for multi-threaded emit");
     }
@@ -1854,7 +1857,7 @@ void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::sh
         if(partitionHasState){
             stateArg = std::string("&") + VITIS_STATE_STRUCT_NAME;
         }
-        std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize,
+        std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs,
                                                             fifoInPlace, stateArg, doubleBuffer,
                                                             "_readTmp",
                                                             "_prev", //this is normally "_writeTmp" but we do not actually want to write
@@ -2167,7 +2170,7 @@ void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::sh
     if(partitionHasState){
         stateArg = std::string("&") + VITIS_STATE_STRUCT_NAME;
     }
-    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize, fifoInPlace,
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, fifoInPlace,
                                                         stateArg, doubleBuffer,
                                                         "_readTmp",
                                                         "_writeTmp",
@@ -2352,16 +2355,6 @@ void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::sh
     //Close function
     cFile << "}" << std::endl;
 
-    //Restore clock domains of FIFOs if single clock domain partition
-    if(singleClkDomain){
-        for(int i = 0; i<inputFIFOs.size(); i++){
-            inputFIFOs[i]->setClockDomains(inputFIFOOrigClockDomains[i]);
-        }
-        for(int i = 0; i<outputFIFOs.size(); i++){
-            outputFIFOs[i]->setClockDomains(outputFIFOOrigClockDomains[i]);
-        }
-    }
-
     cFile.close();
 }
 
@@ -2528,7 +2521,7 @@ std::string MultiThreadEmit::getPartitionComputeCFunctionArgPrototype(
 std::string MultiThreadEmit::getCallPartitionComputeCFunction(std::string computeFctnName,
                                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                                        int blockSize, bool fifoInPlace,
+                                                                        bool fifoInPlace,
                                                                         std::string stateStructParam,
                                                                         ComputeIODoubleBufferType doubleBuffer,
                                                                         std::string inputFIFOSuffix, //"_readTmp"
@@ -2595,9 +2588,7 @@ std::string MultiThreadEmit::getCallPartitionComputeCFunction(std::string comput
         for (unsigned long portNum = 0; portNum < outputFIFOs[i]->getInputPorts().size(); portNum++) {
             Variable var = outputFIFOs[i]->getCStateVarExpandedForBlockSize(portNum);
 
-            //Note that the FIFO state variable does not include the expansion for
-            //block size, do it here.
-            DataType varDatatypeExpanded = var.getDataType().expandForBlock(blockSize);
+            DataType varDatatypeExpanded = var.getDataType(); //Should already be expanded
 
             std::string tmpName = "";
             if (varDatatypeExpanded.numberOfElements() == 1) {
@@ -2879,7 +2870,7 @@ void MultiThreadEmit::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile,
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
-    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
+    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster);
 }
 
 bool MultiThreadEmit::checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes) {

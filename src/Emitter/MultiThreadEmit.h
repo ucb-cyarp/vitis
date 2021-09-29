@@ -368,7 +368,7 @@ namespace MultiThreadEmit {
     std::string getCallPartitionComputeCFunction(std::string computeFctnName,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                 int blockSize, bool fifoInPlace, std::string stateStructParam,
+                                                 bool fifoInPlace, std::string stateStructParam,
                                                  ComputeIODoubleBufferType doubleBuffer,
                                                  std::string inputFIFOSuffix,
                                                  std::string outputFIFOSuffix,
