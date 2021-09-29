@@ -110,6 +110,22 @@ public:
     void setUseVectorSamplingMode(bool useVectorSamplingMode);
 
     /**
+     * @brief Indicates if a variable which tracks how many times the given clock domain has been executed
+     *        in the given function call (processing a given block) is required.
+     *
+     *        This is typically needed for clock domains that cannot operate in vector mode but have
+     *        a FIFO within them.  Ie. the clock domain may be a factor of the global block size but
+     *        not of the sub-block size.  In this case, the index into the FIFO needs to be determined
+     *        by how many times this domain has executed in the
+     *
+     *        The variable in question will be reset to 0 during each function call invocation
+     * @return
+     */
+    bool requiresDeclaringExecutionCount();
+
+    Variable getExecutionCountVariable(int blockSizeBase);
+
+    /**
      * @brief Sets the use vector sampling mode and propagates to clock domain inputs and outputs
      *
      * If setting to false, also removes clock domain driver node

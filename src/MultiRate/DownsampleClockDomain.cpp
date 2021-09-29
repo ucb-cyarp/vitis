@@ -239,8 +239,18 @@ Variable DownsampleClockDomain::getCContextVar(int contextVarIndex) {
 }
 
 bool DownsampleClockDomain::requiresContiguousContextEmits() {
-    //Downsample clock domains do not nessisarily need to be emitted in one block
-    return false;
+    //TODO: Downsample clock domains do not necessarily need to be emitted in one block
+    //      However, it allows us to insert the increment of the execution count in the
+    //      context close.  We could make this an explicit node but it would require
+    //      replicating the node across contexts.  Refactor this at some point
+    //
+    //      This will not have much impact with the current scheduling scheme for
+    //      multithreading as that schedules clock domains together anyway.
+    if(requiresDeclaringExecutionCount()) {
+        return true;
+    }else{
+        return false;
+    }
 }
 
 

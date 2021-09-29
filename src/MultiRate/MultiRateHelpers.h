@@ -182,6 +182,28 @@ namespace MultiRateHelpers {
      */
     std::map<int, std::set<std::shared_ptr<ClockDomain>>> findPartitionsWithSingleClockDomain(const std::vector<std::shared_ptr<Node>> &nodes);
 
+    /**
+     * @brief Finds the clock domains which contain the set of given nodes.  It does not just include the clock domain
+     * the nodes are directly in but the clock domains up the hierarchy
+     *
+     * @param node
+     * @return
+     */
+    template<typename NodeContainerType>
+    std::set<std::shared_ptr<ClockDomain>> findClockDomainsOfNodes(NodeContainerType &nodes){
+        std::set<std::shared_ptr<ClockDomain>> clockDomains;
+
+        for(const std::shared_ptr<Node> &node : nodes){
+            std::shared_ptr<ClockDomain> cursor = MultiRateHelpers::findClockDomain(node); //This function works pre- or post- encapsulation
+            //Don't just want the lowest level clock domain the node is in, want the full hierarchy
+            while(cursor != nullptr){
+                clockDomains.insert(cursor);
+                cursor = MultiRateHelpers::findClockDomain(cursor);
+            }
+        }
+
+        return clockDomains;
+    }
 
 };
 

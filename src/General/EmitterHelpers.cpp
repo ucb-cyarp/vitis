@@ -68,8 +68,10 @@ std::vector<std::shared_ptr<BlackBox>> EmitterHelpers::findBlackBoxes(std::vecto
     return blackBoxes;
 }
 
-void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize,
-                                                          std::string indVarName, bool checkForPartitionChange) {
+void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType,
+                                               std::vector<std::shared_ptr<Node>> orderedNodes,
+                                               std::shared_ptr<MasterOutput> outputMaster,
+                                               bool checkForPartitionChange) {
     //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
     std::vector<Context> lastEmittedContext;
 
@@ -86,7 +88,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
     int partition = -1;
     bool firstNode = true;
 
-    //Itterate through the schedule and emit
+    //Iterate through the schedule and emit
     for (auto it = orderedNodes.begin(); it != orderedNodes.end(); it++) {
 
 //        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
@@ -116,97 +118,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
         }
 
         if (*it == outputMaster) {
-            //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
-            unsigned long numOutputs = outputMaster->getInputPorts().size();
-            for (unsigned long i = 0; i < numOutputs; i++) {
-                std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
-                cFile << std::endl << "//---- Assign Output " << i << ": " << output->getName() << " ----" << std::endl;
-
-                //Get the arc connected to the output
-                std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
-
-                DataType outputDataType = outputArc->getDataType();
-
-                std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
-                int srcNodeOutputPortNum = srcOutputPort->getPortNum();
-
-                std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-
-                cFile << "//-- Assign Real Component --" << std::endl;
-                std::vector<std::string> cStatements_re;
-                //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
-                //desired
-                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true,
-                                                     true).getExpr();
-                //emit the expressions
-                unsigned long numStatements_re = cStatements_re.size();
-                for (unsigned long j = 0; j < numStatements_re; j++) {
-                    cFile << cStatements_re[j] << std::endl;
-                }
-
-                //emit the assignment
-                Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-
-                //Note that with matrix/vector ports an added dimension is prepended to the array when the block size is >1
-                //Because of C/C++ array semantics, this results in the elements for each block being stored
-                //contiguously.  For multidimensional arrays (ex. array[][5][5]), the index of the block can found
-                //by simply employing array[block].  The compiler knows the size of the latter 2 dimensions.
-                int varElements = outputVar.getDataType().numberOfElements();
-                int varBytes = outputVar.getDataType().getCPUStorageType().getTotalBits() / 8;
-                if (!outputVar.getDataType().isScalar()) {
-                    if (blockSize > 1) {
-                        //Can use the
-                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false)
-                              << "[" << indVarName << "], " << expr_re << ", " << varElements * varBytes << ");"
-                              << std::endl;
-                    } else {
-                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << ", " << expr_re << ", "
-                              << varElements * varBytes << ");" << std::endl;
-                    }
-                } else {
-                    if (blockSize > 1) {
-                        cFile << "output[0]." << outputVar.getCVarName(false) << "[" << indVarName << "] = " << expr_re
-                              << ";" << std::endl;
-                    } else {
-                        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
-                    }
-                }
-
-                //Emit Imag if Datatype is complex
-                if (outputDataType.isComplex()) {
-                    cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
-                    std::vector<std::string> cStatements_im;
-                    //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
-                    //desired
-                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true,
-                                                         true).getExpr();
-                    //emit the expressions
-                    unsigned long numStatements_im = cStatements_im.size();
-                    for (unsigned long j = 0; j < numStatements_im; j++) {
-                        cFile << cStatements_im[j] << std::endl;
-                    }
-
-                    //emit the assignment
-                    if (!outputVar.getDataType().isScalar()) {
-                        if (blockSize > 1) {
-                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true)
-                                  << "[" << indVarName << "], " << expr_im << ", " << varElements * varBytes << ");"
-                                  << std::endl;
-                        } else {
-                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << ", " << expr_im << ", "
-                                  << varElements * varBytes << ");" << std::endl;
-                        }
-                    } else {
-                        if (blockSize > 1) {
-                            cFile << "output[0]." << outputVar.getCVarName(true) << "[" << indVarName << "] = "
-                                  << expr_im << ";" << std::endl;
-                        } else {
-                            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";"
-                                  << std::endl;
-                        }
-                    }
-                }
-            }
+            //TODO: Re-implement to support single-threaded targets.
+            //      Was broken by clock domains and sub-blocking
+            //      See https://github.com/ucb-cyarp/vitis/issues/98
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Output Master Emit is currently not supported (relied on by single threaded target).  See https://github.com/ucb-cyarp/vitis/issues/98"));
         } else if (GeneralHelper::isType<Node, StateUpdate>(*it) != nullptr) {
             std::shared_ptr<StateUpdate> stateUpdateNode = std::dynamic_pointer_cast<StateUpdate>(*it);
 

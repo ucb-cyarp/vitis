@@ -154,7 +154,8 @@ namespace DomainPasses {
     void createSubBlockingDomain(Design &design,
                                  std::set<std::shared_ptr<Node>> nodesToMove,
                                  std::set<std::shared_ptr<Node>> nodesInSubBlockingDomain,
-                                 int baseSubBlockingLength);
+                                 int baseSubBlockingLength,
+                                 std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
     /**
      * @brief Creates a global blocking domain encircling the whole design.
@@ -168,7 +169,8 @@ namespace DomainPasses {
      */
     void createGlobalBlockingDomain(Design &design,
                                     int baseBlockingLength,
-                                    int baseSubBlockingLength);
+                                    int baseSubBlockingLength,
+                                    std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
 
 };

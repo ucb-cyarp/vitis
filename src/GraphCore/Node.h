@@ -884,7 +884,8 @@ public:
                                        std::vector<std::shared_ptr<Node>> &nodesToRemove,
                                        std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                        std::vector<std::shared_ptr<Arc>> &arcsToRemove,
-                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel);
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
     /**
      * @brief Identifies if the node contains a path that is combinational

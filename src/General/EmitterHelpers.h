@@ -49,11 +49,9 @@ namespace EmitterHelpers {
      * @param schedType the scheduler being used.  Is passed to downstream context emit functions
      * @param orderedNodes the nodes to emit, given in the order they should be emitted
      * @param outputMaster a pointer to the output master of the design being emitted
-     * @param blockSize the size of the block (in samples) that are processed in each call to the function
-     * @param indVarName the variable that specifies the index in the block that is being computed
      * @param checkForPartitionChange if true, checks if the partition changes while emitting and throws an error if it does
      */
-    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
+    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, bool checkForPartitionChange = true);
 
     /**
      * @brief A helper function for emitting a single node
