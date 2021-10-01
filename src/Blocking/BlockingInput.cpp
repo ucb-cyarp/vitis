@@ -201,10 +201,10 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
         //Open for loop for copy
         cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
-        //If the input type is a vector, indexing is offset
+        //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
         std::vector<std::string> inputIndexVars = forLoopIndexVars;
-        if(inputDT.isVector()){
-            inputIndexVars[0] = indexVar.getCVarName(false) + (subBlockingLen > 1 ? "*" + GeneralHelper::to_string(subBlockingLen) : "") + "+" + inputIndexVars[0];
+        if(subBlockingLen>1){
+            inputIndexVars[0] = indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" + inputIndexVars[0];
         }else{
             inputIndexVars.insert(inputIndexVars.begin(), indexVar.getCVarName(false));
         }

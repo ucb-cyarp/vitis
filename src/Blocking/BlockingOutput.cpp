@@ -199,9 +199,10 @@ CExpr BlockingOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
 
             std::vector<std::string> outputIndexVars = forLoopIndexVars;
 
-            if(outputDT.isVector()){
+            //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
+            if(subBlockingLen>1){
                 //There is no extra dimension, the index in the output is offset by the index variable
-                outputIndexVars[0] = indexVar.getCVarName(false) + (subBlockingLen > 1 ? "*" + GeneralHelper::to_string(subBlockingLen) : "") + "+" + outputIndexVars[0];
+                outputIndexVars[0] = indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" + outputIndexVars[0];
             }else{
                 outputIndexVars.insert(outputIndexVars.begin(), indexVar.getCVarName(false));
             }
