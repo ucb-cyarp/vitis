@@ -28,7 +28,7 @@
 void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, std::string fileName, std::string designName,
                                 SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
-                                bool printSched, int fifoLength, unsigned long blockSize,
+                                bool printSched, int fifoLength, unsigned long blockSize, unsigned long subBlockSize,
                                 bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
                                 int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
                                 EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
@@ -134,7 +134,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //      When handling clock domains under the blocking domain, if they are set to process in a vector fashion, the counter logic should be supporessed
     //      This should remove the need to check if a partition only operates at a certain clock rate.
     //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
-    DomainPasses::blockAndSubBlockDesign(design, blockSize, 8);
+    DomainPasses::blockAndSubBlockDesign(design, blockSize, subBlockSize);
 
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
