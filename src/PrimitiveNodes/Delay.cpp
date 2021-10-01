@@ -16,7 +16,8 @@
 #include "Passes/MultiThreadPasses.h"
 
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                 roundCircularBufferToPowerOf2(false), circularBufferType(CircularBufferType::NO_EXTRA_LEN), transactionBlockSize(1){
+                 roundCircularBufferToPowerOf2(false), circularBufferType(CircularBufferType::NO_EXTRA_LEN), transactionBlockSize(1),
+                 blockingSpecializationDeferred(false), deferredBlockSize(0), deferredSubBlockSize(0){
 
 }
 
@@ -24,7 +25,10 @@ Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayVa
                                                   allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
                                                   roundCircularBufferToPowerOf2(false),
                                                   circularBufferType(CircularBufferType::NO_EXTRA_LEN),
-                                                  transactionBlockSize(1){
+                                                  transactionBlockSize(1),
+                                                  blockingSpecializationDeferred(false),
+                                                  deferredBlockSize(0),
+                                                  deferredSubBlockSize(0){
 
 }
 
@@ -225,53 +229,59 @@ void Delay::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - With Block Size > 1, earliestFirst is not supported", getSharedPointer()));
     }
 
-    //Check that input port and the output port have the same type
-    DataType outType = getOutputPort(0)->getDataType();
-    DataType inType = getInputPort(0)->getDataType();
+    if(!blockingSpecializationDeferred) { //If specialization was deferred, there will be a conflict between the arc types and the expected arc types of the node.  This will be resolved when the specialization occurs.
+        //Check that input port and the output port have the same type
+        DataType outType = getOutputPort(0)->getDataType();
+        DataType inType = getInputPort(0)->getDataType();
 
-    if(inType != outType){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - DataType of Input Port Does not Match Output Port", getSharedPointer()));
-    }
-
-    std::vector<int> typeDim = inType.getDimensions();
-    if(transactionBlockSize > 1) {
-        if (typeDim[0] !=  transactionBlockSize) {
+        if (inType != outType) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
-                    "Validation Failed - Delay - For Block Size > 1, Outer Dimension of I/O Should be the Block Size",
+                    "Validation Failed - Delay - DataType of Input Port Does not Match Output Port",
                     getSharedPointer()));
         }
-    }
 
-    int arraySize = delayValue;
-    if(allocateExtraSpace){
-        arraySize++;
-    }
-
-    if(transactionBlockSize == 1 && roundCircularBufferToPowerOf2){
-        //TODO: Implement power of 2 rounding for standard delay circular buffer
-        throw std::runtime_error("Currently, standard delays do not support rounding circular buffers to a power of 2 with a block size of 1");
-    }
-
-    int expectedSize;
-    if(usesCircularBuffer()){
-        expectedSize = getBufferAllocatedLen()*inType.numberOfElements();
-        if(transactionBlockSize > 1){
-            //The allocated length is in terms of the sub-elements and the input was expanded by the block size
-            expectedSize /= transactionBlockSize;
+        std::vector<int> typeDim = inType.getDimensions();
+        if (transactionBlockSize > 1) {
+            if (typeDim[0] != transactionBlockSize) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Validation Failed - Delay - For Block Size > 1, Outer Dimension of I/O Should be the Block Size",
+                        getSharedPointer()));
+            }
         }
-    }else{
-        expectedSize = arraySize*inType.numberOfElements();
-    }
 
-    std::vector<NumericValue> reshapedInitCond = getInitConditionsReshapedForConfig();
-    if (delayValue != 0 && expectedSize != reshapedInitCond.size()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr(
-                "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
-                "), Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
-                "), Reshaped Init Condition Vector (" +
-                GeneralHelper::to_string(reshapedInitCond.size()) +
-                ") does not match the expected initial condition length (" + GeneralHelper::to_string(expectedSize) +
-                ")", getSharedPointer()));
+        int arraySize = delayValue;
+        if (allocateExtraSpace) {
+            arraySize++;
+        }
+
+        if (transactionBlockSize == 1 && roundCircularBufferToPowerOf2) {
+            //TODO: Implement power of 2 rounding for standard delay circular buffer
+            throw std::runtime_error(
+                    "Currently, standard delays do not support rounding circular buffers to a power of 2 with a block size of 1");
+        }
+
+        int expectedSize;
+        if (usesCircularBuffer()) {
+            expectedSize = getBufferAllocatedLen() * inType.numberOfElements();
+            if (transactionBlockSize > 1) {
+                //The allocated length is in terms of the sub-elements and the input was expanded by the block size
+                expectedSize /= transactionBlockSize;
+            }
+        } else {
+            expectedSize = arraySize * inType.numberOfElements();
+        }
+
+        std::vector<NumericValue> reshapedInitCond = getInitConditionsReshapedForConfig();
+        if (delayValue != 0 && expectedSize != reshapedInitCond.size()) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Validation Failed - Delay - Delay Length (" + GeneralHelper::to_string(delayValue) +
+                    "), Element Dimensions (" + GeneralHelper::to_string(inType.numberOfElements()) +
+                    "), Reshaped Init Condition Vector (" +
+                    GeneralHelper::to_string(reshapedInitCond.size()) +
+                    ") does not match the expected initial condition length (" +
+                    GeneralHelper::to_string(expectedSize) +
+                    ")", getSharedPointer()));
+        }
     }
 
     //TODO: Add error check for extra length circular buffers in standard delay node
@@ -285,6 +295,7 @@ void Delay::validate() {
     if(allocateExtraSpace){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Standard Delay nodes should not allocate extra space", getSharedPointer()));
     }
+
 }
 
 bool Delay::hasState() {
@@ -938,8 +949,10 @@ Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(par
     bufferImplementation(orig->bufferImplementation), circularBufferOffsetVar(orig->circularBufferOffsetVar),
     roundCircularBufferToPowerOf2(orig->roundCircularBufferToPowerOf2),
     circularBufferType(orig->circularBufferType),
-    transactionBlockSize(orig->transactionBlockSize){
-
+    transactionBlockSize(orig->transactionBlockSize),
+    blockingSpecializationDeferred(orig->blockingSpecializationDeferred),
+    deferredBlockSize(orig->deferredBlockSize),
+    deferredSubBlockSize(orig->deferredSubBlockSize){
 }
 
 std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
@@ -1410,14 +1423,15 @@ bool Delay::canBreakBlockingDependency(int localSubBlockingLength){
     return delayValue >= localSubBlockingLength;
 }
 
-void Delay::specializeForBlocking(int localBlockingLength,
-                                  int localSubBlockingLength,
-                                  std::vector<std::shared_ptr<Node>> &nodesToAdd,
-                                  std::vector<std::shared_ptr<Node>> &nodesToRemove,
-                                  std::vector<std::shared_ptr<Arc>> &arcsToAdd,
-                                  std::vector<std::shared_ptr<Arc>> &arcsToRemove,
-                                  std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                  std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+void Delay::specializeForBlockingWOptions(bool processArcs,
+                                          int localBlockingLength,
+                                          int localSubBlockingLength,
+                                          std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                          std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                          std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                          std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                          std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                          std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
     //TODO: Refactor?
     if(localSubBlockingLength != 1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("When specializing for blocking, currently expect the sub-blocking length to be 1.  This is consistent with inserting sub-blocking domains ", getSharedPointer()));
@@ -1432,25 +1446,24 @@ void Delay::specializeForBlocking(int localBlockingLength,
 
         //Can actually use a delay, reconfigured for the specific configuration currently supported.
         //  blockSize > 1, circular buffer, double buffer len, earliestFirst = false;
-        if(earliestFirst){
-            initCondition = reverseInitConds(initCondition);
-            earliestFirst = false;
-        }
+        // Do not reverse the initial conditions since the initialCondition array should now always be oriented the same way.  It is re-shaped by getInitConditionsReshapedForConfig
+        earliestFirst = false;
         transactionBlockSize = localBlockingLength;
         bufferImplementation = BufferType::CIRCULAR_BUFFER;
         circularBufferType = CircularBufferType::DOUBLE_LEN;
 
         //For the arcs into an out of the delay, mark them for dimension expansion by the local blocking length
-        std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
-        std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
-        arcs.insert(outArcs.begin(), outArcs.end());
-        for(const std::shared_ptr<Arc> arc : arcs){
-            arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
+        if(processArcs) {
+            std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+            std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
+            arcs.insert(outArcs.begin(), outArcs.end());
+            for (const std::shared_ptr<Arc> arc: arcs) {
+                arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
+            }
         }
     }else {
         if (delayRemainder > 0) {
             //Create a new delay and move the remaining initial conditions to it
-
             std::shared_ptr<Delay> leftoverDelay = splitDelay(nodesToAdd, arcsToAdd, separateDelay*localBlockingLength);
 
             //Call the new delay's specialization function which will force wrapping.  This will set arcsWithDeferredBlockingExpansion for the arcs connected to the
@@ -1463,9 +1476,7 @@ void Delay::specializeForBlocking(int localBlockingLength,
 
             //Need this delay configured to not be earliest first (ie. last first) for indexing in the blocking domains
             //The delay should read from the front of the array, new values stored at the end
-            if(earliestFirst){
-                earliestFirst = false;
-            }
+            earliestFirst = false;
 
             //Correct the initial conditions before changing the delay and datatype.  With !earliestFirst, initial conditions
             //are in the standard order with the first value to be displayed in initConditions[0]
@@ -1473,14 +1484,73 @@ void Delay::specializeForBlocking(int localBlockingLength,
             delayValue = separateDelay;
 
             //For the arcs into an out of the delay, mark them for dimension expansion by the local blocking length
-            std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
-            std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
-            arcs.insert(outArcs.begin(), outArcs.end());
-            for(const std::shared_ptr<Arc> arc : arcs){
-                arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
+            if(processArcs) {
+                std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+                std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
+                arcs.insert(outArcs.begin(), outArcs.end());
+                for (const std::shared_ptr<Arc> arc: arcs) {
+                    arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
+                }
             }
         }
     }
+}
+
+void Delay::specializeForBlockingArcExpandOnly(int localBlockingLength, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+    std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
+    std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
+    arcs.insert(outArcs.begin(), outArcs.end());
+    for (const std::shared_ptr<Arc> arc: arcs) {
+        arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
+    }
+}
+
+void Delay::specializeForBlockingDeferDelayReconfigReshape(int localBlockingLength,
+                                                           int localSubBlockingLength,
+                                                           std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                                           std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                                           std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                                           std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                                           std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                                           std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+    blockingSpecializationDeferred = true;
+    deferredBlockSize=localBlockingLength;
+    deferredSubBlockSize=localSubBlockingLength;
+
+    specializeForBlockingArcExpandOnly(localBlockingLength, arcsWithDeferredBlockingExpansion);
+}
+
+void Delay::specializeForBlocking(int localBlockingLength,
+                           int localSubBlockingLength,
+                           std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                           std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                           std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                           std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                           std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                           std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+    if(blockingSpecializationDeferred){
+        specializeForBlockingWOptions(false, //Already processed arcs.  Delay split should copy the arc types which were expanded
+                deferredBlockSize,
+                deferredSubBlockSize,
+                nodesToAdd,
+                nodesToRemove,
+                arcsToAdd,
+                arcsToRemove,
+                nodesToRemoveFromTopLevel,
+                arcsWithDeferredBlockingExpansion);
+        blockingSpecializationDeferred = false;
+    }else{
+        specializeForBlockingWOptions(true, //Already processed arcs.  Delay split should copy the arc types which were expanded
+                                      deferredBlockSize,
+                                      deferredSubBlockSize,
+                                      nodesToAdd,
+                                      nodesToRemove,
+                                      arcsToAdd,
+                                      arcsToRemove,
+                                      nodesToRemoveFromTopLevel,
+                                      arcsWithDeferredBlockingExpansion);
+    }
+
 }
 
 void Delay::propagatePropertiesHelper() {
@@ -1727,4 +1797,28 @@ int Delay::getTransactionBlockSize() const {
 
 void Delay::setTransactionBlockSize(int transactionBlockSize) {
     Delay::transactionBlockSize = transactionBlockSize;
+}
+
+bool Delay::isBlockingSpecializationDeferred() const {
+    return blockingSpecializationDeferred;
+}
+
+void Delay::setBlockingSpecializationDeferred(bool blockingSpecializationDeferred) {
+    Delay::blockingSpecializationDeferred = blockingSpecializationDeferred;
+}
+
+int Delay::getDeferredBlockSize() const {
+    return deferredBlockSize;
+}
+
+void Delay::setDeferredBlockSize(int deferredBlockSize) {
+    Delay::deferredBlockSize = deferredBlockSize;
+}
+
+int Delay::getDeferredSubBlockSize() const {
+    return deferredSubBlockSize;
+}
+
+void Delay::setDeferredSubBlockSize(int deferredSubBlockSize) {
+    Delay::deferredSubBlockSize = deferredSubBlockSize;
 }

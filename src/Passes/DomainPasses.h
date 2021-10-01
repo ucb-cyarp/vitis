@@ -90,12 +90,15 @@ namespace DomainPasses {
      *
      * @warning requires context discover to occure before this function is called (so that contexts can be properly blocked)
      * @warning clears the context discovery information as part of the process and re-calls ContextPasses::discoverAndMarkContexts(design)
+     * @warning Delays have specialization deferred for FIFO delay absorption
      *
      * @param design
      * @param baseBlockingLength
      * @param baseSubBlockingLength
      */
     void blockAndSubBlockDesign(Design &design, int baseBlockingLength, int baseSubBlockingLength);
+
+    void specializeDeferredDelays(Design &design);
 
     /**
      * @brief Groups node under contexts together with the possible exception of clock domains where blocking domains can be placed inside

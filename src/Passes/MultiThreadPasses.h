@@ -223,6 +223,7 @@ namespace MultiThreadPasses {
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
     std::vector<std::shared_ptr<Arc>> &new_arcs,
             std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+    bool blockingAlreadyOccurred,
     bool printActions = true);
 
     /**
@@ -289,6 +290,7 @@ namespace MultiThreadPasses {
                                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                         bool blockingAlreadyOccurred,
                                                          bool printActions = true);
 
     void reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
@@ -297,6 +299,7 @@ namespace MultiThreadPasses {
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                   bool blockingAlreadyOccurred,
                                                    bool printActions = true);
 
     /**
@@ -316,7 +319,8 @@ namespace MultiThreadPasses {
                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                             bool blockingAlreadyOccurred);
 
     /**
      * @brief Propgagates partition to nodes and propagates down.  Subsystems can specify a partition for their decendents
@@ -351,7 +355,8 @@ namespace MultiThreadPasses {
                     std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                     std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                     std::vector<std::shared_ptr<Node>> &addToTopLevel,
-                    bool ignoreContexts, bool verbose);
+                    bool ignoreContexts, bool verbose,
+                    bool blockingAlreadyOccurred);
 
     void propagatePartitionsFromSubsystemsToChildren(Design &design);
 };

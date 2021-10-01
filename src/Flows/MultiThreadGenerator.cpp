@@ -21,6 +21,7 @@
 #include "MultiThread/ConstIOThread.h"
 #include "MultiThread/StreamIOThread.h"
 #include "MultiThread/ThreadCrossingFIFO.h"
+#include "PrimitiveNodes/TappedDelay.h"
 
 #include <iostream>
 
@@ -135,8 +136,6 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
     DomainPasses::blockAndSubBlockDesign(design, blockSize, 8);
 
-    //TODO: Handle Delays so FIFO delay absorption can occure properly
-
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
         std::string graphMLAfterBlockingFileName = fileName + "_afterBlocking.graphml";
@@ -144,7 +143,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         GraphMLExporter::exportGraphML(path + "/" + graphMLAfterBlockingFileName, design);
     }
 
-    design.validateNodes();
+    design.validateNodes(); //Does not validate delays which had their specialization deferred
 
     //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
@@ -245,16 +244,16 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
     //TODO: only adjacent delays for now, extend
 
-    //TODO: Need to adapt for specialized delays
     {
         std::vector<std::shared_ptr<Node>> new_nodes;
         std::vector<std::shared_ptr<Node>> deleted_nodes;
         std::vector<std::shared_ptr<Arc>> new_arcs;
         std::vector<std::shared_ptr<Arc>> deleted_arcs;
 
-        MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs);
+        MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, blockSize>1);
         design.addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
     }
+
     design.assignNodeIDs();
     design.assignArcIDs();
 
@@ -281,7 +280,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         std::vector<std::shared_ptr<Arc>> deleted_arcs;
         std::vector<std::shared_ptr<Node>> add_to_top_lvl;
 
-        MultiThreadPasses::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, add_to_top_lvl, false, true);
+        MultiThreadPasses::mergeFIFOs(fifoMap, new_nodes, deleted_nodes, new_arcs, deleted_arcs, add_to_top_lvl, false, true, blockSize>1);
         design.addRemoveNodesAndArcs(new_nodes, deleted_nodes, new_arcs, deleted_arcs);
         for(auto topLvlNode : add_to_top_lvl){
             design.addTopLevelNode(topLvlNode);
@@ -289,6 +288,22 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     }
     design.assignNodeIDs();
     design.assignArcIDs();
+
+    //Specialize Deferred delays
+    DomainPasses::specializeDeferredDelays(design);
+    design.assignNodeIDs();
+    design.assignArcIDs();
+
+    //Validate the now specialized delays in design
+    {
+        std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
+        for(const std::shared_ptr<Node> &node : nodes) {
+            if (GeneralHelper::isType<Node, Delay>(node) != nullptr &&
+                GeneralHelper::isType<Node, TappedDelay>(node) == nullptr) {
+                node->validate();
+            }
+        }
+    }
 
     //TODO: Specialize Delay including new ones created by reshaping FIFOs durring merge
 

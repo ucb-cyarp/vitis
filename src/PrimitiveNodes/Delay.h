@@ -62,6 +62,12 @@ protected:
     CircularBufferType circularBufferType; ///< If usesCircularBuffer() is true, determines the style of circular buffer.  This primarily controls the allocation of extra space and double writing new values so that a stride-1 buffer can be passed to dependent nodes, avoiding the additional indexing logic required when reading circular buffers
     int transactionBlockSize; ///< When specializing for sub-blocking, defines how many incoming samples are processed at once.  Defaults to 1.  If the I/O at the delay is expanded for sub-blocking, this is kept as 1.
 
+    //Deferal variables.  Only used durring delay blocking specialization deferral
+    //TODO: Refactor and create FIFO merging pass?
+    bool blockingSpecializationDeferred; ///<Indicates that this node went through the logic of specialization but did not make changes to the delay node itself.  The arcs coming into and out of the delay were scaled appropriatly.  This is specifically to accomodate FIFO delay absorption whose logic could require delays to be re-merged
+    int deferredBlockSize;
+    int deferredSubBlockSize;
+
     //==== Constructors ====
     /**
      * @brief Constructs an empty delay node
@@ -110,6 +116,19 @@ protected:
      */
     std::vector<NumericValue> getInitConditionsReshapedForConfig();
 
+    void specializeForBlockingWOptions(bool processArcs,
+                                       int localBlockingLength,
+                                       int localSubBlockingLength,
+                                       std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+
+    void specializeForBlockingArcExpandOnly(int localBlockingLength,
+                                            std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+
 public:
     //====Getters/Setters====
     int getDelayValue() const;
@@ -128,6 +147,13 @@ public:
     void setEarliestFirst(bool earliestFirst);
     bool isAllocateExtraSpace() const;
     void setAllocateExtraSpace(bool allocateExtraSpace);
+
+    bool isBlockingSpecializationDeferred() const;
+    void setBlockingSpecializationDeferred(bool blockingSpecializationDeferred);
+    int getDeferredBlockSize() const;
+    void setDeferredBlockSize(int deferredBlockSize);
+    int getDeferredSubBlockSize() const;
+    void setDeferredSubBlockSize(int deferredSubBlockSize);
 
     //====Factories====
     /**
@@ -263,6 +289,29 @@ public:
                                std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
                                std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
+
+    /**
+     * @brief Performs the same basic actions of specializeForBlocking except that the actions of splitting the delay
+     *        or configuring the delay node for blocking.  However, arcs which
+     *
+     *        Sets a boolean indicating that specialization was deferred but that
+     * @param localBlockingLength
+     * @param localSubBlockingLength
+     * @param nodesToAdd
+     * @param nodesToRemove
+     * @param arcsToAdd
+     * @param arcsToRemove
+     * @param nodesToRemoveFromTopLevel
+     * @param arcsWithDeferredBlockingExpansion
+     */
+     void specializeForBlockingDeferDelayReconfigReshape(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
 protected:
     void decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);

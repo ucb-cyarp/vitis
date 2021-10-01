@@ -18,6 +18,7 @@
 #include "Blocking/BlockingOutput.h"
 #include "GraphCore/ContextRoot.h"
 #include "Passes/ContextPasses.h"
+#include "PrimitiveNodes/TappedDelay.h"
 
 #include <iostream>
 
@@ -549,10 +550,22 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
                 std::vector<std::shared_ptr<Arc>> arcsToRemove;
                 std::vector<std::shared_ptr<Node>> nodesToRemoveFromTopLevel;
 
-                //When subblocking, the blocking length of the sub-blocking domain is the local sub-blocking length.  The sub-blocking length is 1
-                (*blockingGroup->begin())->specializeForBlocking(localSubBlockingLength, 1, nodesToAdd, nodesToRemove,
-                                                                 arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel,
-                                                                 arcsWithDeferredBlockingExpansion);
+                std::shared_ptr<Node> nodeToSpecialize = *blockingGroup->begin();
+                if(GeneralHelper::isType<Node, Delay>(nodeToSpecialize) != nullptr &&
+                        GeneralHelper::isType<Node, TappedDelay>(nodeToSpecialize) == nullptr){
+                    //Delays, (but not tapped delays) need to have their specialization deferred to allow FIFO delay absorption
+                    std::shared_ptr<Delay> asDelay = std::dynamic_pointer_cast<Delay>(nodeToSpecialize);
+                    asDelay->specializeForBlockingDeferDelayReconfigReshape(localSubBlockingLength, 1, nodesToAdd,
+                                                                            nodesToRemove,
+                                                                            arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel,
+                                                                            arcsWithDeferredBlockingExpansion);
+                }else {
+                    //When subblocking, the blocking length of the sub-blocking domain is the local sub-blocking length.  The sub-blocking length is 1
+                    (*blockingGroup->begin())->specializeForBlocking(localSubBlockingLength, 1, nodesToAdd,
+                                                                     nodesToRemove,
+                                                                     arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel,
+                                                                     arcsWithDeferredBlockingExpansion);
+                }
 
                 design.addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
 
@@ -768,7 +781,49 @@ void DomainPasses::createGlobalBlockingDomain(Design &design,
 
     //This is now done outside of this function via arcsWithDeferredBlockingExpansion
 
-    //TODO: Also need to take into account the clock domain of the nodes connected
+}
 
+void DomainPasses::specializeDeferredDelays(Design &design){
+    std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
 
+    std::vector<std::shared_ptr<Node>> nodesToAdd;
+    std::vector<std::shared_ptr<Node>> nodesToRemove;
+    std::vector<std::shared_ptr<Arc>> arcsToAdd;
+    std::vector<std::shared_ptr<Arc>> arcsToRemove;
+    std::vector<std::shared_ptr<Node>> nodesToRemoveFromTopLevel;
+    std::map<std::shared_ptr<Arc>, int> arcsWithDeferredBlockingExpansion;
+
+    for(const std::shared_ptr<Node> &node : nodes){
+        if(GeneralHelper::isType<Node, Delay>(node) != nullptr &&
+           GeneralHelper::isType<Node, TappedDelay>(node) == nullptr){
+            std::shared_ptr<Delay> asDelay = std::dynamic_pointer_cast<Delay>(node);
+
+            if(asDelay->isBlockingSpecializationDeferred()){
+                asDelay->specializeForBlocking(0, //These block values are not used, the deferred values are
+                        0,
+                        nodesToAdd,
+                        nodesToRemove,
+                        arcsToAdd,
+                        arcsToRemove,
+                        nodesToRemoveFromTopLevel,
+                        arcsWithDeferredBlockingExpansion);
+            }
+        }
+    }
+
+    if(!arcsWithDeferredBlockingExpansion.empty()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Expected no arcs to be processed when specializing deferred delays"));
+    }
+
+    design.addRemoveNodesAndArcs(nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove);
+
+    for (const std::shared_ptr<Node> nodeToRemoveFromTop: nodesToRemoveFromTopLevel) {
+        design.removeTopLevelNode(nodeToRemoveFromTop);
+
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(
+                nodeToRemoveFromTop);
+        if (asContextRoot) {
+            design.removeTopLevelContextRoot(asContextRoot);
+        }
+    }
 }
