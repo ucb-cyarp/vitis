@@ -305,8 +305,6 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         }
     }
 
-    //TODO: Specialize Delay including new ones created by reshaping FIFOs durring merge
-
     //==== Report FIFOs ====
     std::cout << std::endl;
     std::cout << "========== FIFO Report ==========" << std::endl;
