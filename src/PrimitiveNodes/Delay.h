@@ -60,7 +60,7 @@ protected:
     bool earliestFirst; ///<(Perhaps more accurately, most recent first) If true, the new values are stored at the start of the array.  If false, new values are stored at the end of the array.  The default is false.
     bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  Has no effect for standard delay when block size >1.  The default is false
     CircularBufferType circularBufferType; ///< If usesCircularBuffer() is true, determines the style of circular buffer.  This primarily controls the allocation of extra space and double writing new values so that a stride-1 buffer can be passed to dependent nodes, avoiding the additional indexing logic required when reading circular buffers
-    int transactionBlockSize; ///< When specializing for sub-blocking, defines how many incoming samples are processed at once.  Defaults to 1.  If the I/O at the delay is expanded for sub-blocking, this is kept as 1.
+    int transactionBlockSize; ///< When specializing for sub-blocking, defines how many incoming samples are processed at once.  Defaults to 1.  If the delay is a multiple of the sub-blocking size and was transformed to a vector delay, this is kept as 1
 
     //Deferal variables.  Only used durring delay blocking specialization deferral
     //TODO: Refactor and create FIFO merging pass?
@@ -112,6 +112,8 @@ protected:
     /**
      * @brief There are several different options for the delay including earliestFirst, allocate extra space, round up allocation, ...
      * Each of these options requires initial conditions to be re-shaped when
+     *
+     * @warning if called after specialization deferred, ensure that all arcs have been expanded beforehand
      * @return
      */
     std::vector<NumericValue> getInitConditionsReshapedForConfig();

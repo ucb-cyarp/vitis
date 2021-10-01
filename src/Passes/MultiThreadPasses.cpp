@@ -198,9 +198,6 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
                         delayInitConds.erase(delayInitConds.begin(), delayInitConds.begin()+numToAbsorb);
                         srcDelay->setInitCondition(delayInitConds);
                         srcDelay->setDelayValue(srcDelay->getDelayValue()-numToAbsorb/elementsPerInput);
-                        //Need to re-propagate since getExportableInitConds was used which gives the initial conditions that
-                        //are exported to GraphML without extra elements for circular buffers
-                        srcDelay->propagateProperties();
 
                         //No re-wiring required
 
@@ -361,8 +358,6 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                         delayInitConds.erase(delayInitConds.end()-numToAbsorb, delayInitConds.end());
                         dstDelay->setInitCondition(delayInitConds);
                         dstDelay->setDelayValue(dstDelay->getDelayValue() - numToAbsorb/elementsPerInput);
-                        //Repropagate for the delay since the exportable delays were fed to it (what is exported to GraphML)
-                        dstDelay->propagateProperties();
 
                         if (printActions) {
                             std::cout << "Delay Partially Absorbed info FIFO: " << dstDelay->getFullyQualifiedName() << " [ID:" << dstDelay->getId() << "]"
@@ -528,9 +523,6 @@ void MultiThreadPasses::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCross
                                                                  origInputArc->getSampleTime());
             new_arcs.push_back(newInputArc);
             origInputArc->setDstPortUpdateNewUpdatePrev(delay->getInputPortCreateIfNot(0));
-
-            //Propagate properties in delays to handle circular buffer
-            delay->propagateProperties();
         }else{
             //The input is a MasterInput, the delay should be placed on the output
 
@@ -595,9 +587,6 @@ void MultiThreadPasses::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCross
                                                                  origInputArc->getSampleTime());
             new_arcs.push_back(newInputArc);
             //Do not actually need to re-wire the input port
-
-            //Propagate properties in delays to handle circular buffer
-            delay->propagateProperties();
         }
     }
 }

@@ -253,10 +253,10 @@ void DomainPasses::blockingNodeSetDiscoveryContextNeedsEncapsulation(std::shared
             for (const std::shared_ptr<Node> &nodeInContext : nodesInContext){
                 mergeBlockingGroups(nodeToBlockingGroup[nodeInContext], groupToMergeInto, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
 
-                //There should not be a nested context root inside of a mux type context.  If there was, we would need to recurse into it
-                //TODO: Remove check.  Or implement the recursion.  Since this node, the context root, was already merged - should be able to just call this function again on the context roop
-                if(GeneralHelper::isType<Node, ContextRoot>(nodeInContext)){
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Did not expect a nested context root when discovering blocking groups for a mux type context", nodeInContext));
+                //It is possible to have a nested context root in a mux context, namely another mux.  If we find one, recurse on it
+                std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodeInContext);
+                if(asContextRoot){
+                    blockingNodeSetDiscoveryContextNeedsEncapsulation(asContextRoot,blockingGroups,nodeToBlockingGroup,blockingEnvelopGroups);
                 }
             }
 

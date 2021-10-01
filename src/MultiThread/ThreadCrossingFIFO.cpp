@@ -676,7 +676,7 @@ void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, s
         }
         std::vector<int> baseDims = dims;
         if(asThreadCrossingFIFO->getSubBlockSizeCreateIfNot(port) > 1) { //Only do this reduction if the sub-block size is not 1.  Otherwise, the base type is the I/O type
-            baseDims = BlockingHelpers::blockingDomainDimensionReduce(dims, asThreadCrossingFIFO->getSubBlockSizeCreateIfNot(port));
+            baseDims = BlockingHelpers::blockingDomainDimensionReduce(dims, 1);
         }
         dt.setDimensions(baseDims);
 

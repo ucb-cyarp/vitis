@@ -107,31 +107,42 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
     }
 
     //Create Blocking Inputs and Outputs
+    std::map<std::shared_ptr<OutputPort>, std::shared_ptr<BlockingInput>> outputPortsToBlockingInputs;
     for(const std::shared_ptr<Arc> &inputArc : arcsIntoDomain) {
         if(!MultiRateHelpers::arcIsIOAndNotAtBaseRate(inputArc)) {
             //Only insert the blocking Input if the Arc is Not To/From I/O or is To/From I/O At the Base Rate
-            std::shared_ptr<BlockingInput> blockingInput = NodeFactory::createNode<BlockingInput>(blockingDomain);
-            nodesToAdd.push_back(blockingInput);
-            blockingDomain->addBlockInput(blockingInput);
-            blockingInput->setBlockingLen(blockingLength);
-            blockingInput->setSubBlockingLen(subBlockingLength);
+            std::shared_ptr<OutputPort> srcPort = inputArc->getSrcPort();
+            std::shared_ptr<BlockingInput> blockingInput;
 
-            std::shared_ptr<InputPort> origInputPort = inputArc->getDstPort();
-            std::shared_ptr<Node> nodeInDomain = origInputPort->getParent();
-            blockingInput->setPartitionNum(
-                    nodeInDomain->getPartitionNum()); //Set the partition of the blocking input node to the partition of the node it is connected to in the domain
+            if(GeneralHelper::contains(srcPort, outputPortsToBlockingInputs)){
+                blockingInput = outputPortsToBlockingInputs[srcPort];
+            }else {
+                blockingInput = NodeFactory::createNode<BlockingInput>(blockingDomain);
+                nodesToAdd.push_back(blockingInput);
+                outputPortsToBlockingInputs[srcPort] = blockingInput;
+                blockingDomain->addBlockInput(blockingInput);
+                blockingInput->setBlockingLen(blockingLength);
+                blockingInput->setSubBlockingLen(subBlockingLength);
 
-            blockingInput->setName("BlockingDomainInputFor_" + nodeInDomain->getName() + "_n" +
-                                   GeneralHelper::to_string(nodeInDomain->getId()) + "_p" +
-                                   GeneralHelper::to_string(origInputPort->getPortNum()));
-            inputArc->setDstPortUpdateNewUpdatePrev(blockingInput->getInputPortCreateIfNot(0));
-            arcsWithDeferredBlockingExpansion[inputArc] = blockingLength; //Need to expand the arc going into the input by the block size
+                std::shared_ptr<InputPort> inputPort = inputArc->getDstPort();
+                std::shared_ptr<Node> nodeInDomain = inputPort->getParent();
+                blockingInput->setPartitionNum(
+                        nodeInDomain->getPartitionNum()); //Set the partition of the blocking input node to the partition of the node it is connected to in the domain
 
-            std::shared_ptr<Arc> blockingInputConnection = Arc::connectNodes(blockingInput->getOutputPortCreateIfNot(0),
-                                                                             origInputPort, inputArc->getDataType(),
-                                                                             inputArc->getSampleTime());
-            arcsWithDeferredBlockingExpansion[blockingInputConnection] = subBlockingLength; //Need to expand the arc going into the input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
-            arcsToAdd.push_back(blockingInputConnection);
+                blockingInput->setName("BlockingDomainInputFrom_" + srcPort->getParent()->getName() + "_n" +
+                                       GeneralHelper::to_string(srcPort->getParent()->getId()) + "_p" +
+                                       GeneralHelper::to_string(srcPort->getPortNum()) + "_dst" + GeneralHelper::to_string(nodeInDomain->getId()));
+
+                std::shared_ptr<Arc> blockingInputConnection = Arc::connectNodes(srcPort,
+                        blockingInput->getInputPortCreateIfNot(0),
+                        inputArc->getDataType(),
+                        inputArc->getSampleTime());
+                arcsWithDeferredBlockingExpansion[blockingInputConnection] = blockingLength; //Need to expand the arc going into the blocking input by the block size
+                arcsToAdd.push_back(blockingInputConnection);
+            }
+
+            inputArc->setSrcPortUpdateNewUpdatePrev(blockingInput->getOutputPortCreateIfNot(0));
+            arcsWithDeferredBlockingExpansion[inputArc] = subBlockingLength; //Need to expand the arc going into the node input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
         }
     }
 

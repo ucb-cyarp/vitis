@@ -222,10 +222,10 @@ void Delay::validate() {
     //For now, we will assume that, for block sizes > 1, circular buffers are being used with double array.  earliestFirst=false
     //allocation.
     //TODO: Implement other variants
-    if(transactionBlockSize > 1 && (!usesCircularBuffer() || circularBufferType != CircularBufferType::DOUBLE_LEN)){
+    if(transactionBlockSize > 1 && delayValue > 0 && (!usesCircularBuffer() || circularBufferType != CircularBufferType::DOUBLE_LEN)){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - With Block Size > 1, only circular buffers with double buffer length are currently supported", getSharedPointer()));
     }
-    if(transactionBlockSize > 1 && earliestFirst){
+    if(transactionBlockSize > 1 && delayValue > 0 && earliestFirst){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Delay - With Block Size > 1, earliestFirst is not supported", getSharedPointer()));
     }
 
@@ -1448,7 +1448,7 @@ void Delay::specializeForBlockingWOptions(bool processArcs,
         //  blockSize > 1, circular buffer, double buffer len, earliestFirst = false;
         // Do not reverse the initial conditions since the initialCondition array should now always be oriented the same way.  It is re-shaped by getInitConditionsReshapedForConfig
         earliestFirst = false;
-        transactionBlockSize = localBlockingLength;
+        transactionBlockSize = localBlockingLength; //This delay is not a multiple of the block size and was not converted to a ve3ctor delay
         bufferImplementation = BufferType::CIRCULAR_BUFFER;
         circularBufferType = CircularBufferType::DOUBLE_LEN;
 
@@ -1640,6 +1640,9 @@ Delay::splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<st
 
     DataType dt = getInputPort(0)->getDataType();
     int subElementsPerElement = dt.numberOfElements();
+    if(blockingSpecializationDeferred){
+        subElementsPerElement /= deferredBlockSize; //The arcs going into the arc were already expanded by the local block size
+    }
 
     //Split the delay
     int delayToMove = delayValue - targetDelayLength;

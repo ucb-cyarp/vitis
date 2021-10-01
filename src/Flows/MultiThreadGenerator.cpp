@@ -143,7 +143,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         GraphMLExporter::exportGraphML(path + "/" + graphMLAfterBlockingFileName, design);
     }
 
-    design.validateNodes(); //Does not validate delays which had their specialization deferred
+    //TODO: Need to implement validation post pruning. Also need to fix validation when depends on arcs that could be disconnected (black box)
+//    design.validateNodes(); //Does not validate delays which had their specialization deferred
 
     //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
