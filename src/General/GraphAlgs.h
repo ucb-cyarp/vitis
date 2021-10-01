@@ -367,6 +367,29 @@ namespace GraphAlgs {
     }
 
     /**
+     * @brief Gets the domain hierarchy (of the given domain type), for the given node.
+     * The outer domain is the first element in the returned vector.  Thr most specific, inner, domain is
+     * the last element in the vector
+     *
+     * @tparam DomainType
+     * @param node
+     * @return
+     */
+    template<typename DomainType>
+    std::vector<std::shared_ptr<DomainType>> getDomainHierarchy(std::shared_ptr<Node> node){
+        std::vector<std::shared_ptr<DomainType>> hierarchy;
+
+        std::shared_ptr<DomainType> cursor = findDomain<DomainType>(node);
+        while(cursor != nullptr){
+            //We are going up the hierarchy from deeper in the tree, prepend the discovered domain to the hierarchy vector
+            hierarchy.insert(hierarchy.begin(), cursor);
+            cursor = findDomain<DomainType>(cursor);
+        }
+
+        return hierarchy;
+    }
+
+    /**
      * @brief Check if Domain a is outside of Domain b
      *
      * Domain a is outside of Domain b if Domain b is not equivalent to or nested under Domain a

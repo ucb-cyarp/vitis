@@ -40,14 +40,15 @@ class ThreadCrossingFIFO : public Node {
 protected:
     int fifoLength; ///<The length of this FIFO (in blocks)
     std::vector<std::vector<NumericValue>> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size.  The outer vector is across input/output port pairs.  The inner vector contains the initial conditions for the given port pair.
-    std::vector<int> blockSizes; ///<The block sizes (in elements) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to the
+
+    //TODO: Need to set the block size according to the block domains and clock domains.  Note that, if the lowest level clock domain is not using vector mode, the block size is defined by the relative rate of this domain.  The sub-blocking size is set to 1 in this case.
+    std::vector<int> blockSizes; ///<The block sizes (in elements) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to clock domains and blocking domains
+    std::vector<int> subBlockSizes; ///<The sub-block sizes (in elements) of transactions.  This is how many elements are accessed at a time.  This should be the size of the outer dimension of the input and output type.  If the subBlockSizes are 1, the I/O dimension will have 1 fewer dimension
     std::vector<Variable> cStateVars; ///<The C variables from which values are read.  There is one per input/output port pair
     std::vector<Variable> cStateInputVars; ///<the C temporary variables holding data to be writen.  There is one per input/output pair
 
-    //TODO: Possibly re-factor.  Could make part of the cEmit function.  However, only 2 types of nodes need to know about it: InputMaster and ThreadCrossingFIFOs
-    //Special casing may be preferrable for now
-    std::vector<std::string> cBlockIndexVarInputNames; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an input.  Is set by the emitter
-    std::vector<std::string> cBlockIndexVarOutputNames; ///<The C variable used in the compute loop for indexing into a block when the FIFO is used as an output.  Is set by the emitter
+    std::vector<std::string> cBlockIndexExprsInput; ///<The C expression used in the compute loop for indexing into a block when the FIFO is used as an input.  Must be set before emit
+    std::vector<std::string> cBlockIndexExprsOutput; ///<The C expression used in the compute loop for indexing into a block when the FIFO is used as an output.  Must be set before emit
 
     std::vector<bool> cStateVarsInitialized;
     std::vector<bool> cStateInputVarsInitialized;
@@ -142,15 +143,15 @@ public:
     std::vector<NumericValue> getInitConditionsCreateIfNot(int port);
     void setInitConditionsCreateIfNot(int port, const std::vector<NumericValue> &initConditions);
 
-    std::vector<std::string> getCBlockIndexVarInputNames() const;
-    void setCBlockIndexVarInputNames(const std::vector<std::string> &cBlockIndexVarInputNames);
-    std::string getCBlockIndexVarInputNameCreateIfNot(int portNum);
-    void setCBlockIndexVarInputName(int portNum, const std::string &cBlockIndexVarName);
+    std::vector<std::string> getCBlockIndexExprsInput() const;
+    void setCBlockIndexExprsInput(const std::vector<std::string> &cBlockIndexExprInput);
+    std::string getCBlockIndexExprInputCreateIfNot(int portNum);
+    void setCBlockIndexExprInput(int portNum, const std::string &cBlockIndexExprInput);
 
-    std::vector<std::string> getCBlockIndexVarOutputNames() const;
-    void setCBlockIndexVarOutputNames(const std::vector<std::string> &cBlockIndexVarOutputName);
-    std::string getCBlockIndexVarOutputNameCreateIfNot(int portNum);
-    void setCBlockIndexVarOutputName(int portNum, const std::string &cBlockIndexVarName);
+    std::vector<std::string> getCBlockIndexExprsOutput() const;
+    void setCBlockIndexExprsOutput(const std::vector<std::string> &cBlockIndexExprsOutput);
+    std::string getCBlockIndexExprOutputCreateIfNot(int portNum);
+    void setCBlockIndexExprOutput(int portNum, const std::string &cBlockIndexVarName);
 
     /**
      * @brief Gets the cStateVar for this FIFO.  If it has not yet been initialized, it will be initialized at this point
@@ -182,6 +183,9 @@ public:
 
     std::vector<int> getBlockSizes() const;
     int getBlockSizeCreateIfNot(int portNum);
+    std::vector<int> getSubBlockSizes() const;
+    int getSubBlockSizeCreateIfNot(int portNum);
+
     /**
      * @brief Gets the number of elements in a block across all ports
      * @return
@@ -189,6 +193,8 @@ public:
     int getTotalBlockSizeAllPorts();
     void setBlockSizes(const std::vector<int> &blockSizes);
     void setBlockSize(int portNum, int blockSize);
+    void setSubBlockSizes(const std::vector<int> &subBlockSizes);
+    void setSubBlockSize(int portNum, int subBlockSize);
 
     //====Factories====
     //createFromGraphML needs to be implemented in non-abstract decendents of this class
@@ -244,7 +250,7 @@ public:
     bool hasCombinationalPath() override;
 
     /**
-     * @brief Returns nothing, state is allocated seperatly during thread creation
+     * @brief Returns nothing, state is allocated separately during thread creation
      * @returns nothing
      */
     std::vector<Variable> getCStateVars() override;

@@ -143,9 +143,11 @@ namespace MultiRateHelpers {
      *
      * @warning Is currently only implemented for FIFOs with a single input and output port
      *
+     * @warning Clock Domains should be specialized for blocking with useVectorMode properly set before this function is called
+     *
      * @param threadCrossingFIFOs
      */
-    void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
+    void setFIFOClockDomainsAndBlockingParams(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int baseBlockLength);
 
     /**
      * @brief Checks the IO block sizes are integers (after accounting for clock domains)
@@ -156,19 +158,6 @@ namespace MultiRateHelpers {
      * @param blockSize
      */
     void checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize);
-
-    /**
-     * @brief Sets the block sizes of FIFOs and validates that they are integer length
-     *
-     * Note that since the IO thread communicates with the compute threads via FIFOs, this sets
-     *
-     * @warning Clock Domains should be set for each FIFO port before calling this function.
-     *
-     * @param threadCrossingFIFOs
-     * @param blockSize
-     * @param setFIFOBlockSize
-     */
-    void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
 
     void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 
@@ -204,6 +193,13 @@ namespace MultiRateHelpers {
 
         return clockDomains;
     }
+
+    /**
+     * @brief Determines if the given arc is to/from I/O and is not operating at the base rate
+     * @param arc
+     * @return
+     */
+    bool arcIsIOAndNotAtBaseRate(std::shared_ptr<Arc> arc);
 
 };
 

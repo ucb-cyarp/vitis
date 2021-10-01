@@ -7,6 +7,8 @@
 #include "BlockingHelpers.h"
 #include "GraphCore/Variable.h"
 #include "GraphCore/ContextHelper.h"
+#include "MasterNodes/MasterInput.h"
+#include "MasterNodes/MasterOutput.h"
 
 BlockingDomain::BlockingDomain() : blockingLen(1), subBlockingLen(1) {
 
@@ -173,12 +175,15 @@ void BlockingDomain::validate() {
         }else{
             //All connections should be to nodes inside of the blocking domain, including those to BlockingBoundary nodes which should also be in the blocking domain
             //Note, can also be from nested blocking domain
+            //The one exception is to the I/O Master nodes where direct connections are allowed and indexing is handled by I/O FIFOs.
             std::set<std::shared_ptr<Arc>> inArcs = node->getInputArcs();
             for(const std::shared_ptr<Arc> &inArc : inArcs){
                 std::shared_ptr<Node> srcNode = inArc->getSrcPort()->getParent();
                 std::shared_ptr<BlockingDomain> srcDomain = BlockingHelpers::findBlockingDomain(srcNode);
                 std::shared_ptr<BlockingDomain> thisAsBlockingDomain = std::dynamic_pointer_cast<BlockingDomain>(getSharedPointer());
-                if(BlockingHelpers::isOutsideBlockingDomain(srcDomain, thisAsBlockingDomain)){
+                //Do not error out if the node outside the clock domain is the I/O master.  Indexing will be handled by the IO FIFO
+                if(BlockingHelpers::isOutsideBlockingDomain(srcDomain, thisAsBlockingDomain) && GeneralHelper::isType<Node, MasterInput>(srcNode) ==
+                                                                                                        nullptr){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Node in BlockingDomain (" + node->getFullyQualifiedName() + ") is connected to node outside of BlockingDomain (" + srcNode->getFullyQualifiedName() + ")", getSharedPointer()));
                 }
             }
@@ -188,7 +193,9 @@ void BlockingDomain::validate() {
                 std::shared_ptr<Node> dstNode = outArc->getDstPort()->getParent();
                 std::shared_ptr<BlockingDomain> dstDomain = BlockingHelpers::findBlockingDomain(dstNode);
                 std::shared_ptr<BlockingDomain> thisAsBlockingDomain = std::dynamic_pointer_cast<BlockingDomain>(getSharedPointer());
-                if(BlockingHelpers::isOutsideBlockingDomain(dstDomain, thisAsBlockingDomain)){
+                //Do not error out if the node outside the clock domain is the I/O master.  Indexing will be handled by the IO FIFO
+                if(BlockingHelpers::isOutsideBlockingDomain(dstDomain, thisAsBlockingDomain) && GeneralHelper::isType<Node, MasterOutput>(dstNode) ==
+                                                                                                nullptr){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Node in BlockingDomain (" + node->getFullyQualifiedName() + ") is connected to node outside of BlockingDomain (" + dstNode->getFullyQualifiedName() + ")", getSharedPointer()));
                 }
             }

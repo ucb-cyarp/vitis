@@ -135,6 +135,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
     DomainPasses::blockAndSubBlockDesign(design, blockSize, 8);
 
+    //TODO: Handle Delays so FIFO delay absorption can occure properly
+
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
         std::string graphMLAfterBlockingFileName = fileName + "_afterBlocking.graphml";
@@ -143,8 +145,6 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     }
 
     design.validateNodes();
-
-    //TODO: Validate design after blocking and sub-blocking domains inserted
 
     //Order constraining zero input nodes in enabled subsystems is not nessisary as rewireArcsToContexts can wire the enable
     //line as a depedency for the enable context to be emitted.  This is currently done in the scheduleTopoloicalSort method called below
@@ -233,8 +233,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //FIFOs connected to the input master should have their rate set based on the port rate of the input master.
     //FIFOs connected to the output master should have their rate properly set based on the ClockDomain they are in, especially
     //since any FIFO connected to a RateChange output will be placed in the next context up.
-    MultiRateHelpers::setFIFOClockDomains(fifoVec); //TODO: Update to also consider blocking domains
-    MultiRateHelpers::setAndValidateFIFOBlockSizes(fifoVec, blockSize, true); //TODO: Update to also consider blocking domains
+    MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(fifoVec, blockSize);
 
     //==== Retime ====
     //TODO: Retime Here
@@ -245,6 +244,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //Currently, only nodes that are soley connected to FIFOs are absorbed.  It is possible to absorb other nodes but delay matching
     //and/or multiple FIFOs cascaded (to allow an intermediary tap to be viewed) would potentially be required.
     //TODO: only adjacent delays for now, extend
+
+    //TODO: Need to adapt for specialized delays
     {
         std::vector<std::shared_ptr<Node>> new_nodes;
         std::vector<std::shared_ptr<Node>> deleted_nodes;
@@ -288,6 +289,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     }
     design.assignNodeIDs();
     design.assignArcIDs();
+
+    //TODO: Specialize Delay including new ones created by reshaping FIFOs durring merge
 
     //==== Report FIFOs ====
     std::cout << std::endl;

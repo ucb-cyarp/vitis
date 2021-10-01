@@ -752,8 +752,15 @@ void MultiThreadPasses::mergeFIFOs(
                         //Transfer Block Size
                         fifoToMergeInto->setBlockSize(newPortNum, fifoToMergeFrom->getBlockSizeCreateIfNot(oldPortNum));
 
+                        //Transfer Sub Blocking Domains
+                        fifoToMergeInto->setSubBlockSize(newPortNum, fifoToMergeFrom->getSubBlockSizeCreateIfNot(oldPortNum));
+
                         //Transfer Clock Domain
                         fifoToMergeInto->setClockDomain(newPortNum, fifoToMergeFrom->getClockDomainCreateIfNot(oldPortNum));
+
+                        //Transfer Indexing Exprs
+                        fifoToMergeInto->setCBlockIndexExprInput(newPortNum, fifoToMergeFrom->getCBlockIndexExprInputCreateIfNot(oldPortNum));
+                        fifoToMergeInto->setCBlockIndexExprOutput(newPortNum, fifoToMergeFrom->getCBlockIndexExprOutputCreateIfNot(oldPortNum));
                     }
 
                     //Merge the other properties of this FIFO

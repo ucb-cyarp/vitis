@@ -82,7 +82,9 @@ namespace BlockingHelpers {
     /**
      * @brief Find the blocking domain hierarchy that this node is a part of.
      *
-     * The first entry is the outer blocking domain and the last entry is the most specific blocking domain this node is a part of
+     * The first entry is the outer blocking domain and the last entry is the most specific blocking domain this node is a part of.
+     *
+     * @note If the node is, itself, a blocking domain - it is not included in the returned hierarchy
      *
      * @param node
      * @return
@@ -97,6 +99,24 @@ namespace BlockingHelpers {
      */
     std::vector<int> blockingDomainDimensionReduce(std::vector<int> outerDimensions, int subBlockingLength);
 
+    /**
+     * @brief Create a blocking domain around a specific set of nodes, inserting the Blocking Domain, Blocking Inputs, and Blocking Outputs as nessasary
+     *
+     * @note Arcs to/from Master Input / Output nodes which are not at the base clock rate do not have Blocking Input/Output inserted.
+     *       That logic is handled by the I/O FIFOs
+     *
+     * @param nodesToMove
+     * @param arcsIntoDomain
+     * @param arcsOutOfDomain
+     * @param blockingDomainParent
+     * @param blockingLength
+     * @param subBlockingLength
+     * @param blockingName
+     * @param nodesToAdd
+     * @param arcsToAdd
+     * @param nodesToRemoveFromTopLevel
+     * @param arcsWithDeferredBlockingExpansion
+     */
     void createBlockingDomainHelper(std::set<std::shared_ptr<Node>> nodesToMove,
                                     std::set<std::shared_ptr<Arc>> arcsIntoDomain,
                                     std::set<std::shared_ptr<Arc>> arcsOutOfDomain,

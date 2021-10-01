@@ -589,13 +589,6 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
         arcDeferred.first->setDataType(dt);
     }
 
-    //Need to remove all clock domains from master node ports.  I/O should be communicating with the outer blocking
-    resetMasterNodeClockDomainLinks(design);
-    std::vector<std::shared_ptr<ClockDomain>> clockDomains = findClockDomains(design);
-    for(const std::shared_ptr<ClockDomain> &clockDomain : clockDomains){
-        clockDomain->resetIOPorts();
-    }
-
     //** Reset and Re-discover contexts
     // * Clear context stack and context root context info.  Clear topLevelContext list
     // * Re-discover contexts with block domains treated similarly to clock domains or enabled subsystems

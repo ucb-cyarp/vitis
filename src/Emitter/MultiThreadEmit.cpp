@@ -354,14 +354,11 @@ std::vector<std::string> MultiThreadEmit::createAndInitializeFIFOWriteTemps(std:
         exprs.push_back(structType + " " + tmpName + ";");
 
         for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
-            //Gets block size from FIFO directly so no changes are required to support multiple clock domains
-            int blockSize = fifos[i]->getBlockSizeCreateIfNot(portNum);
-
             //Note that the datatype when we use getCStateVar does not include
             //the block size. However, the structure that is generated for the FIFO
             //is expanded for the block size.
             //Expand it here to match the structure definition
-            DataType dt = fifos[i]->getCStateVar(portNum).getDataType().expandForBlock(blockSize);
+            DataType dt = fifos[i]->getCStateVarExpandedForBlockSize(portNum).getDataType();
 
             //Open for loops if datatype (after expansion for blocks) is a vector/matrix
             std::vector<std::string> forLoopIndexVars;
@@ -2373,8 +2370,8 @@ std::string MultiThreadEmit::getPartitionComputeCFunctionArgPrototype(
     std::vector<bool> inputIsScalar;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
-            inputIsScalar.push_back(inputFIFOs[i]->getCStateVar(j).getDataType().isScalar());
             Variable var = inputFIFOs[i]->getCStateVarExpandedForBlockSize(j);
+            inputIsScalar.push_back(var.getDataType().isScalar());
             inputVars.push_back(var);
         }
     }
@@ -2660,7 +2657,7 @@ std::vector<std::string> MultiThreadEmit::computeIODoubleBufferEmitHelper(
 
                 if(rate == filterRate){
                     //Copy from shared to next
-                    bool isScalar = fifo->getCStateVar(i).getDataType().isScalar();
+                    bool isScalar = fifo->getCStateVarExpandedForBlockSize(i).getDataType().isScalar();
                     Variable var;
                     if(input) {
                         var = fifo->getCStateVarExpandedForBlockSize(i);
