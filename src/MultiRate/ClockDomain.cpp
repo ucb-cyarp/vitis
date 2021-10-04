@@ -752,7 +752,7 @@ void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool use
         std::set<std::shared_ptr<Arc>> disconnectArcs = clkDomainSrc->disconnectNode();
 
         nodesToRemove.insert(clkDomainSrc);
-        arcsToRemove = clkDomainDriverOutArcs;
+        arcsToRemove.insert(clkDomainDriverOutArcs.begin(), clkDomainDriverOutArcs.end());
         arcsToRemove.insert(disconnectArcs.begin(), disconnectArcs.end());
 
         setClockDomainDriver(nullptr);
@@ -808,7 +808,6 @@ void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool use
                         getSharedPointer()));
             }
 
-            nodesToRemove.insert(dummyReplica.second);
         }
 
         std::map<int, std::shared_ptr<DummyReplica>> emptyDummyReplicas;
