@@ -19,6 +19,7 @@
 #include "GraphCore/ContextRoot.h"
 #include "Passes/ContextPasses.h"
 #include "PrimitiveNodes/TappedDelay.h"
+#include "GraphCore/DummyReplica.h"
 
 #include <iostream>
 
@@ -243,6 +244,26 @@ void DomainPasses::blockingNodeSetDiscoveryContextNeedsEncapsulation(std::shared
         for(const std::shared_ptr<Node> &descendant : descendants){
             blockingEnvelopGroup->erase(descendant);
         }
+
+        //TODO Refactor?
+        //If the context driver is going to be (or has been) replicated (ex. Clock Domain), it needs to be pulled into the blocking group as well
+        if(contextRoot->shouldReplicateContextDriver()){
+            std::vector<std::shared_ptr<Arc>> drivers = contextRoot->getContextDecisionDriver();
+            for(const std::shared_ptr<Arc> &driver : drivers){
+                std::shared_ptr<Node> driverNode = driver->getSrcPort()->getParent();
+                //TODO: Remove Check?
+                if(!driverNode->getInputArcs().empty()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Context Driver to be Standalone", asSubsys));
+                }
+                mergeBlockingGroups(nodeToBlockingGroup[driverNode], groupToMergeInto, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
+            }
+
+            //Check if replication has already occurred
+            std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas = contextRoot->getDummyReplicas();
+            for(const auto &dummyReplica : dummyReplicas){
+                mergeBlockingGroups(nodeToBlockingGroup[dummyReplica.second], groupToMergeInto, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
+            }
+        }
     }else{
         //This is a mux like context root (does not
         //Will use the context nodes list when merging
@@ -266,7 +287,7 @@ void DomainPasses::blockingNodeSetDiscoveryContextNeedsEncapsulation(std::shared
 }
 
 void DomainPasses::blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Node>> nodesAtLevel,
-                                                    int subBlockingLength,
+                                                    int baseSubBlockingLength,
                                                     std::set<std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingGroups,
                                                     std::map<std::shared_ptr<Node>, std::shared_ptr<std::set<std::shared_ptr<Node>>>> &nodeToBlockingGroup,
                                                     std::map<std::shared_ptr<std::set<std::shared_ptr<Node>>>,
@@ -293,7 +314,7 @@ void DomainPasses::blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Nod
         if(GeneralHelper::isType<Node, ClockDomain>(node)){
             //Check if this clock domain is compatible with the sub-blocking length
             std::shared_ptr<ClockDomain> asClkDomain = std::static_pointer_cast<ClockDomain>(node);
-            std::pair<bool, int> effectiveSubBlockingLength = findEffectiveSubBlockingLengthForNodesUnderClockDomain(asClkDomain, subBlockingLength);
+            std::pair<bool, int> effectiveSubBlockingLength = findEffectiveSubBlockingLengthForNodesUnderClockDomain(asClkDomain, baseSubBlockingLength);
             if(effectiveSubBlockingLength.first){
                 //The clock domain's rate does not require it be encapsulated in a blocking domain (compatible with sub-blocking under it)
 
@@ -321,7 +342,7 @@ void DomainPasses::blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Nod
                 }
 
                 if(foundNodeOutsideClkDomain){
-                    //This clock domain needs to be encapsulated like
+                    //This clock domain needs to be encapsulated like any other context
                     std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<ClockDomain, ContextRoot>(asClkDomain);
                     if(asContextRoot) {
                         blockingNodeSetDiscoveryContextNeedsEncapsulation(asContextRoot, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
@@ -334,11 +355,21 @@ void DomainPasses::blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Nod
                     //And recurse on its children
                     clockDomainsOutsideSubBlocking.insert(asClkDomain);
 
-                    int subBlockingLengthBelow = effectiveSubBlockingLength.second;
+                    //Need to get all descendants which are context roots (including ones under subsystems)
+                    //Includes nested clock domains
+                    std::set<std::shared_ptr<ContextRoot>> clkDomainNestedContextRoots = GraphAlgs::findContextRootsUnderSubsystem(asClkDomain);
+                    std::set<std::shared_ptr<Node>> clkDomainNestedContextRootsAsNodes;
+                    //TODO: Fix Diamond Inheritance Issues
+                    for(const std::shared_ptr<ContextRoot> &nestedContextRoot : clkDomainNestedContextRoots){
+                        std::shared_ptr<Node> nestedContextRootAsNode = std::dynamic_pointer_cast<Node>(nestedContextRoot);
+                        if(nestedContextRootAsNode == nullptr){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Context Root Encountered which is Not a Node"));
+                        }
+                        clkDomainNestedContextRootsAsNodes.insert(nestedContextRootAsNode);
+                    }
 
-                    std::set<std::shared_ptr<Node>> clkDomainChildren = asClkDomain->getChildren();
-                    blockingNodeSetDiscoveryTraverse(clkDomainChildren,
-                            subBlockingLengthBelow,
+                    blockingNodeSetDiscoveryTraverse(clkDomainNestedContextRootsAsNodes,
+                            baseSubBlockingLength,
                             blockingGroups,
                             nodeToBlockingGroup,
                             blockingEnvelopGroups,
@@ -481,16 +512,32 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
 
         std::set<std::shared_ptr<ClockDomain>> clockDomainsOutsideSubBlocking;
 
-        //This needs to be all nodes that are not in any context
-        std::set<std::shared_ptr<Node>> designTopLevelNodesSet;
-        std::vector<std::shared_ptr<Node>> nodesInDesign = design.getNodes();
-        for (const std::shared_ptr<Node> &node : nodesInDesign) {
-            if(node->getContext().empty()) {
-                designTopLevelNodesSet.insert(node);
+        //Need to run blockingNodeSetDisovery on Top Level Context Roots (can be nested in subsystems
+        std::set<std::shared_ptr<Node>> topLvlContextRoots;
+        std::vector<std::shared_ptr<Node>> topLvlNodesInDesign = design.getTopLevelNodes();
+
+        for(const std::shared_ptr<Node> &topLvlNode : topLvlNodesInDesign) {
+            if(std::dynamic_pointer_cast<ContextRoot>(topLvlNode) != nullptr){
+                topLvlContextRoots.insert(topLvlNode);
+            }else {
+                std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(topLvlNode);
+                if(asSubsystem) {
+                    std::set <std::shared_ptr<ContextRoot>> nestedContextRoots = GraphAlgs::findContextRootsUnderSubsystem(asSubsystem);
+                    //TODO: Fix Diamond Inheritance Issues
+                    for (const std::shared_ptr <ContextRoot> &nestedContextRoot: nestedContextRoots) {
+                        std::shared_ptr <Node> nestedContextRootAsNode = std::dynamic_pointer_cast<Node>(
+                                nestedContextRoot);
+                        if (nestedContextRootAsNode == nullptr) {
+                            throw std::runtime_error(
+                                    ErrorHelpers::genErrorStr("Context Root Encountered which is Not a Node"));
+                        }
+                        topLvlContextRoots.insert(nestedContextRootAsNode);
+                    }
+                }
             }
         }
 
-        blockingNodeSetDiscoveryTraverse(designTopLevelNodesSet, baseSubBlockingLength,
+        blockingNodeSetDiscoveryTraverse(topLvlContextRoots, baseSubBlockingLength,
                                          blockingGroups,
                                          nodeToBlockingGroup,
                                          blockingEnvelopGroups,
@@ -644,9 +691,9 @@ void DomainPasses::createSubBlockingDomain(Design &design,
         std::set<std::shared_ptr<Arc>> directArcsIn = nodeInDomain->getDirectInputArcs();
         std::set<std::shared_ptr<Arc>> directArcsOut = nodeInDomain->getDirectOutputArcs();
 
-        if(!nodeInDomain->getOrderConstraintInputArcs().empty() || !nodeInDomain->getOrderConstraintOutputArcs().empty()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Expected blocking to occur before order constraint arcs", nodeInDomain));
-        }
+//        if(!nodeInDomain->getOrderConstraintInputArcs().empty() || !nodeInDomain->getOrderConstraintOutputArcs().empty()){
+//            throw std::runtime_error(ErrorHelpers::genErrorStr("Expected blocking to occur before order constraint arcs", nodeInDomain));
+//        }
 
         for(const std::shared_ptr<Arc> &arcIn : directArcsIn){
             std::shared_ptr<Node> srcNode = arcIn->getSrcPort()->getParent();
@@ -713,7 +760,7 @@ void DomainPasses::createSubBlockingDomain(Design &design,
     std::vector<std::shared_ptr<Arc>> emptyArcVec;
 
     design.addRemoveNodesAndArcs(nodesToAdd, emptyNodeVec, arcsToAdd, emptyArcVec);
-    for(const std::shared_ptr<Node> nodeToRemoveFromTop : nodesToRemoveFromTopLevel){
+    for(const std::shared_ptr<Node> &nodeToRemoveFromTop : nodesToRemoveFromTopLevel){
         design.removeTopLevelNode(nodeToRemoveFromTop);
 
         std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(nodeToRemoveFromTop);

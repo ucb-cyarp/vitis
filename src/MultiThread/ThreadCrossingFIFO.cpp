@@ -405,20 +405,23 @@ void ThreadCrossingFIFO::validate() {
             }
         }
 
-        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength * getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements() - getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements())) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
+        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength-1) * (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(portNum))) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - ThreadCrossingFIFO - The number of initial conditions cannot be larger than the FIFO - 1 block",
                     getSharedPointer()));
         }
 
-        if (getInitConditionsCreateIfNot(portNum).size() % (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()) != 0) {
+        if (getInitConditionsCreateIfNot(portNum).size() % (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(portNum)) != 0) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
-                    "Validation Failed - ThreadCrossingFIFO - Initial Conditions for Port " + GeneralHelper::to_string(portNum) + " must be a multiple of its block size (" + GeneralHelper::to_string(getBlockSizeCreateIfNot(portNum)) + ")",
+                    "Validation Failed - ThreadCrossingFIFO - Initial Conditions for Port " +
+                    GeneralHelper::to_string(portNum) + " (" + GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum).size()) +
+                    ") must be a multiple of its block size (" +
+                    GeneralHelper::to_string(getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(portNum)) + ")",
                     getSharedPointer()));
         }
 
         if(portNum != 0){
-            if(getInitConditionsCreateIfNot(portNum).size()/getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements() != getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()){
+            if(getInitConditionsCreateIfNot(portNum).size()/getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(portNum) != getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(portNum)){
                 throw std::runtime_error(ErrorHelpers::genErrorStr(
                         "Validation Failed - ThreadCrossingFIFO - All ports must have the same number of initial conditions",
                         getSharedPointer()));
@@ -583,7 +586,7 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
                 //The FIFO has a block size > 1.  Perform the indexing to get to the sub-block
                 if(getSubBlockSizeCreateIfNot(i) > 1){
                     //The outer index will be into the sub-blocks.  Do not dereference this first index
-                    stateInputDeclAssignRe += "(" + getCStateInputVar(i).getCVarName(false) + "(" + cBlockIndexExpr + "))";
+                    stateInputDeclAssignRe += "(" + getCStateInputVar(i).getCVarName(false) + "+(" + cBlockIndexExpr + "))";
                 }else {
                     //Sub blocking of size 1, can dereference outer dimension
                     stateInputDeclAssignRe += "(" + getCStateInputVar(i).getCVarName(false) + "[" + cBlockIndexExpr + "]" + ")";
@@ -613,7 +616,7 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
                     //The FIFO has a block size > 1.  Perform the indexing to get to the sub-block
                     if(getSubBlockSizeCreateIfNot(i) > 1){
                         //The outer index will be into the sub-blocks.  Do not dereference this first index
-                        stateInputDeclAssignIm +=  "(" + getCStateInputVar(i).getCVarName(true) + "(" + cBlockIndexExpr + "))";
+                        stateInputDeclAssignIm +=  "(" + getCStateInputVar(i).getCVarName(true) + "+(" + cBlockIndexExpr + "))";
                     }else {
                         //Sub blocking of size 1, can dereference outer dimension
                         stateInputDeclAssignIm +=  "(" + getCStateInputVar(i).getCVarName(true) + "[" + cBlockIndexExpr + "]" + ")";
@@ -676,7 +679,7 @@ void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, s
         }
         std::vector<int> baseDims = dims;
         if(asThreadCrossingFIFO->getSubBlockSizeCreateIfNot(port) > 1) { //Only do this reduction if the sub-block size is not 1.  Otherwise, the base type is the I/O type
-            baseDims = BlockingHelpers::blockingDomainDimensionReduce(dims, 1);
+            baseDims = BlockingHelpers::blockingDomainDimensionReduce(dims, asThreadCrossingFIFO->getSubBlockSizeCreateIfNot(port), 1);
         }
         dt.setDimensions(baseDims);
 

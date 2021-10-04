@@ -162,8 +162,14 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
     //Note that if the input is a vector, the number of dimensions is not changed
 
     DataType outputType = inputDT;
-    std::vector<int> outputDim = BlockingHelpers::blockingDomainDimensionReduce(inputDT.getDimensions(), subBlockingLen);
+    std::vector<int> outputDim = BlockingHelpers::blockingDomainDimensionReduce(inputDT.getDimensions(), blockingLen, subBlockingLen);
     outputType.setDimensions(outputDim);
+
+    //TODO: Remove Check
+    DataType outputTypeFromArc = getOutputPort(0)->getDataType();
+    if(outputType != outputTypeFromArc){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Disagreement between expected output port type and output port type", getSharedPointer()));
+    }
 
     std::shared_ptr<BlockingDomain> blockingDomain = BlockingHelpers::findBlockingDomain(getSharedPointer());
     Variable indexVar = blockingDomain->getBlockIndVar();

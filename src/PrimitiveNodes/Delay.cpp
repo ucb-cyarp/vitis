@@ -1444,13 +1444,15 @@ void Delay::specializeForBlockingWOptions(bool processArcs,
         //Just wrap the delay
         //Node::specializeForBlocking(localBlockingLength, localSubBlockingLength, nodesToAdd, nodesToRemove, arcsToAdd, arcsToRemove, nodesToRemoveFromTopLevel, arcsWithDeferredBlockingExpansion);
 
-        //Can actually use a delay, reconfigured for the specific configuration currently supported.
-        //  blockSize > 1, circular buffer, double buffer len, earliestFirst = false;
-        // Do not reverse the initial conditions since the initialCondition array should now always be oriented the same way.  It is re-shaped by getInitConditionsReshapedForConfig
-        earliestFirst = false;
-        transactionBlockSize = localBlockingLength; //This delay is not a multiple of the block size and was not converted to a ve3ctor delay
-        bufferImplementation = BufferType::CIRCULAR_BUFFER;
-        circularBufferType = CircularBufferType::DOUBLE_LEN;
+        if(delayValue > 0) {
+            //Can actually use a delay, reconfigured for the specific configuration currently supported.
+            //  blockSize > 1, circular buffer, double buffer len, earliestFirst = false;
+            // Do not reverse the initial conditions since the initialCondition array should now always be oriented the same way.  It is re-shaped by getInitConditionsReshapedForConfig
+            earliestFirst = false;
+            transactionBlockSize = localBlockingLength; //This delay is not a multiple of the block size and was not converted to a ve3ctor delay
+            bufferImplementation = BufferType::CIRCULAR_BUFFER;
+            circularBufferType = CircularBufferType::DOUBLE_LEN;
+        }//If the delay is 0, just leave as is
 
         //For the arcs into an out of the delay, mark them for dimension expansion by the local blocking length
         if(processArcs) {
@@ -1500,7 +1502,7 @@ void Delay::specializeForBlockingArcExpandOnly(int localBlockingLength, std::map
     std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
     std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
     arcs.insert(outArcs.begin(), outArcs.end());
-    for (const std::shared_ptr<Arc> arc: arcs) {
+    for (const std::shared_ptr<Arc> &arc: arcs) {
         arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
     }
 }

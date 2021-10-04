@@ -513,9 +513,9 @@ void Node::specializeForBlocking(int localBlockingLength,
 
     //For now, error out if there are order constraint arcs
     //TODO: Possibly re-evaluate this decision
-    if(!getOrderConstraintInputArcs().empty() || !getOrderConstraintOutputArcs().empty()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered order constraint arcs when specializing for sub-blocking", getSharedPointer()));
-    }
+//    if(!getOrderConstraintInputArcs().empty() || !getOrderConstraintOutputArcs().empty()){
+//        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered order constraint arcs when specializing for sub-blocking", getSharedPointer()));
+//    }
 
     std::set<std::shared_ptr<Arc>> directInputArcs = getDirectInputArcs();
     std::set<std::shared_ptr<Arc>> directOutputArcs = getDirectOutputArcs();

@@ -42,8 +42,8 @@ protected:
     std::vector<std::vector<NumericValue>> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size.  The outer vector is across input/output port pairs.  The inner vector contains the initial conditions for the given port pair.
 
     //TODO: Need to set the block size according to the block domains and clock domains.  Note that, if the lowest level clock domain is not using vector mode, the block size is defined by the relative rate of this domain.  The sub-blocking size is set to 1 in this case.
-    std::vector<int> blockSizes; ///<The block sizes (in elements) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to clock domains and blocking domains
-    std::vector<int> subBlockSizes; ///<The sub-block sizes (in elements) of transactions.  This is how many elements are accessed at a time.  This should be the size of the outer dimension of the input and output type.  If the subBlockSizes are 1, the I/O dimension will have 1 fewer dimension
+    std::vector<int> blockSizes; ///<The block sizes (in items) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to clock domains and blocking domains
+    std::vector<int> subBlockSizes; ///<The sub-block sizes (in items) of transactions.  This is how many elements are accessed at a time.  This should be the size of the outer dimension of the input and output type.  If the subBlockSizes are 1, the I/O dimension will have 1 fewer dimension
     std::vector<Variable> cStateVars; ///<The C variables from which values are read.  There is one per input/output port pair
     std::vector<Variable> cStateInputVars; ///<the C temporary variables holding data to be writen.  There is one per input/output pair
 

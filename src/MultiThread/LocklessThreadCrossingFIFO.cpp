@@ -592,7 +592,7 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     //It should be validated at this point that all ports have the same number of initial conditions
     for(int portNum = 0; portNum<inputPorts.size(); portNum++) {
         int blockSize = getBlockSizeCreateIfNot(portNum);
-        int subElementsPer = getInputPort(portNum)->getDataType().numberOfElements();
+        int subElementsPer = getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(portNum);
         std::vector<int> dimensions = getInputPort(portNum)->getDataType().getDimensions();
         std::vector<NumericValue> initConds = getInitConditionsCreateIfNot(portNum);
 
@@ -658,7 +658,7 @@ void LocklessThreadCrossingFIFO::initializeSharedVariables(std::vector<std::stri
     //Write pointer initialized to (init.size()+1)%arrayLength = (init.size()+1)%(fifoLength+1)
     //Should be validated at this point that all ports have the same number of init conditions (blocks)
     int arrayLength=fifoLength+1;
-    int writeInd = (getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()+1)%arrayLength; //This index is in terms of blocks.  All ports should have same number of initial conditions (blocks)
+    int writeInd = (getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/(getInputPort(0)->getDataType().numberOfElements()/getSubBlockSizeCreateIfNot(0))+1)%arrayLength; //This index is in terms of blocks.  All ports should have same number of initial conditions (blocks)
     cStatementQueue.push_back("atomic_init(" + getCWriteOffsetPtr().getCVarName(false) + ", " + GeneralHelper::to_string(writeInd) + ");");
     cStatementQueue.push_back("if(!atomic_is_lock_free(" + getCWriteOffsetPtr().getCVarName(false) + ")){");
     cStatementQueue.push_back("printf(\"Warning: An atomic FIFO offset (" + getCWriteOffsetPtr().getCVarName(false) + ") was expected to be lock free but is not\\n\");");

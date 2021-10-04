@@ -343,3 +343,6 @@ std::vector<std::shared_ptr<Node>> BlockingDomain::discoverAndMarkContexts(std::
     return ContextHelper::discoverAndMarkContexts_SubsystemContextRoots(contextStack, thisAsBlockingDomain);
 }
 
+bool BlockingDomain::allowFIFOAbsorption(){
+    return true;
+}

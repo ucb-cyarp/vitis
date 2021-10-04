@@ -83,6 +83,16 @@ namespace DesignPasses {
      */
     unsigned long prune(Design &design, bool includeVisMaster = true);
 
+    /**
+     * @brief Assigns partitions to node that are currently unassigned (in partition -1) to a partition of a node within it
+     * @param printWarning If true, prints a warning when an assignment is made
+     * @param errorIfUnableToSet If true, throws an error if unable to find a partition for a subsystem
+     *
+     * This is primarily because of blocking now be accomplished with blocking domains.  Need to avoid subsystems
+     * under the blocking domains being in the -1 partition.
+     */
+    void assignPartitionsToUnassignedSubsystems(Design &design, bool printWarning, bool errorIfUnableToSet);
+
 };
 
 /*! @} */

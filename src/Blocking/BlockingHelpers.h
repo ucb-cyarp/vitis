@@ -97,7 +97,7 @@ namespace BlockingHelpers {
      * @param subBlockingLength
      * @return
      */
-    std::vector<int> blockingDomainDimensionReduce(std::vector<int> outerDimensions, int subBlockingLength);
+    std::vector<int> blockingDomainDimensionReduce(std::vector<int> outerDimensions, int blockingLength, int subBlockingLength);
 
     /**
      * @brief Create a blocking domain around a specific set of nodes, inserting the Blocking Domain, Blocking Inputs, and Blocking Outputs as nessasary

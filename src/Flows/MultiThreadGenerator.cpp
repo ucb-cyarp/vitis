@@ -113,6 +113,12 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //TODO: Partition Here
     //      Currently done manually
 
+    //==== Set Partitions of Subsystems That Are Currently Unassigned ====
+    //This can happen towards the top level of the design when subsystems are used for organization.  It is possible all nodes are assigned a partition
+    //but some of these upper level
+    //With blocking now being accomplished by blocking domains, these subsystems need to be assigned a partition
+    DesignPasses::assignPartitionsToUnassignedSubsystems(design, true, true);
+
     //==== Context Encapsulation Preparation (Organizing Contexts and Dealing with Contexts that Cross Partitions) ====
     //Assign EnableNodes to partitions do before encapsulation and Context/StateUpdate node creation, but after EnabledSubsystem expansion so that EnableNodes are moved/created/deleted as appropriate ahead of time
     ContextPasses::placeEnableNodesInPartitions(design);
@@ -126,6 +132,13 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     ContextPasses::replicateContextRootDriversIfRequested(design);
     design.assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     design.assignArcIDs();
+
+    if(emitGraphMLSched) {
+        //Export GraphML (for debugging)
+        std::string graphMLAfterBlockingFileName = fileName + "_preBlocking.graphml";
+        std::cout << "Emitting GraphML Blocking File: " << path << "/" << graphMLAfterBlockingFileName << std::endl;
+        GraphMLExporter::exportGraphML(path + "/" + graphMLAfterBlockingFileName, design);
+    }
 
     //TODO: Insert blocking and sub-blocking logic here?  Done before context, encpsulation, and FIFO insertion and may effectivly replace determining if a partition has a single clock domain
     //      Done after context discovery because that is when mux contexts are identified but encapsulation has not yet occured
@@ -306,6 +319,16 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         }
     }
 
+    //Validate the now merged FIFOs
+    {
+        for(const std::pair<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> &partCrossingFIFOs : fifoMap) {
+            std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos = partCrossingFIFOs.second;
+            for(const std::shared_ptr<ThreadCrossingFIFO> &fifo : fifos){
+                fifo->validate();
+            }
+        }
+    }
+
     //==== Report FIFOs ====
     std::cout << std::endl;
     std::cout << "========== FIFO Report ==========" << std::endl;
@@ -326,7 +349,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
             }
             clkDomainDescr += "]";
 
-            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Elements): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getBlockSizeCreateIfNot(0) << ", Clock Domain(s): " << clkDomainDescr << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Items): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/(fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getSubBlockSizeCreateIfNot(0))/fifoVec[i]->getBlockSizeCreateIfNot(0) << ", Clock Domain(s): " << clkDomainDescr << std::endl;
         }
     }
     std::cout << std::endl;

@@ -43,31 +43,41 @@ std::vector<std::shared_ptr<BlockingDomain>> BlockingHelpers::findBlockingDomain
     return stack;
 }
 
-std::vector<int> BlockingHelpers::blockingDomainDimensionReduce(std::vector<int> outerDimensions, int subBlockingLength){
-    int outerDim = outerDimensions[0];
-    if(subBlockingLength>outerDim){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("sub-blocking length must be less than the outer dimension"));
-    }
-    if(outerDim%subBlockingLength != 0){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("sub-blocking length must be a factor of outer dimension"));
-    }
-
+std::vector<int> BlockingHelpers::blockingDomainDimensionReduce(std::vector<int> outerDimensions, int blockingLength, int subBlockingLength){
+    //Only do the reduction if the blocking length is > 1.  Otherwise, we are in the degenerate case - which can happen
     std::vector<int> innerDim;
-    if(subBlockingLength == 1){
-        bool inputIsVectorOrScalar = outerDimensions.size() == 1 && outerDimensions[0] >= 1;
-        if(inputIsVectorOrScalar){
-            //The dimensionality is not decreased but is set to the sub-blocking length
-            innerDim.push_back(subBlockingLength);
-        }else{
-            //The outer dimension is removed
-            innerDim.insert(innerDim.end(), outerDimensions.begin()+1, outerDimensions.end());
+    if(blockingLength>1) {
+        int outerDim = outerDimensions[0];
+        if(outerDimensions[0] != blockingLength){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Outer Dimension not equal to provided blocking length"));
         }
-    }else if(subBlockingLength > 1){
-        //Set the outer dimension to be the sub-blocking length
-        innerDim.push_back(subBlockingLength);
-        innerDim.insert(innerDim.end(), outerDimensions.begin()+1, outerDimensions.end());
+        if (subBlockingLength > outerDim) {
+            throw std::runtime_error(
+                    ErrorHelpers::genErrorStr("sub-blocking length must be less than the outer dimension"));
+        }
+        if (outerDim % subBlockingLength != 0) {
+            throw std::runtime_error(
+                    ErrorHelpers::genErrorStr("sub-blocking length must be a factor of outer dimension"));
+        }
+
+        if (subBlockingLength == 1) {
+            bool inputIsVectorOrScalar = outerDimensions.size() == 1 && outerDimensions[0] >= 1;
+            if (inputIsVectorOrScalar) {
+                //The dimensionality is not decreased but is set to the sub-blocking length
+                innerDim.push_back(subBlockingLength);
+            } else {
+                //The outer dimension is removed
+                innerDim.insert(innerDim.end(), outerDimensions.begin() + 1, outerDimensions.end());
+            }
+        } else if (subBlockingLength > 1) {
+            //Set the outer dimension to be the sub-blocking length
+            innerDim.push_back(subBlockingLength);
+            innerDim.insert(innerDim.end(), outerDimensions.begin() + 1, outerDimensions.end());
+        } else {
+            throw std::runtime_error(ErrorHelpers::genErrorStr("sub-blocking length must be positive"));
+        }
     }else{
-        throw std::runtime_error(ErrorHelpers::genErrorStr("sub-blocking length must be positive"));
+        innerDim = outerDimensions;
     }
 
     return innerDim;
@@ -99,12 +109,15 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
             nodesToRemoveFromTopLevel.push_back(nodeToMove);
         }
         GraphAlgs::moveNodePreserveHierarchy(nodeToMove, blockingDomain, nodesToAdd);
-
-        if(nodeToMove->getPartitionNum() != -1){
-            //Set the partition of the blocking domain to be the partition defined by one of the nodes being wrapped.  During encapsulation, separate context family containers will be created for each partitions nodes within the context exist in.
-            blockingDomain->setPartitionNum(nodeToMove->getPartitionNum());
-        }
     }
+
+    //It is possible that all of the nodes to move are subsystems without a partition (especially at the top level)
+    //If this is the case, traverse hierarchically into children
+    int partNum = GraphAlgs::findPartitionInSubSystem(blockingDomain);
+    if(partNum == -1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Could not find partition when creating Blocking Domain", blockingDomain));
+    }
+    blockingDomain->setPartitionNum(partNum);
 
     //Create Blocking Inputs and Outputs
     std::map<std::shared_ptr<OutputPort>, std::shared_ptr<BlockingInput>> outputPortsToBlockingInputs;

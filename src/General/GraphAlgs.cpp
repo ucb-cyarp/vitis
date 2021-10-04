@@ -16,6 +16,7 @@
 #include "MultiRate/RateChange.h"
 #include "MultiRate/DownsampleClockDomain.h"
 #include "Blocking/BlockingDomain.h"
+#include "Blocking/BlockingBoundary.h"
 
 #include <iostream>
 #include <random>
@@ -41,7 +42,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
         }
 
         //Check if the src node is a state element or a enable node (input or output), or a RateChange node, or in another partition
-        bool blockedByStateOrType = srcNode->hasState() || GeneralHelper::isType<Node, EnableNode>(srcNode) != nullptr || GeneralHelper::isType<Node, RateChange>(srcNode) != nullptr;
+        bool blockedByStateOrType = srcNode->hasState() || GeneralHelper::isType<Node, EnableNode>(srcNode) != nullptr || GeneralHelper::isType<Node, RateChange>(srcNode) != nullptr || GeneralHelper::isType<Node, BlockingBoundary>(srcNode) != nullptr;
         bool blockedByPartitionBoundary = false;
         if(stopAtPartitionBoundary){
             blockedByPartitionBoundary = srcNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
@@ -131,7 +132,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
         }
 
         //Check if the src node is a state element or a enable node (input or output), or a RateChange node, or in another partition
-        bool blockedByStateOrType = dstNode->hasState() || GeneralHelper::isType<Node, EnableNode>(dstNode) != nullptr || GeneralHelper::isType<Node, RateChange>(dstNode) != nullptr;
+        bool blockedByStateOrType = dstNode->hasState() || GeneralHelper::isType<Node, EnableNode>(dstNode) != nullptr || GeneralHelper::isType<Node, RateChange>(dstNode) != nullptr || GeneralHelper::isType<Node, BlockingBoundary>(dstNode) != nullptr;
         bool blockedByPartitionBoundary = false;
         if(stopAtPartitionBoundary){
             blockedByPartitionBoundary = dstNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
@@ -299,6 +300,26 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
         }
     }
 
+}
+
+std::set<std::shared_ptr<ContextRoot>> GraphAlgs::findContextRootsUnderSubsystem(std::shared_ptr<SubSystem> subsystem){
+    std::set<std::shared_ptr<ContextRoot>> contextRoots;
+
+    std::set<std::shared_ptr<Node>> children = subsystem->getChildren();
+    for(const std::shared_ptr<Node> &child : children){
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(child);
+        if(asContextRoot != nullptr){
+            contextRoots.insert(asContextRoot);
+        }else{
+            std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+            if(asSubsystem != nullptr){
+                std::set<std::shared_ptr<ContextRoot>> contextRootsInSubsys = findContextRootsUnderSubsystem(asSubsystem);
+                contextRoots.insert(contextRootsInSubsys.begin(), contextRootsInSubsys.end());
+            }
+        }
+    }
+
+    return contextRoots;
 }
 
 std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch){
@@ -973,4 +994,24 @@ std::set<std::set<std::shared_ptr<Node>>> GraphAlgs::findStronglyConnectedCompon
     }
 
     return connectedComponents;
+}
+
+int GraphAlgs::findPartitionInSubSystem(std::shared_ptr<SubSystem> subsystem){
+    std::set<std::shared_ptr<Node>> children = subsystem->getChildren();
+    for(const std::shared_ptr<Node> &child : children){
+        int childPart = child->getPartitionNum();
+        if(childPart != -1){
+            return childPart;
+        }
+    }
+
+    //If we could not find the partition directly from the children, try going into nested subsystems
+    for(const std::shared_ptr<Node> &child : children){
+        std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+        if(asSubsystem){
+            return findPartitionInSubSystem(asSubsystem);
+        }
+    }
+
+    return -1;
 }

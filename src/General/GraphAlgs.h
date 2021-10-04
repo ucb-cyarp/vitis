@@ -40,7 +40,7 @@ namespace GraphAlgs {
     /**
      * @brief Traces back from a port through the design graph to discover a port's context, stopping at state elements and enabled subsystem boundaries.
      *
-     * State elements and enabled nodes (enabled inputs/outputs) are not marked - none of their output arcs are marked by a
+     * State elements, enabled nodes (enabled inputs/outputs), rate change nodes, and blocking boundary nodes are not marked - none of their output arcs are marked by a
      * call to this function.  This is because these nodes cannot be considered part of the contexts that these traces are being used to discover
      *
      * Note that the context will not be properly discovered if there is a combinational loop.  A combinational loop will cause the input of a node in the loopback
@@ -61,7 +61,7 @@ namespace GraphAlgs {
     /**
      * @brief Traces forward from a port through the design graph to discover a port's context, stopping at state elements and enabled subsystem boundaries.
      *
-     * State elements and enabled nodes (enabled inputs/outputs) are not marked - none of their output arcs are marked by a
+     * State elements, enabled nodes (enabled inputs/outputs), rate change nodes, and blocking boundary nodes are not marked - none of their output arcs are marked by a
      * call to this function.  This is because these nodes cannot be considered part of the contexts that these traces are being used to discover
      *
      * Note that the context will not be properly discovered if there is a combinational loop.  A combinational loop will cause the input of a node in the loopback
@@ -124,6 +124,15 @@ namespace GraphAlgs {
                                           std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
                                           std::vector<std::shared_ptr<BlockingDomain>> &discoveredBlockingDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral);
+
+
+    /**
+     * @brief Finds context roots under a subsystem (and under nested subsystems).  It does not traverse into
+     *        context roots which are also subsystems
+     * @param subsystem
+     * @return
+     */
+    std::set<std::shared_ptr<ContextRoot>> findContextRootsUnderSubsystem(std::shared_ptr<SubSystem> subsystem);
 
     /**
      * @brief Performs a destructive topological sort on a provided vector of nodes.
@@ -476,6 +485,13 @@ namespace GraphAlgs {
 
         return outerA == outerB || a == outerB || outerA == b;
     }
+
+    /**
+     * @brief Finds a partition which exists inside of the subsystem (not including itself) which is not -1 (if one exists).  Otherwise, returns -1
+     * @param subsystem
+     * @return
+     */
+    int findPartitionInSubSystem(std::shared_ptr<SubSystem> subsystem);
 
 };
 

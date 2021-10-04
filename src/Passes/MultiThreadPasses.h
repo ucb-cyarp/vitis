@@ -308,14 +308,14 @@ namespace MultiThreadPasses {
      * However, if the src port of the FIFO is a MasterInput node, the delay is placed on the output
      *
      * @param fifo
-     * @param numElementsToMove These are elements in the FIFO and not in the intial conditions.  They can be scalar, vectors, or matricies
+     * @param numItemsToMove These are items in the FIFO and not in sub-elements in the initial conditions array.  They can be scalar, vectors, or matricies
      * @param new_nodes
      * @param deleted_nodes
      * @param new_arcs
      * @param deleted_arcs
      */
     void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                             int numElementsToMove,
+                                             int numItemsToMove,
                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                              std::vector<std::shared_ptr<Arc>> &new_arcs,

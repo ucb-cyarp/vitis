@@ -13,6 +13,7 @@
 #include "MasterNodes/MasterInput.h"
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/StateUpdate.h"
+#include "General/GraphAlgs.h"
 #include <iostream>
 
 void DesignPasses::createStateUpdateNodes(Design &design, bool includeContext) {
@@ -280,4 +281,24 @@ unsigned long DesignPasses::prune(Design &design, bool includeVisMaster) {
     }
 
     return nodesDeleted.size();
+}
+
+void DesignPasses::assignPartitionsToUnassignedSubsystems(Design &design, bool printWarning, bool errorIfUnableToSet){
+    std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
+
+    for(const std::shared_ptr<Node> &node : nodes){
+        std::shared_ptr<SubSystem> asSubsys = GeneralHelper::isType<Node, SubSystem>(node);
+        if(asSubsys){
+            if(asSubsys->getPartitionNum() == -1){
+                int partNum = GraphAlgs::findPartitionInSubSystem(asSubsys);
+                if(partNum == -1 && errorIfUnableToSet){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find partition for Subsystem.  Ensure that there is at least one node nested in the subsystem which has a partition assigned"));
+                }
+                asSubsys->setPartitionNum(partNum);
+                if(printWarning){
+                    std::cerr << ErrorHelpers::genWarningStr("Setting Unassigned Subsystem (" + asSubsys->getName() + ") to Partition " + GeneralHelper::to_string(partNum), asSubsys) << std::endl;
+                }
+            }
+        }
+    }
 }

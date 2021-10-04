@@ -129,6 +129,8 @@ public:
      * @return nodes in the context
      */
     std::vector<std::shared_ptr<Node>> discoverAndMarkContexts(std::vector<Context> contextStack);
+
+    bool allowFIFOAbsorption() override;
 };
 
 /*! @} */
