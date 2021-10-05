@@ -623,7 +623,7 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
                     }
                 }else{
                     //Has a block size of 1, just pass the variable without any indexing
-                    stateInputDeclAssignRe += getCStateInputVar(i).getCVarName(true);
+                    stateInputDeclAssignIm += getCStateInputVar(i).getCVarName(true);
                 }
             }
             //Perform the assignment
