@@ -265,10 +265,11 @@ public:
      * The input names take the form: portName_portNum
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     * @warning Assumes block sizes are set in the master nodes
      *
-     * @return a vector of input variables ordered by the input port number along with the rate of the input
+     * @return a vector of input variables ordered by the input port number.  Their types are scaled for blocking
      */
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables();
+    std::vector<Variable> getCInputVariables();
 
     /**
      * @brief Get the output variables for this design
@@ -276,10 +277,11 @@ public:
      * The input names take the form: portName_portNum
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     * @warning Assumes block sizes are set in the master nodes
      *
-     * @return a vector of input variables ordered by the input port number along with the rate of the input
+     * @return a vector of input variables ordered by the input port number.  Their types are scaled for blocking
      */
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables();
+    std::vector<Variable> getCOutputVariables();
 
     /**
      * @brief Get the argument portion of the C function prototype for this design.
@@ -321,7 +323,7 @@ public:
      * @param blockSize the block size (in samples).  The width is multiplied by this number
      * @return a string of the C structure definition
      */
-    std::string getCOutputStructDefn(int blockSize = 1);
+    std::string getCOutputStructDefn();
 
 
     //TODO: update fifoLength to be set on a per FIFO basis

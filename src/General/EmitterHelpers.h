@@ -23,6 +23,7 @@ class ContextRoot;
 class BlackBox;
 class MasterOutput;
 class MasterInput;
+class ClockDomain;
 
 /**
  * \addtogroup General General Helper Classes
@@ -71,9 +72,11 @@ namespace EmitterHelpers {
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
-     * @return a vector of input variables ordered by the input port number paired with their rate relative to the baseRate.  The ith element of the array is the ith input port.
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of input variables ordered by the input port number. The datatype is scaled for blocking
      */
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
+    std::vector<Variable> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
 
     /**
      * @brief Get the output variables for this design
@@ -82,9 +85,11 @@ namespace EmitterHelpers {
      *
      * @warning Assumes the design has already been validated (ie. has at exactly one arc per port).
      *
-     * @return a vector of output variables ordered by the output port number paired with their rate relative to the baseRate.  The ith element of the array is the ith output port.
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of output variables ordered by the output port number. The datatype is scaled for blocking
      */
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+    std::vector<Variable> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
 
     /**
      * @brief Get the structure definition for the Input/Output ports
@@ -99,13 +104,12 @@ namespace EmitterHelpers {
      *
      * This is used by the driver generator.
      *
-     * @param portVariables the port variables for the design (either input or output) (in accending port order)
-     * @param portBlockSizes the block size (in samples) each port.  If the port is a scalar, it converted to a vector of this length.  If the port is a vector or matrix, a new dimension is added to the front of the dimensions array (so that blocks are stored contiguously in memory according to the C/C++ array semantics)
+     * @param portVariables the port variables for the design (either input or output) (in accending port order) - scaled for the block size
      * @param the type name of the struct being created
      *
      * @return
      */
-    std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::vector<int> portBlockSizes, std::string structTypeName);
+    std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::string structTypeName);
 
     /**
      * @brief Outputs the type header
@@ -169,14 +173,6 @@ namespace EmitterHelpers {
      * @return
      */
     std::set<std::shared_ptr<Arc>> getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bool directOnly);
-
-    /**
-     * @brief Get block sizes from rates
-     * @param rates
-     * @param blockSizeBase
-     * @return
-     */
-    std::vector<int> getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase);
 
     template<typename T>
     std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, T val){

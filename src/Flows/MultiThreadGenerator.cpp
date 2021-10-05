@@ -149,6 +149,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
     DomainPasses::blockAndSubBlockDesign(design, blockSize, subBlockSize);
 
+    DomainPasses::setMasterBlockSizesBasedOnPortClockDomain(design, blockSize);
+
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
         std::string graphMLAfterBlockingFileName = fileName + "_afterBlocking.graphml";
@@ -541,9 +543,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
         partitionSet.insert(it->first);
     }
 
-    //TODO: Modify Drivers to look at MasterIO
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarRatePair = design.getCInputVariables();
-    std::vector<Variable> inputVars = inputVarRatePair.first;
+    std::vector<Variable> inputVars = design.getCInputVariables();
 
     //++++Emit Const I/O Driver++++
     ConstIOThread::emitConstIOThreadC(inputFIFOs[IO_PARTITION_NUM], outputFIFOs[IO_PARTITION_NUM], path, fileName, designName, blockSize, fifoHeaderName, fifoSupportHeaderName, threadDebugPrint, fifoIndexCachingBehavior);

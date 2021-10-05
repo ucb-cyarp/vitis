@@ -27,12 +27,11 @@ protected:
     MasterNode();
     MasterNode(std::shared_ptr<SubSystem> parent, MasterNode* orig);
 
-    int blockSize; ///<The size of the block (in samples) processed in each call to the function. NOTE: This is used in emit only and is set during the emit process.  Think of this more like a callback
-
-    //TODO: Change this to be a map of rates to indVarName
+    //TODO: Change this to be a map of ports to indExprs
     std::string indVarName; ///<When the blockSize > 1, this is the variable used for indexing into the block. NOTE: This is used in emit only and is set during the emit process.  Think of this more like a callback
 
     std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> ioClockDomains; ///<This links a particular Master Port to a clock domain.  If nullptr, the port is in the base clock domain.  If not in the map, the port is assumed to be in the base clock domain (nullptr)
+    std::map<std::shared_ptr<Port>, int> blockSizes; ///<The size of the block (in samples) processed in each call to the function
 
 public:
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
@@ -46,8 +45,14 @@ public:
     bool canExpand() override ;
 
     //==== Getters/Setters ====
-    int getBlockSize() const;
-    void setBlockSize(int blockSize);
+    const std::map<std::shared_ptr<Port>, int> &getBlockSizes() const;
+    void setBlockSizes(const std::map<std::shared_ptr<Port>, int> &blockSizes);
+
+    int getPortBlockSize(std::shared_ptr<InputPort> port);
+    int getPortBlockSize(std::shared_ptr<OutputPort> port);
+    void setPortBlockSize(std::shared_ptr<InputPort> port, int blockSize);
+    void setPortBlockSize(std::shared_ptr<OutputPort> port, int blockSize);
+
     const std::string &getIndVarName() const;
     void setIndVarName(const std::string &indVarName);
     std::map<std::shared_ptr<Port>, std::shared_ptr<ClockDomain>> getIoClockDomains() const;

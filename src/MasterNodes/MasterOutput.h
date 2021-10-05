@@ -43,6 +43,18 @@ public:
     std::shared_ptr<Node> shallowClone(std::shared_ptr<SubSystem> parent) override;
 
     std::string typeNameStr() override;
+
+    /**
+     * @brief Sets the port block sizes based on the associated clock domains.
+     *
+     * @warning Port clock domains must be set first
+     *
+     * @note Compensates for ports operating in the base clock domain which go into BlockingBoundary nodes
+     *       and are already scaled by the block size.  The block size for these nodes is set to 1.
+     *
+     * @param baseBlockSize the block size of items operating at the base rate
+     */
+    void setPortBlockSizesBasedOnClockDomain(int baseBlockSize);
 };
 
 /*! @} */

@@ -52,14 +52,6 @@ std::set<GraphMLParameter> MasterNode::graphMLParameters() {
     return parameters;
 }
 
-int MasterNode::getBlockSize() const {
-    return blockSize;
-}
-
-void MasterNode::setBlockSize(int blockSize) {
-    MasterNode::blockSize = blockSize;
-}
-
 const std::string &MasterNode::getIndVarName() const {
     return indVarName;
 }
@@ -139,6 +131,68 @@ std::shared_ptr<ClockDomain> MasterNode::getPortClkDomain(std::shared_ptr<InputP
     }
 }
 
+void MasterNode::setPortBlockSize(std::shared_ptr<OutputPort> port, int blockSize) {
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<OutputPort>> outPorts = getOutputPorts();
+    bool isOutputNode = std::find(outPorts.begin(), outPorts.end(), port) != outPorts.end();
+
+    if(!isOutputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested setting the Block Size of a Port that is not associated with this Master node", getSharedPointer()));
+    }
+
+    blockSizes[port] = blockSize;
+}
+
+void MasterNode::setPortBlockSize(std::shared_ptr<InputPort> port, int blockSize) {
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<InputPort>> inPorts = getInputPorts();
+    bool isInputNode = std::find(inPorts.begin(), inPorts.end(), port) != inPorts.end();
+
+    if(!isInputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested setting the Block Size of a Port that is not associated with this Master node", getSharedPointer()));
+    }
+
+    blockSizes[port] = blockSize;
+}
+
+int MasterNode::getPortBlockSize(std::shared_ptr<OutputPort> port){
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<OutputPort>> outPorts = getOutputPorts();
+    bool isOutputNode = std::find(outPorts.begin(), outPorts.end(), port) != outPorts.end();
+
+    if(!isOutputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested setting the Block Size of a Port that is not associated with this Master node", getSharedPointer()));
+    }
+
+    auto blockSizeIter = blockSizes.find(port);
+    if(blockSizeIter != blockSizes.end()){
+        return (*blockSizeIter).second;
+    }else{
+        return 0;
+    }
+}
+
+int MasterNode::getPortBlockSize(std::shared_ptr<InputPort> port){
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<InputPort>> inPorts = getInputPorts();
+    bool isInputNode = std::find(inPorts.begin(), inPorts.end(), port) != inPorts.end();
+
+    if(!isInputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested setting the Block Size of a Port that is not associated with this Master node", getSharedPointer()));
+    }
+
+    auto blockSizeIter = blockSizes.find(port);
+    if(blockSizeIter != blockSizes.end()){
+        return (*blockSizeIter).second;
+    }else{
+        return 0;
+    }
+}
+
 void MasterNode::resetIoClockDomains() {
     ioClockDomains.clear();
 }
@@ -158,4 +212,12 @@ std::set<std::shared_ptr<ClockDomain>> MasterNode::getClockDomains() {
     }
 
     return clockDomains;
+}
+
+const std::map<std::shared_ptr<Port>, int> &MasterNode::getBlockSizes() const {
+    return blockSizes;
+}
+
+void MasterNode::setBlockSizes(const std::map<std::shared_ptr<Port>, int> &blockSizes) {
+    MasterNode::blockSizes = blockSizes;
 }

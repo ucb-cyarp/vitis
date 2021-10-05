@@ -223,8 +223,6 @@ set(COMMON_SRCS
         src/HighLevelNodes/DiscreteFIR.h
         src/PrimitiveNodes/TappedDelay.cpp
         src/PrimitiveNodes/TappedDelay.h
-        src/Emitter/MultiThreadEmit.cpp
-        src/Emitter/MultiThreadEmit.h
         src/Passes/MultiThreadPasses.cpp
         src/Passes/MultiThreadPasses.h
         src/MultiThread/ThreadCrossingFIFO.cpp
@@ -289,8 +287,6 @@ set(COMMON_SRCS
         src/Blocking/BlockingOutput.h
         src/Blocking/BlockingHelpers.cpp
         src/Blocking/BlockingHelpers.h
-        src/Emitter/SingleThreadEmit.cpp
-        src/Emitter/SingleThreadEmit.h
         src/Emitter/MultiThreadEmit.cpp
         src/Emitter/MultiThreadEmit.h
         src/Passes/ContextPasses.cpp
@@ -299,8 +295,6 @@ set(COMMON_SRCS
         src/Passes/DesignPasses.h
         src/Passes/DomainPasses.cpp
         src/Passes/DomainPasses.h
-        src/Flows/SingleThreadGenerator.cpp
-        src/Flows/SingleThreadGenerator.h
         src/Flows/MultiThreadGenerator.cpp
         src/Flows/MultiThreadGenerator.h
         src/Scheduling/IntraPartitionScheduling.cpp
@@ -329,9 +323,6 @@ target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES} ${Bo
 
 add_executable(designExpander src/Tools/designExpander.cpp)
 target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
-
-add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
-target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(multiThreadedGenerator src/Tools/multiThreadedGenerator.cpp)
 target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})

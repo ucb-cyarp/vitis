@@ -183,16 +183,14 @@ simulinkGraphMLImporter myDesignExport.graphml myDesignExport_vitis.graphml
 ```
 
 ### Generating C Code
-There are 2 programs which can generate C code for a vitis design:
-- multiThreadedGenerator: Generates a multi-threaded C implementation of the design
-- singleThreadedGenerator: Generates a single-threaded C implementation of the design
+multiThreadedGenerator: Generates a multi-threaded C implementation of the design
 
-Both applications have several options.  Documentation for each option can be accessed by running the application with
+Documentation for options can be accessed by running the application with
 the ``--help`` argument.
 
 There are only 3 required parameters for the programs
 ```bash
-{multi,single}ThreadedGenerator inputFile.graphml outputDir designName
+multiThreadedGenerator inputFile.graphml outputDir designName
 ```
 
 - ``inputFile`` is a vitis design file which was created using ``simulinkGraphMLImporter``

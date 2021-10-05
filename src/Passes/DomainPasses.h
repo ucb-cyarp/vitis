@@ -98,6 +98,15 @@ namespace DomainPasses {
      */
     void blockAndSubBlockDesign(Design &design, int baseBlockingLength, int baseSubBlockingLength);
 
+    /**
+     * @brief Sets the per-port clock domain of master nodes based on their assigned clock domains and the base
+     *        block length.  Handles the case where I/O ports operating in the base clock domain have their arcs
+     *        already scaled for blocking.  In this case, the block size is set to 1.
+     * @param design
+     * @param baseBlockingLength
+     */
+    void setMasterBlockSizesBasedOnPortClockDomain(Design &design, int baseBlockingLength);
+
     void specializeDeferredDelays(Design &design);
 
     /**

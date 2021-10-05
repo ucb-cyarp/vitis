@@ -386,16 +386,16 @@ void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &c
     }
 }
 
-std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
+std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
     unsigned long numPorts = inputMaster->getOutputPorts().size();
 
     std::vector<Variable> inputVars;
-    std::vector<std::pair<int, int>> inputRates;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
         std::shared_ptr<ClockDomain> inputClkDomain = inputMaster->getPortClkDomain(input);
+        int inputBlockSize = inputMaster->getPortBlockSize(input);
 
         //TODO: This is a sanity check for the above todo
         if(input->getPortNum() != i){
@@ -403,22 +403,23 @@ std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelper
         }
 
         DataType portDataType = input->getDataType();
+        //TODO: Change if I/O scaling is later modified
+
+        //If the I/O is operating in the base clock domain, the datatype will have been expanded and will interface with a blocking domain
+        //Since it has already been expanded for blocking
+        if(inputClkDomain != nullptr){
+            portDataType = portDataType.expandForBlock(inputBlockSize);
+        }
 
         Variable var = Variable(inputMaster->getCInputName(i), portDataType);
         inputVars.push_back(var);
-        if(inputClkDomain){
-            inputRates.push_back(inputClkDomain->getRateRelativeToBase());
-        }else{
-            inputRates.emplace_back(1, 1);
-        }
     }
 
-    return std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>>(inputVars, inputRates);
+    return inputVars;
 }
 
-std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
+std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
     std::vector<Variable> outputVars;
-    std::vector<std::pair<int, int>> outputRates;
 
     unsigned long numPorts = outputMaster->getInputPorts().size();
 
@@ -426,6 +427,7 @@ std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelper
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
         std::shared_ptr<ClockDomain> outputClkDomain = outputMaster->getPortClkDomain(output);
+        int outputBlockSize = outputMaster->getPortBlockSize(output);
 
         //TODO: This is a sanity check for the above todo
         if(output->getPortNum() != i){
@@ -433,20 +435,21 @@ std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelper
         }
 
         DataType portDataType = output->getDataType();
+        //TODO: Change if I/O scaling is later modified
+        //If the I/O is operating in the base clock domain, the datatype will have been expanded and will interface with a blocking domain
+        //Since it has already been expanded for blocking
+        if(outputClkDomain != nullptr){
+            portDataType = portDataType.expandForBlock(outputBlockSize);
+        }
 
         Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
         outputVars.push_back(var);
-        if(outputClkDomain){
-            outputRates.push_back(outputClkDomain->getRateRelativeToBase());
-        }else{
-            outputRates.emplace_back(1, 1);
-        }
     }
 
-    return std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>>(outputVars, outputRates);
+    return outputVars;
 }
 
-std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::vector<int> portBlockSizes, std::string structTypeName) {
+std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName) {
     //TODO: Change this function to use the MasterIO Port ClockDomain
     //Trace where this function is called from (IO Port)
     std::string prototype = "#pragma pack(push, 4)\n";
@@ -454,14 +457,6 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
 
     for(unsigned long i = 0; i<portVars.size(); i++){
         Variable var = portVars[i];
-
-        DataType varType = var.getDataType();
-        //Expand the width of the type by another dimension.  If scalar, extend the length
-        //accordingly.
-        varType = varType.expandForBlock(portBlockSizes[i]);
-        //Note, these changes to dimensions do not propagate outside of this function
-
-        var.setDataType(varType);
 
         prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
 
@@ -856,16 +851,6 @@ EmitterHelpers::getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bo
     }
 
     return masterArcs;
-}
-
-std::vector<int>
-EmitterHelpers::getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase) {
-    std::vector<int> blockSizes;
-    for(unsigned long i = 0; i<rates.size(); i++){
-        blockSizes.push_back(blockSizeBase*rates[i].first/rates[i].second);
-    }
-
-    return blockSizes;
 }
 
 //Val index is a reference so that it can be incremented in the base case

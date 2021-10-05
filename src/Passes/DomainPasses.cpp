@@ -393,6 +393,11 @@ void DomainPasses::blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Nod
     }
 }
 
+void DomainPasses::setMasterBlockSizesBasedOnPortClockDomain(Design &design, int baseBlockingLength){
+    design.getInputMaster()->setPortBlockSizesBasedOnClockDomain(baseBlockingLength);
+    design.getOutputMaster()->setPortBlockSizesBasedOnClockDomain(baseBlockingLength);
+    design.getVisMaster()->setPortBlockSizesBasedOnClockDomain(baseBlockingLength);
+}
 
 void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength, int baseSubBlockingLength){
     if(baseBlockingLength == 1){

@@ -523,19 +523,18 @@ std::shared_ptr<Node> Design::getNodeByNamePath(std::vector<std::string> namePat
     return cursor;
 }
 
-std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> Design::getCInputVariables() {
+std::vector<Variable> Design::getCInputVariables() {
     return EmitterHelpers::getCInputVariables(inputMaster);
 }
 
-std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> Design::getCOutputVariables() {
+std::vector<Variable> Design::getCOutputVariables() {
     return EmitterHelpers::getCOutputVariables(outputMaster);
 }
 
 std::string Design::getCFunctionArgPrototype(bool forceArray) {
     std::string prototype = "";
 
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> inputVarsWithRates = getCInputVariables();
-    std::vector<Variable> inputVars = inputVarsWithRates.first;
+    std::vector<Variable> inputVars = getCInputVariables();
     unsigned long numInputVars = inputVars.size();
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
@@ -587,10 +586,10 @@ std::string Design::getCFunctionArgPrototype(bool forceArray) {
     return prototype;
 }
 
-std::string Design::getCOutputStructDefn(int blockSize) {
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> outputVarsPairdWithRates = getCOutputVariables();
-    std::vector<int> blockSizes = EmitterHelpers::getBlockSizesFromRates(outputVarsPairdWithRates.second, blockSize);
-    return EmitterHelpers::getCIOPortStructDefn(outputVarsPairdWithRates.first, blockSizes, "OutputType");
+std::string Design::getCOutputStructDefn() {
+    std::vector<Variable> outputVars = getCOutputVariables();
+
+    return EmitterHelpers::getCIOPortStructDefn(outputVars, "OutputType");
 }
 
 Design Design::copyGraph(std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode,
