@@ -209,7 +209,6 @@ RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
                 std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
                 std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
                 cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-                cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
                 std::string outputAssign = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=" + inputExpr.getExpr() + ";";
                 cStatementQueue.insert(cStatementQueue.end(), outputAssign);
@@ -218,9 +217,29 @@ RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
             }else{
                 //Otherwise, loop over the input and write into the output, replicating the output according to the upsample rate
                 int copies = upsampleRatio;
+
+                //NOTE: There are 2 scenarios which can occur and the output type vs. input type will reveal which case is occurring.
+                //      - If the sub-blocking within the clock domain is 1 (the degenerate case), the vector/matrix at the input is the
+                //        primitive being repeated.  The dimensionality at the output should be expanded and the copies should be made
+                //      - If the sub-blocking within the clock domain is >1 (the normal case), the outer dimension is expanded by the
+                //        number of copies
+
+                bool degenerateCase;
+                std::vector<int> degenerateCaseExpectedOutputDims = inputDT.getDimensions();
+                degenerateCaseExpectedOutputDims.insert(degenerateCaseExpectedOutputDims.begin(), copies);
+                std::vector<int> standardCaseExpectedOutputDims = inputDT.getDimensions();
+                standardCaseExpectedOutputDims[0] *= copies;
+                if(degenerateCaseExpectedOutputDims == outputDT.getDimensions()){
+                    degenerateCase = true;
+                }else if(standardCaseExpectedOutputDims == outputDT.getDimensions()){
+                    degenerateCase = false;
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input and output dimensions", getSharedPointer()));
+                }
+
                 std::vector<int> forLoopDims = inputDT.getDimensions();
                 //Will make 2nd loop (index 1 in the loop vars) iterate over the copies
-                forLoopDims.insert(forLoopDims.begin()+1, copies);
+                forLoopDims.insert(forLoopDims.begin(), copies);
                 std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
                         EmitterHelpers::generateVectorMatrixForLoops(forLoopDims);
                 std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
@@ -230,11 +249,15 @@ RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
 
                 std::vector<std::string> forLoopIndexVarsInput = forLoopIndexVars;
                 //Ignore the copy loop entirely when it comes to indexing
-                forLoopIndexVarsInput.erase(forLoopIndexVarsInput.begin()+1);
+                forLoopIndexVarsInput.erase(forLoopIndexVarsInput.begin());
 
                 std::vector<std::string> forLoopIndexVarsOutput = forLoopIndexVars;
-                forLoopIndexVarsOutput[0] += "*" + GeneralHelper::to_string(copies) + "+" + forLoopIndexVarsOutput[1]; //When writing into the output, the stride of the 1st dimension is set by the upsample rate
-                forLoopIndexVarsOutput.erase(forLoopIndexVarsOutput.begin()+1);
+                if(!degenerateCase){
+                    forLoopIndexVarsOutput[1] += "*" + GeneralHelper::to_string(copies) + "+" +
+                                                 forLoopIndexVarsOutput[0]; //When writing into the output, the stride of the 1st dimension is set by the upsample rate
+                    forLoopIndexVarsOutput.erase(forLoopIndexVarsOutput.begin());
+                }
+                //Otherwise, copy into the outer dimension (keep the additional copy dimension added to the input type)
 
                 std::string outputAssign = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVarsOutput) + "=" + inputExpr.getExpr() + EmitterHelpers::generateIndexOperation(forLoopIndexVarsInput) + ";";
                 cStatementQueue.insert(cStatementQueue.end(), outputAssign);

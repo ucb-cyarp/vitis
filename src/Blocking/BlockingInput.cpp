@@ -207,13 +207,25 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
         //Open for loop for copy
         cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
-        //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
         std::vector<std::string> inputIndexVars = forLoopIndexVars;
-        if(subBlockingLen>1){
-            inputIndexVars[0] = indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" + inputIndexVars[0];
+        //It is possible for there to be a degenerate case where the blocking and sub-blocking length are both 1.
+        //In that case, it is a simple copy
+        if(blockingLen >1 ) {
+            if (subBlockingLen > 1) {
+                //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
+                inputIndexVars[0] = indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" +
+                                    inputIndexVars[0];
+            } else {
+                inputIndexVars.insert(inputIndexVars.begin(), indexVar.getCVarName(false));
+            }
         }else{
-            inputIndexVars.insert(inputIndexVars.begin(), indexVar.getCVarName(false));
+            //If blocking length is 1, sub-blocking length must also be 1
+            //TODO: Remove check
+            if(subBlockingLen != 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When blocking length is 1, sub-blocking length must also be 1", getSharedPointer()));
+            }
         }
+
         cStatementQueue.push_back(outVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=" + inputExpr.getExprIndexed(inputIndexVars, true) + ";");
 
         //Close for loop for copy

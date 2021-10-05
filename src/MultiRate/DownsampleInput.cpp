@@ -91,9 +91,24 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         int stride = downsampleRatio;
         //Phase not currently supported, starts at phase 0
 
-        int loopIterations = inputDims[0]/stride;
-        std::vector<int> copyLoopDims = inputDims;
-        copyLoopDims[0] = loopIterations;
+        //NOTE: There are 2 scenarios which can occur and the output type vs. input type will reveal which case is occurring.
+        //      - If the sub-blocking within the clock domain is 1 (the degenerate case), the dimensionality of the
+        //        input type is reduced
+        //      - If the sub-blocking within the clock domain is >1 (the normal case), the output dimension is just
+        //        scaled down by the stride factor.
+
+        bool degenerateCase;
+        std::vector<int> degenerateCaseExpectedInputDims = outputDT.getDimensions();
+        degenerateCaseExpectedInputDims.insert(degenerateCaseExpectedInputDims.begin(), stride);
+        std::vector<int> standardCaseExpectedInputDims = outputDT.getDimensions();
+        standardCaseExpectedInputDims[0] *= stride;
+        if(degenerateCaseExpectedInputDims == inputDT.getDimensions()){
+            degenerateCase = true;
+        }else if(standardCaseExpectedInputDims == inputDT.getDimensions()){
+            degenerateCase = false;
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input and output dimensions", getSharedPointer()));
+        }
 
         //Create output var
         std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_Out";
@@ -101,7 +116,7 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
         cStatementQueue.push_back(outputVar.getCVarDecl(imag, true, true, true, false) + ";");
 
         std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                EmitterHelpers::generateVectorMatrixForLoops(copyLoopDims);
+                EmitterHelpers::generateVectorMatrixForLoops(outputDT.getDimensions());
 
         std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
         std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
@@ -111,7 +126,13 @@ CExpr DownsampleInput::emitCExpr(std::vector<std::string> &cStatementQueue, Sche
 
         //Subsample the outer dimension of the
         std::vector<std::string> srcIndExprs = forLoopIndexVars;
-        srcIndExprs[0] += "*" + GeneralHelper::to_string(stride);
+        if(degenerateCase){
+            //Pull from the 0, phase of the outer dimension of the input
+            //The inner dimension is reduced from the output dimension
+            srcIndExprs.insert(srcIndExprs.begin(), "0");
+        }else {
+            srcIndExprs[0] += "*" + GeneralHelper::to_string(stride);
+        }
 
         std::string assignExpr =
                 outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " +

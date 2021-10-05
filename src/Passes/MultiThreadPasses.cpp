@@ -693,15 +693,18 @@ void MultiThreadPasses::mergeFIFOs(
                     //Remove clock domains from the context tree since different clock domains can be handled in a single
                     //FIFO by adjusting block sizing
                     //Also remove blocking domains as different block sizes can be handled by the different ports
-                    for(int i = 0; i<contextStack.size(); ){
-                        if(GeneralHelper::isType<ContextRoot, ClockDomain>(contextStack[i].getContextRoot()) != nullptr || GeneralHelper::isType<ContextRoot, BlockingDomain>(contextStack[i].getContextRoot()) != nullptr){
-                            //Need to remove this entry from the context stack
-                            contextStack.erase(contextStack.begin()+i);
-                            //Do not increment i since entries will shift down
-                        }else{
-                            i++;
-                        }
-                    }
+                    //TODO: Fix.  With the implementation of blocking domains, the assignment needs to occur in the domain for the indexing to work correctly (and for the output var to be visible)
+                    //            See https://github.com/ucb-cyarp/vitis/issues/100
+
+//                    for(int i = 0; i<contextStack.size(); ){
+//                        if(GeneralHelper::isType<ContextRoot, ClockDomain>(contextStack[i].getContextRoot()) != nullptr || GeneralHelper::isType<ContextRoot, BlockingDomain>(contextStack[i].getContextRoot()) != nullptr){
+//                            //Need to remove this entry from the context stack
+//                            contextStack.erase(contextStack.begin()+i);
+//                            //Do not increment i since entries will shift down
+//                        }else{
+//                            i++;
+//                        }
+//                    }
 
                     contextFIFOs[contextStack].push_back(fifo);
                 }

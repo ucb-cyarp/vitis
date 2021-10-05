@@ -199,13 +199,26 @@ CExpr BlockingOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
 
             std::vector<std::string> outputIndexVars = forLoopIndexVars;
 
-            //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
-            if(subBlockingLen>1){
-                //There is no extra dimension, the index in the output is offset by the index variable
-                outputIndexVars[0] = indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" + outputIndexVars[0];
+            //It is possible for there to be a degenerate case where the blocking and sub-blocking length are both 1.
+            //In that case, it is a simple copy
+            if(blockingLen>1) {
+                if (subBlockingLen > 1) {
+                    //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
+                    //There is no extra dimension, the index in the output is offset by the index variable
+                    outputIndexVars[0] =
+                            indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" +
+                            outputIndexVars[0];
+                } else {
+                    outputIndexVars.insert(outputIndexVars.begin(), indexVar.getCVarName(false));
+                }
             }else{
-                outputIndexVars.insert(outputIndexVars.begin(), indexVar.getCVarName(false));
+                //If blocking length is 1, sub-blocking length must also be 1
+                //TODO: Remove check
+                if(subBlockingLen != 1){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("When blocking length is 1, sub-blocking length must also be 1", getSharedPointer()));
+                }
             }
+
             cStatementQueue.push_back(outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(outputIndexVars) + "=" + inputExpr.getExprIndexed(forLoopIndexVars, true) + ";");
 
             //Close for loop for copy

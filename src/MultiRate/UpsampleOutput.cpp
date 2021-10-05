@@ -226,6 +226,27 @@ CExpr UpsampleOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
                 cStatementQueue.insert(cStatementQueue.end(), outputAssign);
             }else{
                 //Otherwise, loop over the input and write into the output abiding by the stride
+                int stride = upsampleRatio;
+
+                //NOTE: There are 2 scenarios which can occur and the output type vs. input type will reveal which case is occurring.
+                //      - If the sub-blocking within the clock domain is 1 (the degenerate case), the vector/matrix at the input is the
+                //        primitive being upsampled.  The dimensionality at the output should be expanded
+                //      - If the sub-blocking within the clock domain is >1 (the normal case), the outer dimension is expanded by the
+                //        stride
+
+                bool degenerateCase;
+                std::vector<int> degenerateCaseExpectedOutputDims = inputDT.getDimensions();
+                degenerateCaseExpectedOutputDims.insert(degenerateCaseExpectedOutputDims.begin(), stride);
+                std::vector<int> standardCaseExpectedOutputDims = inputDT.getDimensions();
+                standardCaseExpectedOutputDims[0] *= stride;
+                if(degenerateCaseExpectedOutputDims == outputDT.getDimensions()){
+                    degenerateCase = true;
+                }else if(standardCaseExpectedOutputDims == outputDT.getDimensions()){
+                    degenerateCase = false;
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input and output dimensions", getSharedPointer()));
+                }
+
                 std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
                         EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
                 std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
@@ -234,8 +255,15 @@ CExpr UpsampleOutput::emitCExpr(std::vector<std::string> &cStatementQueue, Sched
                 cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
                 std::vector<std::string> forLoopIndexVarsOutput = forLoopIndexVars;
-                int stride = upsampleRatio;
-                forLoopIndexVarsOutput[0] += "*" + GeneralHelper::to_string(stride); //When writing into the output, the stride of the 1st dimension is set by the upsample rate
+
+                if(degenerateCase){
+                    //In this case, we only have a single element at the input and the output type dimensionality was expanded
+                    //by the upsample rate.  Only 1 item is populated at the outer index 0
+                    forLoopIndexVarsOutput.insert(forLoopIndexVarsOutput.begin(), "0");
+                }else {
+                    forLoopIndexVarsOutput[0] += "*" + GeneralHelper::to_string(
+                            stride); //When writing into the output, the stride of the 1st dimension is set by the upsample rate
+                }
 
                 std::string outputAssign = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVarsOutput) + "=" + inputExpr.getExpr() + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";";
                 cStatementQueue.insert(cStatementQueue.end(), outputAssign);
