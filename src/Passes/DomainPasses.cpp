@@ -479,6 +479,11 @@ void DomainPasses::createBlockingInputNodesForIONotAtBaseDomain(std::shared_ptr<
 
                             blockingInput->setName("BlockingDomainForMasterInput_" + masterPort->getName());
 
+                            std::shared_ptr<ClockDomain> blockInputClkDomain = MultiRateHelpers::findClockDomain(blockingInput);
+                            if(blockInputClkDomain){
+                                blockInputClkDomain->addIOBlockingInput(blockingInput);
+                            }
+
                             std::shared_ptr<Arc> blockingInputConnection = Arc::connectNodes(srcPort,
                                                                                              blockingInput->getInputPortCreateIfNot(
                                                                                                      0),
@@ -577,6 +582,11 @@ void DomainPasses::createBlockingOutputNodesForIONotAtBaseDomain(std::shared_ptr
                     blockingOutput->setPartitionNum(srcPartition);
 
                     blockingOutput->setName("BlockingDomainForMasterOutput_" + masterPort->getName());
+
+                    std::shared_ptr<ClockDomain> blockOutputClkDomain = MultiRateHelpers::findClockDomain(blockingOutput);
+                    if(blockOutputClkDomain){
+                        blockOutputClkDomain->addIOBlockingOutput(blockingOutput);
+                    }
 
                     std::shared_ptr<Arc> blockingOutputConnection = Arc::connectNodes(
                             blockingOutput->getOutputPortCreateIfNot(0),

@@ -15,6 +15,8 @@
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/DummyReplica.h"
 #include "General/EmitterHelpers.h"
+#include "Blocking/BlockingInput.h"
+#include "Blocking/BlockingOutput.h"
 
 #include <iostream>
 
@@ -106,6 +108,14 @@ void ClockDomain::addIOInput(std::shared_ptr<OutputPort> input) {
 
 void ClockDomain::addIOOutput(std::shared_ptr<InputPort> output) {
     ioOutput.insert(output);
+}
+
+void ClockDomain::addIOBlockingInput(std::shared_ptr<BlockingInput> input) {
+    ioBlockingInput.insert(input);
+}
+
+void ClockDomain::addIOBlockingOutput(std::shared_ptr<BlockingOutput> output) {
+    ioBlockingOutput.insert(output);
 }
 
 void ClockDomain::removeRateChangeIn(std::shared_ptr<RateChange> rateChange) {
@@ -212,8 +222,10 @@ void ClockDomain::validate() {
                                     ", that is connected to a rate change node that is not in the current domain and is not from one nested domain: "
                                     + src->getFullyQualifiedName(), getSharedPointer()));
                         }
-                    }else if(GeneralHelper::isType<Node, MasterUnconnected>(src)){
+                    }else if(GeneralHelper::isType<Node, MasterUnconnected>(src)) {
                         //Connections to the MasterUnconnected are not checked as they have special semantics
+                    }else if(GeneralHelper::isType<Node, BlockingInput>(src) != nullptr && GeneralHelper::contains(std::dynamic_pointer_cast<BlockingInput>(src), ioBlockingInput)){
+                        //Not checked Since this is to/from I/O
                     }else{
                         //The src is another type of node (not a MasterInput or a Rate Change Node
                         std::shared_ptr<ClockDomain> srcDomain = MultiRateHelpers::findClockDomain(src);
@@ -263,6 +275,8 @@ void ClockDomain::validate() {
                         }
                     }else if(GeneralHelper::isType<Node, MasterUnconnected>(dst)){
                         //Connections to the MasterUnconnected are not checked as they have special semantics
+                    }else if(GeneralHelper::isType<Node, BlockingOutput>(dst) != nullptr && GeneralHelper::contains(std::dynamic_pointer_cast<BlockingOutput>(dst), ioBlockingOutput)){
+                        //Not checked Since this is to/from I/O
                     }else{
                         std::shared_ptr<ClockDomain> dstDomain = MultiRateHelpers::findClockDomain(dst);
 
@@ -852,4 +866,20 @@ std::string ClockDomain::getExecutionCountVariableName() {
     NumericValue initVal((long int) 0);
 
     return Variable(varName, DataType()).getCVarName();
+}
+
+std::set<std::shared_ptr<BlockingInput>> ClockDomain::getIoBlockingInput() const {
+    return ioBlockingInput;
+}
+
+void ClockDomain::setIoBlockingInput(const std::set<std::shared_ptr<BlockingInput>> &ioBlockingInput) {
+    ClockDomain::ioBlockingInput = ioBlockingInput;
+}
+
+std::set<std::shared_ptr<BlockingOutput>> ClockDomain::getIoBlockingOutput() const {
+    return ioBlockingOutput;
+}
+
+void ClockDomain::setIoBlockingOutput(const std::set<std::shared_ptr<BlockingOutput>> &ioBlockingOutput) {
+    ClockDomain::ioBlockingOutput = ioBlockingOutput;
 }

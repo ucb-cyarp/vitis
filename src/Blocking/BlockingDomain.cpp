@@ -292,14 +292,18 @@ std::vector<Variable> BlockingDomain::getCContextVars() {
     std::vector<Variable> outputVars;
 
     for(const std::shared_ptr<BlockingOutput> &outputNode : blockOutputs){
-        outputVars.push_back(outputNode->getOutputVar());
+        //For I/O Blocking Domains, sometimes the declaration needs to be declared outside of an enclosing clock
+        //domain instead of outside the blocking domain
+        if(!outputNode->isOutputVarDeclaredOutsideEnclosingClkDomain()) {
+            outputVars.push_back(outputNode->getOutputVar());
+        }
     }
 
     return outputVars;
 }
 
 Variable BlockingDomain::getCContextVar(int contextVarIndex) {
-    return blockOutputs[contextVarIndex]->getOutputVar();
+    return getCContextVars()[contextVarIndex];
 }
 
 bool BlockingDomain::requiresContiguousContextEmits() {

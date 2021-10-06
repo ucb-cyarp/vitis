@@ -12,6 +12,8 @@
 
 //Forward Decls
 class RateChange;
+class BlockingInput;
+class BlockingOutput;
 
 /**
  * \addtogroup MultiRate Multi-Rate Support Nodes
@@ -33,6 +35,8 @@ protected:
     std::set<std::shared_ptr<RateChange>> rateChangeOut; ///<The set of rate change nodes coming out of this clock domain
     std::set<std::shared_ptr<OutputPort>> ioInput; ///<The set of I/O ports that directly connect to the inputs of nodes in this clock domain.  These should be MasterInput Ports
     std::set<std::shared_ptr<InputPort>> ioOutput; ///<The set of I/O ports that directly connect to the outputs of nodes in this clock domain.  These should be MasterOutput Ports
+    std::set<std::shared_ptr<BlockingInput>> ioBlockingInput; ///<The set BlockingInput nodes connecting I/O into the clock domain
+    std::set<std::shared_ptr<BlockingOutput>> ioBlockingOutput; ///<The set BlockingInput nodes connecting I/O from the clock domain
 
     std::set<int> suppressClockDomainLogicForPartitions; ///<A set of partitions where it was determined that the only nodes are in this clock domain and no rate change nodes are included.  The clock domain counter logic is suppressed for these partitions and is handled by adjusting the compute outer loop
     bool useVectorSamplingMode; ///<If true, uses vector sampling instead of a counter and conditional to implement the clock domain.  Set by inspecting rate change nodes
@@ -103,6 +107,14 @@ public:
     void addRateChangeOut(std::shared_ptr<RateChange> rateChange);
     void addIOInput(std::shared_ptr<OutputPort> input);
     void addIOOutput(std::shared_ptr<InputPort> output);
+
+    void addIOBlockingInput(std::shared_ptr<BlockingInput> input);
+    void addIOBlockingOutput(std::shared_ptr<BlockingOutput> output);
+
+    std::set<std::shared_ptr<BlockingInput>> getIoBlockingInput() const;
+    void setIoBlockingInput(const std::set<std::shared_ptr<BlockingInput>> &ioBlockingInput);
+    std::set<std::shared_ptr<BlockingOutput>> getIoBlockingOutput() const;
+    void setIoBlockingOutput(const std::set<std::shared_ptr<BlockingOutput>> &ioBlockingOutput);
 
     void removeRateChangeIn(std::shared_ptr<RateChange> rateChange);
     void removeRateChangeOut(std::shared_ptr<RateChange> rateChange);

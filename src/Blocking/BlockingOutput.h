@@ -78,6 +78,15 @@ public:
      */
     Variable getOutputVar();
 
+    /**
+     * @brief There are cases where Blocking Outputs are used to preserve the correct arc dimensions for I/O outputs
+     *        In these cases, they may pass through clock domains (operating in vector mode) without a rate change node.
+     *        In this case, the output var should be declared outside of the clock domain rather than outside the
+     *        blocking domain
+     * @return
+     */
+    bool isOutputVarDeclaredOutsideEnclosingClkDomain();
+
     //TODO: Evaluate declaring the output variables as context variables.  These need to be declared outside of the context
     //      The alternative is to declare this node as having state.  However, that state would be stored in the state structure and not as an automatic
 

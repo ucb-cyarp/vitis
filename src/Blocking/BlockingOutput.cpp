@@ -6,6 +6,7 @@
 #include "BlockingHelpers.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include "MultiRate/MultiRateHelpers.h"
 
 BlockingOutput::BlockingOutput() : BlockingBoundary() {
 
@@ -234,4 +235,16 @@ Variable BlockingOutput::getOutputVar() {
     DataType outputType = getOutputPort(0)->getDataType();
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_out";
     return Variable(varName, outputType);
+}
+
+bool BlockingOutput::isOutputVarDeclaredOutsideEnclosingClkDomain() {
+    std::shared_ptr<ClockDomain> clockDomain = MultiRateHelpers::findClockDomain(getSharedPointer());
+    if(clockDomain){
+        std::set<std::shared_ptr<BlockingOutput>> ioBlockingOutputs = clockDomain->getIoBlockingOutput();
+        if(GeneralHelper::contains(std::dynamic_pointer_cast<BlockingOutput>(getSharedPointer()), ioBlockingOutputs)){
+            return true;
+        }
+    }
+
+    return false;
 }

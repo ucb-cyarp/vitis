@@ -226,6 +226,11 @@ std::vector<Variable> DownsampleClockDomain::getCContextVars() {
         rateChangeExternVars.insert(rateChangeExternVars.end(), rateChangeVars.begin(), rateChangeVars.end());
     }
 
+    for(const std::shared_ptr<BlockingOutput> &ioBlockingOutput : ioBlockingOutput){
+        Variable blockingVar = ioBlockingOutput->getOutputVar();
+        rateChangeExternVars.insert(rateChangeExternVars.end(), blockingVar);
+    }
+
     return rateChangeExternVars;
 }
 
