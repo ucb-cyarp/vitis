@@ -1617,7 +1617,7 @@ void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::sh
                 emittedClockDomainInd = true;
             }
 
-            cFile << countVar.getCVarDecl(false, false, true) << std::endl;
+            cFile << countVar.getCVarDecl(false, false, true) << ";" << std::endl;
         }
     }
 
