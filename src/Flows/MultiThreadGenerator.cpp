@@ -133,6 +133,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     design.assignNodeIDs(); //Need to assign node IDs since the node ID is used for set ordering and new nodes may have been added
     design.assignArcIDs();
 
+    DomainPasses::setMasterBlockOrigDataTypes(design);
+
     if(emitGraphMLSched) {
         //Export GraphML (for debugging)
         std::string graphMLAfterBlockingFileName = fileName + "_preBlocking.graphml";
