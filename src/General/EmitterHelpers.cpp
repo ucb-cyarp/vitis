@@ -394,7 +394,6 @@ std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterI
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
-        std::shared_ptr<ClockDomain> inputClkDomain = inputMaster->getPortClkDomain(input);
         int inputBlockSize = inputMaster->getPortBlockSize(input);
 
         //TODO: This is a sanity check for the above todo
@@ -420,7 +419,6 @@ std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<Master
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
-        std::shared_ptr<ClockDomain> outputClkDomain = outputMaster->getPortClkDomain(output);
         int outputBlockSize = outputMaster->getPortBlockSize(output);
 
         //TODO: This is a sanity check for the above todo

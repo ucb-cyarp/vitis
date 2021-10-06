@@ -29,15 +29,15 @@ std::string MasterOutput::typeNameStr(){
 void MasterOutput::setPortBlockSizesBasedOnClockDomain(int baseBlockSize) {
     //The below logic should work even if blocking is not used (block size == 1)
 
-    std::vector<std::shared_ptr<InputPort>> outputPortVec = getInputPorts();
-    for(const std::shared_ptr<InputPort> &inputPort : outputPortVec){
-        if(ioClockDomains.find(inputPort) != ioClockDomains.end()){
-            std::pair<int, int> rateRelToBase = ioClockDomains[inputPort]->getRateRelativeToBase();
-            blockSizes[inputPort] = baseBlockSize*rateRelToBase.first/rateRelToBase.second;
-        }else{
-            //This port is operating at the base rate
-            //It's arc is already expanded by the block size
-            blockSizes[inputPort] = 1;
+    std::vector<std::shared_ptr<InputPort>> inputPortVec = getInputPorts();
+    for(const std::shared_ptr<InputPort> &inputPort : inputPortVec){
+        std::pair<int, int> rateRelToBase(1, 1);
+        if(ioClockDomains.find(inputPort) != ioClockDomains.end()) {
+            std::shared_ptr<ClockDomain> portClkDomain = ioClockDomains[inputPort];
+            if(portClkDomain){
+                rateRelToBase = portClkDomain->getRateRelativeToBase();
+            }
         }
+        blockSizes[inputPort] = baseBlockSize*rateRelToBase.first/rateRelToBase.second;
     }
 }
