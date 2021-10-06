@@ -100,14 +100,36 @@ namespace DomainPasses {
 
     /**
      * @brief Sets the per-port clock domain of master nodes based on their assigned clock domains and the base
-     *        block length.  Handles the case where I/O ports operating in the base clock domain have their arcs
-     *        already scaled for blocking.  In this case, the block size is set to 1.
+     *        block length.
      * @param design
      * @param baseBlockingLength
      */
     void setMasterBlockSizesBasedOnPortClockDomain(Design &design, int baseBlockingLength);
 
+    /**
+     * @brief Sets the original DataTypes (pre-blocking) for I/O Master Nodes
+     *
+     * @warning This should be done before the design is blocked
+     *
+     * @param design
+     */
+    void setMasterBlockOrigDataTypes(Design &design);
+
     void specializeDeferredDelays(Design &design);
+
+    /**
+     * @brief Creates Blocking Input nodes for I/O arcs not operating in the base clock domain and are not destined for a clock domain not in vector mode
+     *
+     * Similar to some of the logic in BlockingHelpers::createBlockingDomainHelper
+     *
+     * @warning Must be done after blocking domains are created
+     * @warning Must be done after clock domains have been specialized for blocking
+     * @warning Master node origional datatype must be set
+     * @warning Do before arcsWithDeferredBlockingExpansion expanded
+     *
+     * @param design
+     */
+    void creatBlockingInputsNodesForIONotAtBaseDomain(Design &design, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion, int baseBlockLength, int baseSubBlockLength);
 
     /**
      * @brief Groups node under contexts together with the possible exception of clock domains where blocking domains can be placed inside

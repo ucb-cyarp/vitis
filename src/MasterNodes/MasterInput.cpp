@@ -42,13 +42,13 @@ void MasterInput::setPortBlockSizesBasedOnClockDomain(int baseBlockSize) {
 
     std::vector<std::shared_ptr<OutputPort>> outputPortVec = getOutputPorts();
     for(const std::shared_ptr<OutputPort> &outputPort : outputPortVec){
-        if(ioClockDomains.find(outputPort) != ioClockDomains.end()){
-            std::pair<int, int> rateRelToBase = ioClockDomains[outputPort]->getRateRelativeToBase();
-            blockSizes[outputPort] = baseBlockSize*rateRelToBase.first/rateRelToBase.second;
-        }else{
-            //This port is operating at the base rate
-            //It's arc is already expanded by the block size
-            blockSizes[outputPort] = 1;
+        std::pair<int, int> rateRelToBase(1, 1);
+        if(ioClockDomains.find(outputPort) != ioClockDomains.end()) {
+            std::shared_ptr<ClockDomain> portClkDomain = ioClockDomains[outputPort];
+            if(portClkDomain){
+                rateRelToBase = portClkDomain->getRateRelativeToBase();
+            }
         }
+        blockSizes[outputPort] = baseBlockSize*rateRelToBase.first/rateRelToBase.second;
     }
 }

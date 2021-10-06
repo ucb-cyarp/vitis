@@ -120,27 +120,37 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
     blockingDomain->setPartitionNum(partNum);
 
     //Create Blocking Inputs and Outputs
-    std::map<std::shared_ptr<OutputPort>, std::shared_ptr<BlockingInput>> outputPortsToBlockingInputs;
+    std::map<std::pair<std::shared_ptr<OutputPort>, int>, std::shared_ptr<BlockingInput>> outputPortsToBlockingInputs; //Crete Seperate Blocking Inputs For Different Partitions
     for(const std::shared_ptr<Arc> &inputArc : arcsIntoDomain) {
+
+        //      We create blocking inputs for All I/O Input Arcs EXCEPT ones destined for clock domains that
+        //      cannot operate in vector mode (or clock domains nested in clock domains that cannot execute in vector mode)
+        //      The blocking Input nodes are scaled by the rate of the destination clock domain.
+        //      Indexing will be handled by the context of these Blocking Boundaries
+
+        //      These additional Blocking Inputs will be created in a later pass due to the need for different block sizes
+
         if(!MultiRateHelpers::arcIsIOAndNotAtBaseRate(inputArc)) {
-            //Only insert the blocking Input if the Arc is Not To/From I/O or is To/From I/O At the Base Rate
+            //Insert the blocking Input unless the Arc is I/O and Is Going to a Clock Domain which is unable to operate in vector mode
             std::shared_ptr<OutputPort> srcPort = inputArc->getSrcPort();
+            std::shared_ptr<InputPort> inputPort = inputArc->getDstPort();
+            std::shared_ptr<Node> nodeInDomain = inputPort->getParent();
+            int nodeInDomainPartitionNum = nodeInDomain->getPartitionNum();
+
             std::shared_ptr<BlockingInput> blockingInput;
 
-            if(GeneralHelper::contains(srcPort, outputPortsToBlockingInputs)){
-                blockingInput = outputPortsToBlockingInputs[srcPort];
+            if(GeneralHelper::contains(std::pair<std::shared_ptr<OutputPort>, int> (srcPort, nodeInDomainPartitionNum), outputPortsToBlockingInputs)){
+                blockingInput = outputPortsToBlockingInputs[{srcPort, nodeInDomainPartitionNum}];
             }else {
                 blockingInput = NodeFactory::createNode<BlockingInput>(blockingDomain);
                 nodesToAdd.push_back(blockingInput);
-                outputPortsToBlockingInputs[srcPort] = blockingInput;
+                outputPortsToBlockingInputs[{srcPort, nodeInDomainPartitionNum}] = blockingInput;
                 blockingDomain->addBlockInput(blockingInput);
                 blockingInput->setBlockingLen(blockingLength);
                 blockingInput->setSubBlockingLen(subBlockingLength);
 
-                std::shared_ptr<InputPort> inputPort = inputArc->getDstPort();
-                std::shared_ptr<Node> nodeInDomain = inputPort->getParent();
-                blockingInput->setPartitionNum(
-                        nodeInDomain->getPartitionNum()); //Set the partition of the blocking input node to the partition of the node it is connected to in the domain
+
+                blockingInput->setPartitionNum(nodeInDomainPartitionNum); //Set the partition of the blocking input node to the partition of the node it is connected to in the domain
 
                 blockingInput->setName("BlockingDomainInputFrom_" + srcPort->getParent()->getName() + "_n" +
                                        GeneralHelper::to_string(srcPort->getParent()->getId()) + "_p" +
@@ -159,7 +169,7 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
         }
     }
 
-    std::map<std::shared_ptr<OutputPort>, std::shared_ptr<BlockingOutput>> outputPortsToBlockingOutputs;
+    std::map<std::shared_ptr<OutputPort>, std::shared_ptr<BlockingOutput>> outputPortsToBlockingOutputs; //Do not need partition number since the blocking output is in the partition of the src port
     for(const std::shared_ptr<Arc> &outputArc : arcsOutOfDomain){
         if(!MultiRateHelpers::arcIsIOAndNotAtBaseRate(outputArc)) {
             //Only insert the blocking Input if the Arc is Not To/From I/O or is To/From I/O At the Base Rate

@@ -402,16 +402,10 @@ std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterI
             throw std::runtime_error(ErrorHelpers::genErrorStr("Port Number does not match its position in the port array", inputMaster));
         }
 
-        DataType portDataType = input->getDataType();
-        //TODO: Change if I/O scaling is later modified
+        DataType portOrigDataType = inputMaster->getPortOrigDataType(input);
+        DataType portBlockedDataType = portOrigDataType.expandForBlock(inputBlockSize);
 
-        //If the I/O is operating in the base clock domain, the datatype will have been expanded and will interface with a blocking domain
-        //Since it has already been expanded for blocking
-        if(inputClkDomain != nullptr){
-            portDataType = portDataType.expandForBlock(inputBlockSize);
-        }
-
-        Variable var = Variable(inputMaster->getCInputName(i), portDataType);
+        Variable var = Variable(inputMaster->getCInputName(i), portBlockedDataType);
         inputVars.push_back(var);
     }
 
@@ -434,15 +428,10 @@ std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<Master
             throw std::runtime_error(ErrorHelpers::genErrorStr("Port Number does not match its position in the port array", outputMaster));
         }
 
-        DataType portDataType = output->getDataType();
-        //TODO: Change if I/O scaling is later modified
-        //If the I/O is operating in the base clock domain, the datatype will have been expanded and will interface with a blocking domain
-        //Since it has already been expanded for blocking
-        if(outputClkDomain != nullptr){
-            portDataType = portDataType.expandForBlock(outputBlockSize);
-        }
+        DataType portOrigDataType = outputMaster->getPortOrigDataType(output);
+        DataType portBlockedDataType = portOrigDataType.expandForBlock(outputBlockSize);
 
-        Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
+        Variable var = Variable(outputMaster->getCOutputName(i), portBlockedDataType);
         outputVars.push_back(var);
     }
 

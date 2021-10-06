@@ -63,9 +63,6 @@ public:
      *
      * @warning Port clock domains must be set first
      *
-     * @note Compensates for ports operating in the base clock domain which go into BlockingBoundary nodes
-     *       and are already scaled by the block size.  The block size for these nodes is set to 1.
-     *
      * @param baseBlockSize the block size of items operating at the base rate
      */
     void setPortBlockSizesBasedOnClockDomain(int baseBlockSize);

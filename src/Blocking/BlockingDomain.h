@@ -30,6 +30,7 @@ class BlockingDomain : public SubSystem, public ContextRoot {
     int blockingLen; ///< The number of samples at the boarder of this blocking domain
     int subBlockingLen; ///< The number of samples processed at once inside of the blocking domain (the increment for each loop of the blocking domain)
     std::vector<std::shared_ptr<BlockingInput>> blockInputs; ///< The inputs to this blocking domain
+    std::map<std::shared_ptr<BlockingBoundary>, bool> blockingBoundaryRateAdjusted; ///<Indicates that the blocking rate of this node was changed (ie. for Master Input Arc
     std::vector<std::shared_ptr<BlockingOutput>> blockOutputs; ///< The outputs from this blocking domain
     //TODO: Need I/O Ports?
 
@@ -81,6 +82,9 @@ public:
 
     void addBlockInput(std::shared_ptr<BlockingInput> input);
     void addBlockOutput(std::shared_ptr<BlockingOutput> output);
+
+    void addBlockInputRateAdjusted(std::shared_ptr<BlockingInput> input);
+    void addBlockOutputRateAdjusted(std::shared_ptr<BlockingOutput> output);
 
     void validate() override;
 

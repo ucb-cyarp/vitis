@@ -221,3 +221,139 @@ const std::map<std::shared_ptr<Port>, int> &MasterNode::getBlockSizes() const {
 void MasterNode::setBlockSizes(const std::map<std::shared_ptr<Port>, int> &blockSizes) {
     MasterNode::blockSizes = blockSizes;
 }
+
+void MasterNode::setPortOrigDataType(std::shared_ptr<InputPort> port, DataType dataType) {
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<InputPort>> inPorts = getInputPorts();
+    bool isInputNode = std::find(inPorts.begin(), inPorts.end(), port) != inPorts.end();
+
+    if(!isInputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested setting the Port Orig Datatype that is not associated with this Master node", getSharedPointer()));
+    }
+
+    portOrigDataType[port] = dataType;
+}
+
+void MasterNode::setPortOrigDataType(std::shared_ptr<OutputPort> port, DataType dataType) {
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<OutputPort>> outPorts = getOutputPorts();
+    bool isOutputNode = std::find(outPorts.begin(), outPorts.end(), port) != outPorts.end();
+
+    if (!isOutputNode) {
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "Requested setting the Port Orig Datatype that is not associated with this Master node",
+                getSharedPointer()));
+    }
+
+    portOrigDataType[port] = dataType;
+}
+
+void MasterNode::setPortClockDomainLogicHandledByBlockingBoundary(std::shared_ptr<InputPort> port){
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<InputPort>> inPorts = getInputPorts();
+    bool isInputNode = std::find(inPorts.begin(), inPorts.end(), port) != inPorts.end();
+
+    if(!isInputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested setting the Port Clock Domain Handling that is not associated with this Master node", getSharedPointer()));
+    }
+
+    clockDomainHandledByBlockingBoundary.insert(port);
+}
+
+void MasterNode::setPortClockDomainLogicHandledByBlockingBoundary(std::shared_ptr<OutputPort> port){
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<OutputPort>> outPorts = getOutputPorts();
+    bool isOutputNode = std::find(outPorts.begin(), outPorts.end(), port) != outPorts.end();
+
+    if (!isOutputNode) {
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "Requested setting the Port Clk Domain Handling that is not associated with this Master node",
+                getSharedPointer()));
+    }
+
+    clockDomainHandledByBlockingBoundary.insert(port);
+}
+
+DataType MasterNode::getPortOrigDataType(std::shared_ptr<InputPort> port) {
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<InputPort>> inPorts = getInputPorts();
+    bool isInputNode = std::find(inPorts.begin(), inPorts.end(), port) != inPorts.end();
+
+    if(!isInputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested the Port Orig Datatype that is not associated with this Master node", getSharedPointer()));
+    }
+
+    if(GeneralHelper::contains(std::dynamic_pointer_cast<Port>(port), portOrigDataType)){
+        return portOrigDataType[port];
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested the Port Orig Datatype Which was Not Assigned", getSharedPointer()));
+    }
+}
+
+DataType MasterNode::getPortOrigDataType(std::shared_ptr<OutputPort> port) {
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<OutputPort>> outPorts = getOutputPorts();
+    bool isOutputNode = std::find(outPorts.begin(), outPorts.end(), port) != outPorts.end();
+
+    if (!isOutputNode) {
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "Requested the Port Orig Datatype that is not associated with this Master node",
+                getSharedPointer()));
+    }
+
+    if(GeneralHelper::contains(std::dynamic_pointer_cast<Port>(port), portOrigDataType)){
+        return portOrigDataType[port];
+    }else{
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested the Port Orig Datatype Which was Not Assigned", getSharedPointer()));
+    }
+}
+
+bool MasterNode::isPortClockDomainLogicHandledByBlockingBoundary(std::shared_ptr<InputPort> port){
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<InputPort>> inPorts = getInputPorts();
+    bool isInputNode = std::find(inPorts.begin(), inPorts.end(), port) != inPorts.end();
+
+    if(!isInputNode){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Requested the Port Clock Domain Handling that is not associated with this Master node", getSharedPointer()));
+    }
+
+    return GeneralHelper::contains(std::dynamic_pointer_cast<Port>(port), clockDomainHandledByBlockingBoundary);
+}
+
+bool MasterNode::isPortClockDomainLogicHandledByBlockingBoundary(std::shared_ptr<OutputPort> port){
+    //Since this is in the base class, we do not know if this is a Master Input or Master Output
+    //so, we will check both.  One should be empty so the check should be fast
+    std::vector<std::shared_ptr<OutputPort>> outPorts = getOutputPorts();
+    bool isOutputNode = std::find(outPorts.begin(), outPorts.end(), port) != outPorts.end();
+
+    if (!isOutputNode) {
+        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                "Requested the Port Clock Domain Handling that is not associated with this Master node",
+                getSharedPointer()));
+    }
+
+    return GeneralHelper::contains(std::dynamic_pointer_cast<Port>(port), clockDomainHandledByBlockingBoundary);
+}
+
+void MasterNode::setPortOriginalDataTypesBasedOnCurrentTypes() {
+    std::vector<std::shared_ptr<InputPort>> inputPorts = getInputPorts();
+    std::vector<std::shared_ptr<OutputPort>> outputPort = getOutputPorts();
+
+    std::set<std::shared_ptr<Port>> ports;
+    ports.insert(inputPorts.begin(), inputPorts.end());
+    ports.insert(outputPort.begin(), outputPort.end());
+
+    for(const std::shared_ptr<Port> &port : ports){
+        if(!(port->getArcs().empty())){
+            portOrigDataType[port] = port->getDataType();
+        }
+    }
+}
+

@@ -396,7 +396,13 @@ void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::sha
             }
 
             //Set based on input port
-            std::shared_ptr<ClockDomain> clkDomainFromInputMaster = masterInput->getPortClkDomain(srcPort);
+            std::shared_ptr<ClockDomain> clkDomainFromInputMaster = nullptr;
+            //In some cases, BlockingInput nodes are placed in line with a Master Input line.  In that case,
+            //The indexing logic is handled by those BlockingInput nodes.  The arcs should already be scaled
+            //accordingly and the FIFO should not scale them again.  Set the clock domain to the base in this case
+            if(!masterInput->isPortClockDomainLogicHandledByBlockingBoundary(srcPort)){
+                clkDomainFromInputMaster = masterInput->getPortClkDomain(srcPort);
+            }
             threadCrossingFIFO->setClockDomain(0, clkDomainFromInputMaster);
             clockDomain = clkDomainFromInputMaster;
 
@@ -406,7 +412,7 @@ void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::sha
             for(const std::shared_ptr<Arc> &outArc : outputArcs){
                 std::shared_ptr<Node> dstNode = outArc->getDstPort()->getParent();
                 std::shared_ptr<ClockDomain> dstClockDomain = findClockDomain(dstNode);
-                if(dstClockDomain != clkDomainFromInputMaster){
+                if(!masterInput->isPortClockDomainLogicHandledByBlockingBoundary(srcPort) && dstClockDomain != clkDomainFromInputMaster){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Thread Crossing FIFO connected to Input Master Has Destination Node Which Disagrees on Clock Domain", threadCrossingFIFO));
                 }
 
@@ -693,12 +699,8 @@ bool MultiRateHelpers::arcIsIOAndNotAtBaseRate(std::shared_ptr<Arc> arc){
         }
 
         std::shared_ptr<ClockDomain> clockDomain = findClockDomain(nonIONode);
-        std::pair<int, int> rateRelToBase(1, 1);
-        if(clockDomain){
-            rateRelToBase = clockDomain->getRateRelativeToBase();
-        }
 
-        return rateRelToBase != std::pair<int, int>(1, 1);
+        return clockDomain != nullptr;
     }
 
     //Not an I/O arc

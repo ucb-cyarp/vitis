@@ -399,6 +399,108 @@ void DomainPasses::setMasterBlockSizesBasedOnPortClockDomain(Design &design, int
     design.getVisMaster()->setPortBlockSizesBasedOnClockDomain(baseBlockingLength);
 }
 
+void DomainPasses::setMasterBlockOrigDataTypes(Design &design){
+    design.getInputMaster()->setPortOriginalDataTypesBasedOnCurrentTypes();
+    design.getOutputMaster()->setPortOriginalDataTypesBasedOnCurrentTypes();
+    design.getVisMaster()->setPortOriginalDataTypesBasedOnCurrentTypes();
+}
+
+void DomainPasses::creatBlockingInputsNodesForIONotAtBaseDomain(Design &design, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion, int baseBlockLength, int baseSubBlockLength){
+    std::shared_ptr<MasterInput> masterInput = design.getInputMaster();
+    std::vector<std::shared_ptr<OutputPort>> inputMasterPorts = masterInput->getOutputPorts();
+
+    std::set<std::shared_ptr<Node>> nodesToAdd;
+    std::set<std::shared_ptr<Arc>> arcsToAdd;
+
+    for(const std::shared_ptr<OutputPort> &masterPort : inputMasterPorts){
+        DataType origDataType = masterInput->getPortOrigDataType(masterPort);
+        std::shared_ptr<ClockDomain> dstClockDomain = masterInput->getPortClkDomain(masterPort);
+        std::pair<int, int> dstClockDomainRateRelToBase(1, 1);
+        if(dstClockDomain) {
+            dstClockDomainRateRelToBase = dstClockDomain->getRateRelativeToBase();
+        }
+        std::set<std::shared_ptr<Arc>> inArcs = masterPort->getArcs();
+
+        int scaledBaseBlockLength = baseBlockLength*dstClockDomainRateRelToBase.first/dstClockDomainRateRelToBase.second;
+
+        //TODO: Remove Check once https://github.com/ucb-cyarp/vitis/issues/101 resolved
+        for(const std::shared_ptr<Arc> &arc: inArcs){
+            std::shared_ptr<ClockDomain> dstClkDomain = MultiRateHelpers::findClockDomain(arc->getDstPort()->getParent());
+            if(dstClkDomain != dstClockDomain){
+                //Even if they are at the same rate, the indexing logic will be different for each arc if they are in different blocking domains
+                throw std::runtime_error("Expect All Arcs from MasterInput port to be destined for same clock domain.  See https://github.com/ucb-cyarp/vitis/issues/101");
+            }
+        }
+
+        //Blocking Inputs should already be inserted for arcs in the base clocking domain
+        if(dstClockDomain != nullptr && dstClockDomain->isUsingVectorSamplingMode()){
+            //Need to insert & rewire Blocking inputs as needed
+            masterInput->setPortClockDomainLogicHandledByBlockingBoundary(masterPort);
+
+            //Can share blocking inputs among arcs
+            //However, only share among destinations in the same partition
+            std::map<std::pair<std::shared_ptr<BlockingDomain>, int>, std::shared_ptr<BlockingInput>> existingBlockingInputs;
+
+            for(const std::shared_ptr<Arc> &arc : inArcs) {
+                std::shared_ptr<OutputPort> srcPort = masterPort;
+                std::vector<std::shared_ptr<BlockingDomain>> blockingDomainStack = BlockingHelpers::findBlockingDomainStack(arc->getDstPort()->getParent());
+                int dstPartition = arc->getDstPort()->getParent()->getPartitionNum();
+
+                int localBlockLength = scaledBaseBlockLength;
+
+                //Traverse down the blocking domain stack
+                for(const std::shared_ptr<BlockingDomain> &blockingDomain : blockingDomainStack){
+                    int numSubBlocks = blockingDomain->getBlockingLen()/blockingDomain->getSubBlockingLen();
+                    if(localBlockLength%numSubBlocks != 0){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected Sub-Block Length While Handling Master Input Arc"));
+                    }
+                    int localSubBlockLength = localBlockLength/numSubBlocks;
+
+                    std::shared_ptr<BlockingInput> blockingInput;
+                    if(GeneralHelper::contains({blockingDomain, dstPartition}, existingBlockingInputs)){
+                        //A blocking input already exists in this blocking domain, no need to replicate
+                        blockingInput = existingBlockingInputs[{blockingDomain, dstPartition}];
+                    }else{
+                        //Need to make a Blocking Input
+
+                        blockingInput = NodeFactory::createNode<BlockingInput>(blockingDomain);
+                        nodesToAdd.insert(blockingInput);
+                        existingBlockingInputs[{blockingDomain, dstPartition}] = blockingInput;
+                        blockingDomain->addBlockInputRateAdjusted(blockingInput);
+                        blockingInput->setBlockingLen(localBlockLength);
+                        blockingInput->setSubBlockingLen(localSubBlockLength);
+                        blockingInput->setPartitionNum(dstPartition);
+
+                        blockingInput->setName("BlockingDomainForMasterInput_" + masterPort->getName());
+
+                        std::shared_ptr<Arc> blockingInputConnection = Arc::connectNodes(srcPort,
+                                                                                         blockingInput->getInputPortCreateIfNot(0),
+                                                                                         origDataType,
+                                                                                         arc->getSampleTime());
+                        arcsWithDeferredBlockingExpansion[blockingInputConnection] = localBlockLength; //Need to expand the arc going into the blocking input by the block size
+                        arcsToAdd.insert(blockingInputConnection);
+                    }
+
+                    //Assign the given arc to the proper BlockingInput
+                    //Will be re-assigned if there is another
+                    arc->setSrcPortUpdateNewUpdatePrev(blockingInput->getOutputPortCreateIfNot(0));
+                    arcsWithDeferredBlockingExpansion[arc] = localSubBlockLength;
+
+                    //Set for the next level down the domain stack (if one exists)
+                    localBlockLength = localSubBlockLength;
+                    srcPort = blockingInput->getOutputPortCreateIfNot(0);
+                }
+            }
+        }
+    }
+
+    std::set<std::shared_ptr<Node>> blankNodesSet;
+    std::set<std::shared_ptr<Arc>> blankArcsSet;
+    design.addRemoveNodesAndArcs(nodesToAdd, blankNodesSet, arcsToAdd, blankArcsSet);
+    design.assignNodeIDs();
+    design.assignArcIDs();
+}
+
 void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength, int baseSubBlockingLength){
     if(baseBlockingLength == 1){
         //Do not insert the global blocking domain, do not insert sub-blocking domains
@@ -647,6 +749,11 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
     //Create outer blocking domain
     //To insert the outer blocking domain, the set is the top level nodes.
     createGlobalBlockingDomain(design, baseBlockingLength, baseSubBlockingLength, arcsWithDeferredBlockingExpansion);
+
+    //Create Blocking Input Nodes for Master Input Arcs Not Operating in The Base Clock Domain
+    //This resolves an issue where Input is directly connected to a node with blocking specialization
+    //The one exception is for arcs to Clock Domains not operating in vector mode.
+    DomainPasses::creatBlockingInputsNodesForIONotAtBaseDomain(design, arcsWithDeferredBlockingExpansion, baseBlockingLength, baseSubBlockingLength);
 
     for(const auto &arcDeferred : arcsWithDeferredBlockingExpansion){
         DataType dt = arcDeferred.first->getDataType();

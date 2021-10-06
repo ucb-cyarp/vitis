@@ -95,10 +95,21 @@ void BlockingDomain::shallowCloneWithChildren(std::shared_ptr<SubSystem> parent,
 
 void BlockingDomain::addBlockInput(std::shared_ptr<BlockingInput> input) {
     blockInputs.push_back(input);
+    blockingBoundaryRateAdjusted[input] = false;
 }
 
 void BlockingDomain::addBlockOutput(std::shared_ptr<BlockingOutput> output) {
     blockOutputs.push_back(output);
+    blockingBoundaryRateAdjusted[output] = false;
+}
+
+void BlockingDomain::addBlockInputRateAdjusted(std::shared_ptr<BlockingInput> input){
+    blockInputs.push_back(input);
+    blockingBoundaryRateAdjusted[input] = true;
+}
+void BlockingDomain::addBlockOutputRateAdjusted(std::shared_ptr<BlockingOutput> output){
+    blockOutputs.push_back(output);
+    blockingBoundaryRateAdjusted[output] = true;
 }
 
 void BlockingDomain::validate() {
@@ -121,22 +132,45 @@ void BlockingDomain::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking length must be a multiple of sub-blocking length", getSharedPointer()));
     }
 
-    //Check that the Blocking boundary nodes have the same blocking configuration factor
+    //Check that the Blocking boundary nodes have the same blocking configuration factor (taking into account any rate override)
     for(const std::shared_ptr<BlockingInput> &input : blockInputs){
-        if(input->getBlockingLen() != blockingLen){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Input (" + input->getFullyQualifiedName() + ") should have the same blocking length as Blocking Domain", getSharedPointer()));
-        }
-        if(input->getSubBlockingLen() != subBlockingLen){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Input (" + input->getFullyQualifiedName() + ") should have the same sub-blocking length as Blocking Domain", getSharedPointer()));
+        if(blockingBoundaryRateAdjusted[input]){
+            //Just check the number of sub-blocks
+            if(input->getBlockingLen()/input->getSubBlockingLen() != blockingLen/subBlockingLen){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Input (" + input->getFullyQualifiedName() +
+                                                                   ") should have the same number of sub-blocks as Blocking Domain",
+                                                                   getSharedPointer()));
+            }
+        }else {
+            if (input->getBlockingLen() != blockingLen) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Input (" + input->getFullyQualifiedName() +
+                                                                   ") should have the same blocking length as Blocking Domain",
+                                                                   getSharedPointer()));
+            }
+            if (input->getSubBlockingLen() != subBlockingLen) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Input (" + input->getFullyQualifiedName() +
+                                                                   ") should have the same sub-blocking length as Blocking Domain",
+                                                                   getSharedPointer()));
+            }
         }
     }
 
     for(const std::shared_ptr<BlockingOutput> &output : blockOutputs){
-        if(output->getBlockingLen() != blockingLen){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Output (" + output->getFullyQualifiedName() + ") should have the same blocking length as Blocking Domain", getSharedPointer()));
-        }
-        if(output->getSubBlockingLen() != subBlockingLen){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Output (" + output->getFullyQualifiedName() + ") should have the same sub-blocking length as Blocking Domain", getSharedPointer()));
+        if(blockingBoundaryRateAdjusted[output]){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Output (" + output->getFullyQualifiedName() +
+                                                               ") should have the same blocking length as Blocking Domain",
+                                                               getSharedPointer()));
+        }else {
+            if (output->getBlockingLen() != blockingLen) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Blocking Output (" + output->getFullyQualifiedName() +
+                        ") should have the same blocking length as Blocking Domain", getSharedPointer()));
+            }
+            if (output->getSubBlockingLen() != subBlockingLen) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Blocking Output (" + output->getFullyQualifiedName() +
+                        ") should have the same sub-blocking length as Blocking Domain", getSharedPointer()));
+            }
         }
     }
 
