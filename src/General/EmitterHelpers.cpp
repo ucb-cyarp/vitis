@@ -387,14 +387,25 @@ void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &c
 }
 
 std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>> inputVars =
+    getCInputVariablesClkDomainsAndBlockSizes(inputMaster);
+
+    return std::get<0>(inputVars);
+}
+
+std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+EmitterHelpers::getCInputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterInput> inputMaster){
     unsigned long numPorts = inputMaster->getOutputPorts().size();
 
     std::vector<Variable> inputVars;
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains;
+    std::vector<int> blockSizes;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
         int inputBlockSize = inputMaster->getPortBlockSize(input);
+        std::shared_ptr<ClockDomain> inputBlockDomain = inputMaster->getPortClkDomain(input);
 
         //TODO: This is a sanity check for the above todo
         if(input->getPortNum() != i){
@@ -406,20 +417,33 @@ std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterI
 
         Variable var = Variable(inputMaster->getCInputName(i), portBlockedDataType);
         inputVars.push_back(var);
+        clockDomains.push_back(inputBlockDomain);
+        blockSizes.push_back(inputBlockSize);
     }
 
-    return inputVars;
+    return {inputVars, clockDomains, blockSizes};
 }
 
 std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
-    std::vector<Variable> outputVars;
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>> outputVars =
+            getCOutputVariablesClkDomainsAndBlockSizes(outputMaster);
 
+    return std::get<0>(outputVars);
+}
+
+std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+EmitterHelpers::getCOutputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterOutput> outputMaster){
     unsigned long numPorts = outputMaster->getInputPorts().size();
+
+    std::vector<Variable> outputVars;
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains;
+    std::vector<int> blockSizes;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
         int outputBlockSize = outputMaster->getPortBlockSize(output);
+        std::shared_ptr<ClockDomain> outputBlockDomain = outputMaster->getPortClkDomain(output);
 
         //TODO: This is a sanity check for the above todo
         if(output->getPortNum() != i){
@@ -431,9 +455,11 @@ std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<Master
 
         Variable var = Variable(outputMaster->getCOutputName(i), portBlockedDataType);
         outputVars.push_back(var);
+        clockDomains.push_back(outputBlockDomain);
+        blockSizes.push_back(outputBlockSize);
     }
 
-    return outputVars;
+    return {outputVars, clockDomains, blockSizes};
 }
 
 std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName) {

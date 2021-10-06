@@ -90,8 +90,9 @@ namespace StreamIOThread {
     void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
 
     void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
-                                std::map<int, std::vector<Variable>> &masterInputBundles,
-                                std::map<int, std::vector<Variable>> &masterOutputBundles, std::set<int> &bundles);
+                         std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
+                         std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterInputBundles,
+                         std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterOutputBundles, std::set<int> &bundles);
 
     /**
      * @brief Emits the helper files for working with shared memory fifos which use the POSIX API

@@ -13,6 +13,7 @@
 #include "GraphCore/Variable.h"
 #include "GraphCore/Context.h"
 #include "GeneralHelper.h"
+#include <tuple>
 
 #define VITIS_TYPE_NAME "vitisTypes"
 
@@ -79,6 +80,20 @@ namespace EmitterHelpers {
     std::vector<Variable> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
 
     /**
+     * @brief Get the input variables for this design along with their associated clock domains and block sizes
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of input variables ordered by the input port number. The datatype is scaled for blocking
+     */
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+    getCInputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterInput> inputMaster);
+
+    /**
      * @brief Get the output variables for this design
      *
      * The input names take the form: portName_portNum
@@ -90,6 +105,20 @@ namespace EmitterHelpers {
      * @return a vector of output variables ordered by the output port number. The datatype is scaled for blocking
      */
     std::vector<Variable> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+
+    /**
+     * @brief Get the output variables for this design along with their associated clock domains and block sizes
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of input variables ordered by the input port number. The datatype is scaled for blocking
+     */
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+    getCOutputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterOutput> outputMaster);
 
     /**
      * @brief Get the structure definition for the Input/Output ports
