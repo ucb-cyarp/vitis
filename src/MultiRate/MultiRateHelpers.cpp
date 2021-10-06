@@ -446,8 +446,8 @@ void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::sha
                 clockDomainOutputRate = clockDomainOutput->getRateRelativeToBase();
             }
 
-            if(clockDomainRate != clockDomainOutputRate){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO connected to a MasterOutput where it's discovered clock domain rate is not the same as the MasterOuput port", threadCrossingFIFO));
+            if(!masterOutput->isPortClockDomainLogicHandledByBlockingBoundary(dstPort) && clockDomainRate != clockDomainOutputRate){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO connected to a MasterOutput where it's discovered clock domain rate is not the same as the MasterOutput port", threadCrossingFIFO));
             }
         }
 

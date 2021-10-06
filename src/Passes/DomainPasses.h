@@ -118,7 +118,7 @@ namespace DomainPasses {
     void specializeDeferredDelays(Design &design);
 
     /**
-     * @brief Creates Blocking Input nodes for I/O arcs not operating in the base clock domain and are not destined for a clock domain not in vector mode
+     * @brief Creates Blocking nodes for I/O arcs not operating in the base clock domain and are not destined for a clock domain not in vector mode
      *
      * Similar to some of the logic in BlockingHelpers::createBlockingDomainHelper
      *
@@ -129,7 +129,19 @@ namespace DomainPasses {
      *
      * @param design
      */
-    void creatBlockingInputsNodesForIONotAtBaseDomain(Design &design, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion, int baseBlockLength, int baseSubBlockLength);
+    void createBlockingNodesForIONotAtBaseDomain(Design &design, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion, int baseBlockLength);
+
+    void createBlockingInputNodesForIONotAtBaseDomain(std::shared_ptr<MasterInput> masterInput,
+                                                      std::set<std::shared_ptr<Node>> &nodesToAdd,
+                                                      std::set<std::shared_ptr<Arc>> &arcsToAdd,
+                                                      std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion,
+                                                      int baseBlockLength);
+
+    void createBlockingOutputNodesForIONotAtBaseDomain(std::shared_ptr<MasterOutput> masterOutput,
+                                                       std::set<std::shared_ptr<Node>> &nodesToAdd,
+                                                       std::set<std::shared_ptr<Arc>> &arcsToAdd,
+                                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion,
+                                                       int baseBlockLength);
 
     /**
      * @brief Groups node under contexts together with the possible exception of clock domains where blocking domains can be placed inside
