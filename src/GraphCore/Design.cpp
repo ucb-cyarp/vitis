@@ -1234,3 +1234,9 @@ void Design::clearContextDiscoveryInfo(){
         }
     }
 }
+
+void Design::setSinglePartition(int partitionNum) {
+    for(const std::shared_ptr<Node> &node : nodes){
+        node->setPartitionNum(partitionNum);
+    }
+}

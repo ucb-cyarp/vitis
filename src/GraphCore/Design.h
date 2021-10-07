@@ -423,6 +423,11 @@ public:
     std::map<int, std::vector<std::shared_ptr<Node>>> findPartitions();
 
     /**
+     * @brief When generating an un-partitioned design, allows setting all the nodes in the design to a single partition.
+     */
+    void setSinglePartition(int partitionNum = 0);
+
+    /**
      * @brief Discovers directional crossings between nodes in different partitions
      *
      * This can be used to discover where inter-partition FIFOs are needed.

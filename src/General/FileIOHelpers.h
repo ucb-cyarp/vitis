@@ -28,6 +28,8 @@ namespace FileIOHelpers {
      * @return true if a new directory was created, false otherwise
      */
     bool createDirectoryIfDoesNotExist(std::string path, bool reportCreating);
+
+    void deleteDirectoryRecursive(std::string path, bool reportDeleting);
 };
 
 /*! @} */
