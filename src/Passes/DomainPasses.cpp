@@ -261,6 +261,22 @@ void DomainPasses::blockingNodeSetDiscoveryContextNeedsEncapsulation(std::shared
             //Check if replication has already occurred
             std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas = contextRoot->getDummyReplicas();
             for(const auto &dummyReplica : dummyReplicas){
+                //Get the driver connected to the dummy replica
+                std::set<std::shared_ptr<Arc>> dummyReplicaDrivers = dummyReplica.second->getInputArcs();
+                if(dummyReplicaDrivers.size() != 1){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected a single driver for DummyReplica while Blocking", dummyReplica.second));
+                }
+                std::shared_ptr<Arc> dummyReplicaDriverArc = *(dummyReplicaDrivers.begin());
+                std::shared_ptr<Node> dummyReplicaDriverNode = dummyReplicaDriverArc->getSrcPort()->getParent();
+                //TODO: Remove checks?
+                if(!dummyReplicaDriverNode->getInputArcs().empty()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected the driver for DummyReplica (" + dummyReplicaDriverNode->getFullyQualifiedName() + ") to have no inputs", dummyReplica.second));
+                }
+                if(dummyReplicaDriverNode->getOutputArcs().size() != 1){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected the driver for DummyReplica (" + dummyReplicaDriverNode->getFullyQualifiedName() + ") to have single output arc", dummyReplica.second));
+                }
+
+                mergeBlockingGroups(nodeToBlockingGroup[dummyReplicaDriverNode], groupToMergeInto, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
                 mergeBlockingGroups(nodeToBlockingGroup[dummyReplica.second], groupToMergeInto, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
             }
         }
