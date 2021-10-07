@@ -387,8 +387,11 @@ void DownsampleClockDomain::emitCContextCloseFirst(std::vector<std::string> &cSt
         }
 
         //Increment the counter before closing the context
-        std::string counterVar = getExecutionCountVariableName();
-        cStatementQueue.push_back(counterVar + "++;");
+        //Only done for subcontext 0 (clock domain executed).  Subcontext 1 is when Upsample sets 0.
+        if(subContextNumber == 0) {
+            std::string counterVar = getExecutionCountVariableName();
+            cStatementQueue.push_back(counterVar + "++;");
+        }
 
         cStatementQueue.push_back("}");
     }else if(useVectorSamplingMode){
