@@ -141,6 +141,8 @@ public:
                                std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
                                std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
+
+    bool specializesForBlocking() override;
 };
 
 /*! @} */

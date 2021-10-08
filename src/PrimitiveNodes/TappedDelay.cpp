@@ -590,3 +590,7 @@ void TappedDelay::specializeForBlocking(int localBlockingLength, int localSubBlo
     }
 }
 
+bool TappedDelay::specializesForBlocking() {
+    return true;
+}
+

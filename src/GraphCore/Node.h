@@ -888,6 +888,13 @@ public:
                                        std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
     /**
+     * @brief Indicates if the node has its own specialization for blocking rather than simply being placed in a blocking
+     *        domain
+     * @return
+     */
+    virtual bool specializesForBlocking();
+
+    /**
      * @brief Identifies if the node contains a path that is combinational
      *
      * @note: Nodes can both contain state and have combinational paths (ex. Mealey style FSM)

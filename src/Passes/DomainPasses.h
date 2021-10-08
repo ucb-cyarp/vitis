@@ -218,6 +218,25 @@ namespace DomainPasses {
                                     int baseSubBlockingLength,
                                     std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
+    /**
+     * @brief Identifies Constant Nodes that are their own Blocking Groups and copies/moves them to be within the blocking
+     *        groups of their destinations.
+     *
+     *        @note One exception is that the Constant node is not moved into a blocking domain where the destination
+     *        formed its down blocking domain and specified its own blocking specialization.
+     *
+     *        Why do this: Constant nodes in their own blocking groups are often unesssiarily copied into arrays by
+     *        blocking outputs.  This can create unnecessary state/copies and can obscure matters from the compiler.
+     * @param blockingGroups
+     * @param nodeToBlockingGroup
+     * @param blockingEnvelopGroups
+     * @param clockDomainsOutsideSubBlocking
+     */
+    void moveAndOrCopyLoneConstantNodes(std::set<std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingGroups,
+                                          std::map<std::shared_ptr<Node>, std::shared_ptr<std::set<std::shared_ptr<Node>>>> &nodeToBlockingGroup,
+                                          std::map<std::shared_ptr<std::set<std::shared_ptr<Node>>>,
+                                                  std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingEnvelopGroups,
+                                                  std::set<std::shared_ptr<Node>> &nodesToAdd);
 
 };
 

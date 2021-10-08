@@ -609,6 +609,10 @@ void Node::specializeForBlocking(int localBlockingLength,
 }
 */
 
+bool Node::specializesForBlocking(){
+    return false;
+}
+
 std::vector<std::shared_ptr<StateUpdate>> Node::getStateUpdateNodes(){
     //default has no state
     return stateUpdateNodes;

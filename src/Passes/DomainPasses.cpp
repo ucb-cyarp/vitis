@@ -20,6 +20,7 @@
 #include "Passes/ContextPasses.h"
 #include "PrimitiveNodes/TappedDelay.h"
 #include "GraphCore/DummyReplica.h"
+#include "PrimitiveNodes/Constant.h"
 
 #include <iostream>
 
@@ -834,6 +835,22 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
             }
         }
 
+        //Move and/or Replicate Lone Constant Nodes
+        {
+            std::set<std::shared_ptr<Node>> nodesToAdd;
+
+            moveAndOrCopyLoneConstantNodes(blockingGroups,
+                                           nodeToBlockingGroup,
+                                           blockingEnvelopGroups,
+                                           nodesToAdd);
+
+            std::set<std::shared_ptr<Node>> emptyNodeSet;
+            std::set<std::shared_ptr<Arc>> emptyArcSet;
+
+            design.addRemoveNodesAndArcs(nodesToAdd, emptyNodeSet, emptyArcSet, emptyArcSet);
+            design.assignNodeIDs();
+        }
+
         //** Insert the sub-blocking domains
 
         // * For moving sets, find the most common subsystem containing the nodes in the set.  Also find the effective
@@ -1139,5 +1156,68 @@ void DomainPasses::specializeDeferredDelays(Design &design){
         if (asContextRoot) {
             design.removeTopLevelContextRoot(asContextRoot);
         }
+    }
+}
+
+void DomainPasses::moveAndOrCopyLoneConstantNodes(std::set<std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingGroups,
+                                                  std::map<std::shared_ptr<Node>, std::shared_ptr<std::set<std::shared_ptr<Node>>>> &nodeToBlockingGroup,
+                                                  std::map<std::shared_ptr<std::set<std::shared_ptr<Node>>>,
+                                                    std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingEnvelopGroups,
+                                                  std::set<std::shared_ptr<Node>> &nodesToAdd){
+
+    std::set<std::pair<std::shared_ptr<std::set<std::shared_ptr<Node>>>,
+             std::shared_ptr<std::set<std::shared_ptr<Node>>>>> blockingGroupsToMerge;
+
+    for(const std::shared_ptr<std::set<std::shared_ptr<Node>>> &blockingGroup : blockingGroups){
+        if(blockingGroup != nullptr && blockingGroup->size() == 1){
+            //Check if the only node in this blocking group is a constant
+            std::shared_ptr<Node> node = *(blockingGroup->begin());
+            if(GeneralHelper::isType<Node, Constant>(node)){
+                std::set<std::shared_ptr<Arc>> constantOutArcs = node->getOutputArcs();
+                if(constantOutArcs != node->getDirectOutputArcs() && !node->getInputArcs().empty()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected No Order Constraint Nodes out of Constant While Blocking", node));
+                }
+
+                int arcCount = 0;
+                bool discoveredIneligibleArc = false;
+                for(const std::shared_ptr<Arc> &constOutArc : constantOutArcs){
+                    std::shared_ptr<Node> dstNode = constOutArc->getDstPort()->getParent();
+                    std::shared_ptr<std::set<std::shared_ptr<Node>>> dstBlockingGroup = nodeToBlockingGroup[dstNode];
+                    bool eligibleForMoveOrCopy = true;
+                    if(dstBlockingGroup->size() == 1){
+                        if(dstNode->specializesForBlocking()){
+                            eligibleForMoveOrCopy = false;
+                            discoveredIneligibleArc = true;
+                        }
+                    }
+
+                    if(eligibleForMoveOrCopy) {
+                        if (arcCount >= constantOutArcs.size() - 1 && !discoveredIneligibleArc) {
+                            //Can move the constant into the blocking domain of the destination (ie. merge blocking domains)
+                            //Do this after looking at all of the blocking groups since this will modify the blockingGroup set
+                            blockingGroupsToMerge.emplace(blockingGroup, dstBlockingGroup);
+                        } else {
+                            //Create a copy of the constant and assign that to the blocking domain of the destination
+                            //Will keep its parent the same as the origional constant to avoid too much confusion
+
+                            std::shared_ptr<Node> constantCopy = node->shallowClone(node->getParent());
+                            constantCopy->setName(constantCopy->getName()+"_BlockingReplica");
+                            nodesToAdd.insert(constantCopy);
+                            dstBlockingGroup->insert(constantCopy);
+                            blockingEnvelopGroups[dstBlockingGroup]->insert(constantCopy);
+                            //Reassign arc
+                            std::shared_ptr<OutputPort> newSrcPort = constantCopy->getOutputPortCreateIfNot(constOutArc->getSrcPort()->getPortNum());
+                            constOutArc->setSrcPortUpdateNewUpdatePrev(newSrcPort);
+                        }
+                    }
+
+                    arcCount++;
+                }
+            }
+        }
+    }
+
+    for(auto blockingGroupPairToMerge: blockingGroupsToMerge){
+        mergeBlockingGroups(blockingGroupPairToMerge.first, blockingGroupPairToMerge.second, blockingGroups, nodeToBlockingGroup, blockingEnvelopGroups);
     }
 }

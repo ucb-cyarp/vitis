@@ -120,3 +120,7 @@ void RateChange::specializeForBlocking(int localBlockingLength,
                                     arcsWithDeferredBlockingExpansion);
     }
 }
+
+bool RateChange::specializesForBlocking() {
+    return useVectorSamplingMode;
+}

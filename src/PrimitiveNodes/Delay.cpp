@@ -1555,6 +1555,10 @@ void Delay::specializeForBlocking(int localBlockingLength,
 
 }
 
+bool Delay::specializesForBlocking(){
+    return true;
+}
+
 void Delay::propagatePropertiesHelper() {
     //Check if broadcasting scalar initial condition is required
     if(initCondition.size() == 1){

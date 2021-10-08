@@ -292,6 +292,8 @@ public:
                                std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
                                std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
 
+    bool specializesForBlocking() override;
+
     /**
      * @brief Performs the same basic actions of specializeForBlocking except that the actions of splitting the delay
      *        or configuring the delay node for blocking.  However, arcs which
