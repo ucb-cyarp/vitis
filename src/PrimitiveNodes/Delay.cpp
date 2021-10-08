@@ -16,14 +16,14 @@
 #include "Passes/MultiThreadPasses.h"
 
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                 roundCircularBufferToPowerOf2(false), circularBufferType(CircularBufferType::NO_EXTRA_LEN), transactionBlockSize(1),
+                 roundCircularBufferToPowerOf2(true), circularBufferType(CircularBufferType::NO_EXTRA_LEN), transactionBlockSize(1),
                  blockingSpecializationDeferred(false), deferredBlockSize(0), deferredSubBlockSize(0){
 
 }
 
 Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayValue(0), earliestFirst(false),
                                                   allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
-                                                  roundCircularBufferToPowerOf2(false),
+                                                  roundCircularBufferToPowerOf2(true),
                                                   circularBufferType(CircularBufferType::NO_EXTRA_LEN),
                                                   transactionBlockSize(1),
                                                   blockingSpecializationDeferred(false),
@@ -254,12 +254,6 @@ void Delay::validate() {
             arraySize++;
         }
 
-        if (transactionBlockSize == 1 && roundCircularBufferToPowerOf2) {
-            //TODO: Implement power of 2 rounding for standard delay circular buffer
-            throw std::runtime_error(
-                    "Currently, standard delays do not support rounding circular buffers to a power of 2 with a block size of 1");
-        }
-
         int expectedSize;
         if (usesCircularBuffer()) {
             expectedSize = getBufferAllocatedLen() * inType.numberOfElements();
@@ -454,11 +448,6 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
                 //Since datatype expansion adds another dimension to the front of the list (elements are stored contiguously in memory(, dereferencing the first index works even if the type is a vector or array
                 if (usesCircularBuffer()) {
                     //TODO: Add error for standard delay c emit and extra length circular buffers
-
-                    //TODO: Revisit, it looks like this hard codes the assumption that the circular buffer is sized to the delay
-                    if(roundCircularBufferToPowerOf2 || circularBufferType != CircularBufferType::NO_EXTRA_LEN){
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Standard delay with block size == 1 and circular buffer does not expect any form of expansion", getSharedPointer()));
-                    }
 
                     if (earliestFirst) {
                         //The oldest (latest) value is at the end of the array
