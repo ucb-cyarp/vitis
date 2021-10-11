@@ -1836,4 +1836,6 @@ std::set<std::string> Delay::getExternalIncludes() {
     if(copyMethod == CopyMethod::MEMCPY || copyMethod == CopyMethod::CLANG_MEMCPY_INLINE){
         extIncludes.insert("#include <string.h>");
     }
+
+    return extIncludes;
 }
