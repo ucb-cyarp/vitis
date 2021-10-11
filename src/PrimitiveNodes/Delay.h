@@ -247,6 +247,8 @@ public:
 
     std::vector<Variable> getCStateVars() override;
 
+    std::set<std::string> getExternalIncludes() override;
+
     /**
      * @brief Get the initial circular buffer index location
      * @return

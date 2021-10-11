@@ -1829,3 +1829,11 @@ Delay::CopyMethod Delay::getCopyMethod() const {
 void Delay::setCopyMethod(Delay::CopyMethod copyMethod) {
     Delay::copyMethod = copyMethod;
 }
+
+std::set<std::string> Delay::getExternalIncludes() {
+    std::set<std::string> extIncludes = Node::getExternalIncludes();
+
+    if(copyMethod == CopyMethod::MEMCPY || copyMethod == CopyMethod::CLANG_MEMCPY_INLINE){
+        extIncludes.insert("#include <string.h>");
+    }
+}
