@@ -17,7 +17,8 @@
 
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
                  roundCircularBufferToPowerOf2(true), circularBufferType(CircularBufferType::NO_EXTRA_LEN), transactionBlockSize(1),
-                 blockingSpecializationDeferred(false), deferredBlockSize(0), deferredSubBlockSize(0){
+                 blockingSpecializationDeferred(false), deferredBlockSize(0), deferredSubBlockSize(0),
+                 copyMethod(CopyMethod::CLANG_MEMCPY_INLINE){
 
 }
 
@@ -28,7 +29,8 @@ Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayVa
                                                   transactionBlockSize(1),
                                                   blockingSpecializationDeferred(false),
                                                   deferredBlockSize(0),
-                                                  deferredSubBlockSize(0){
+                                                  deferredSubBlockSize(0),
+                                                  copyMethod(CopyMethod::CLANG_MEMCPY_INLINE){
 
 }
 
@@ -941,7 +943,8 @@ Delay::Delay(std::shared_ptr<SubSystem> parent, Delay* orig) : PrimitiveNode(par
     transactionBlockSize(orig->transactionBlockSize),
     blockingSpecializationDeferred(orig->blockingSpecializationDeferred),
     deferredBlockSize(orig->deferredBlockSize),
-    deferredSubBlockSize(orig->deferredSubBlockSize){
+    deferredSubBlockSize(orig->deferredSubBlockSize),
+    copyMethod(orig->copyMethod){
 }
 
 std::shared_ptr<Node> Delay::shallowClone(std::shared_ptr<SubSystem> parent) {
@@ -1298,76 +1301,14 @@ void Delay::assignInputToBuffer(std::string insertPositionIn, std::vector<std::s
     }
 }
 
-void
-Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, std::vector<std::string> &cStatementQueue) {
-    //TODO: need to add logic for double writing in extra length circular buffers
-    //      Including adding an offset for recent last case
-
+void Delay::copyToBuffer(CExpr src, std::string insertPosition, bool imag, std::vector<std::string> &cStatementQueue){
     DataType inputDT = getInputPort(0)->getDataType();
 
-    //Note: for the circular buffer, the new item is placed at the cursor (with the given offset)
-    //It used to be that there was an offset when earliestFirst was false and redundant writing (either DOUBLE_LEN,
-    //or PLUS_DELAY_LEN_M1 were used).  Neither DOUBLE_LEN or PLUS_DELAY_LEN_M1 are allowed for standard delays.
-    //Therefore, this modification should not effect standard delay operation.  Tapped delay overrides functions to
-    //handle DOUBLE_LEN or PLUS_DELAY_LEN_M1 with !earliestFirst.
-    std::string insertPosition = insertPositionIn;
-
-    //==== Do the first assignment ====
-
-    std::string assignTo = cStateVar.getCVarName(imag);
-    if(transactionBlockSize == 1) {
-        //For block size == 1, the dimension of the buffer is formed by taking the input dimensions and expanding by the block size (adding a dimension).  Reference
-        assignTo += "[" + insertPosition + "]";
-    }
-
-    //--- Create for Loop if Elements are Vectors/Matricies ---
-    std::string srcStr;
-    std::vector<std::string> forLoopInputClose;
-    if (!inputDT.isScalar()) {
-        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
-        std::vector<std::string> forLoopInputOpen = std::get<0>(forLoopStrs);
-        std::vector<std::string> forLoopInputIndexVars = std::get<1>(forLoopStrs);
-        forLoopInputClose = std::get<2>(forLoopStrs);
-        cStatementQueue.insert(cStatementQueue.end(), forLoopInputOpen.begin(), forLoopInputOpen.end());
-        std::vector<std::string> forLoopSrcIndexVars = forLoopInputIndexVars; //We do not want to modify the index expression used when indexing into the src
-
-        if(transactionBlockSize > 1){
-            //For block sizes > 1, the dimension of the buffer is formed by taking the input dimension and scaling the outer dimension (no extra dimension added)
-            //The index is in terms of the
-            forLoopInputIndexVars[0] = "(" + insertPosition + "+" + forLoopInputIndexVars[0] + ")";
-        }
-        assignTo += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
-        srcStr = src.getExprIndexed(forLoopSrcIndexVars, true);
-    }else{
-        if(transactionBlockSize>1){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("For block sizes > 1, the input type should not be a scalar", getSharedPointer()));
-        }
-        srcStr = src.getExpr();
-    }
-
-    //Make the assignment
-    cStatementQueue.push_back(assignTo + "=" + srcStr + ";");
-
-    //Close the for loop (if needed)
-    if (!inputDT.isScalar()) {
-        cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
-    }
-
-    //==== Do the second assignment if applicable ====
-    if(usesCircularBuffer() && circularBufferType != CircularBufferType::NO_EXTRA_LEN) {
-        //Find the index to insert into.  Note that index may not be valid for CircularBufferType::PLUS_DELAY_LEN_M1
-        std::string insertPositionSecond = getSecondIndex(insertPosition); //Same index calc should work for block size > 1
-
-        //If CircularBufferType::PLUS_DELAY_LEN_M1, a condition check is required before writing to second entry
-        if (circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1) {
-            cStatementQueue.push_back(getSecondWriteCheck(insertPositionIn));
-        }
-
+    if(copyMethod==CopyMethod::FOR_LOOPS) {
         std::string assignTo = cStateVar.getCVarName(imag);
         if(transactionBlockSize == 1) {
             //For block size == 1, the dimension of the buffer is formed by taking the input dimensions and expanding by the block size (adding a dimension).  Reference
-            assignTo += "[" + insertPositionSecond + "]";
+            assignTo += "[" + insertPosition + "]";
         }
 
         //--- Create for Loop if Elements are Vectors/Matricies ---
@@ -1385,11 +1326,14 @@ Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, s
             if(transactionBlockSize > 1){
                 //For block sizes > 1, the dimension of the buffer is formed by taking the input dimension and scaling the outer dimension (no extra dimension added)
                 //The index is in terms of the
-                forLoopInputIndexVars[0] = "(" + insertPositionSecond + "+" + forLoopInputIndexVars[0] + ")";
+                forLoopInputIndexVars[0] = "(" + insertPosition + "+" + forLoopInputIndexVars[0] + ")";
             }
             assignTo += EmitterHelpers::generateIndexOperation(forLoopInputIndexVars);
             srcStr = src.getExprIndexed(forLoopSrcIndexVars, true);
         }else{
+            if(transactionBlockSize>1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("For block sizes > 1, the input type should not be a scalar", getSharedPointer()));
+            }
             srcStr = src.getExpr();
         }
 
@@ -1400,6 +1344,63 @@ Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, s
         if (!inputDT.isScalar()) {
             cStatementQueue.insert(cStatementQueue.end(), forLoopInputClose.begin(), forLoopInputClose.end());
         }
+    }else{
+        std::string dst = cStateVar.getCVarName(imag) + "+" + insertPosition;
+        std::string srcStr = (inputDT.isScalar() ? "&" : "") + src.getExpr();
+        int elementsToCopy = inputDT.numberOfElements();
+        std::string copySize = "sizeof(" + cStateVar.getDataType().toString(DataType::StringStyle::C, false, false) + ")*" + GeneralHelper::to_string(elementsToCopy);
+
+        if(copyMethod==CopyMethod::FAST_COPY_UNALIGNED) {
+            cStatementQueue.push_back(
+                    "fast_copy_unaligned_ramp_in(" + dst + ", " + srcStr +
+                    ", " + copySize + ", 1);");
+        }else if(copyMethod==CopyMethod::MEMCPY) {
+            cStatementQueue.push_back(
+                    "memcpy(" + dst + ", " + srcStr +
+                    ", " + copySize + ");");
+        }else if(copyMethod==CopyMethod::CLANG_MEMCPY_INLINE){
+            cStatementQueue.push_back(
+                    "__builtin_memcpy_inline(" + dst + ", " + srcStr +
+                    ", " + copySize + ");");
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
+        }
+    }
+}
+
+void
+Delay::assignInputToBuffer(CExpr src, std::string insertPositionIn, bool imag, std::vector<std::string> &cStatementQueue) {
+    //TODO: need to add logic for double writing in extra length circular buffers
+    //      Including adding an offset for recent last case
+
+    DataType inputDT = getInputPort(0)->getDataType();
+
+    //Note: for the circular buffer, the new item is placed at the cursor (with the given offset)
+    //It used to be that there was an offset when earliestFirst was false and redundant writing (either DOUBLE_LEN,
+    //or PLUS_DELAY_LEN_M1 were used).  Neither DOUBLE_LEN or PLUS_DELAY_LEN_M1 are allowed for standard delays.
+    //Therefore, this modification should not effect standard delay operation.  Tapped delay overrides functions to
+    //handle DOUBLE_LEN or PLUS_DELAY_LEN_M1 with !earliestFirst.
+    std::string insertPosition = insertPositionIn;
+
+    //==== Do the first assignment ====
+
+    if (inputDT.isScalar() && transactionBlockSize>1) {
+        throw std::runtime_error(ErrorHelpers::genErrorStr("For block sizes > 1, the input type should not be a scalar", getSharedPointer()));
+    }
+
+    copyToBuffer(src, insertPosition, imag, cStatementQueue);
+
+    //==== Do the second assignment if applicable ====
+    if(usesCircularBuffer() && circularBufferType != CircularBufferType::NO_EXTRA_LEN) {
+        //Find the index to insert into.  Note that index may not be valid for CircularBufferType::PLUS_DELAY_LEN_M1
+        std::string insertPositionSecond = getSecondIndex(insertPosition); //Same index calc should work for block size > 1
+
+        //If CircularBufferType::PLUS_DELAY_LEN_M1, a condition check is required before writing to second entry
+        if (circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1) {
+            cStatementQueue.push_back(getSecondWriteCheck(insertPositionIn));
+        }
+
+        copyToBuffer(src, insertPositionSecond, imag, cStatementQueue);
 
         //Close condition
         if(circularBufferType == CircularBufferType::PLUS_DELAY_LEN_M1){
@@ -1819,4 +1820,12 @@ int Delay::getDeferredSubBlockSize() const {
 
 void Delay::setDeferredSubBlockSize(int deferredSubBlockSize) {
     Delay::deferredSubBlockSize = deferredSubBlockSize;
+}
+
+Delay::CopyMethod Delay::getCopyMethod() const {
+    return copyMethod;
+}
+
+void Delay::setCopyMethod(Delay::CopyMethod copyMethod) {
+    Delay::copyMethod = copyMethod;
 }

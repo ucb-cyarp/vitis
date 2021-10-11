@@ -46,6 +46,13 @@ public:
         PLUS_DELAY_LEN_M1 ///<Allocates an additional DelayLen-1 to the buffer to allow for returning.  A non-circular array is returned to dependant blocks.
     };
 
+    enum class CopyMethod{
+        FOR_LOOPS, ///<Copy inputs (>1 item) into the buffer using for loops
+        MEMCPY, ///<Copy inputs (>1 item) into the buffer using standard memcpy
+        CLANG_MEMCPY_INLINE, ///<Copy inputs (>1 item) into the buffer using Clang's __builtin_memcpy_inline
+        FAST_COPY_UNALIGNED ///<Copy inputs (>1 item) into the buffer using my memcpy implementation using vector intrinsics
+    };
+
 protected:
     int delayValue; ///<The amount of delay in this node
     std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Number of elements must match the delay value times the size of each element.  The initial condition that will be presented first is at index 0
@@ -67,6 +74,8 @@ protected:
     bool blockingSpecializationDeferred; ///<Indicates that this node went through the logic of specialization but did not make changes to the delay node itself.  The arcs coming into and out of the delay were scaled appropriatly.  This is specifically to accomodate FIFO delay absorption whose logic could require delays to be re-merged
     int deferredBlockSize;
     int deferredSubBlockSize;
+
+    CopyMethod copyMethod; ///<The Copy method used when ingesting >1 items
 
     //==== Constructors ====
     /**
@@ -131,6 +140,16 @@ protected:
     void specializeForBlockingArcExpandOnly(int localBlockingLength,
                                             std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
 
+    /**
+     * @brief A helper function for copying from an input expression to the delay buffer.  It respects the copyMethod
+     *        function
+     * @param src
+     * @param insertPositionIn
+     * @param imag
+     * @param cStatementQueue
+     */
+    void copyToBuffer(CExpr src, std::string insertPositionIn, bool imag, std::vector<std::string> &cStatementQueue);
+
 public:
     //====Getters/Setters====
     int getDelayValue() const;
@@ -156,6 +175,9 @@ public:
     void setDeferredBlockSize(int deferredBlockSize);
     int getDeferredSubBlockSize() const;
     void setDeferredSubBlockSize(int deferredSubBlockSize);
+
+    CopyMethod getCopyMethod() const;
+    void setCopyMethod(CopyMethod copyMethod);
 
     //====Factories====
     /**
