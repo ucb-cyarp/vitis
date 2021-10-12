@@ -6,16 +6,17 @@
 #include "General/ErrorHelpers.h"
 #include "MultiRateHelpers.h"
 #include "GraphCore/StateUpdate.h"
+#include "Blocking/BlockingHelpers.h"
 
-RepeatOutput::RepeatOutput() {
-
-}
-
-RepeatOutput::RepeatOutput(std::shared_ptr<SubSystem> parent) : Repeat(parent) {
+RepeatOutput::RepeatOutput() : useCompressedOutputType(true) {
 
 }
 
-RepeatOutput::RepeatOutput(std::shared_ptr<SubSystem> parent, RepeatOutput *orig) : Repeat(parent, orig), stateVar(orig->stateVar), initCondition(orig->initCondition) {
+RepeatOutput::RepeatOutput(std::shared_ptr<SubSystem> parent) : Repeat(parent), useCompressedOutputType(true) {
+
+}
+
+RepeatOutput::RepeatOutput(std::shared_ptr<SubSystem> parent, RepeatOutput *orig) : Repeat(parent, orig), stateVar(orig->stateVar), initCondition(orig->initCondition), useCompressedOutputType(orig->useCompressedOutputType) {
 
 }
 
@@ -181,7 +182,7 @@ RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         DataType inputDT = getInputPort(0)->getDataType();
 
         Variable outputVar = getVectorModeOutputVariable();
-        DataType outputDT = outputVar.getDataType();
+        DataType outputDT = getOutputPort(0)->getDataType();
 
         if(outputDT.isScalar()){
             //TODO: remove check
@@ -202,67 +203,101 @@ RepeatOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input/output dimensions", getSharedPointer()));
                 }
 
-                //If input is scalar, simply copy the value all positions of the array
-                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                        EmitterHelpers::generateVectorMatrixForLoops(outputDT.getDimensions());
-                std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-                std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
-                std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
-                cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+                if(useCompressedOutputType){
+                    //Copy input
+                    std::string outputAssign = outputVar.getCVarName(imag) + "=" + inputExpr.getExpr() + ";";
+                    cStatementQueue.insert(cStatementQueue.end(), outputAssign);
 
-                std::string outputAssign = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=" + inputExpr.getExpr() + ";";
-                cStatementQueue.insert(cStatementQueue.end(), outputAssign);
+                    int blockSize = outputDT.getDimensions()[0];
+                    return CExpr(outputVar.getCVarName(imag), blockSize, upsampleRatio, CExpr::ExprType::SCALAR_VAR_REPEAT);
+                }else {
+                    //If input is scalar, simply copy the value all positions of the array
+                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                            EmitterHelpers::generateVectorMatrixForLoops(outputDT.getDimensions());
+                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                    std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+                    std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
-                cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+                    std::string outputAssign =
+                            outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) +
+                            "=" + inputExpr.getExpr() + ";";
+                    cStatementQueue.insert(cStatementQueue.end(), outputAssign);
+
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+                }
             }else{
-                //Otherwise, loop over the input and write into the output, replicating the output according to the upsample rate
-                int copies = upsampleRatio;
+                if(useCompressedOutputType) {
+                    //Copy input into output var.  The variable has the same type as the input
+                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                            EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                    std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+                    std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
 
-                //NOTE: There are 2 scenarios which can occur and the output type vs. input type will reveal which case is occurring.
-                //      - If the sub-blocking within the clock domain is 1 (the degenerate case), the vector/matrix at the input is the
-                //        primitive being repeated.  The dimensionality at the output should be expanded and the copies should be made
-                //      - If the sub-blocking within the clock domain is >1 (the normal case), the outer dimension is expanded by the
-                //        number of copies
+                    std::string outputAssign =
+                            outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) +
+                            "=" + inputExpr.getExprIndexed(forLoopIndexVars, true) + ";";
+                    cStatementQueue.insert(cStatementQueue.end(), outputAssign);
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
 
-                bool degenerateCase;
-                std::vector<int> degenerateCaseExpectedOutputDims = inputDT.getDimensions();
-                degenerateCaseExpectedOutputDims.insert(degenerateCaseExpectedOutputDims.begin(), copies);
-                std::vector<int> standardCaseExpectedOutputDims = inputDT.getDimensions();
-                standardCaseExpectedOutputDims[0] *= copies;
-                if(degenerateCaseExpectedOutputDims == outputDT.getDimensions()){
-                    degenerateCase = true;
-                }else if(standardCaseExpectedOutputDims == outputDT.getDimensions()){
-                    degenerateCase = false;
-                }else{
-                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input and output dimensions", getSharedPointer()));
+                    int blockSize = outputDT.getDimensions()[0];
+                    return CExpr(outputVar.getCVarName(imag), blockSize, upsampleRatio, CExpr::ExprType::ARRAY_REPEAT);
+                }else {
+                    //Otherwise, loop over the input and write into the output, replicating the output according to the upsample rate
+                    int copies = upsampleRatio;
+
+                    //NOTE: There are 2 scenarios which can occur and the output type vs. input type will reveal which case is occurring.
+                    //      - If the sub-blocking within the clock domain is 1 (the degenerate case), the vector/matrix at the input is the
+                    //        primitive being repeated.  The dimensionality at the output should be expanded and the copies should be made
+                    //      - If the sub-blocking within the clock domain is >1 (the normal case), the outer dimension is expanded by the
+                    //        number of copies
+
+                    bool degenerateCase;
+                    std::vector<int> degenerateCaseExpectedOutputDims = inputDT.getDimensions();
+                    degenerateCaseExpectedOutputDims.insert(degenerateCaseExpectedOutputDims.begin(), copies);
+                    std::vector<int> standardCaseExpectedOutputDims = inputDT.getDimensions();
+                    standardCaseExpectedOutputDims[0] *= copies;
+                    if (degenerateCaseExpectedOutputDims == outputDT.getDimensions()) {
+                        degenerateCase = true;
+                    } else if (standardCaseExpectedOutputDims == outputDT.getDimensions()) {
+                        degenerateCase = false;
+                    } else {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input and output dimensions",
+                                                                           getSharedPointer()));
+                    }
+
+                    std::vector<int> forLoopDims = inputDT.getDimensions();
+                    //Will make 2nd loop (index 1 in the loop vars) iterate over the copies
+                    forLoopDims.insert(forLoopDims.begin(), copies);
+                    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                            EmitterHelpers::generateVectorMatrixForLoops(forLoopDims);
+                    std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                    std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+                    std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+                    std::vector<std::string> forLoopIndexVarsInput = forLoopIndexVars;
+                    //Ignore the copy loop entirely when it comes to indexing
+                    forLoopIndexVarsInput.erase(forLoopIndexVarsInput.begin());
+
+                    std::vector<std::string> forLoopIndexVarsOutput = forLoopIndexVars;
+                    if (!degenerateCase) {
+                        forLoopIndexVarsOutput[1] += "*" + GeneralHelper::to_string(copies) + "+" +
+                                                     forLoopIndexVarsOutput[0]; //When writing into the output, the stride of the 1st dimension is set by the upsample rate
+                        forLoopIndexVarsOutput.erase(forLoopIndexVarsOutput.begin());
+                    }
+                    //Otherwise, copy into the outer dimension (keep the additional copy dimension added to the input type)
+
+                    std::string outputAssign = outputVar.getCVarName(imag) +
+                                               EmitterHelpers::generateIndexOperation(forLoopIndexVarsOutput) + "=" +
+                                               inputExpr.getExpr() +
+                                               EmitterHelpers::generateIndexOperation(forLoopIndexVarsInput) + ";";
+                    cStatementQueue.insert(cStatementQueue.end(), outputAssign);
+
+                    cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
                 }
-
-                std::vector<int> forLoopDims = inputDT.getDimensions();
-                //Will make 2nd loop (index 1 in the loop vars) iterate over the copies
-                forLoopDims.insert(forLoopDims.begin(), copies);
-                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                        EmitterHelpers::generateVectorMatrixForLoops(forLoopDims);
-                std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-                std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
-                std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
-                cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-
-                std::vector<std::string> forLoopIndexVarsInput = forLoopIndexVars;
-                //Ignore the copy loop entirely when it comes to indexing
-                forLoopIndexVarsInput.erase(forLoopIndexVarsInput.begin());
-
-                std::vector<std::string> forLoopIndexVarsOutput = forLoopIndexVars;
-                if(!degenerateCase){
-                    forLoopIndexVarsOutput[1] += "*" + GeneralHelper::to_string(copies) + "+" +
-                                                 forLoopIndexVarsOutput[0]; //When writing into the output, the stride of the 1st dimension is set by the upsample rate
-                    forLoopIndexVarsOutput.erase(forLoopIndexVarsOutput.begin());
-                }
-                //Otherwise, copy into the outer dimension (keep the additional copy dimension added to the input type)
-
-                std::string outputAssign = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVarsOutput) + "=" + inputExpr.getExpr() + EmitterHelpers::generateIndexOperation(forLoopIndexVarsInput) + ";";
-                cStatementQueue.insert(cStatementQueue.end(), outputAssign);
-
-                cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
             }
 
             return CExpr(outputVar.getCVarName(imag),CExpr::ExprType::ARRAY);
@@ -341,6 +376,12 @@ bool RepeatOutput::isSpecialized() {
 
 Variable RepeatOutput::getVectorModeOutputVariable(){
     DataType outputDT = getOutputPort(0)->getDataType();
+    if(useCompressedOutputType){
+        //If using compressed types, the output datatype should be the dimension of the input port
+        //The input is stored in this variable and indexing with the repeat will be handled at the output
+        std::vector<int> unBlockedOutputDTDims = getInputPort(0)->getDataType().getDimensions();
+        outputDT.setDimensions(unBlockedOutputDTDims);
+    }
     std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_Out";
     return Variable(outName, outputDT);
 }
@@ -357,4 +398,12 @@ std::vector<Variable> RepeatOutput::getVariablesToDeclareOutsideClockDomain() {
     }
 
     return extVars;
+}
+
+bool RepeatOutput::isUseCompressedOutputType() const {
+    return useCompressedOutputType;
+}
+
+void RepeatOutput::setUseCompressedOutputType(bool useCompressedOutputType) {
+    RepeatOutput::useCompressedOutputType = useCompressedOutputType;
 }

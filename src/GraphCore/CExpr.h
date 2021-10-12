@@ -24,14 +24,20 @@ public:
         ARRAY, ///<The expression is a pointer to the head of an array.  Pointers to single elements are arrays with length 1
         ARRAY_HANKEL_COMPRESSED, ///< A generalization of the Hankel Matrix (elements along skew diagonal of matrix are the same) so that >2 dimensions can be supported.  Effectively generalizes ARRAY for sub-blocking.
         CIRCULAR_BUFFER_ARRAY, ///<The expression is a pointer to the head of a circular buffer.  An offset the current front of the buffer is provided with all indexing being referenced from that point.  The length is used to handle wraparound when indexing
-        CIRCULAR_BUFFER_HANKEL_COMPRESSED ///< A generalization of the Hankel Matrix (elements along skew diagonal of matrix are the same) so that >2 dimensions can be supported.  Effectively generalizes CIRCULAR_BUFFER_ARRAY for sub-blocking.
+        CIRCULAR_BUFFER_HANKEL_COMPRESSED, ///< A generalization of the Hankel Matrix (elements along skew diagonal of matrix are the same) so that >2 dimensions can be supported.  Effectively generalizes CIRCULAR_BUFFER_ARRAY for sub-blocking.
+        ARRAY_REPEAT, ///< An expression where the outer dimension are replicas of the inner dimensions.  If repeatStride == vecLen, the outer index of getExprIndexed is simply ignored and has no effect.
+        SCALAR_EXPR_REPEAT, ///< An expression where the outer dimension are replicas of the given scalar expression.  In this case, no indexing is performed even when getExprIndexed is supplied with an index
+        SCALAR_VAR_REPEAT ///< An expression where the outer dimension are replicas of the given scalar expression. In this case, no indexing is performed even when getExprIndexed is supplied with an index
     };
 
 private:
     std::string expr; ///<The C expression, or variable name if
     ExprType exprType; ///<Indicates the type of expression.  If it is a SCALAR_EXPR, Node::cEmit will create a temporary for it if required for fanout
-    int vecLen; ///<The vector length if the expression is a circular buffer
+    int vecLen; ///<The vector length if the expression is a circular buffer.  The total outer dimension length of the ArrayRepeat
     std::string offsetVar; ///<The variable representing the offset in a circular buffer or hankel array.  If blank, the hankel array is not part of a larger buffer for which an offset is required.
+
+    int repeatStride; ///<The number of outer dimensions between elements
+
 
 public:
     CExpr();
@@ -51,6 +57,13 @@ public:
      */
     CExpr(std::string expr, std::string offsetVar); //This is for ARRAY_HANKEL_COMPRESSED
 
+    /**
+     * @brief When defining a repeat type
+     * @param expr pointer to the front of the buffer
+     * @param offsetVar the offset variable used to indicate the current head of the buffer
+     */
+    CExpr(std::string expr, int vecLen, int repeatStride, ExprType exprType); //This is for ARRAY_REPEAT, SCALAR_EXPR_REPEAT, SCALAR_VAR_REPEAT
+
     std::string getExpr() const;
     void setExpr(const std::string &expr);
     ExprType getExprType() const;
@@ -59,6 +72,8 @@ public:
     void setVecLen(int vecLen);
     std::string getOffsetVar() const;
     void setOffsetVar(const std::string &offsetVar);
+    int getRepeatStride() const;
+    void setRepeatStride(int repeatStride);
 
     /**
      * @brief Check if the CExpr is a variable (ie. not a scalar expression)
@@ -80,6 +95,8 @@ public:
      * @return
      */
     std::string getExprIndexed(std::vector<std::string> &indexExprs, bool deref);
+
+    bool isRepeatType();
 };
 
 /*! @} */

@@ -24,6 +24,7 @@ friend class NodeFactory;
 private:
     Variable stateVar; ///<The state variable for the latch
     std::vector<NumericValue> initCondition; ///<The Initial condition of this output port
+    bool useCompressedOutputType; ///<If operating in vector mode, determines if a compressed type or an array with repeated elements is emitted
 
 protected:
     /**
@@ -57,6 +58,8 @@ public:
     void setStateVar(const Variable &stateVar);
     std::vector<NumericValue> getInitCondition() const;
     void setInitCondition(const std::vector<NumericValue> &initCondition);
+    bool isUseCompressedOutputType() const;
+    void setUseCompressedOutputType(bool useCompressedOutputType);
 
     xercesc::DOMElement* emitGraphML(xercesc::DOMDocument* doc, xercesc::DOMElement* graphNode, bool include_block_node_type = true) override ;
 

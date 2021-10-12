@@ -6,12 +6,13 @@
 #include "GraphCore/NodeFactory.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include "Blocking/BlockingHelpers.h"
 
-Constant::Constant() {
+Constant::Constant() : subBlockingLength(1) {
 
 }
 
-Constant::Constant(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent){
+Constant::Constant(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), subBlockingLength(1){
 
 }
 
@@ -103,13 +104,18 @@ void Constant::validate() {
     }
 
     //Check there is at least 1 constant value
-    if(value.size() < 1){
+    if(value.empty()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Should Have at Least 1 Value", getSharedPointer()));
     }
 
     //Check that width of value is the width of the output
-    if(value.size() != getOutputPort(0)->getDataType().numberOfElements()){
+    if(value.size() != getOutputPort(0)->getDataType().numberOfElements()/subBlockingLength){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Width of Value Does Not Match Width of Output", getSharedPointer()));
+    }
+
+    if(subBlockingLength < 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Constant - Sub-Blocking Length Must be >=1", getSharedPointer()));
+
     }
 }
 
@@ -132,7 +138,12 @@ CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams
         //Emit value
         expr += value[0].toStringComponent(imag, outputType); //Convert to the real type, not the CPU storage type
         expr += ")";
-        return CExpr(expr, CExpr::ExprType::SCALAR_EXPR);
+        if(subBlockingLength>1){
+            //Emit a repeated type
+            return CExpr(expr, subBlockingLength, subBlockingLength, CExpr::ExprType::SCALAR_EXPR_REPEAT);
+        }else {
+            return CExpr(expr, CExpr::ExprType::SCALAR_EXPR);
+        }
     }else{
         //Return the globally declared array
         std::string constVarName = name + "_n" + GeneralHelper::to_string(id) + "_ConstVal";
@@ -140,7 +151,11 @@ CExpr Constant::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams
         DataType outputStorageType = outputType.getCPUStorageType();
         Variable constVar = Variable(constVarName, outputStorageType);
 
-        return CExpr(constVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+        if(subBlockingLength>1){
+            return CExpr(constVar.getCVarName(imag), subBlockingLength, subBlockingLength, CExpr::ExprType::ARRAY_REPEAT);
+        }else {
+            return CExpr(constVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+        }
     }
 }
 
@@ -152,7 +167,7 @@ Constant::emitC(std::vector<std::string> &cStatementQueue, SchedParams::SchedTyp
     return Node::emitC(cStatementQueue, schedType, outputPortNum, imag, false, false);
 }
 
-Constant::Constant(std::shared_ptr<SubSystem> parent, Constant* orig) : PrimitiveNode(parent, orig), value(orig->value) {
+Constant::Constant(std::shared_ptr<SubSystem> parent, Constant* orig) : PrimitiveNode(parent, orig), value(orig->value), subBlockingLength(orig->subBlockingLength) {
 
 }
 
@@ -173,22 +188,54 @@ std::string Constant::getGlobalDecl() {
 
         //Should be called after arcs have been added
         DataType outputType = getOutputPort(0)->getDataType();
-        DataType outputStorageType = outputType.getCPUStorageType();
-        Variable constVar = Variable(constVarName, outputStorageType);
+        //If sub-blocked, need to scale the type back appropriatly
+        std::vector<int> outputDims = outputType.getDimensions();
+        std::vector<int> constStorageDims = BlockingHelpers::blockingDomainDimensionReduce(outputDims, subBlockingLength, 1);
 
-        std::vector<int> outputDimensions = outputType.getDimensions();
+        DataType constStorageType = outputType.getCPUStorageType();
+        constStorageType.setDimensions(constStorageDims);
+
+        Variable constVar = Variable(constVarName, constStorageType);
+
         std::string expr = "const " + constVar.getCVarDecl(false, true, false, true, false, true) +
-                " = " +  EmitterHelpers::arrayLiteral(outputDimensions, value, false, outputType, outputStorageType) + ";";
+                " = " +  EmitterHelpers::arrayLiteral(constStorageDims, value, false, outputType, constStorageType) + ";";
 
         if(outputType.isComplex()){
             expr += "\nconst " + constVar.getCVarDecl(true, true, false, true, false, true) +
-                   " = " +  EmitterHelpers::arrayLiteral(outputDimensions, value, true, outputType, outputStorageType) + ";";
+                   " = " +  EmitterHelpers::arrayLiteral(constStorageDims, value, true, outputType, constStorageType) + ";";
         }
 
         return expr;
     }
 
     return "";
+}
+
+int Constant::getSubBlockingLength() const {
+    return subBlockingLength;
+}
+
+void Constant::setSubBlockingLength(int subBlockingLength) {
+    Constant::subBlockingLength = subBlockingLength;
+}
+
+bool Constant::specializesForBlocking() {
+    return true;
+}
+
+void Constant::specializeForBlocking(int localBlockingLength, int localSubBlockingLength,
+                                     std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                     std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                     std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                     std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                     std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                     std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+    //TODO: Refactor?
+    if(localSubBlockingLength != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When specializing for blocking, currently expect the sub-blocking length to be 1.  This is consistent with inserting sub-blocking domains", getSharedPointer()));
+    }
+
+    subBlockingLength = localBlockingLength;
 }
 
 

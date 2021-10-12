@@ -7,23 +7,27 @@
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
 
-CExpr::CExpr() : expr(""), exprType(ExprType::SCALAR_EXPR), vecLen(0){
+CExpr::CExpr() : expr(""), exprType(ExprType::SCALAR_EXPR), vecLen(0), repeatStride(0){
 
 }
 
-CExpr::CExpr(std::string expr, ExprType exprType) : expr(expr), exprType(exprType), vecLen(0){
+CExpr::CExpr(std::string expr, ExprType exprType) : expr(expr), exprType(exprType), vecLen(0), repeatStride(0){
 
 }
 
-CExpr::CExpr(std::string expr, int vecLen, std::string offsetVar) : expr(expr), exprType(ExprType::CIRCULAR_BUFFER_ARRAY), vecLen(vecLen), offsetVar(offsetVar) {
+CExpr::CExpr(std::string expr, int vecLen, std::string offsetVar) : expr(expr), exprType(ExprType::CIRCULAR_BUFFER_ARRAY), vecLen(vecLen), offsetVar(offsetVar), repeatStride(0) {
 
 }
 
-CExpr::CExpr(std::string expr, std::string offsetVar) : expr(expr), exprType(ExprType::ARRAY_HANKEL_COMPRESSED), offsetVar(offsetVar) {
+CExpr::CExpr(std::string expr, std::string offsetVar) : expr(expr), exprType(ExprType::ARRAY_HANKEL_COMPRESSED), offsetVar(offsetVar), repeatStride(0) {
 
 }
 
-
+CExpr::CExpr(std::string expr, int vecLen, int repeatStride, ExprType exprType) : expr(expr), exprType(exprType), vecLen(vecLen), repeatStride(repeatStride) {
+    if(!isRepeatType()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Repeat Type"));
+    }
+}
 
 std::string CExpr::getExpr() const {
     return expr;
@@ -38,7 +42,9 @@ bool CExpr::isOutputVariable() const {
     exprType==ExprType::ARRAY ||
     exprType==ExprType::CIRCULAR_BUFFER_ARRAY ||
     exprType==ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED ||
-    exprType==ExprType::ARRAY_HANKEL_COMPRESSED;
+    exprType==ExprType::ARRAY_HANKEL_COMPRESSED ||
+    exprType==ExprType::ARRAY_REPEAT ||
+    exprType==ExprType::SCALAR_VAR_REPEAT;
 }
 
 CExpr::ExprType CExpr::getExprType() const {
@@ -136,6 +142,44 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
             str += EmitterHelpers::generateIndexOperationWODereference(indexStrVec);
         }
         return str;
+    }else if(exprType==ExprType::ARRAY_REPEAT){
+        if(repeatStride == vecLen){
+            //We just ignore the outer index
+            std::vector<std::string> indexExprReduced = indexExprs;
+            indexExprReduced.erase(indexExprReduced.begin());
+            if(indexExprReduced.empty()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("ARRAY_REPEAT expects, >1 dimension being indexed into"));
+            }
+
+            std::string str = expr;
+            if(deref){
+                str += EmitterHelpers::generateIndexOperation(indexExprReduced);
+            }else{
+                str += EmitterHelpers::generateIndexOperationWODereference(indexExprReduced);
+            }
+            return str;
+        }else if(repeatStride < vecLen && vecLen % repeatStride == 0){
+            //Integer Divide the first index by the repeat stride
+            std::vector<std::string> indexExprReduced = indexExprs;
+            indexExprReduced[0] = "((" + indexExprReduced[0] + ")/" + GeneralHelper::to_string(repeatStride) + ")";
+
+            std::string str = expr;
+            if(deref){
+                str += EmitterHelpers::generateIndexOperation(indexExprReduced);
+            }else{
+                str += EmitterHelpers::generateIndexOperationWODereference(indexExprReduced);
+            }
+            return str;
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("ARRAY_REPEAT expects, repeatStride < vecLen && vecLen % repeatStride == 0"));
+        }
+    }else if(exprType==ExprType::SCALAR_VAR_REPEAT || exprType==ExprType::SCALAR_EXPR_REPEAT){
+        if(vecLen != repeatStride){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Expected SCALAR_VAR_REPEAT or SCALAR_EXPR_REPEAT to have vecLen==repeatStride"));
+        }
+
+        //Do not perform indexing, just return the scalar
+        return expr;
     }else{
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown ExprType"));
     }
@@ -145,5 +189,20 @@ bool CExpr::isArrayOrBuffer() const {
     return exprType == ExprType::ARRAY ||
     exprType == ExprType::ARRAY_HANKEL_COMPRESSED ||
     exprType == ExprType::CIRCULAR_BUFFER_ARRAY ||
-    exprType == ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED;
+    exprType == ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED ||
+    exprType == ExprType::ARRAY_REPEAT ||
+    exprType == ExprType::SCALAR_EXPR_REPEAT ||
+    exprType == ExprType::SCALAR_VAR_REPEAT;
+}
+
+int CExpr::getRepeatStride() const {
+    return repeatStride;
+}
+
+void CExpr::setRepeatStride(int repeatStride) {
+    CExpr::repeatStride = repeatStride;
+}
+
+bool CExpr::isRepeatType() {
+    return exprType == ExprType::ARRAY_REPEAT || exprType == ExprType::SCALAR_VAR_REPEAT || exprType == ExprType::SCALAR_EXPR_REPEAT;
 }
