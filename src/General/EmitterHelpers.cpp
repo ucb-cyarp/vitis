@@ -899,14 +899,14 @@ std::string EmitterHelpers::arrayLiteral(std::vector<int> &dimensions, std::vect
 }
 
 std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>>
-EmitterHelpers::generateVectorMatrixForLoops(const std::vector<int>& dimensions) {
+EmitterHelpers::generateVectorMatrixForLoops(const std::vector<int>& dimensions, std::string prefix) {
     std::vector<std::string> loopDecls;
     std::vector<std::string> loopVars;
     std::vector<std::string> loopClose;
 
     for(unsigned long i = 0; i<dimensions.size(); i++){
         //The index variable will be indDim# where # is the dimension number
-        loopVars.push_back("indDim" + GeneralHelper::to_string(i));
+        loopVars.push_back(prefix + GeneralHelper::to_string(i));
 
         loopDecls.push_back("for(unsigned long " + loopVars[i] + " = 0; " + loopVars[i] + "<" + GeneralHelper::to_string(dimensions[i]) + "; " + loopVars[i] + "++){");
         loopClose.emplace_back("}");

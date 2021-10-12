@@ -274,7 +274,7 @@ namespace EmitterHelpers {
      * @param dimensions
      * @return a tuple containing, the nested for loop declarations in the order of declaration (outer to inner), the index variables used for each successive for loop - starting with the outer most first, and finally the closings for the nested for loops
      */
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions);
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions, std::string prefix = "indDim");
 
     /**
      * @brief Generates a C/C++ style array indexing operation
