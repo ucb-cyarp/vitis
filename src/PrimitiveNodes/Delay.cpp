@@ -18,7 +18,7 @@
 Delay::Delay() : delayValue(0), earliestFirst(false), allocateExtraSpace(false), bufferImplementation(BufferType::AUTO),
                  roundCircularBufferToPowerOf2(true), circularBufferType(CircularBufferType::NO_EXTRA_LEN), transactionBlockSize(1),
                  blockingSpecializationDeferred(false), deferredBlockSize(0), deferredSubBlockSize(0),
-                 copyMethod(CopyMethod::CLANG_MEMCPY_INLINE){
+                 copyMethod(CopyMethod::MEMCPY){
 
 }
 
@@ -30,7 +30,7 @@ Delay::Delay(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), delayVa
                                                   blockingSpecializationDeferred(false),
                                                   deferredBlockSize(0),
                                                   deferredSubBlockSize(0),
-                                                  copyMethod(CopyMethod::CLANG_MEMCPY_INLINE){
+                                                  copyMethod(CopyMethod::MEMCPY){
 
 }
 
