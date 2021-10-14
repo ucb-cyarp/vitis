@@ -825,14 +825,20 @@ bool Delay::requiresStandaloneCExprNextState(){
 
     //Similar to when !allocateExtraSpace (ie. no combo path) with block size==1, the input is not processed
     //as part of the output emit when the delayValue>=blockSize.
-    bool needExplicitAssignmentForBlocking = false;
+    bool needExplicitAssignment = false;
     if(transactionBlockSize > 1){
         if(delayValue>=transactionBlockSize){
-            needExplicitAssignmentForBlocking = true;
+            //In this case the input block does not need to be processed before the output can proceed
+            needExplicitAssignment = true;
+        }
+    }else{
+        if(!allocateExtraSpace){
+            //In this case the input block does not need to be processed before the output can proceed
+            needExplicitAssignment = true;
         }
     }
 
-    return !allocateExtraSpace || !outputExists || needExplicitAssignmentForBlocking;
+    return !outputExists || needExplicitAssignment;
 }
 
 void Delay::emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) {
