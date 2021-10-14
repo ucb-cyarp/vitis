@@ -397,42 +397,12 @@ CExpr Delay::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::S
         //Emit the upstream
         CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, imag);
 
-        if(!datatype.isScalar()) {
-            //TODO: Change check after vector support implemented
-            //If a vector/matrix, create a temporary and store in that.  Cannot rely on emitter to create a variable for the intermediate result
-            //Emit temporary before for loop
-            std::string vecOutName = name+"_n"+GeneralHelper::to_string(id)+ "_outVec"; //Changed to
-            Variable vecOutVar = Variable(vecOutName, datatype);
-            cStatementQueue.push_back(vecOutVar.getCVarDecl(imag, true, false, true, false) + ";");
+        //Do not copy, instead, pass through the expression as presented
+        inputExpr.setIsReferenceExpr(true);
 
-            //Create For Loops
-            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                    EmitterHelpers::generateVectorMatrixForLoops(datatype.getDimensions());
-            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-            std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
-            std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
-            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+        cStatementQueue.push_back("//Zero Delay Passthrough: " + inputExpr.getExpr());
 
-            //Deref
-            std::string inputExprDeref = inputExpr.getExprIndexed(forLoopIndexVars, true);
-
-            //Emit expr
-            cStatementQueue.push_back(vecOutVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + inputExprDeref + ";");
-
-            //Close for loops
-            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
-
-            //Return temp var
-            return CExpr(vecOutVar.getCVarName(imag), CExpr::ExprType::ARRAY);
-        }else{
-            //Create a temporary variable to avoid issue if this node is directly attached to state
-            //at the input.  The state update is placed after this node but the variable from the delay is simply
-            //passed through.  This could cause the state to be update before the result is used.
-            //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
-            //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
-
-            return CExpr(inputExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
-        }
+        return inputExpr;
     }else {
         if(transactionBlockSize == 1) { //This is the orig logic for delay
             //Return the state var name as the expression
@@ -1838,4 +1808,8 @@ std::set<std::string> Delay::getExternalIncludes() {
     }
 
     return extIncludes;
+}
+
+bool Delay::passesThroughInputs(){
+    return delayValue == 0;
 }

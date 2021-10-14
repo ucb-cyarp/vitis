@@ -401,6 +401,12 @@ protected:
      * @return a pointer to the new delay which was created.  nullptr if no new delay was created
      */
     virtual std::shared_ptr<Delay> splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength);
+
+    /**
+     * @brief Only passes through when Delay==0.  In that case, this node has no state.
+     * @return
+     */
+    bool passesThroughInputs() override;
 };
 
 /*! @} */
