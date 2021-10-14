@@ -91,6 +91,15 @@ for i = 1:length(children)
                         new_nodes = [new_nodes, new_nodes_recur];
                         new_arcs = [new_arcs, new_arcs_recur];
                         new_special_nodes = [new_special_nodes, new_special_nodes_recur];
+                    elseif strcmp( get_param(child_handle, 'ReferenceBlock'), 'rev1CyclopsLib/ComplexDotProductNoConj') || strcmp(get_param(child_handle, 'ReferenceBlock'), 'laminarLib/ComplexDotProductNoConj')
+                        %This is not really a Subsystem, it is a Dot
+                        %Product with no complex conjugate
+                        %Treat this like a standard node from the perspective of
+                        %node traversal
+                        [block_ir_node, new_nodes_recur, new_arcs_recur, new_special_nodes_recur] = simulink_to_graphml_helper(child_handle, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                        new_nodes = [new_nodes, new_nodes_recur];
+                        new_arcs = [new_arcs, new_arcs_recur];
+                        new_special_nodes = [new_special_nodes, new_special_nodes_recur];
                     else
                         %This is a subsystem
                         system_enabled = is_system_enabled(child_handle);

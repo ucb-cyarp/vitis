@@ -1154,7 +1154,7 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = WrappingCounter::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "DummyReplica" ) { //Vitis only node
         newNode = DummyReplica::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "InnerProduct" || blockFunction == "DotProduct"){ //Vitis name is InnerProduct, Simulink name is DotProduct
+    }else if(blockFunction == "InnerProduct" || blockFunction == "DotProduct" || blockFunction == "DotProductNoConj"){ //Vitis name is InnerProduct, Simulink name is DotProduct
         newNode = InnerProduct::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Select"){ //Vitis name is Select, Simulink name is Selector but that is translated to SimulinkSelect
         newNode = Select::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);

@@ -21,6 +21,7 @@ isStateflow = false;
 isBitShift = false;
 isVectorTappedDelay = false;
 isRstTappedDelay = false;
+isComplexDotProdNoConj = false;
 if strcmp(node.simulinkBlockType, 'SubSystem')
     %Using solution from https://www.mathworks.com/matlabcentral/answers/156628-how-to-recognize-stateflow-blocks-using-simulink-api-get_param
     %did not know about the SFBlockType parameter (I assume this means
@@ -41,6 +42,11 @@ if strcmp(node.simulinkBlockType, 'SubSystem')
     if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/TappedDelayWithReset_oldestFirst') || strcmp(get_param(simulink_block_handle, 'ReferenceBlock'), 'laminarLib/TappedDelayWithReset_oldestFirst')
         isRstTappedDelay = true;
     end
+    
+    if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/ComplexDotProductNoConj') || strcmp(get_param(simulink_block_handle, 'ReferenceBlock'), 'laminarLib/ComplexDotProductNoConj')
+        isComplexDotProdNoConj = true;
+    end
+    
 end
 
 %---Get parameters from simulink---
@@ -633,6 +639,9 @@ elseif isRstTappedDelay
     node.dialogPropertiesNumeric('Depth') = GetParamEval(simulink_block_handle, 'Depth'); %This is the number of vectors in the output (including the passthrough).  Depth-1 is the delay
     node.dialogPropertiesNumeric('InitCond') = GetParamEval(simulink_block_handle, 'RstVal'); %Initial Conditions
 
+%---- Complex Dot Product Without Complex Conj ----
+elseif isComplexDotProdNoConj
+    node.simulinkBlockType = 'DotProductNoConj';
     
 %TODO: More Blocks
 end

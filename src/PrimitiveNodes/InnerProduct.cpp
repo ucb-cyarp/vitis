@@ -32,8 +32,16 @@ InnerProduct::createFromGraphML(int id, std::string name, std::map<std::string, 
         std::string complexConjBehaviorStr = dataKeyValueMap.at("ComplexConjBehavior");
         newNode->complexConjBehavior = parseComplexConjBehavior(complexConjBehaviorStr);
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        //The simulink semantic is to take the complex conjugate of the first input
-        newNode->complexConjBehavior = ComplexConjBehavior::FIRST;
+        std::string blockFunction = dataKeyValueMap.at("block_function");
+        if(blockFunction == "DotProduct") {
+            //The simulink semantic is to take the complex conjugate of the first input
+            newNode->complexConjBehavior = ComplexConjBehavior::FIRST;
+        }else if(blockFunction == "DotProductNoConj"){
+            //Special Case for Laminar Library Block in Simulink
+            newNode->complexConjBehavior = ComplexConjBehavior::NONE;
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Inner Product Type", newNode));
+        }
     } else {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - InnerProduct", newNode));
     }

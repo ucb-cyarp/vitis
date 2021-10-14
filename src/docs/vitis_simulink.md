@@ -5,6 +5,7 @@
   ```VITIS_PARTITION```.  The name of the block indicates the partition number.  Note that the I/O partition is always 
   - The constant can be attached to a terminator block and will be pruned away by vitis before C code generation.
 * Clock Domains: A clock domain can be specified by naming a subsystem with the prefix ```VITIS_CLOCK_DOMAIN```.
+  - Currently, only Downsampled clock domains are supported
   - All of the input ports need to share the same rate change (ex. upsample by 2, repeat by 2) and all of the output 
     ports need to be the inverse rate change (ex. downsample by 2).
        - Rate changes blocks can be nested within subsystems but must be between logic external to the clock domain and 
@@ -19,14 +20,22 @@
   - All clock domains in the design must be an integer upsample or downsample factor from the base rate (input rate).
     This allows the block size and vector lengths to be set statically.  This requirement may be relaxed in a future 
     version.
-    
-## Limited Support:
-* Vectors: Vector operations are currently expanded by the simulink to GraphML export script into primitive (width 1) 
-  operations.  Vector ports are not yet supported.
 
 ## Simulink Export Only Support
 * Fixed Point numbers are only supported by the simulink export script.  Fixed point operations are not yet implemented 
   vitis.
+
+## Laminar/Vitis Specific Library Blocks
+There are some constructs which can be expressed in Simulink but in such a way that it can be convoluted for the 
+compiler to handle.  The following are a list of library blocks that should be used in place of more complex simulink
+structures.  They are extracted in the Simulink export scripts and map to configurations of native Laminar/Vitis nodes.
+Even though these library blocks may appear as subsystems, the exported design will treat them as standard nodes.
+
+Laminar/Vitis Block Name             | Library(s)                   | Implements                                               | Limitation Addressed
+------------------------------------ | ---------------------------- | -------------------------------------------------------- | -------------------
+VectorTappedDelay_startingWithOldest | rev1CyclopsLib or laminarLib | Vector Tapped Delay (Starting with Oldest Vector)        | Simulink Tapped Delay only supports scalars
+TappedDelayWithReset_oldestFirst     | rev1CyclopsLib or laminarLib | Tapped Delay (with Reset Port)                           | Laminar/Vitis does not Implement Simulink Reset Subsystems
+ComplexDotProductNoConj              | rev1CyclopsLib or laminarLib | Complex Dot Product without Complex Conjugation of Input | Simulink complex conjugates the first input before taking the dot product
 
 ## Supported Simulink Blocks:
 *\*Note: Parameter restrictions for each node have not yet been documented below.*

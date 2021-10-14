@@ -258,6 +258,21 @@ for i = 1:length(dst_port_handles)
                 dst_port_num = get_param(dst_port_handle, 'PortNumber');
                 newArc = GraphArc.createArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
                 new_arcs = [new_arcs, newArc];
+            elseif strcmp( get_param(dst_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/ComplexDotProductNoConj') || strcmp(get_param(dst_block_handle, 'ReferenceBlock'), 'laminarLib/ComplexDotProductNoConj')
+                %This is not really a Subsystem, it is a DotProduct (with
+                %no complex conjugation)
+                %Treat this like a standard node from the perspective of
+                %node traversal
+                [block_ir_node, recur_new_nodes, recur_new_arcs, recur_new_special_nodes] = simulink_to_graphml_helper(dst_block_handle, system_ir_node, output_master_node, unconnected_master_node, terminator_master_node, vis_master_node, node_handle_ir_map);
+                new_nodes = [new_nodes, recur_new_nodes];
+                new_arcs = [new_arcs, recur_new_arcs];
+                new_special_nodes = [new_special_nodes, recur_new_special_nodes];
+
+                %Add an arc to the IR node
+                %Get the dst port number
+                dst_port_num = get_param(dst_port_handle, 'PortNumber');
+                newArc = GraphArc.createArc(driver_ir_node, driver_port_number, block_ir_node, dst_port_num, 'Standard'); %Port type is standard because this is not an enable line, it is to a basic block
+                new_arcs = [new_arcs, newArc];
             else
                 %This is actually a subsystem
                 
