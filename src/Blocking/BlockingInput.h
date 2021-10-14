@@ -71,6 +71,8 @@ public:
      * @brief Also removes this node from the list of EnableInputs in the parent EnabledSubsystem
      */
     void removeKnownReferences() override;
+
+    bool passesThroughInputs() override;
 };
 
 /*! @} */

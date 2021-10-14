@@ -191,32 +191,23 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             return CExpr(inputExprDeref, CExpr::ExprType::SCALAR_EXPR);
         }
     }else{
-        //Creates a copy in case the src is updated but the depended on value is used more than once
-        //Create a temporary variable with the correct dimensionality.
-        Variable outVar(name+"_n"+GeneralHelper::to_string(id)+"_tmp", outputType);
-        cStatementQueue.push_back(outVar.getCVarDecl(imag, true, false, true, false) + ";");
+        //Does not create a copy but rather passes through the indexed expression.
+        //Note that BlockingInput::passesThroughInputs() was overwritten to return true
+        //And state update node creation was updated to
 
-        //Copy input to output
-        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                EmitterHelpers::generateVectorMatrixForLoops(outputType.getDimensions());
-
-        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
-        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
-
-        //Open for loop for copy
-        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-
-        std::vector<std::string> inputIndexVars = forLoopIndexVars;
         //It is possible for there to be a degenerate case where the blocking and sub-blocking length are both 1.
         //In that case, it is a simple copy
+        std::string outputExpr;
         if(blockingLen >1 ) {
             if (subBlockingLen > 1) {
                 //If the sub-blocking length is > 1, providing multiple elements within sub-block indexing is offset
-                inputIndexVars[0] = indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen) + "+" +
-                                    inputIndexVars[0];
+                //Do not dereference the outer dimension as it will be indexed into by the destination node
+                std::vector<std::string> indexExpr = {indexVar.getCVarName(false) + "*" + GeneralHelper::to_string(subBlockingLen)};
+                outputExpr = inputExpr.getExprIndexed(indexExpr, false);
             } else {
-                inputIndexVars.insert(inputIndexVars.begin(), indexVar.getCVarName(false));
+                //Dereference the outer dimension
+                std::vector<std::string> indexExpr = {indexVar.getCVarName(false)};
+                outputExpr = inputExpr.getExprIndexed(indexExpr, true);
             }
         }else{
             //If blocking length is 1, sub-blocking length must also be 1
@@ -226,15 +217,18 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             }
         }
 
-        cStatementQueue.push_back(outVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=" + inputExpr.getExprIndexed(inputIndexVars, true) + ";");
+        outputExpr = "(" + outputExpr + ")";
 
-        //Close for loop for copy
-        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+        cStatementQueue.push_back("//Blocking Input Passthrough Expression: " + outputExpr);
 
-        return CExpr(outVar.getCVarName(imag), CExpr::ExprType::ARRAY);
+        return CExpr(outputExpr, CExpr::ExprType::ARRAY, true);
     }
 }
 
 std::string BlockingInput::typeNameStr() {
     return "Blocking Input";
+}
+
+bool BlockingInput::passesThroughInputs() {
+    return true;
 }
