@@ -1281,6 +1281,8 @@ void Delay::copyToBuffer(CExpr src, std::string insertPosition, bool imag, std::
     DataType inputDT = getInputPort(0)->getDataType();
 
     if(copyMethod==CopyMethod::FOR_LOOPS) {
+        //Should work, even with compressed types since the indexing should be handled by cExpr getExprIndexed
+
         std::string assignTo = cStateVar.getCVarName(imag);
         if(transactionBlockSize == 1) {
             //For block size == 1, the dimension of the buffer is formed by taking the input dimensions and expanding by the block size (adding a dimension).  Reference
@@ -1324,6 +1326,65 @@ void Delay::copyToBuffer(CExpr src, std::string insertPosition, bool imag, std::
         std::string dst = cStateVar.getCVarName(imag) + "+" + insertPosition;
         std::string srcStr = (inputDT.isScalar() ? "&" : "") + src.getExpr();
         int elementsToCopy = inputDT.numberOfElements();
+
+        //Handle Compressed Input Types Here.  If compressed, need to use the copy method multiple times, indexing into
+        //the first dimension
+        //TODO: Refactor when delay is modified to use optimized storage for compressed types
+
+        std::vector<std::string> compressedForLoopClose;
+        if(src.isCompressedType()){
+            CExpr::ExprType exprType = src.getExprType();
+
+            //Create a for loop along the first dimension
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops({inputDT.getDimensions()[0]}, "CompressedDimCount");
+            std::vector<std::string> compressedForLoopInputOpen = std::get<0>(forLoopStrs);
+            std::vector<std::string> compressedForLoopInputIndexVars = std::get<1>(forLoopStrs);
+            compressedForLoopClose = std::get<2>(forLoopStrs);
+            cStatementQueue.insert(cStatementQueue.end(), compressedForLoopInputOpen.begin(), compressedForLoopInputOpen.end());
+
+            //TODO: Change if more compressed types are introduced which compresses across dimensions other than the first
+            std::vector<int> transferDimensions = inputDT.getDimensions();
+            if(transferDimensions.size() == 1){
+                transferDimensions[0] = 1;  //The compression is allong the only dimension, reduce this to 1 per
+            }else{
+                transferDimensions.erase(transferDimensions.begin());
+            }
+            DataType transferType = inputDT;
+            transferType.setDimensions(transferDimensions);
+
+            //Change copy params
+            elementsToCopy = transferType.numberOfElements();
+            //Need to increment into the destination for each loop
+            dst += "+" + compressedForLoopInputIndexVars[0];  //Do not multiply by the elements to copy.
+            // The destination can be multidimensional and we are indexing into the first dimension.
+            // This should automatically be multiplied by the number of elements in the following dimensions
+
+            //Perform checks
+            if(exprType == CExpr::ExprType::ARRAY_HANKEL_COMPRESSED || exprType == CExpr::ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED ||
+               exprType == CExpr::ExprType::ARRAY_REPEAT){
+
+                if(inputDT.getDimensions().size() < 2){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Dimensions to be ", getSharedPointer()));
+                }
+
+                //Need to index into the 1st dimension
+                std::vector<std::string> indexExprs = {compressedForLoopInputIndexVars[0]};
+                srcStr = src.getExprIndexed(indexExprs, false);
+            }else if(exprType == CExpr::ExprType::SCALAR_VAR_REPEAT || exprType == CExpr::ExprType::SCALAR_EXPR_REPEAT){
+                if(exprType == CExpr::ExprType::SCALAR_EXPR_REPEAT){
+                    //Need to assign to a temporary variable and then pass a reference to that variable
+                    Variable tmpAssignment("compressedTypeInputTmp_n" + GeneralHelper::to_string(id), transferType);
+                    cStatementQueue.push_back(tmpAssignment.getCVarDecl(imag) + " = " + src.getExpr() + ";");
+                    srcStr = "&" + tmpAssignment.getCVarName(imag);
+                }else{
+                    srcStr = "&" + src.getExpr();
+                }
+            }else{
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Compressed Type", getSharedPointer()));
+            }
+        }
+
         std::string copySize = "sizeof(" + cStateVar.getDataType().toString(DataType::StringStyle::C, false, false) + ")*" + GeneralHelper::to_string(elementsToCopy);
 
         if(copyMethod==CopyMethod::FAST_COPY_UNALIGNED) {
@@ -1340,6 +1401,10 @@ void Delay::copyToBuffer(CExpr src, std::string insertPosition, bool imag, std::
                     ", " + copySize + ");");
         }else{
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Copy Type", getSharedPointer()));
+        }
+
+        if(src.isCompressedType()){
+            cStatementQueue.insert(cStatementQueue.end(), compressedForLoopClose.begin(), compressedForLoopClose.end());
         }
     }
 }

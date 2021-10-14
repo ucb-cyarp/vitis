@@ -103,6 +103,15 @@ public:
     std::string getExprIndexed(std::vector<std::string> &indexExprs, bool deref);
 
     bool isRepeatType();
+
+    /**
+     * @brief Indicates if this is a compressed expression
+     *
+     * Expressions of this type need to be handled carefully if relying on functions such as memcpy which
+     * are expecting uncompressed expressions.
+     * @return
+     */
+    bool isCompressedType();
 };
 
 /*! @} */

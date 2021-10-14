@@ -151,9 +151,9 @@ std::string CExpr::getExprIndexed(std::vector<std::string> &indexExprs, bool der
             //We just ignore the outer index
             std::vector<std::string> indexExprReduced = indexExprs;
             indexExprReduced.erase(indexExprReduced.begin());
-            if(indexExprReduced.empty()){
+            if(indexExprReduced.empty() && deref){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("ARRAY_REPEAT expects, >1 dimension being indexed into"));
-            }
+            }//Allow fewer than expected dimensions if not de-referencing
 
             std::string str = expr;
             if(deref){
@@ -217,4 +217,13 @@ bool CExpr::isReferenceExpr() const {
 
 void CExpr::setIsReferenceExpr(bool isReferenceExpr) {
     CExpr::referenceExpr = isReferenceExpr;
+}
+
+bool CExpr::isCompressedType() {
+    return exprType == ExprType::ARRAY_HANKEL_COMPRESSED ||
+           exprType == ExprType::CIRCULAR_BUFFER_HANKEL_COMPRESSED ||
+           exprType == ExprType::ARRAY_REPEAT ||
+           exprType == ExprType::SCALAR_EXPR_REPEAT ||
+           exprType == ExprType::SCALAR_VAR_REPEAT;
+
 }
