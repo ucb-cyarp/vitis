@@ -271,6 +271,23 @@ namespace GraphAlgs {
                                                 std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                 bool includeContext);
 
+    /**
+     * @brief Traces nodes which are dependent on the result of this node (assuming it is an array type)
+     *
+     * @note This function is a bit pessimistic in that it assumes that all nodes are passing array data.  It is not
+     *       sufficient to simply check if the datatype is a vector since a node like a select could index into
+     *       an array and produce a scalar expression.  To be less conservative, analysis of the compute graph
+     *       would need to be conducted to indicate which arcs contain expressions based on state variables
+     *       which would need to be
+     *
+     * @note While the
+     *
+     *
+     * @param statefulNode
+     * @return
+     */
+    std::set<std::shared_ptr<Node>> traceDependentNodesThroughPassthrough(std::shared_ptr<Node> statefulNode);
+
     std::shared_ptr<SubSystem> findMostSpecificCommonAncestor(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
 
     /**

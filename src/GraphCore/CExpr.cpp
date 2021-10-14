@@ -7,23 +7,27 @@
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
 
-CExpr::CExpr() : expr(""), exprType(ExprType::SCALAR_EXPR), vecLen(0), repeatStride(0){
+CExpr::CExpr() : expr(""), exprType(ExprType::SCALAR_EXPR), vecLen(0), repeatStride(0), referenceExpr(false){
 
 }
 
-CExpr::CExpr(std::string expr, ExprType exprType) : expr(expr), exprType(exprType), vecLen(0), repeatStride(0){
+CExpr::CExpr(std::string expr, ExprType exprType) : expr(expr), exprType(exprType), vecLen(0), repeatStride(0), referenceExpr(false){
 
 }
 
-CExpr::CExpr(std::string expr, int vecLen, std::string offsetVar) : expr(expr), exprType(ExprType::CIRCULAR_BUFFER_ARRAY), vecLen(vecLen), offsetVar(offsetVar), repeatStride(0) {
+CExpr::CExpr(std::string expr, ExprType exprType, bool referenceExpr) : expr(expr), exprType(exprType), vecLen(0), repeatStride(0), referenceExpr(referenceExpr){
 
 }
 
-CExpr::CExpr(std::string expr, std::string offsetVar) : expr(expr), exprType(ExprType::ARRAY_HANKEL_COMPRESSED), offsetVar(offsetVar), repeatStride(0) {
+CExpr::CExpr(std::string expr, int vecLen, std::string offsetVar) : expr(expr), exprType(ExprType::CIRCULAR_BUFFER_ARRAY), vecLen(vecLen), offsetVar(offsetVar), repeatStride(0), referenceExpr(false) {
 
 }
 
-CExpr::CExpr(std::string expr, int vecLen, int repeatStride, ExprType exprType) : expr(expr), exprType(exprType), vecLen(vecLen), repeatStride(repeatStride) {
+CExpr::CExpr(std::string expr, std::string offsetVar) : expr(expr), exprType(ExprType::ARRAY_HANKEL_COMPRESSED), offsetVar(offsetVar), repeatStride(0), referenceExpr(false) {
+
+}
+
+CExpr::CExpr(std::string expr, int vecLen, int repeatStride, ExprType exprType) : expr(expr), exprType(exprType), vecLen(vecLen), repeatStride(repeatStride), referenceExpr(false) {
     if(!isRepeatType()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Repeat Type"));
     }
@@ -205,4 +209,12 @@ void CExpr::setRepeatStride(int repeatStride) {
 
 bool CExpr::isRepeatType() {
     return exprType == ExprType::ARRAY_REPEAT || exprType == ExprType::SCALAR_VAR_REPEAT || exprType == ExprType::SCALAR_EXPR_REPEAT;
+}
+
+bool CExpr::isReferenceExpr() const {
+    return referenceExpr;
+}
+
+void CExpr::setIsReferenceExpr(bool isReferenceExpr) {
+    CExpr::referenceExpr = isReferenceExpr;
 }

@@ -661,9 +661,10 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     new_nodes.push_back(stateUpdate);
 
     //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
-    std::set<std::shared_ptr<Node>> connectedOutNodes = statefulNode->getConnectedOutputNodes();
+    //In addition, check for dependent nodes via passthroughs
+    std::set<std::shared_ptr<Node>> dependentOutNodes = traceDependentNodesThroughPassthrough(statefulNode);
 
-    for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
+    for(auto it = dependentOutNodes.begin(); it != dependentOutNodes.end(); it++){
         std::shared_ptr<Node> connectedOutNode = *it;
         std::string name = connectedOutNode->getFullyQualifiedName();
         if(connectedOutNode == nullptr){
@@ -679,6 +680,39 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     new_arcs.push_back(orderConstraint);
 
     return true;
+}
+
+std::set<std::shared_ptr<Node>> GraphAlgs::traceDependentNodesThroughPassthrough(std::shared_ptr<Node> statefulNode){
+    std::set<std::shared_ptr<Node>> dependentNodes;
+
+    std::vector<std::shared_ptr<Node>> nodesToInspect = {statefulNode};
+    std::set<std::shared_ptr<Node>> inspectedNodes;
+
+    while(!nodesToInspect.empty()){
+        //Doing this traversal DFS style
+        std::shared_ptr<Node> node = nodesToInspect.back();
+        nodesToInspect.pop_back();
+        inspectedNodes.insert(node);
+
+        //Add nodes at the output of this node to the dependentNodes list
+        std::set<std::shared_ptr<Node>> outNodes = node->getConnectedOutputNodes();
+        for(const std::shared_ptr<Node> &dstNode : outNodes){
+            dependentNodes.insert(dstNode);
+        }
+
+        //Add them to the nodes to inspect if they passthrough
+        for(const std::shared_ptr<Node> &dstNode : outNodes){
+            if(dstNode->passesThroughInputs()){
+                if(GeneralHelper::contains(dstNode, inspectedNodes)){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected cycle when detecting passthrough dependencies"));
+                }else{
+                    nodesToInspect.push_back(dstNode);
+                }
+            }
+        }
+    }
+
+    return dependentNodes;
 }
 
 std::shared_ptr<SubSystem> GraphAlgs::findMostSpecificCommonAncestor(std::shared_ptr<Node> a, std::shared_ptr<Node> b){

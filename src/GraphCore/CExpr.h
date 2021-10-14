@@ -38,10 +38,14 @@ private:
 
     int repeatStride; ///<The number of outer dimensions between elements
 
+    bool referenceExpr; ///< Indicates that this cExpr is a reference expr
+
 
 public:
     CExpr();
     CExpr(std::string expr, ExprType exprType);
+    CExpr(std::string expr, ExprType exprType, bool referenceExpr);
+
     /**
      * @brief When defining circular buffers, this allows the vector length and offset variable to be specified
      * @param expr pointer to the front of the buffer
@@ -74,6 +78,8 @@ public:
     void setOffsetVar(const std::string &offsetVar);
     int getRepeatStride() const;
     void setRepeatStride(int repeatStride);
+    bool isReferenceExpr() const;
+    void setIsReferenceExpr(bool isReferenceExpr);
 
     /**
      * @brief Check if the CExpr is a variable (ie. not a scalar expression)

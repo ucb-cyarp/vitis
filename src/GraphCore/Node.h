@@ -904,6 +904,19 @@ public:
     virtual bool hasCombinationalPath();
 
     /**
+     * @brief Indicates if the node passes through expressions of array inputs at its input instead of effectively making a copy of the input.
+     *
+     * If this is true, and the input is a state element or the passthrough from a state element, StateUpdate nodes for the state
+     * element need to be dependent on the completion of this node and its successors.
+     *
+     * @note: It is not sufficient to check if the input type is an array because a select type block could
+     *        still pass through an array value but reduce the dimensions of the output to be scalar.
+     *
+     * @return
+     */
+    virtual bool passesThroughInputs();
+
+    /**
      * @brief If this node has state, get the corresponding StateUpdate node(s)
      * @return A pointer to the StateUpdate node if this node has state, nullptr if this node does not have state
      */

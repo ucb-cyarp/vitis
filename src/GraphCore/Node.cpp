@@ -497,6 +497,11 @@ bool Node::hasCombinationalPath(){
     return true;
 }
 
+bool Node::passesThroughInputs(){
+    //Default to return false
+    return false;
+}
+
 bool Node::canBreakBlockingDependency(int localSubBlockingLength){
     //Default is to return false
     return false;

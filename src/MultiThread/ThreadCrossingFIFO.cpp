@@ -648,6 +648,8 @@ bool ThreadCrossingFIFO::createStateUpdateNode(std::vector<std::shared_ptr<Node>
                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                bool includeContext) {
+    //Do not check Node::passesThroughInputs since this does not create StateUpdate elements
+
     return false;
 }
 

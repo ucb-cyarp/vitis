@@ -108,6 +108,8 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
         throw std::runtime_error(ErrorHelpers::genErrorStr("UpsampleOutput StateUpdate creation requires contexts to be present and includeContexts to be enabled", getSharedPointer()));
     }
 
+    //Do not check Node::passesThroughInputs since this StateUpdate is used to implement Latch like behavior with the destination being the state element
+
     //==== Add Latch State Update Node.  This is the same as RepeatOutput ====
     std::shared_ptr<StateUpdate> stateUpdateLatch = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdateLatch->setName("StateUpdate-For-" + getName() + "-Latch");

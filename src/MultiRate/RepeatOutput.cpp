@@ -130,6 +130,8 @@ bool RepeatOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     //The state update node will not be directly dependent on this port since
     //any singal feeding into the EnableOutput had to pass through an enable input
 
+    //Do not check Node::passesThroughInputs since this StateUpdate is used to implement Latch like behavior with the destination being the state element
+
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdate->setName("StateUpdate-For-"+getName());
     stateUpdate->setPartitionNum(partitionNum);
