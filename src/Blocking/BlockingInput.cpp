@@ -215,11 +215,24 @@ BlockingInput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams:
             if(subBlockingLen != 1){
                 throw std::runtime_error(ErrorHelpers::genErrorStr("When blocking length is 1, sub-blocking length must also be 1", getSharedPointer()));
             }
+
+            if(inputDT != outputType){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When blocking length is 1, sub-blocking length must also be 1 and the input and output types should be the same", getSharedPointer()));
+            }
+
+            //Just pass through the expression
+            outputExpr = inputExpr.getExpr();
         }
 
         outputExpr = "(" + outputExpr + ")";
 
         cStatementQueue.push_back("//Blocking Input Passthrough Expression: " + outputExpr);
+
+        //Changes any incoming expression type (compressed or not) to the ARRAY type.
+        //Only works if the compressed type is reduced to a non-compressed type after the indexing of the
+        //first dimension done above.
+
+        //TODO: If additional compressed types are later added, revisit this logic
 
         return CExpr(outputExpr, CExpr::ExprType::ARRAY, true);
     }
