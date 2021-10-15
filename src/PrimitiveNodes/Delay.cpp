@@ -1010,6 +1010,12 @@ bool Delay::usesCircularBuffer() {
         if(delayValue>2){
             return true;
         }
+
+        //For tapped delay
+        if(allocateExtraSpace && delayValue>1){
+            return true;
+        }
+
         return false;
     }else if(bufferImplementation == BufferType::SHIFT_REGISTER){
         return false;
