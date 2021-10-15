@@ -6,6 +6,7 @@
 #include "TappedDelay.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include <iostream>
 
 #define CIRC_BUFF_TYPE CircularBufferType::DOUBLE_LEN
 
@@ -567,6 +568,7 @@ void TappedDelay::specializeForBlocking(int localBlockingLength, int localSubBlo
 
     bool hasRst = inputPorts.size() > 1;
     if(hasRst || earliestFirst || !usesCircularBuffer() || circularBufferType != CircularBufferType::DOUBLE_LEN){
+        std::cerr << ErrorHelpers::genWarningStr("Tapped Delay Configured in a Manner That Does not Allow Blocking Optimization.  Make sure that the oldest value is presented first and a reset is not used.", getSharedPointer()) << std::endl;
         //Just wrap the tapped delay i
         Node::specializeForBlocking(localBlockingLength,
                                     localSubBlockingLength,
