@@ -773,6 +773,11 @@ std::string ThreadCrossingFIFO::createFIFOStruct(){
         int blockSize = getBlockSizeCreateIfNot(i);
         DataType blockStateDT = stateDT.expandForBlock(blockSize);
 
+        //Create a comment for the src and dst
+        std::shared_ptr<OutputPort> src = (*inputPorts[i]->getArcs().begin())->getSrcPort();
+        structStr += "//From Orig: " + src->getParent()->getFullyQualifiedOrigName() + " [Port " + GeneralHelper::to_string(src->getPortNum()) + "]\n";
+        structStr += "//From: " + src->getParent()->getFullyQualifiedName() + " [Port " + GeneralHelper::to_string(src->getPortNum()) + "]\n";
+
         //There are possibly 2 entries per port
         structStr += stateDT.toString(DataType::StringStyle::C) + " port" + GeneralHelper::to_string(i) + "_real" +
                      blockStateDT.dimensionsToString(true) + ";\n";
