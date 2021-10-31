@@ -67,12 +67,15 @@ void DSPTestHelper::runMultithreadGenForSinglePartitionDefaultSettings(Design &d
 
     FileIOHelpers::createDirectoryIfDoesNotExist(outputDir, true);
 
+    bool propagateSubBlockingLengthFromSubSystems = false;
+
     //Set to single partition
     design.setSinglePartition(0);
 
     MultiThreadGenerator::emitMultiThreadedC(design, outputDir, designName, designName, sched, topoParams,
                                              fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize,
-                                             subBlockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint,
+                                             subBlockSize, propagatePartitionsFromSubsystems, propagateSubBlockingLengthFromSubSystems,
+                                             partitionMap, threadDebugPrint,
                                              ioFifoSize, printTelem, telemDumpPrefix, telemLevel,
                                              telemCheckBlockFreq, telemReportPeriodSec, memAlignment,
                                              useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer,
