@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
     TopologicalSortParameters::Heuristic heuristic = TopologicalSortParameters::Heuristic::BFS;
     unsigned long randSeed = 4;
     unsigned long blockSize = 1;
-    unsigned long subBlockSize = 1;
+    unsigned long subBlockSize = 0;
     unsigned long fifoLength = 16;
     unsigned long ioFifoSize = 16;
     std::vector<int> partitionMap;
@@ -402,11 +402,15 @@ int main(int argc, char* argv[]) {
 
     FileIOHelpers::createDirectoryIfDoesNotExist(outputDir, true);
 
+    bool propagateSubBlockingLengthFromSubSystems = subBlockSize<1;
+
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
         MultiThreadGenerator::emitMultiThreadedC(*design, outputDir, designName, designName, sched, topoParams,
                                                  fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize,
-                                                 subBlockSize, propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint,
+                                                 subBlockSize, propagatePartitionsFromSubsystems,
+                                                 propagateSubBlockingLengthFromSubSystems,
+                                                 partitionMap, threadDebugPrint,
                                                  ioFifoSize, printTelem, telemDumpPrefix, telemLevel,
                                                  telemCheckBlockFreq, telemReportPeriodSec, memAlignment,
                                                  useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer,

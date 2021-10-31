@@ -470,7 +470,8 @@ void InnerProduct::specializeForBlocking(int localBlockingLength,
                                          std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                          std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                          std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                         std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+                                         std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                             &arcsWithDeferredBlockingExpansion) {
     //The inner product specialization is very similar to the built-in Laminar specilization.
     //The exceptions are that the BlockingBoundary nodes are not inserted and the loops are interchanged.  The
     //blocking is the inner loop while the sum is the outer loop.  This allows the same set of coefficients to be used
@@ -484,13 +485,6 @@ void InnerProduct::specializeForBlocking(int localBlockingLength,
 
     subBlockingLength = localBlockingLength; //The sub-blocking length should
 
-    //The input arcs should be expanded to the block length
-    std::set<std::shared_ptr<Arc>> directInArcs = getDirectInputArcs();
-    std::set<std::shared_ptr<Arc>> directOutArcs = getDirectOutputArcs();
-    std::set<std::shared_ptr<Arc>> arcsToExpand = directInArcs;
-    arcsToExpand.insert(directOutArcs.begin(), directOutArcs.end());
-
-    for(const std::shared_ptr<Arc> &arc : arcsToExpand) {
-        arcsWithDeferredBlockingExpansion.emplace(arc, localBlockingLength);
-    }
+    //The arcs should be expanded to the block length
+    BlockingHelpers::requestDeferredBlockingExpansionOfNodeArcs(getSharedPointer(), localBlockingLength, localBlockingLength, arcsWithDeferredBlockingExpansion);
 }

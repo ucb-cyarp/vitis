@@ -54,9 +54,10 @@ namespace GraphAlgs {
      * @param marks A map containing the marks for each arc.  A arc is considered marked if the value returned from the map is true.  This will be modified during the call
      * @param stopAtPartitionBoundary if true, context discovery stops at nodes in another partition.  This is useful to avoid communication cycles created during context discovery
      * @param checkForContextBarriers if true, context discovery stops at special nodes whose names indicate that they are context expansion barriers
+     * @param stopAtPartitionBoundary if true, context discovery stops at nodes which have a different base sub-blocking length than the node being traced from
      * @return The set of nodes in the port's context
      */
-    std::set<std::shared_ptr<Node>> scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers);
+    std::set<std::shared_ptr<Node>> scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers, bool stopAtDifferentBaseSubBlockingLength);
 
     /**
      * @brief Traces forward from a port through the design graph to discover a port's context, stopping at state elements and enabled subsystem boundaries.
@@ -77,7 +78,7 @@ namespace GraphAlgs {
      * @param checkForContextBarriers if true, context discovery stops at special nodes whose names indicate that they are context expansion barriers
      * @return The set of nodes in the port's context
      */
-    std::set<std::shared_ptr<Node>> scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers);
+    std::set<std::shared_ptr<Node>> scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers, bool stopAtDifferentBaseSubBlockingLength);
 
     /**
      * @brief Moves a node from its current position in the hierarchy to a position under another subsystem.
@@ -248,6 +249,13 @@ namespace GraphAlgs {
     std::vector<std::shared_ptr<Node>> findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch, int partitionNum);
 
     /**
+     * @brief Recursively finds nodes in a hierarchy starting from a list of provided nodes.  Subsystems are searched.  Nodes which are context roots and subsystems are included but not searched into
+     * @param nodesToSearch a list of nodes to search
+     * @return a list of found nodes
+     */
+    std::vector<std::shared_ptr<Node>> findNodesStopAtContextRootSubsystems(std::vector<std::shared_ptr<Node>> nodesToSearch);
+
+    /**
      * @brief Creates a the StateUpdate node for the given node (in the style of Delay)
      *
      *
@@ -353,7 +361,7 @@ namespace GraphAlgs {
             std::shared_ptr<SubSystem> parent = cursor->getParent();
 
             if(GeneralHelper::isType<Node, DomainType>(parent)){
-                domain = std::static_pointer_cast<DomainType>(parent);
+                domain = std::dynamic_pointer_cast<DomainType>(parent);
                 cursor = nullptr;
             }else if(GeneralHelper::isType<Node, ContextFamilyContainer>(parent)){
                 std::shared_ptr<ContextFamilyContainer> parentAsContextFamilyContainer = std::dynamic_pointer_cast<ContextFamilyContainer>(parent);
@@ -509,6 +517,13 @@ namespace GraphAlgs {
      * @return
      */
     int findPartitionInSubSystem(std::shared_ptr<SubSystem> subsystem);
+
+    /**
+     * @brief Finds a sub-blocking length which exists inside of the subsystem (not including itself) which is not -1 (if one exists).  Otherwise, returns -1
+     * @param subsystem
+     * @return
+     */
+    int findBaseSubBlockingLengthInSubsystem(std::shared_ptr<SubSystem> subsystem);
 
 };
 

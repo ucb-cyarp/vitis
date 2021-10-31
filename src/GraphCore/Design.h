@@ -428,6 +428,11 @@ public:
     void setSinglePartition(int partitionNum = 0);
 
     /**
+     * @brief When generating a design, allows setting all the nodes in the design to a single sub-blocking length.
+     */
+    void setSingleBaseSubBlockingLen(int baseSubBlockingLength);
+
+    /**
      * @brief Discovers directional crossings between nodes in different partitions
      *
      * This can be used to discover where inter-partition FIFOs are needed.
@@ -471,11 +476,11 @@ public:
      * parition.  Instead of creating a FIFO for each arc, a single FIFO should be created with the fanout occuring within
      * the second parition.  This function finds arcs which can be combined into single FIFOs in this manner.
      *
-     * @param checkForToFromNoPartition if true, checks for arcs going to/from nodes in partition -1 and throws an error if this is encountered.  Arcs between 2 nodes in partition -1 will not cause an error
+     * @param checkForToFromNoPartition if true, checks for arcs going to/from nodes in partition -1 and throws an error if this is encountered.  Arcs between 2 nodes in partition -1 will not cause an error.  Also checks if the destination has no base sub-block size
      *
      * @return A map of vectors which contain groups arcs that go from the nodes in one partition to nodes in another partition.  Groups can contain one or several arcs
      */
-    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> getGroupableCrossings(bool checkForToFromNoPartition = true);
+    std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> getGroupableCrossings(bool checkForToFromNoPartitionToNoBaseBlockSize = true);
 
     //TODO: Validate that mux contexts do not contain state elements
 

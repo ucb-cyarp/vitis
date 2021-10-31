@@ -302,3 +302,23 @@ void DesignPasses::assignPartitionsToUnassignedSubsystems(Design &design, bool p
         }
     }
 }
+
+void DesignPasses::assignSubBlockingLengthToUnassignedSubsystems(Design &design, bool printWarning, bool errorIfUnableToSet){
+    std::vector<std::shared_ptr<Node>> nodes = design.getNodes();
+
+    for(const std::shared_ptr<Node> &node : nodes){
+        std::shared_ptr<SubSystem> asSubsys = GeneralHelper::isType<Node, SubSystem>(node);
+        if(asSubsys){
+            if(asSubsys->getBaseSubBlockingLen() == -1){
+                int subBlockingLength = GraphAlgs::findBaseSubBlockingLengthInSubsystem(asSubsys);
+                if(subBlockingLength == -1 && errorIfUnableToSet){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find base sub-blocking length for Subsystem.  Ensure that there is at least one node nested in the subsystem which has a partition assigned"));
+                }
+                asSubsys->setBaseSubBlockingLen(subBlockingLength);
+                if(printWarning){
+                    std::cerr << ErrorHelpers::genWarningStr("Setting Unassigned Subsystem (" + asSubsys->getName() + ") Base Sub-Blocking Length " + GeneralHelper::to_string(subBlockingLength), asSubsys) << std::endl;
+                }
+            }
+        }
+    }
+}

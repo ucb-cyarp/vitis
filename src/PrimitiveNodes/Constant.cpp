@@ -229,7 +229,8 @@ void Constant::specializeForBlocking(int localBlockingLength, int localSubBlocki
                                      std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                      std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                      std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                     std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+                                     std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                         &arcsWithDeferredBlockingExpansion) {
     //TODO: Refactor?
     if(localSubBlockingLength != 1){
         throw std::runtime_error(ErrorHelpers::genErrorStr("When specializing for blocking, currently expect the sub-blocking length to be 1.  This is consistent with inserting sub-blocking domains", getSharedPointer()));

@@ -111,6 +111,7 @@ namespace BlockingHelpers {
      * @param blockingDomainParent
      * @param blockingLength
      * @param subBlockingLength
+     * @param baseSubBlockingLength the base sub-blocking length (outside of any clock domain) of the nodes contained within
      * @param blockingName
      * @param nodesToAdd
      * @param arcsToAdd
@@ -123,11 +124,23 @@ namespace BlockingHelpers {
                                     std::shared_ptr<SubSystem> blockingDomainParent,
                                     int blockingLength,
                                     int subBlockingLength,
+                                    int baseSubBlockingLength,
                                     std::string blockingName,
                                     std::vector<std::shared_ptr<Node>> &nodesToAdd,
                                     std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                     std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                    std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                    std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                        &arcsWithDeferredBlockingExpansion);
+
+    /**
+     * @brief Propagates sub-blocking length to nodes and propagates down.  Subsystems can specify a sub-blocking length for their descendants
+     *
+     * @param nodes
+     * @param partition
+     */
+    void propagateSubBlockingFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int baseSubBlockingLength);
+
+    void requestDeferredBlockingExpansionOfNodeArcs(std::shared_ptr<Node> node, int inExpansion, int outExpansion, std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion);
 };
 
 /*! @} */

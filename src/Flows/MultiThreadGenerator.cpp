@@ -29,7 +29,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
                                 SchedParams::SchedType schedType, TopologicalSortParameters schedParams,
                                 ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType, bool emitGraphMLSched,
                                 bool printSched, int fifoLength, unsigned long blockSize, unsigned long subBlockSize,
-                                bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap, bool threadDebugPrint,
+                                bool propagatePartitionsFromSubsystems, bool propagateSubBlockingFromSubsystems,
+                                std::vector<int> partitionMap, bool threadDebugPrint,
                                 int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
                                 EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
                                 unsigned long memAlignment, bool useSCHEDFIFO,
@@ -46,10 +47,21 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     design.getInputMaster()->setPartitionNum(IO_PARTITION_NUM);
     design.getOutputMaster()->setPartitionNum(IO_PARTITION_NUM);
     design.getVisMaster()->setPartitionNum(IO_PARTITION_NUM);
+    //Do not set a base sub-blocking length for the I/O nodes
 
     //==== Propagate Properties from Subsystems ====
     if(propagatePartitionsFromSubsystems){
         MultiThreadPasses::propagatePartitionsFromSubsystemsToChildren(design);
+    }
+
+    if(subBlockSize >= 1){
+        //The sub-block size was specified in the compiler parameters, override the
+        std::cerr << ErrorHelpers::genWarningStr("Sub-Blocking Length Specified in CLI Parameters, Overrides any Granular Sub-block Length Settings in Design") << std::endl;
+        design.setSingleBaseSubBlockingLen(subBlockSize);
+    }
+
+    if(propagateSubBlockingFromSubsystems){
+        DomainPasses::propagateSubBlockingFromSubsystemsToChildren(design);
     }
 
     //==== Prune ====
@@ -119,6 +131,8 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //With blocking now being accomplished by blocking domains, these subsystems need to be assigned a partition
     DesignPasses::assignPartitionsToUnassignedSubsystems(design, true, true);
 
+    DesignPasses::assignSubBlockingLengthToUnassignedSubsystems(design, true, true);
+
     //==== Context Encapsulation Preparation (Organizing Contexts and Dealing with Contexts that Cross Partitions) ====
     //Assign EnableNodes to partitions do before encapsulation and Context/StateUpdate node creation, but after EnabledSubsystem expansion so that EnableNodes are moved/created/deleted as appropriate ahead of time
     ContextPasses::placeEnableNodesInPartitions(design);
@@ -149,7 +163,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
     //      When handling clock domains under the blocking domain, if they are set to process in a vector fashion, the counter logic should be supporessed
     //      This should remove the need to check if a partition only operates at a certain clock rate.
     //      For FIFOs in the clock domain, they should be passing Vectors of the expected size
-    DomainPasses::blockAndSubBlockDesign(design, blockSize, subBlockSize);
+    DomainPasses::blockAndSubBlockDesign(design, blockSize);
 
     DomainPasses::setMasterBlockSizesBasedOnPortClockDomain(design, blockSize);
 
@@ -353,7 +367,7 @@ void MultiThreadGenerator::emitMultiThreadedC(Design &design, std::string path, 
             }
             clkDomainDescr += "]";
 
-            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Items): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/(fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getSubBlockSizeCreateIfNot(0))/fifoVec[i]->getBlockSizeCreateIfNot(0) << ", Clock Domain(s): " << clkDomainDescr << std::endl;
+            std::cout << "FIFO: " << fifoVec[i]->getName() << ", Length (Blocks): " << fifoVec[i]->getFifoLength() << ", Length (Items): " << (fifoVec[i]->getFifoLength()*fifoVec[i]->getTotalBlockSizeAllPorts()) << ", Initial Conditions (Blocks): " << fifoVec[i]->getInitConditionsCreateIfNot(0).size()/(fifoVec[i]->getOutputPort(0)->getDataType().numberOfElements()/fifoVec[i]->getSubBlockSizeOutCreateIfNot(0))/fifoVec[i]->getBlockSizeCreateIfNot(0) << ", Clock Domain(s): " << clkDomainDescr << std::endl;
         }
     }
     std::cout << std::endl;

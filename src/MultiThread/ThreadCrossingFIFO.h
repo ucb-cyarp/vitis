@@ -42,8 +42,14 @@ protected:
     std::vector<std::vector<NumericValue>> initConditions; ///<Initial values for this FIFO (in elements).  The FIFO will be initialized to contain these values.  Size must be a multiple of the block size.  The outer vector is across input/output port pairs.  The inner vector contains the initial conditions for the given port pair.
 
     //TODO: Need to set the block size according to the block domains and clock domains.  Note that, if the lowest level clock domain is not using vector mode, the block size is defined by the relative rate of this domain.  The sub-blocking size is set to 1 in this case.
-    std::vector<int> blockSizes; ///<The block sizes (in items) of transactions to/from each input/output pair of the FIFO.  It is possible for different ports to have different block sizes due to clock domains and blocking domains
-    std::vector<int> subBlockSizes; ///<The sub-block sizes (in items) of transactions.  This is how many elements are accessed at a time.  This should be the size of the outer dimension of the input and output type.  If the subBlockSizes are 1, the I/O dimension will have 1 fewer dimension
+    std::vector<int> blockSizes; ///<The block sizes (in items) of transactions to each input of the FIFO.  It is possible for different ports to have different block sizes due to clock domains and blocking domains
+    //Note, input and output should have the same block size.  However, they may have different sub-block sizes
+    std::vector<int> subBlockSizesIn; ///<The sub-block sizes (in items) of transactions.  This is how many elements are accessed at a time.  This should be the size of the outer dimension of the input and output type.  If the subBlockSizes are 1, the I/O dimension will have 1 fewer dimension
+    std::vector<int> baseSubBlockSizesIn; ///<The sub-block sizes of the nodes at the input of the FIFO
+
+    std::vector<int> subBlockSizesOut; ///<The sub-block sizes (in items) of transactions.  This is how many elements are accessed at a time.  This should be the size of the outer dimension of the input and output type.  If the subBlockSizes are 1, the I/O dimension will have 1 fewer dimension
+    std::vector<int> baseSubBlockSizesOut; ///<The sub-block sizes of the nodes at the outputs of the FIFO.  All outputs of a FIFO port must have the same base sub-blocking length
+
     std::vector<Variable> cStateVars; ///<The C variables from which values are read.  There is one per input/output port pair
     std::vector<Variable> cStateInputVars; ///<the C temporary variables holding data to be writen.  There is one per input/output pair
 
@@ -183,18 +189,35 @@ public:
 
     std::vector<int> getBlockSizes() const;
     int getBlockSizeCreateIfNot(int portNum);
-    std::vector<int> getSubBlockSizes() const;
-    int getSubBlockSizeCreateIfNot(int portNum);
+
+    std::vector<int> getSubBlockSizesIn() const;
+    int getSubBlockSizeInCreateIfNot(int portNum);
+    std::vector<int> getSubBlockSizesOut() const;
+    int getSubBlockSizeOutCreateIfNot(int portNum);
+
+    std::vector<int> getBaseSubBlockSizesIn() const;
+    int getBaseSubBlockSizeInCreateIfNot(int portNum);
+    std::vector<int> getBaseSubBlockSizesOut() const;
+    int getBaseSubBlockSizeOutCreateIfNot(int portNum);
+
+    void setBlockSizes(const std::vector<int> &blockSizes);
+    void setBlockSize(int portNum, int blockSize);
+
+    void setSubBlockSizesIn(const std::vector<int> &subBlockSizes);
+    void setSubBlockSizeIn(int portNum, int subBlockSize);
+    void setSubBlockSizesOut(const std::vector<int> &subBlockSizes);
+    void setSubBlockSizeOut(int portNum, int subBlockSize);
+
+    void setBaseSubBlockSizesIn(const std::vector<int> &baseSubBlockSizes);
+    void setBaseSubBlockSizeIn(int portNum, int baseSubBlockSize);
+    void setBaseSubBlockSizesOut(const std::vector<int> &baseSubBlockSizes);
+    void setBaseSubBlockSizeOut(int portNum, int baseSubBlockSize);
 
     /**
      * @brief Gets the number of elements in a block across all ports
      * @return
      */
     int getTotalBlockSizeAllPorts();
-    void setBlockSizes(const std::vector<int> &blockSizes);
-    void setBlockSize(int portNum, int blockSize);
-    void setSubBlockSizes(const std::vector<int> &subBlockSizes);
-    void setSubBlockSize(int portNum, int subBlockSize);
 
     //====Factories====
     //createFromGraphML needs to be implemented in non-abstract decendents of this class

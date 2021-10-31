@@ -8,6 +8,8 @@
 #include "General/EmitterHelpers.h"
 #include <iostream>
 
+#include "Blocking/BlockingHelpers.h"
+
 #define CIRC_BUFF_TYPE CircularBufferType::DOUBLE_LEN
 
 TappedDelay::TappedDelay() : Delay(){
@@ -560,7 +562,8 @@ void TappedDelay::specializeForBlocking(int localBlockingLength, int localSubBlo
                                         std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                         std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                         std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                        std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+                                        std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                            &arcsWithDeferredBlockingExpansion) {
 
     //For now, we will assume that, for block sizes > 1, circular buffers are being used with double array.  earliestFirst=false
     //allocation.
@@ -583,12 +586,7 @@ void TappedDelay::specializeForBlocking(int localBlockingLength, int localSubBlo
         transactionBlockSize = localBlockingLength;
 
         //For the arcs into an out of the delay, mark them for dimension expansion by the local blocking length
-        std::set<std::shared_ptr<Arc>> arcs = getDirectInputArcs();
-        std::set<std::shared_ptr<Arc>> outArcs = getDirectOutputArcs();
-        arcs.insert(outArcs.begin(), outArcs.end());
-        for(const std::shared_ptr<Arc> arc : arcs){
-            arcsWithDeferredBlockingExpansion[arc] = localBlockingLength;
-        }
+        BlockingHelpers::requestDeferredBlockingExpansionOfNodeArcs(getSharedPointer(), localBlockingLength, localBlockingLength, arcsWithDeferredBlockingExpansion);
     }
 }
 

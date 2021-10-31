@@ -22,7 +22,7 @@
 #include <random>
 
 std::set<std::shared_ptr<Node>>
-GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers) {
+GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers, bool stopAtDifferentBaseSubBlockingLength) {
     std::set<std::shared_ptr<Node>> contextNodes;
 
     //Get the set of arcs connected to this input port
@@ -48,11 +48,20 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
             blockedByPartitionBoundary = srcNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
         }
 
+        bool blockedByBaseSubBlockingLengthBoundary = false;
+        if(stopAtDifferentBaseSubBlockingLength){
+            blockedByBaseSubBlockingLengthBoundary = srcNode->getBaseSubBlockingLen() != traceFrom->getParent()->getBaseSubBlockingLen();
+        }
+
         if(blockedByPartitionBoundary && !blockedByStateOrType && !contextExpandBarrier){
             std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Partition Boundary: [" + GeneralHelper::to_string(srcNode->getPartitionNum()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getPartitionNum()) + "] " + srcNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
         }
 
-        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier){
+        if(blockedByBaseSubBlockingLengthBoundary && !blockedByStateOrType && !contextExpandBarrier){
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Base Sub-Blocking Length Boundary: [" + GeneralHelper::to_string(srcNode->getBaseSubBlockingLen()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getBaseSubBlockingLen()) + "] " + srcNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier && !blockedByBaseSubBlockingLengthBoundary){
             //The src node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -95,7 +104,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 
                 std::vector<std::shared_ptr<InputPort>> inputPorts = srcNode->getInputPortsIncludingSpecial();
                 for(unsigned long i = 0; i<inputPorts.size(); i++){
-                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceBackAndMark(inputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers);
+                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceBackAndMark(inputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers, stopAtDifferentBaseSubBlockingLength);
 
                     //combine the sets of marked nodes
                     contextNodes.insert(moreNodesInContext.begin(), moreNodesInContext.end());
@@ -112,7 +121,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 }
 
 std::set<std::shared_ptr<Node>>
-GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers){
+GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers, bool stopAtDifferentBaseSubBlockingLength){
     std::set<std::shared_ptr<Node>> contextNodes;
 
     //Get the set of arcs connected to this output port
@@ -138,11 +147,20 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
             blockedByPartitionBoundary = dstNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
         }
 
+        bool blockedByBaseSubBlockingLengthBoundary = false;
+        if(stopAtDifferentBaseSubBlockingLength){
+            blockedByBaseSubBlockingLengthBoundary = dstNode->getBaseSubBlockingLen() != traceFrom->getParent()->getBaseSubBlockingLen();
+        }
+
         if(blockedByPartitionBoundary && !blockedByStateOrType && !contextExpandBarrier){
             std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Partition Boundary: [" + GeneralHelper::to_string(dstNode->getPartitionNum()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getPartitionNum()) + "] " + dstNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
         }
 
-        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier){
+        if(blockedByBaseSubBlockingLengthBoundary && !blockedByStateOrType && !contextExpandBarrier){
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Base Sub-Blocking Length Boundary: [" + GeneralHelper::to_string(dstNode->getBaseSubBlockingLen()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getBaseSubBlockingLen()) + "] " + dstNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier && !blockedByBaseSubBlockingLengthBoundary){
             //The dst node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -185,7 +203,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 
                 std::vector<std::shared_ptr<OutputPort>> outputPorts = dstNode->getOutputPorts();
                 for(unsigned long i = 0; i<outputPorts.size(); i++){
-                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceForwardAndMark(outputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers);
+                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceForwardAndMark(outputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers, stopAtDifferentBaseSubBlockingLength);
 
                     //combine the sets of marked nodes
                     contextNodes.insert(moreNodesInContext.begin(), moreNodesInContext.end());
@@ -247,6 +265,7 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
             std::shared_ptr<SubSystem> newSubsys = NodeFactory::createNode<SubSystem>(cursorDown);
             newSubsys->setName(searchingForWSuffix);
             newSubsys->setPartitionNum(subsystemStack[ind]->getPartitionNum());
+            newSubsys->setBaseSubBlockingLen(subsystemStack[ind]->getBaseSubBlockingLen());
             newNodes.push_back(newSubsys);
             tgtSubsys = newSubsys;
         }
@@ -340,6 +359,31 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
             childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
             std::vector<std::shared_ptr<Node>> moreFoundNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+            foundNodes.insert(foundNodes.end(), moreFoundNodes.begin(), moreFoundNodes.end());
+        }else{
+            foundNodes.push_back(nodesToSearch[i]);
+        }
+    }
+
+    return foundNodes;
+}
+
+std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextRootSubsystems(std::vector<std::shared_ptr<Node>> nodesToSearch){
+    std::vector<std::shared_ptr<Node>> foundNodes;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        if(GeneralHelper::isType<Node, ContextRoot>(nodesToSearch[i]) != nullptr){//Check this first because ContextFamilyContainer are SubSystems
+            foundNodes.push_back(nodesToSearch[i]); //Do not recurse
+        }else if(GeneralHelper::isType<Node, SubSystem>(nodesToSearch[i]) != nullptr){
+            std::shared_ptr<SubSystem> subSystem = std::static_pointer_cast<SubSystem>(nodesToSearch[i]);
+            foundNodes.push_back(subSystem);
+            std::set<std::shared_ptr<Node>> childrenSetPtrOrder = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+            childrenSet.insert(childrenSetPtrOrder.begin(), childrenSetPtrOrder.end());
+            std::vector<std::shared_ptr<Node>> childrenVector;
+            childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
+
+            std::vector<std::shared_ptr<Node>> moreFoundNodes = GraphAlgs::findNodesStopAtContextRootSubsystems(childrenVector);
             foundNodes.insert(foundNodes.end(), moreFoundNodes.begin(), moreFoundNodes.end());
         }else{
             foundNodes.push_back(nodesToSearch[i]);
@@ -642,6 +686,7 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     //Create a state update node for this delay
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(statefulNode->getParent());
     stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
+    stateUpdate->setBaseSubBlockingLen(statefulNode->getBaseSubBlockingLen());
     stateUpdate->setPartitionNum(statefulNode->getPartitionNum());
     stateUpdate->setPrimaryNode(statefulNode);
     statefulNode->addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
@@ -1044,6 +1089,26 @@ int GraphAlgs::findPartitionInSubSystem(std::shared_ptr<SubSystem> subsystem){
         std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
         if(asSubsystem){
             return findPartitionInSubSystem(asSubsystem);
+        }
+    }
+
+    return -1;
+}
+
+int GraphAlgs::findBaseSubBlockingLengthInSubsystem(std::shared_ptr<SubSystem> subsystem){
+    std::set<std::shared_ptr<Node>> children = subsystem->getChildren();
+    for(const std::shared_ptr<Node> &child : children){
+        int childBaseSubBlockingLen = child->getBaseSubBlockingLen();
+        if(childBaseSubBlockingLen != -1){
+            return childBaseSubBlockingLen;
+        }
+    }
+
+    //If we could not find the partition directly from the children, try going into nested subsystems
+    for(const std::shared_ptr<Node> &child : children){
+        std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+        if(asSubsystem){
+            return findBaseSubBlockingLengthInSubsystem(asSubsystem);
         }
     }
 

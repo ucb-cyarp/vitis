@@ -612,6 +612,7 @@ std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool
     }else{
         //Create
         std::shared_ptr<DownsampleClockDomain> downsampleClockDomain = NodeFactory::createNode<DownsampleClockDomain>(parent);
+        downsampleClockDomain->setBaseSubBlockingLen(baseSubBlockingLen);
         nodesToAdd.push_back(downsampleClockDomain);
         specificClkDomain = downsampleClockDomain;
 

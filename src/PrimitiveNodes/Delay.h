@@ -135,10 +135,12 @@ protected:
                                        std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                        std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                        std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                       std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                           &arcsWithDeferredBlockingExpansion);
 
     void specializeForBlockingArcExpandOnly(int localBlockingLength,
-                                            std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                            std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                &arcsWithDeferredBlockingExpansion);
 
     /**
      * @brief A helper function for copying from an input expression to the delay buffer.  It respects the copyMethod
@@ -314,7 +316,8 @@ public:
                                std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                               std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
 
     bool specializesForBlocking() override;
 
@@ -339,7 +342,8 @@ public:
                                std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                               std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion);
 
 protected:
     void decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);

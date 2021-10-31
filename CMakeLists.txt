@@ -298,7 +298,7 @@ set(COMMON_SRCS
         src/Flows/MultiThreadGenerator.cpp
         src/Flows/MultiThreadGenerator.h
         src/Scheduling/IntraPartitionScheduling.cpp
-        src/Scheduling/IntraPartitionScheduling.h)
+        src/Scheduling/IntraPartitionScheduling.h src/Blocking/BlockingDomainBridge.cpp src/Blocking/BlockingDomainBridge.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)

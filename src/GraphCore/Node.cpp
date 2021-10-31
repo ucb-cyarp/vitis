@@ -26,14 +26,14 @@
 #include "Blocking/BlockingOutput.h"
 #include "Blocking/BlockingHelpers.h"
 
-Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
+Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), baseSubBlockingLen(-1)
 {
     parent = std::shared_ptr<SubSystem>(nullptr);
 
     //NOTE: CANNOT init ports here since we need a shared pointer to this object
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent) { }
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent), baseSubBlockingLen(-1) { }
 
 void Node::init() {
     //Init the order constraint ports.  It is ok for them to have no connected arcs
@@ -514,7 +514,7 @@ void Node::specializeForBlocking(int localBlockingLength,
                                  std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                  std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                  std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                 std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+                                 std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion) {
 
     //For now, error out if there are order constraint arcs
     //TODO: Possibly re-evaluate this decision
@@ -531,6 +531,7 @@ void Node::specializeForBlocking(int localBlockingLength,
             parent,
             localBlockingLength,
             localSubBlockingLength,
+            baseSubBlockingLen,
             "BlockingDomainFor_" + name + "_n" + GeneralHelper::to_string(id),
             nodesToAdd,
             arcsToAdd,
@@ -665,7 +666,7 @@ std::set<std::string> Node::getExternalIncludes(){
     return std::set<std::string>();
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder), origLocation(orig->origLocation) {
+Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder), origLocation(orig->origLocation), baseSubBlockingLen(orig->baseSubBlockingLen) {
 
 }
 
@@ -1566,4 +1567,12 @@ std::string Node::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
     fullName += componentName;
 
     return fullName;
+}
+
+int Node::getBaseSubBlockingLen() const {
+    return baseSubBlockingLen;
+}
+
+void Node::setBaseSubBlockingLen(int baseSubBlockingLen) {
+    Node::baseSubBlockingLen = baseSubBlockingLen;
 }

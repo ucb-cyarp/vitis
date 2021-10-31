@@ -15,6 +15,17 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include <iostream>
 #include <fstream>
+#include "Blocking/BlockingHelpers.h"
+#include "MultiRate/MultiRateHelpers.h"
+#include "MultiRate/RateChange.h"
+#include "GraphCore/EnableNode.h"
+#include "Blocking/BlockingOutput.h"
+#include "PrimitiveNodes/Mux.h"
+#include "GraphCore/ContextContainer.h"
+#include "GraphCore/ContextFamilyContainer.h"
+#include "Blocking/BlockingHelpers.h"
+#include "General/GraphAlgs.h"
+#include "GraphCore/EnabledSubSystem.h"
 
 std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
     std::vector<std::shared_ptr<Node>> nodesWithState;
@@ -1000,4 +1011,267 @@ std::string EmitterHelpers::telemetryLevelToString(EmitterHelpers::TelemetryLeve
         default:
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown TelemetryLevel"));
     }
+}
+
+std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> EmitterHelpers::getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize){
+    //Note: Only the BlockingDomain or ClockDomain will be non-null.  It is possible for both to be non-null if the dst is at the top level
+    std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> groups;
+
+    for(const std::shared_ptr<Arc> arc : arcs) {
+        std::shared_ptr<OutputPort> srcPort = arc->getSrcPort();
+        int srcPartition = srcPort->getParent()->getPartitionNum();
+
+        int dstPartition = arc->getDstPort()->getParent()->getPartitionNum();
+        int dstBaseSubBlockLength = arc->getDstPort()->getParent()->getBaseSubBlockingLen();
+
+        //We need the destination to have the same indexing variables.  This comes from the blockingDomains.
+        //Specialized nodes may use their own indexing methods below the given blocking domain the node is in,
+        //however, it cannot share the indexing with nodes inside a nested blocking domain.
+        //Also note, even if the destinations are in sub-blocking domains with the same base sub-blocking length
+        //they have different index expressions
+        //TODO: Change FIFOs and BlockingDomainBridging nodes to allow multiple index expressions per port.
+        //Also note, index can come from clock domain not operating in vector mode
+        std::shared_ptr<BlockingDomain> indexSrcBlocking = nullptr;
+        std::shared_ptr<ClockDomain> indexSrcClock = nullptr;
+        //Set the appropriate indexing
+        std::shared_ptr<ClockDomain> dstClockDomain = MultiRateHelpers::findClockDomain(arc->getDstPort()->getParent());
+        if(dstClockDomain != nullptr && dstClockDomain->isUsingVectorSamplingMode()){
+            //When using vector sampling mode, the index comes from the blocking domain stack, of which the discovered
+            //blocking domain is the lowest level used for indexing leading into the dst node.
+            std::shared_ptr<BlockingDomain> dstBlockingDomain = BlockingHelpers::findBlockingDomain(arc->getDstPort()->getParent());
+            indexSrcBlocking = dstBlockingDomain;
+        }else{
+            indexSrcClock = dstClockDomain;
+        }
+
+        if (srcPartition != dstPartition) {
+            std::string srcPath = arc->getSrcPort()->getParent()->getFullyQualifiedName();
+            std::shared_ptr<Node> dst = arc->getDstPort()->getParent();
+            if (checkForToFromNoPartitionToNoBaseBlockSize && (srcPartition == -1 || dstPartition == -1)) {
+                std::string dstPath = dst->getFullyQualifiedName();
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Found an arc going to/from partition -1 [" + srcPath + "(" +
+                        GeneralHelper::to_string(srcPartition) + ") -> " + dstPath + " (" +
+                        GeneralHelper::to_string(dstPartition) + ")]"));
+            }
+            if (checkForToFromNoPartitionToNoBaseBlockSize && dstBaseSubBlockLength < 1 &&
+                GeneralHelper::isType<Node, MasterOutput>(arc->getDstPort()->getParent()) == nullptr) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Found an arc going between partitions which has a destination with an invalid base sub-blocking length"));
+            }
+
+            groups[{srcPort, dstPartition, dstBaseSubBlockLength, indexSrcBlocking, indexSrcClock}].push_back(arc);
+        }
+    }
+
+    return groups;
+}
+
+std::shared_ptr<SubSystem> EmitterHelpers::findInsertionPointForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode){
+    std::vector<Context> fifoContext = srcNode->getContext();
+    std::shared_ptr<SubSystem> fifoParent;
+
+    std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcNode);
+    std::shared_ptr<BlockingOutput> srcAsBlockingOutput = GeneralHelper::isType<Node, BlockingOutput>(srcNode);
+    std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcNode);
+    std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcNode);
+    std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
+    bool rateChangeOutput = false;
+    if(srcAsRateChange){
+        rateChangeOutput = !srcAsRateChange->isInput();
+    }
+
+    //Note, the first getParent() gets the src node
+    std::shared_ptr<SubSystem> srcParent = srcNode->getParent();
+
+    //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
+    //TODO: Come up with a more general way of performing this
+    if(srcAsEnableOutput != nullptr ||  srcAsBlockingOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+        if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
+            fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
+
+            // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
+            // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
+            // during encapsulation
+
+            //Should also be placed outside of BlockingDomain context of the BlockingOutput which is driving it
+        }
+
+        //Check for encapsulation
+        //TODO: Need to fix case where FIFO may be in a sub-blocking domain inside a clock domain which is fed by a rate change node.  In that case, it should be placed
+        //      outside the context.  May need to go up multiple contexts
+
+        if(srcAsEnableOutput){
+            //Need to find enabled subsystem for which this is an enable output
+            std::shared_ptr<EnabledSubSystem> srcEnabledSubSystem = findEnabledSubsystemDomain(srcAsEnableOutput);
+
+            std::vector<std::shared_ptr<EnableOutput>> enabledOutputs = srcEnabledSubSystem->getEnableOutputs();
+            if(!GeneralHelper::contains(srcAsEnableOutput, enabledOutputs)){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected first enabled subsystem context encountered above this node would include it as an EnabledOutput", srcAsEnableOutput));
+            }
+
+            fifoParent = srcParent;
+            bool found = false;
+            while(!found && fifoParent != nullptr){
+                std::shared_ptr<EnabledSubSystem> asEnabledSubsystem = GeneralHelper::isType<SubSystem, EnabledSubSystem>(fifoParent);
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(fifoParent);
+
+                if(asEnabledSubsystem && asEnabledSubsystem == srcEnabledSubSystem){
+                    found = true;
+                    //FIFO should go one level above this
+                }else if(asContextFamilyContainer){
+                    //Check for encapsulation
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcEnabledSubSystem){
+                        found = true;
+                        //FIFO should go one level above this
+                    }
+                }
+
+                //Go up to the next level
+                fifoParent = fifoParent->getParent();
+            }
+
+            if(!found){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find location to place FIFO", srcNode));
+            }
+        }else if(srcAsBlockingOutput){
+            fifoParent = srcParent;
+            bool found = false;
+
+            std::shared_ptr<BlockingDomain> srcBlockingDomain = BlockingHelpers::findBlockingDomain(srcAsBlockingOutput);
+
+            while(!found && fifoParent != nullptr){
+                std::shared_ptr<BlockingDomain> asBlockingDomain = GeneralHelper::isType<SubSystem, BlockingDomain>(fifoParent);
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(fifoParent);
+
+                if(asBlockingDomain && asBlockingDomain == srcBlockingDomain){
+                    found = true;
+                    //FIFO should go one level above this
+                }else if(asContextFamilyContainer){
+                    //Check for encapsulation
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcBlockingDomain){
+                        found = true;
+                        //FIFO should go one level above this
+                    }
+                }
+
+                //Go up to the next level
+                fifoParent = fifoParent->getParent();
+            }
+
+            if(!found){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find location to place FIFO", srcNode));
+            }
+        }else if(rateChangeOutput){
+            fifoParent = srcParent;
+            bool found = false;
+
+            std::shared_ptr<ClockDomain> srcClockDomain = MultiRateHelpers::findClockDomain(srcAsRateChange);
+            std::shared_ptr<ContextRoot> srcClockDomainAsContextRoot = GeneralHelper::isType<ClockDomain, ContextRoot>(srcClockDomain);
+            if(srcClockDomainAsContextRoot == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected clock domain to be specialized", srcClockDomain));
+            }
+
+            while(!found && fifoParent != nullptr){
+                std::shared_ptr<ClockDomain> asClockDomain = GeneralHelper::isType<SubSystem, ClockDomain>(fifoParent);
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(fifoParent);
+
+                if(asClockDomain && asClockDomain == srcClockDomain){
+                    found = true;
+                    //FIFO should go one level above this
+                }else if(asContextFamilyContainer){
+                    //Check for encapsulation
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcClockDomainAsContextRoot){
+                        found = true;
+                        //FIFO should go one level above this
+                    }
+                }
+
+                //Go up to the next level
+                fifoParent = fifoParent->getParent();
+            }
+
+            if(!found){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find location to place FIFO", srcNode));
+            }
+        }else if(srcAsMux){
+            //Check if there is a context family container for this node
+            //If not, let the parent of the FIFO be the parent of the mux.
+            std::shared_ptr<SubSystem> contextFamilyContainerSearch = srcParent;
+            bool found = false;
+
+            while(!found && contextFamilyContainerSearch != nullptr) {
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(contextFamilyContainerSearch);
+
+                if(asContextFamilyContainer) {
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcAsMux){
+                        found = true;
+                    }else{
+                        contextFamilyContainerSearch = contextFamilyContainerSearch->getParent();
+                    }
+                }else{
+                    contextFamilyContainerSearch = contextFamilyContainerSearch->getParent();
+                }
+            }
+
+            if(found){
+                //Encapsulation has occured
+                //The parent is one level above the context family container for the mux
+                fifoParent = contextFamilyContainerSearch->getParent();
+            }else{
+                //Encapsulation has not occured, just go one level above the src (its parent)
+                fifoParent = srcParent;
+            }
+
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Logic for ContextRoot type not yet implemented for FIFO insertion", srcNode));
+        }
+
+    }else{
+        //Get the parent of the src node
+        fifoParent = srcParent;
+    }
+
+    return fifoParent;
+}
+
+std::vector<Context> EmitterHelpers::findContextForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode){
+    std::vector<Context> fifoContext = srcNode->getContext();
+
+    std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcNode);
+    std::shared_ptr<BlockingOutput> srcAsBlockingOutput = GeneralHelper::isType<Node, BlockingOutput>(srcNode);
+    std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcNode);
+    std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcNode);
+    std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
+    bool rateChangeOutput = false;
+    if(srcAsRateChange){
+        rateChangeOutput = !srcAsRateChange->isInput();
+    }
+
+    //Note, the first getParent() gets the src node
+    std::shared_ptr<SubSystem> srcParent = srcNode->getParent();
+
+    //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
+    //TODO: Come up with a more general way of performing this
+    if(srcAsEnableOutput != nullptr ||  srcAsBlockingOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+        if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
+            fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
+
+            // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
+            // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
+            // during encapsulation
+
+            //Should also be placed outside of BlockingDomain context of the BlockingOutput which is driving it
+        }
+    }
+
+    return fifoContext;
+}
+
+std::shared_ptr<EnabledSubSystem> EmitterHelpers::findEnabledSubsystemDomain(std::shared_ptr<Node> node){
+    return GraphAlgs::findDomain<EnabledSubSystem>(node);
 }

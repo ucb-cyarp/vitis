@@ -31,6 +31,10 @@
 #include "MultiRate/MultiRateHelpers.h"
 #include "MultiRate/DownsampleClockDomain.h"
 
+#include "Blocking/BlockingHelpers.h"
+
+#include <iostream>
+
 //==== Constructors
 Design::Design() {
     inputMaster = NodeFactory::createNode<MasterInput>();
@@ -1158,7 +1162,7 @@ std::map<std::pair<int, int>, std::vector<std::shared_ptr<Arc>>> Design::getPart
     return partitionCrossings;
 }
 
-std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> Design::getGroupableCrossings(bool checkForToFromNoPartition) {
+std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> Design::getGroupableCrossings(bool checkForToFromNoPartitionToNoBaseBlockSize) {
     //Iterate through nodes and their out - arcs to discover partition crossings
     //Check for multiple destinations in a particular partition which could be grouped
 
@@ -1173,28 +1177,18 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
         //Note: arcs can only be grouped if they share the same output port
         std::vector<std::shared_ptr<OutputPort>> outputPorts = nodesToSearch[i]->getOutputPortsIncludingOrderConstraint();
         for (int portIdx = 0; portIdx < outputPorts.size(); portIdx++) {
-            std::map<int, std::vector<std::shared_ptr<Arc>>> currentGroups;
-            //Arcs from a given node output port to the same partition can be grouped
+            //Arcs from a given node output port can potentially be grouped
             std::set<std::shared_ptr<Arc>> outArcs = outputPorts[portIdx]->getArcs();
 
-            for (auto outArc = outArcs.begin(); outArc != outArcs.end(); outArc++) {
-                //Note that arcs are not necessarily ordered according to partitions
-                int dstPartition = (*outArc)->getDstPort()->getParent()->getPartitionNum();
-                if (srcPartition != dstPartition) {
-                    if (checkForToFromNoPartition && (srcPartition == -1 || dstPartition == -1)) {
-                        std::string srcPath = (*outArc)->getSrcPort()->getParent()->getFullyQualifiedName();
-                        std::shared_ptr<Node> dst = (*outArc)->getDstPort()->getParent();
-                        std::string dstPath = dst->getFullyQualifiedName();
-                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found an arc going to/from partition -1 [" + srcPath + "(" + GeneralHelper::to_string(srcPartition) + ") -> " + dstPath + " (" + GeneralHelper::to_string(dstPartition) + ")]"));
-                    }
-
-                    currentGroups[dstPartition].push_back(*outArc);
-                }
-            }
+            std::map<
+                    std::tuple<std::shared_ptr<OutputPort>,
+                               int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>,
+                    std::vector<std::shared_ptr<Arc>>> currentGroups =
+                            EmitterHelpers::getGroupableArcs(outArcs, checkForToFromNoPartitionToNoBaseBlockSize);
 
             //Add discovered groups to partitionCrossing map
             for (auto it = currentGroups.begin(); it != currentGroups.end(); it++) {
-                int dstPartition = it->first;
+                int dstPartition = std::get<1>(it->first);
                 partitionCrossings[std::pair<int, int>(srcPartition, dstPartition)].push_back(it->second);
             }
         }
@@ -1238,5 +1232,11 @@ void Design::clearContextDiscoveryInfo(){
 void Design::setSinglePartition(int partitionNum) {
     for(const std::shared_ptr<Node> &node : nodes){
         node->setPartitionNum(partitionNum);
+    }
+}
+
+void Design::setSingleBaseSubBlockingLen(int baseSubBlockingLength){
+    for(const std::shared_ptr<Node> &node : nodes){
+        node->setBaseSubBlockingLen(baseSubBlockingLength);
     }
 }

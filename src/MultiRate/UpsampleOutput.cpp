@@ -114,6 +114,7 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
     std::shared_ptr<StateUpdate> stateUpdateLatch = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdateLatch->setName("StateUpdate-For-" + getName() + "-Latch");
     stateUpdateLatch->setPartitionNum(partitionNum);
+    stateUpdateLatch->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdateLatch->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdateLatch); //Set the state update node pointer in this node
 
@@ -170,6 +171,7 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
     std::shared_ptr<StateUpdate> stateUpdateZero = NodeFactory::createNode<StateUpdate>(zeroParentNode);
     stateUpdateZero->setName("StateUpdate-For-" + getName() + "-Zero");
     stateUpdateZero->setPartitionNum(partitionNum);
+    stateUpdateZero->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdateZero->setContext(zeroFillContext);
     stateUpdateZero->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdateZero);
@@ -395,4 +397,58 @@ std::vector<Variable> UpsampleOutput::getVariablesToDeclareOutsideClockDomain() 
     }
 
     return extVars;
+}
+
+void UpsampleOutput::specializeForBlocking(int localBlockingLength, int localSubBlockingLength,
+                                         std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                         std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion) {
+    if(useVectorSamplingMode){
+        //Do nothing, the logic is handled internally in the implementations of RateChange
+
+        //However, need to request expansion of arcs in case the src or dst has a different base sub-blocking length
+
+        std::set<std::shared_ptr<Arc>> inputArcs = getInputArcs();
+        for(const std::shared_ptr<Arc> &arc : inputArcs){
+            std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+            if(GeneralHelper::contains(arc, arcsWithDeferredBlockingExpansion)){
+                expansion = arcsWithDeferredBlockingExpansion[arc];
+            }
+
+            //localBlockingLength is the blocking size inside the blocking domain
+
+            std::get<1>(expansion) = localBlockingLength;
+            std::get<3>(expansion) = true;
+
+            arcsWithDeferredBlockingExpansion[arc] = expansion;
+        }
+
+        std::set<std::shared_ptr<Arc>> outputArcs = getOutputArcs();
+        for(const std::shared_ptr<Arc> &arc : outputArcs){
+            std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+            if(GeneralHelper::contains(arc, arcsWithDeferredBlockingExpansion)){
+                expansion = arcsWithDeferredBlockingExpansion[arc];
+            }
+
+            //localBlockingLength is the blocking size inside the blocking domain
+            int blockingLengthOutsideClkDomain = localBlockingLength*getUpsampleRatio();
+            std::get<0>(expansion) = blockingLengthOutsideClkDomain;
+            std::get<2>(expansion) = true;
+
+            arcsWithDeferredBlockingExpansion[arc] = expansion;
+        }
+
+    }else{
+        Node::specializeForBlocking(localBlockingLength,
+                                    localSubBlockingLength,
+                                    nodesToAdd,
+                                    nodesToRemove,
+                                    arcsToAdd,
+                                    arcsToRemove,
+                                    nodesToRemoveFromTopLevel,
+                                    arcsWithDeferredBlockingExpansion);
+    }
 }

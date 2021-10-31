@@ -143,6 +143,7 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdate->setName("StateUpdate-For-"+getName());
     stateUpdate->setPartitionNum(partitionNum);
+    stateUpdate->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdate->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
 

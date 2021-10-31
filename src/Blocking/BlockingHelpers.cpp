@@ -9,6 +9,7 @@
 #include "GraphCore/ContextFamilyContainer.h"
 #include "General/ErrorHelpers.h"
 #include "MultiRate/MultiRateHelpers.h"
+#include "GraphCore/ExpandedNode.h"
 
 std::set<std::shared_ptr<Node>> BlockingHelpers::getNodesInBlockingDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch){
     return GraphAlgs::getNodesInDomainHelperFilter<BlockingDomain, Node>(nodesToSearch);
@@ -89,11 +90,13 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                                               std::shared_ptr<SubSystem> blockingDomainParent,
                                               int blockingLength,
                                               int subBlockingLength,
+                                              int baseSubBlockingLength,
                                               std::string blockingName,
                                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
                                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                              std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
+                                              std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                  &arcsWithDeferredBlockingExpansion){
 
     //Create Blocking Domain
     std::shared_ptr<BlockingDomain> blockingDomain = NodeFactory::createNode<BlockingDomain>(blockingDomainParent);
@@ -118,6 +121,7 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
         throw std::runtime_error(ErrorHelpers::genErrorStr("Could not find partition when creating Blocking Domain", blockingDomain));
     }
     blockingDomain->setPartitionNum(partNum);
+    blockingDomain->setBaseSubBlockingLen(baseSubBlockingLength);
 
     //Create Blocking Inputs and Outputs
     std::map<std::pair<std::shared_ptr<OutputPort>, int>, std::shared_ptr<BlockingInput>> outputPortsToBlockingInputs; //Crete Seperate Blocking Inputs For Different Partitions
@@ -136,11 +140,22 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
             std::shared_ptr<InputPort> inputPort = inputArc->getDstPort();
             std::shared_ptr<Node> nodeInDomain = inputPort->getParent();
             int nodeInDomainPartitionNum = nodeInDomain->getPartitionNum();
+            int nodeInDomainBaseSubBlockingLen = nodeInDomain->getBaseSubBlockingLen();
+            if(nodeInDomainBaseSubBlockingLen != baseSubBlockingLength){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Disagreement between provided baseSubBlockingLen and one discovered from node during creation of Blocking Domain", nodeInDomain));
+            }
 
             std::shared_ptr<BlockingInput> blockingInput;
+            std::shared_ptr<Arc> blockingInputInArc;
+
+            std::tuple<int, int, bool, bool> origArcExpansion = {0, 0, false, false};
+            if(GeneralHelper::contains(inputArc, arcsWithDeferredBlockingExpansion)){
+                origArcExpansion = arcsWithDeferredBlockingExpansion[inputArc];
+            }
 
             if(GeneralHelper::contains(std::pair<std::shared_ptr<OutputPort>, int> (srcPort, nodeInDomainPartitionNum), outputPortsToBlockingInputs)){
                 blockingInput = outputPortsToBlockingInputs[{srcPort, nodeInDomainPartitionNum}];
+                blockingInputInArc = *(blockingInput->getInputPort(0)->getArcs().begin());
             }else {
                 blockingInput = NodeFactory::createNode<BlockingInput>(blockingDomain);
                 nodesToAdd.push_back(blockingInput);
@@ -149,8 +164,8 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                 blockingInput->setBlockingLen(blockingLength);
                 blockingInput->setSubBlockingLen(subBlockingLength);
 
-
                 blockingInput->setPartitionNum(nodeInDomainPartitionNum); //Set the partition of the blocking input node to the partition of the node it is connected to in the domain
+                blockingInput->setBaseSubBlockingLen(nodeInDomainBaseSubBlockingLen);
 
                 blockingInput->setName("BlockingDomainInputFrom_" + srcPort->getParent()->getName() + "_n" +
                                        GeneralHelper::to_string(srcPort->getParent()->getId()) + "_p" +
@@ -160,12 +175,32 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                         blockingInput->getInputPortCreateIfNot(0),
                         inputArc->getDataType(),
                         inputArc->getSampleTime());
-                arcsWithDeferredBlockingExpansion[blockingInputConnection] = blockingLength; //Need to expand the arc going into the blocking input by the block size
+                blockingInputInArc = blockingInputConnection;
+
+                std::tuple<int, int, bool, bool> newArcExpansion = {0, 0, false, false};
+                std::get<1>(newArcExpansion) = blockingLength; //Need to expand the arc going into the blocking input by the block size
+                std::get<3>(newArcExpansion) = true; //Need to expand the arc going into the blocking input by the block size
+                //Will copy expansion properties from existing arc below
+                arcsWithDeferredBlockingExpansion[blockingInputConnection] = newArcExpansion;
+
                 arcsToAdd.push_back(blockingInputConnection);
             }
 
+            //Copy over the beginning arc expansion properties (if it exists) to the new arc
+            //Need to capture if this arc requires a BlockingDomainBridge
+            if(std::get<2>(origArcExpansion)) {
+                std::tuple<int, int, bool, bool> newArcExpansion = arcsWithDeferredBlockingExpansion[blockingInputInArc];
+                std::get<0>(newArcExpansion) = std::get<0>(origArcExpansion);
+                std::get<2>(newArcExpansion) = std::get<2>(origArcExpansion);
+                arcsWithDeferredBlockingExpansion[blockingInputInArc] = newArcExpansion;
+            }
+
             inputArc->setSrcPortUpdateNewUpdatePrev(blockingInput->getOutputPortCreateIfNot(0));
-            arcsWithDeferredBlockingExpansion[inputArc] = subBlockingLength; //Need to expand the arc going into the node input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
+
+            std::get<0>(origArcExpansion) = subBlockingLength;  //Need to expand the arc going into the node input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
+            std::get<2>(origArcExpansion) = true;
+
+            arcsWithDeferredBlockingExpansion[inputArc] = origArcExpansion;
         }
     }
 
@@ -177,8 +212,16 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
             //Check if we have already created a blocking output for this output port
             std::shared_ptr<OutputPort> origOutputPort = outputArc->getSrcPort();
             std::shared_ptr<BlockingOutput> blockingOutput;
+            std::shared_ptr<Arc> blockingOutputInArc;
+
+            std::tuple<int, int, bool, bool> origArcExpansion = {0, 0, false, false};
+            if(GeneralHelper::contains(outputArc, arcsWithDeferredBlockingExpansion)){
+                origArcExpansion = arcsWithDeferredBlockingExpansion[outputArc];
+            }
+
             if (GeneralHelper::contains(origOutputPort, outputPortsToBlockingOutputs)) {
                 blockingOutput = outputPortsToBlockingOutputs[origOutputPort];
+                blockingOutputInArc = *(blockingOutput->getInputPort(0)->getArcs().begin());
             } else {
                 //Create a new blocking output
                 blockingOutput = NodeFactory::createNode<BlockingOutput>(blockingDomain);
@@ -188,9 +231,14 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                 blockingOutput->setBlockingLen(blockingLength);
                 blockingOutput->setSubBlockingLen(subBlockingLength);
                 std::shared_ptr<Node> nodeInDomain = origOutputPort->getParent();
+                int nodeInDomainBaseSubBlockingLen = nodeInDomain->getBaseSubBlockingLen();
+                if(nodeInDomainBaseSubBlockingLen != baseSubBlockingLength){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Disagreement between provided baseSubBlockingLen and one discovered from node during creation of Blocking Domain", nodeInDomain));
+                }
 
                 blockingOutput->setPartitionNum(
                         nodeInDomain->getPartitionNum()); //Set the partition of the blocking output node to the partition of the node it is connected to in the domain
+                blockingOutput->setBaseSubBlockingLen(nodeInDomainBaseSubBlockingLen);
                 blockingOutput->setName("BlockingDomainOutputFor_" + nodeInDomain->getName() + "_n" +
                                         GeneralHelper::to_string(nodeInDomain->getId()) + "_p" +
                                         GeneralHelper::to_string(origOutputPort->getPortNum()));
@@ -200,12 +248,92 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                                                                                   blockingOutput->getInputPortCreateIfNot(
                                                                                           0), outputArc->getDataType(),
                                                                                   outputArc->getSampleTime());
-                arcsWithDeferredBlockingExpansion[blockingOutputConnection] = subBlockingLength; //Need to expand the arc going into the input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
+                blockingOutputInArc = blockingOutputConnection;
+
+                std::tuple<int, int, bool, bool> newArcExpansion = {0, 0, false, false};
+                std::get<1>(newArcExpansion) = subBlockingLength; //Need to expand the arc going into the input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
+                std::get<3>(newArcExpansion) = true;
+
+                arcsWithDeferredBlockingExpansion[blockingOutputConnection] = newArcExpansion;
                 arcsToAdd.push_back(blockingOutputConnection);
             }
 
+            //Copy over the beginning arc expansion properties (if it exists) to this new arc
+            //Need to capture if this arc requires a BlockingDomainBridge
+            if(std::get<2>(origArcExpansion)) {
+                std::tuple<int, int, bool, bool> newArcExpansion = arcsWithDeferredBlockingExpansion[blockingOutputInArc];
+                std::get<0>(newArcExpansion) = std::get<0>(origArcExpansion);
+                std::get<2>(newArcExpansion) = std::get<2>(origArcExpansion);
+                arcsWithDeferredBlockingExpansion[blockingOutputInArc] = newArcExpansion;
+            }
+
             outputArc->setSrcPortUpdateNewUpdatePrev(blockingOutput->getOutputPortCreateIfNot(0));
-            arcsWithDeferredBlockingExpansion[outputArc] = blockingLength; //Need to expand the arc going into the input by the block size
+            std::get<0>(origArcExpansion) = blockingLength; //Need to expand the arc going into the input by the block size
+            std::get<2>(origArcExpansion) = true;
+            arcsWithDeferredBlockingExpansion[outputArc] = origArcExpansion;
         }
+    }
+}
+
+void BlockingHelpers::propagateSubBlockingFromSubsystemsToChildren(std::set<std::shared_ptr<Node>>& nodes, int baseSubBlockingLength){
+    for(auto it = nodes.begin(); it != nodes.end(); it++){
+        //Do this first since expanded nodes are also subsystems
+        std::shared_ptr<ExpandedNode> asExpandedNode = GeneralHelper::isType<Node, ExpandedNode>(*it);
+        if(asExpandedNode){
+            //This is a special case where the subsystem takes the partition of the parent and not itself
+            if(baseSubBlockingLength != -1) {
+                asExpandedNode->getOrigNode()->setBaseSubBlockingLen(baseSubBlockingLength);
+                asExpandedNode->setBaseSubBlockingLen(baseSubBlockingLength);
+            }
+
+            std::set<std::shared_ptr<Node>> children = asExpandedNode->getChildren();
+            propagateSubBlockingFromSubsystemsToChildren(children, baseSubBlockingLength); //still at same level as before with same partition
+        }else{
+            std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(*it);
+            if(asSubsystem){
+                int nextBaseSubBlockingLength = asSubsystem->getBaseSubBlockingLen();
+                if(nextBaseSubBlockingLength == -1){
+                    nextBaseSubBlockingLength = baseSubBlockingLength;
+                    asSubsystem->setBaseSubBlockingLen(baseSubBlockingLength);
+                }
+                std::set<std::shared_ptr<Node>> children = asSubsystem->getChildren();
+                propagateSubBlockingFromSubsystemsToChildren(children, nextBaseSubBlockingLength);
+            }else{
+                //Standard node, set baseSubBlockingLen if !firstLevel
+                if(baseSubBlockingLength != -1){
+                    (*it)->setBaseSubBlockingLen(baseSubBlockingLength);
+                }
+            }
+        }
+    }
+}
+
+void BlockingHelpers::requestDeferredBlockingExpansionOfNodeArcs(std::shared_ptr<Node> node, int inExpansion, int outExpansion, std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion){
+    std::set<std::shared_ptr<Arc>> inArcs = node->getDirectInputArcs();
+    std::set<std::shared_ptr<Arc>> outArcs = node->getDirectOutputArcs();
+    for (const std::shared_ptr<Arc> &inArc: inArcs) {
+        //Input to Node is the end of the arc.  Set the second entry
+        std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+        if(GeneralHelper::contains(inArc, arcsWithDeferredBlockingExpansion)){
+            expansion = arcsWithDeferredBlockingExpansion[inArc];
+        }
+
+        std::get<1>(expansion) = inExpansion;
+        std::get<3>(expansion) = true;
+
+        arcsWithDeferredBlockingExpansion[inArc] = expansion;
+    }
+
+    for (const std::shared_ptr<Arc> &outArc: outArcs) {
+        //Output of Node is the beginning of the arc.  Set the first entry
+        std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+        if(GeneralHelper::contains(outArc, arcsWithDeferredBlockingExpansion)){
+            expansion = arcsWithDeferredBlockingExpansion[outArc];
+        }
+
+        std::get<0>(expansion) = outExpansion;
+        std::get<2>(expansion) = true;
+
+        arcsWithDeferredBlockingExpansion[outArc] = expansion;
     }
 }

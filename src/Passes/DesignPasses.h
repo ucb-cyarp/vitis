@@ -93,6 +93,13 @@ namespace DesignPasses {
      */
     void assignPartitionsToUnassignedSubsystems(Design &design, bool printWarning, bool errorIfUnableToSet);
 
+    /**
+     * @brief Assigns sub-blocking length to node that are currently unassigned to a sub-blocking length of a node within it
+     * @param printWarning If true, prints a warning when an assignment is made
+     * @param errorIfUnableToSet If true, throws an error if unable to find a sub-blocking length for a subsystem
+     */
+    void assignSubBlockingLengthToUnassignedSubsystems(Design &design, bool printWarning, bool errorIfUnableToSet);
+
 };
 
 /*! @} */

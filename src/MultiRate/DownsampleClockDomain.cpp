@@ -118,6 +118,8 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
     std::shared_ptr<WrappingCounter> driverNode = NodeFactory::createNode<WrappingCounter>(parent);
     driverNode->setName(name+"_Counter");
     driverNode->setPartitionNum(partitionNum);
+    //TODO: When allowing clock domains to be split into different sub-blocking lengths, potentially change this (or replicate)
+    driverNode->setBaseSubBlockingLen(baseSubBlockingLen);
     nodesToAdd.push_back(driverNode);
     driverNode->setCountTo(downsampleRatio);
     driverNode->setInitCondition(0);
@@ -187,6 +189,8 @@ void DownsampleClockDomain::createSupportNodes(std::vector<std::shared_ptr<Node>
                 std::shared_ptr<RepeatOutput> intermediateNode = NodeFactory::createNode<RepeatOutput>(thisAsDownsampleClockDomain);
                 intermediateNode->setName((*ioPort)->getName() + "_ClockDomainBridge");
                 intermediateNode->setPartitionNum(srcNode->getPartitionNum());
+                //TODO: When allowing clock domains to be split into different sub-blocking lengths, potentially change this (or replicate)
+                intermediateNode->setBaseSubBlockingLen(srcNode->getBaseSubBlockingLen());
                 nodesToAdd.push_back(intermediateNode);
 
                 //Set context if includeContext, add this node to the context stack as ContextRoots do not include themselves in their context stack

@@ -25,6 +25,10 @@ class BlackBox;
 class MasterOutput;
 class MasterInput;
 class ClockDomain;
+class OutputPort;
+class BlockingDomain;
+class SubSystem;
+class EnabledSubSystem;
 
 /**
  * \addtogroup General General Helper Classes
@@ -358,6 +362,38 @@ namespace EmitterHelpers {
     std::string telemetryLevelToString(TelemetryLevel level);
     bool ioShouldCollectTelemetry(TelemetryLevel level);
     bool ioTelemetryBreakdown(TelemetryLevel level);
+
+    /**
+     * @brief Gets groupable arcs from the given set.
+     *
+     * Used when inserting BlockingDomainBridge nodes and FIFOs.
+     *
+     * Groupable arcs must have the same source output port, same destination partitions, same destination base sub-blocking length, and same indexing (same blocking node or clock domain if not operating in vector mode)
+     *
+     * @param arcs
+     * @return
+     */
+    std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize);
+
+    /**
+     * @brief Find the point in the node hierarchy insert a BlockingBridge or FIFO taking into account that
+     * it sometimes needs to be placed higher in the hierarchy than the src node (ex. if the src is a rate change node
+     * that exists in a clock domain but where the output is outside of the clock domain)
+     * @param srcNode
+     * @return
+     */
+    std::shared_ptr<SubSystem> findInsertionPointForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode);
+
+    /**
+     * @brief Find the context for a BlockingBridge or FIFO taking into account that
+     * it sometimes needs to different than the context of the src node (ex. if the src is a rate change node
+     * that exists in a clock domain but where the output is outside of the clock domain)
+     * @param srcNode
+     * @return
+     */
+    std::vector<Context> findContextForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode);
+
+    std::shared_ptr<EnabledSubSystem> findEnabledSubsystemDomain(std::shared_ptr<Node> node);
 };
 
 /*! @} */

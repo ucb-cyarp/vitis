@@ -8,9 +8,9 @@
 #include "GraphCore/Node.h"
 #include <memory>
 
-#define VITIS_STD_ERROR_PREAMBLE "vitis - Error"
-#define VITIS_STD_WARNING_PREAMBLE "vitis - Warning"
-#define VITIS_STD_INFO_PREAMBLE "vitis - Info"
+#define VITIS_STD_ERROR_PREAMBLE "Laminar - Error"
+#define VITIS_STD_WARNING_PREAMBLE "Laminar - Warning"
+#define VITIS_STD_INFO_PREAMBLE "Laminar - Info"
 
 /**
  * \addtogroup General General Helper Classes

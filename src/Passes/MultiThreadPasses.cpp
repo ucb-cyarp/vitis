@@ -10,6 +10,7 @@
 #include "GraphCore/ExpandedNode.h"
 #include "Blocking/BlockingDomain.h"
 #include <iostream>
+#include "GraphCore/Context.h"
 
 void MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifos,
                                                               std::vector<std::shared_ptr<Node>> &new_nodes,
@@ -20,6 +21,10 @@ void MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, in
     for(auto it = fifos.begin(); it != fifos.end(); it++){
         int srcPartition = it->first.first;
         int dstPartition = it->first.second;
+
+        if(srcPartition == 17 && dstPartition == 5){
+            std::cout << "Got here" << std::endl;
+        }
 
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoPtrs = it->second;
 
@@ -102,7 +107,7 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
     //Note: elementsPerInput can be for a sub-block of size > 1.  If so, multiplying by the block size will double count the sub-block size
     //We need to take into account the sub-blocking size of the FIFO
 
-    int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeCreateIfNot(0); //This is the size of the primitive element which multiple are transacted at a time if subBlocking>1
+    int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeInCreateIfNot(0); //This is the size of the primitive element which multiple are transacted at a time if subBlocking>1
     if(fifo->getInitConditions().size() < elementsPerInput*fifo->getBlockSizeCreateIfNot(0)*(fifo->getFifoLength() - 1)) { //The FIFO is sized based on the block size rather than the sub-block size.  The sub-blocking modifies how the block is indexed into
         //There is still room
 
@@ -129,7 +134,39 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
                 }
 
                 if(!Context::isEqContext(fifo->getContext(), srcDelay->getContext())){
-                    return AbsorptionStatus::NO_ABSORPTION;
+                    //Absorption is allowed to cross contexts so long as the contexts only contain blocking domains
+                    //Ie. The only reason the fifo and delay are in different contexts is due to a blocking change
+                    //To check this, find the common context of the FIFO and delay.  Then, start at the bottom of the
+                    //2 contexts stacks and see if any of the differing contexts are anything other than blocking contexts
+                    //If that is the case, we can continue with delay absorption.
+
+                    std::vector<Context> fifoContextStack = fifo->getContext();
+                    std::vector<Context> srcDelayContextStack = srcDelay->getContext();
+
+                    int commonContextInd = Context::findMostSpecificCommonContext(fifoContextStack, srcDelayContextStack);
+
+                    bool foundNonBlockingDomain = false;
+                    for(int i = commonContextInd+1; i<fifoContextStack.size(); i++){
+                        std::shared_ptr<ContextRoot> contextRoot = fifoContextStack[i].getContextRoot();
+                        if(GeneralHelper::isType<ContextRoot, BlockingDomain>(contextRoot) == nullptr){
+                            foundNonBlockingDomain = true;
+                            break;
+                        }
+                    }
+
+                    if(!foundNonBlockingDomain) {
+                        for (int i = commonContextInd + 1; i < srcDelayContextStack.size(); i++) {
+                            std::shared_ptr<ContextRoot> contextRoot = srcDelayContextStack[i].getContextRoot();
+                            if (GeneralHelper::isType<ContextRoot, BlockingDomain>(contextRoot) == nullptr) {
+                                foundNonBlockingDomain = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if(foundNonBlockingDomain) {
+                        return AbsorptionStatus::NO_ABSORPTION;
+                    }
                 }
 
                 //Check if it is connected to any other node
@@ -146,12 +183,10 @@ MultiThreadPasses::absorbAdjacentInputDelayIfPossible(std::shared_ptr<ThreadCros
                     //The delay has only 1 output (which must be this FIFO).  This delay also does not have any output order constraint arcs
                     //Absorb it if possible
 
-                    //NOTE: The number of initial conditions can be expanded beyond the delay amount if circular buffer is used
-                    //Use getExportableInitConds to get the intiail conditions without extra elements
                     std::vector<NumericValue> delayInitConds = srcDelay->getInitCondition();
                     std::vector<NumericValue> fifoInitConds = fifo->getInitConditionsCreateIfNot(0);
                     //TODO: Assumes Delay has not been specialized yet and getDelayValue() refers to the number of unblocked items
-                    if(fifo->getSubBlockSizeCreateIfNot(0)>1 && !srcDelay->isBlockingSpecializationDeferred() && srcDelay->getDelayValue() != 0){
+                    if(fifo->getSubBlockSizeInCreateIfNot(0)>1 && !srcDelay->isBlockingSpecializationDeferred() && srcDelay->getDelayValue() != 0){
                         //The one exception is delays of size 0 which we will allow to proceed.  They will be completely absorbed and no initial conditions will be transferred.
                         //Another excpetion is for delays inside of clock domains which do not operate in vector mode.  Delays in these domains are not specialized and will not be in the deferred specialization state.
                         //However, they still can be absorbed.  In this case, the FIFO should be at a sub-block size of 1.
@@ -243,7 +278,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
     }
 
     //Note: elementsPerInput can be for a sub-block of size > 1.
-    int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeCreateIfNot(0);
+    int elementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeInCreateIfNot(0); //Can use input to get number of elements
     //Check if FIFO full
     if (fifo->getInitConditions().size() < fifo->getBlockSizeCreateIfNot(0)*elementsPerInput*(fifo->getFifoLength() - 1)) {
         //There is still room in the FIFO
@@ -270,7 +305,39 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                     }
 
                     if(!Context::isEqContext(fifo->getContext(), dstDelay->getContext())){
-                        return AbsorptionStatus::NO_ABSORPTION;
+                        //Absorption is allowed to cross contexts so long as the contexts only contain blocking domains
+                        //Ie. The only reason the fifo and delay are in different contexts is due to a blocking change
+                        //To check this, find the common context of the FIFO and delay.  Then, start at the bottom of the
+                        //2 contexts stacks and see if any of the differing contexts are anything other than blocking contexts
+                        //If that is the case, we can continue with delay absorption.
+
+                        std::vector<Context> fifoContextStack = fifo->getContext();
+                        std::vector<Context> dstDelayContextStack = dstDelay->getContext();
+
+                        int commonContextInd = Context::findMostSpecificCommonContext(fifoContextStack, dstDelayContextStack);
+
+                        bool foundNonBlockingDomain = false;
+                        for(int i = commonContextInd+1; i<fifoContextStack.size(); i++){
+                            std::shared_ptr<ContextRoot> contextRoot = fifoContextStack[i].getContextRoot();
+                            if(GeneralHelper::isType<ContextRoot, BlockingDomain>(contextRoot) == nullptr){
+                                foundNonBlockingDomain = true;
+                                break;
+                            }
+                        }
+
+                        if(!foundNonBlockingDomain) {
+                            for (int i = commonContextInd + 1; i < dstDelayContextStack.size(); i++) {
+                                std::shared_ptr<ContextRoot> contextRoot = dstDelayContextStack[i].getContextRoot();
+                                if (GeneralHelper::isType<ContextRoot, BlockingDomain>(contextRoot) == nullptr) {
+                                    foundNonBlockingDomain = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(foundNonBlockingDomain) {
+                            return AbsorptionStatus::NO_ABSORPTION;
+                        }
                     }
                 }
 
@@ -329,7 +396,7 @@ MultiThreadPasses::absorbAdjacentOutputDelayIfPossible(std::shared_ptr<ThreadCro
                     std::shared_ptr<Node> dstNode = (*it)->getDstPort()->getParent();
                     std::shared_ptr<Delay> dstDelay = std::static_pointer_cast<Delay>(dstNode); //We already checked that this cast could be made in the loop above
 
-                    if(fifo->getSubBlockSizeCreateIfNot(0)>1 && !dstDelay->isBlockingSpecializationDeferred() && dstDelay->getDelayValue() != 0){
+                    if(fifo->getSubBlockSizeOutCreateIfNot(0)>1 && !dstDelay->isBlockingSpecializationDeferred() && dstDelay->getDelayValue() != 0){
                         //The one exception is delays of size 0 which we will allow to proceed.  They will be completely absorbed and no initial conditions will be transferred.
                         //Another excpetion is for delays inside of clock domains which do not operate in vector mode.  Delays in these domains are not specialized and will not be in the deferred specialization state.
                         //However, they still can be absorbed.  In this case, the FIFO should be at a sub-block size of 1.
@@ -415,7 +482,7 @@ void MultiThreadPasses::reshapeFIFOInitialConditionsForBlockSize(std::shared_ptr
     //TODO: will need to be specialized for each port
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
     //Note that the FIFO can have a sub-block size > 1 with the I/O ports transacting multiple elements at once.  The Block size is in terms of these smaller elements and not the number of sub-blocks.  Need to correct for this.
-    int numberElementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeCreateIfNot(0);
+    int numberElementsPerInput = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeInCreateIfNot(0);
     int numPrimitiveElementsToMove = fifoInitialConditions.size() % (fifo->getBlockSizeCreateIfNot(0)*numberElementsPerInput);
 
     if(numPrimitiveElementsToMove % numberElementsPerInput != 0){
@@ -449,7 +516,7 @@ void MultiThreadPasses::reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr
 
     std::vector<NumericValue> fifoInitialConditions = fifo->getInitConditionsCreateIfNot(0);
     //Note that the FIFO can have a sub-block size > 1 with the I/O ports transacting multiple elements at once.  The Block size is in terms of these smaller elements and not the number of sub-blocks.  Need to correct for this.
-    int elementsPer = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeCreateIfNot(0);
+    int elementsPer = fifo->getInputPort(0)->getDataType().numberOfElements()/fifo->getSubBlockSizeInCreateIfNot(0);
     int blkSize = fifo->getBlockSizeCreateIfNot(0);
 
     if(tgtSizeBlocks > fifoInitialConditions.size()/elementsPer/blkSize){
@@ -500,7 +567,7 @@ void MultiThreadPasses::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCross
 
         std::shared_ptr<Arc> origInputArc = *inputArcs.begin();
         //Note, the sub-block size may be >1 and the input may be scaled to transact multiple items per once.  Correcting for that.
-        int numPrimitveElementsPerItem = origInputArc->getDataType().numberOfElements() / fifo->getSubBlockSizeCreateIfNot(0);  //This allows us to scale the number of initial conditions transfered to the delay
+        int numPrimitveElementsPerItem = origInputArc->getDataType().numberOfElements() / fifo->getSubBlockSizeInCreateIfNot(0);  //This allows us to scale the number of initial conditions transfered to the delay
         int primitiveElementsToMove = numPrimitveElementsPerItem * numItemsToMove;
 
         //Check if the src is a MasterInput
@@ -512,10 +579,11 @@ void MultiThreadPasses::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCross
             std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(fifo->getParent());
             new_nodes.push_back(delay);
             delay->setPartitionNum(fifo->getPartitionNum());
+            delay->setBaseSubBlockingLen(fifo->getBaseSubBlockSizeInCreateIfNot(0));
             delay->setName("OverflowFIFOInitCondFrom" + fifo->getName());
             delay->setContext(fifoContext);
             delay->setBlockingSpecializationDeferred(blockingAlreadyOccurred); //If blocking already arcs were already expanded but delay specialization was deferred
-            delay->setDeferredBlockSize(fifo->getSubBlockSizeCreateIfNot(0)); //This is the sub-blocking length of the FIFO
+            delay->setDeferredBlockSize(fifo->getSubBlockSizeInCreateIfNot(0)); //This is the sub-blocking length of the FIFO input
             delay->setDeferredSubBlockSize(1); //The sub-blocking size should be set to 1
             if (fifoContext.size() > 0) {
                 int subcontext = fifoContext[fifoContext.size() - 1].getSubContext();
@@ -567,10 +635,11 @@ void MultiThreadPasses::reshapeFIFOInitialConditions(std::shared_ptr<ThreadCross
             std::shared_ptr<Delay> delay = NodeFactory::createNode<Delay>(fifo->getParent());
             new_nodes.push_back(delay);
             delay->setPartitionNum(newDelayPartition);
+            delay->setBaseSubBlockingLen(fifo->getBaseSubBlockSizeOutCreateIfNot(0));
             delay->setName("OverflowFIFOInitCondFrom" + fifo->getName());
             delay->setContext(newDelayContext);
             delay->setBlockingSpecializationDeferred(blockingAlreadyOccurred); //If blocking already arcs were already expanded but delay specialization was deferred
-            delay->setDeferredBlockSize(fifo->getSubBlockSizeCreateIfNot(0)); //This is the sub-blocking length of the FIFO
+            delay->setDeferredBlockSize(fifo->getSubBlockSizeOutCreateIfNot(0)); //This is the sub-blocking length of the FIFO output
             delay->setDeferredSubBlockSize(1); //The sub-blocking size should be set to 1
             if (newDelayContext.size() > 0) {
                 int subcontext = newDelayContext[newDelayContext.size() - 1].getSubContext();
@@ -732,7 +801,7 @@ void MultiThreadPasses::mergeFIFOs(
 
                         int initialConditionBlocks = fifo->getInitConditionsCreateIfNot(portNum).size() /
                                                      (fifo->getInputPort(portNum)->getDataType().numberOfElements() /
-                                                     fifo->getSubBlockSizeCreateIfNot(portNum)) / //This is because, if the sub-block size is > 1, the number of elements in the type will report the sum of the elements of all items in the sub-block
+                                                     fifo->getSubBlockSizeInCreateIfNot(portNum)) / //This is because, if the sub-block size is > 1, the number of elements in the type will report the sum of the elements of all items in the sub-block
                                                      fifo->getBlockSizeCreateIfNot(portNum);
 
                         if (minInitialConditionsBlocks < 0) {
@@ -780,14 +849,19 @@ void MultiThreadPasses::mergeFIFOs(
                         //Transfer Init Condition
                         fifoToMergeInto->setInitConditionsCreateIfNot(newPortNum, fifoToMergeFrom->getInitConditionsCreateIfNot(oldPortNum));
 
-                        //Transfer Block Size
+                        //Transfer Block Sizes
                         fifoToMergeInto->setBlockSize(newPortNum, fifoToMergeFrom->getBlockSizeCreateIfNot(oldPortNum));
 
-                        //Transfer Sub Blocking Domains
-                        fifoToMergeInto->setSubBlockSize(newPortNum, fifoToMergeFrom->getSubBlockSizeCreateIfNot(oldPortNum));
+                        //Transfer Sub Blocking Sizes
+                        fifoToMergeInto->setSubBlockSizeIn(newPortNum, fifoToMergeFrom->getSubBlockSizeInCreateIfNot(oldPortNum));
+                        fifoToMergeInto->setSubBlockSizeOut(newPortNum, fifoToMergeFrom->getSubBlockSizeOutCreateIfNot(oldPortNum));
 
                         //Transfer Clock Domain
                         fifoToMergeInto->setClockDomain(newPortNum, fifoToMergeFrom->getClockDomainCreateIfNot(oldPortNum));
+
+                        //Transfer Base Sub-Blocking Lengths
+                        fifoToMergeInto->setBaseSubBlockSizeIn(newPortNum, fifoToMergeFrom->getBaseSubBlockSizeInCreateIfNot(oldPortNum));
+                        fifoToMergeInto->setBaseSubBlockSizeOut(newPortNum, fifoToMergeFrom->getBaseSubBlockSizeOutCreateIfNot(oldPortNum));
 
                         //Transfer Indexing Exprs
                         fifoToMergeInto->setCBlockIndexExprInput(newPortNum, fifoToMergeFrom->getCBlockIndexExprInputCreateIfNot(oldPortNum));

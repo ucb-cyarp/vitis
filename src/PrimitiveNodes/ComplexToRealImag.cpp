@@ -7,6 +7,8 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 
+#include "Blocking/BlockingHelpers.h"
+
 ComplexToRealImag::ComplexToRealImag() {
 
 }
@@ -139,16 +141,10 @@ void ComplexToRealImag::specializeForBlocking(int localBlockingLength,
                                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                              std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) {
+                                              std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                  &arcsWithDeferredBlockingExpansion) {
     //Just expand the arcs since this node simply passes through the input to the output
 
     //The input arcs should be expanded to the block length
-    std::set<std::shared_ptr<Arc>> directInArcs = getDirectInputArcs();
-    std::set<std::shared_ptr<Arc>> directOutArcs = getDirectOutputArcs();
-    std::set<std::shared_ptr<Arc>> arcsToExpand = directInArcs;
-    arcsToExpand.insert(directOutArcs.begin(), directOutArcs.end());
-
-    for(const std::shared_ptr<Arc> &arc : arcsToExpand) {
-        arcsWithDeferredBlockingExpansion.emplace(arc, localBlockingLength);
-    }
+    BlockingHelpers::requestDeferredBlockingExpansionOfNodeArcs(getSharedPointer(), localBlockingLength, localBlockingLength, arcsWithDeferredBlockingExpansion);
 }

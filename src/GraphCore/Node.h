@@ -103,6 +103,7 @@ protected:
     int schedOrder; ///<Durring scheduled emit, nodes are emitted in decending schedOrder within a given partition.  Defaults to -1 (unscheduled)
     std::vector<Context> context; ///<A stack of contexts this node resides in.  The most specific context has the highest index.  Pushes onto the back of the stack and pops from the back of the stack.
     std::vector<std::shared_ptr<StateUpdate>> stateUpdateNodes; ///<A reference to the state update node for this delay
+    int baseSubBlockingLen; ///<The requested base sub-blocking rate for this node (outside of any clock domains)
 
     std::vector<std::string> origLocation; ///<A vector representing the origional location of this node on import.  Useful for maintaining tracability to orig design after context encapsulation and partitioning
 
@@ -885,7 +886,8 @@ public:
                                        std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                        std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                        std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                       std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                           &arcsWithDeferredBlockingExpansion);
 
     /**
      * @brief Indicates if the node has its own specialization for blocking rather than simply being placed in a blocking
@@ -1095,6 +1097,10 @@ public:
     int getSchedOrder() const;
 
     void setSchedOrder(int schedOrder);
+
+    int getBaseSubBlockingLen() const;
+
+    void setBaseSubBlockingLen(int baseSubBlocking);
 
     /**
      * @brief Returns true if a->schedOrder < b->schedOrder

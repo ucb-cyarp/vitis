@@ -251,7 +251,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
     std::map<std::shared_ptr<Arc>, bool> inputMarks;
     for(unsigned long i = 0; i<enabledInputs.size(); i++){
         //Enabled inputs should only have 1 standard input.  Should be caught durring validation if otherwise.
-        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceBackAndMark(enabledInputs[i]->getInputPort(0), inputMarks, true, true); //Reuse the same inputMarks map.  See docs for scopedTraceBackAndMark
+        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceBackAndMark(enabledInputs[i]->getInputPort(0), inputMarks, true, true, true); //Reuse the same inputMarks map.  See docs for scopedTraceBackAndMark
         extendedContext.insert(moreExtendedContextNodes.begin(), moreExtendedContextNodes.end());
     }
 
@@ -338,6 +338,7 @@ void EnabledSubSystem::extendContextInputs(std::vector<std::shared_ptr<Node>> &n
                     std::shared_ptr<EnableInput> enableInput = NodeFactory::createNode<EnableInput>(std::dynamic_pointer_cast<EnabledSubSystem>(getSharedPointer()));
                     enableInput->setName("Expanded Context Enable Input");
                     enableInput->setPartitionNum(partitionNum);
+                    enableInput->setBaseSubBlockingLen(baseSubBlockingLen); //TODO: If context allowed to be split into different sub-blocking lengths, change this
                     addEnableInput(enableInput);
                     new_nodes.push_back(enableInput);
 
@@ -378,7 +379,7 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
     std::map<std::shared_ptr<Arc>, bool> outputMarks;
     for(unsigned long i = 0; i<enabledOutputs.size(); i++){
         //Enabled outputs should only have 1 standard output.  Should be caught during validation if otherwise.
-        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceForwardAndMark(enabledOutputs[i]->getOutputPort(0), outputMarks, true, true); //Reuse the same outputMarks map.  See docs for scopedTraceForwardAndMark
+        std::set<std::shared_ptr<Node>> moreExtendedContextNodes =  GraphAlgs::scopedTraceForwardAndMark(enabledOutputs[i]->getOutputPort(0), outputMarks, true, true, true); //Reuse the same outputMarks map.  See docs for scopedTraceForwardAndMark
         extendedContext.insert(moreExtendedContextNodes.begin(), moreExtendedContextNodes.end());
     }
 
@@ -475,6 +476,7 @@ void EnabledSubSystem::extendContextOutputs(std::vector<std::shared_ptr<Node>> &
                         enableOutputNode = NodeFactory::createNode<EnableOutput>(std::dynamic_pointer_cast<SubSystem>(getSharedPointer()));
                         enableOutputNode->setName("Expanded Context Enable Output");
                         enableOutputNode->setPartitionNum(partitionNum);
+                        enableOutputNode->setBaseSubBlockingLen(baseSubBlockingLen); //TODO: If context allowed to be split into different sub-blocking lengths, change this
                         enableOutputOutPort = enableOutputNode->getOutputPortCreateIfNot(0);
                         addEnableOutput(enableOutputNode);
                         new_nodes.push_back(enableOutputNode);

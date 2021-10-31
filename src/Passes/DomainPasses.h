@@ -60,6 +60,9 @@ namespace DomainPasses {
      */
     std::pair<bool, int> findEffectiveSubBlockingLengthForNode(std::shared_ptr<Node> node, int baseSubBlockingLength);
 
+    //Version which uses included baseSubBlockingLength in node
+    std::pair<bool, int> findEffectiveSubBlockingLengthForNode(std::shared_ptr<Node> node);
+
     /**
      * @brief Determines the effective sub-blocking length present for nodes directly under a given clock domain
      *
@@ -83,7 +86,7 @@ namespace DomainPasses {
      * @param design
      * @return
      */
-    std::set<std::shared_ptr<Node>> discoverNodesThatCanBreakDependenciesWhenSubBlocking(Design &design, int baseSubBlockingLength);
+    std::set<std::shared_ptr<Node>> discoverNodesThatCanBreakDependenciesWhenSubBlocking(Design &design);
 
     /**
      * @brief Wraps design in a global blocking domain.  Sub-blocks the remainder of the design
@@ -96,7 +99,7 @@ namespace DomainPasses {
      * @param baseBlockingLength
      * @param baseSubBlockingLength
      */
-    void blockAndSubBlockDesign(Design &design, int baseBlockingLength, int baseSubBlockingLength);
+    void blockAndSubBlockDesign(Design &design, int baseBlockingLength);
 
     /**
      * @brief Sets the per-port clock domain of master nodes based on their assigned clock domains and the base
@@ -129,28 +132,33 @@ namespace DomainPasses {
      *
      * @param design
      */
-    void createBlockingNodesForIONotAtBaseDomain(Design &design, std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion, int baseBlockLength);
+    void createBlockingNodesForIONotAtBaseDomain(Design &design,
+                                                 std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                     &arcsWithDeferredBlockingExpansion,
+                                                 int baseBlockLength);
+
+    void expandArcsDeferredAndInsertBlockingBridges(Design &design, std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion);
 
     void createBlockingInputNodesForIONotAtBaseDomain(std::shared_ptr<MasterInput> masterInput,
                                                       std::set<std::shared_ptr<Node>> &nodesToAdd,
                                                       std::set<std::shared_ptr<Arc>> &arcsToAdd,
-                                                      std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion,
+                                                      std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                          &arcsWithDeferredBlockingExpansion,
                                                       int baseBlockLength);
 
     void createBlockingOutputNodesForIONotAtBaseDomain(std::shared_ptr<MasterOutput> masterOutput,
                                                        std::set<std::shared_ptr<Node>> &nodesToAdd,
                                                        std::set<std::shared_ptr<Arc>> &arcsToAdd,
-                                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion,
+                                                       std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                           &arcsWithDeferredBlockingExpansion,
                                                        int baseBlockLength);
 
     /**
      * @brief Groups node under contexts together with the possible exception of clock domains where blocking domains can be placed inside
      *
      * @param nodesAtLevel Nodes at the current level in the design from a context perspective.  Includes nodes in subsystems, including context roots, just not nodes under contexts
-     * @param baseSubBlockingLength The sub-blocking length outside of all clock domains
      */
     void blockingNodeSetDiscoveryTraverse(std::set<std::shared_ptr<Node>> nodesAtLevel,
-                                          int baseSubBlockingLength,
                                           std::set<std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingGroups,
                                           std::map<std::shared_ptr<Node>, std::shared_ptr<std::set<std::shared_ptr<Node>>>> &nodeToBlockingGroup,
                                           std::map<std::shared_ptr<std::set<std::shared_ptr<Node>>>,
@@ -163,6 +171,8 @@ namespace DomainPasses {
      * If mergeFrom and mergeInto are the same, no action is taken as they are already the same group
      *
      * Also merges nodes from associated blockingEnvelopGroups
+     *
+     * Also check if the resulting merged group has a single base sub-blocking length.
      *
      * @param mergeFrom
      * @param mergeInto
@@ -201,7 +211,8 @@ namespace DomainPasses {
                                  std::set<std::shared_ptr<Node>> nodesToMove,
                                  std::set<std::shared_ptr<Node>> nodesInSubBlockingDomain,
                                  int baseSubBlockingLength,
-                                 std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                 std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                     &arcsWithDeferredBlockingExpansion);
 
     /**
      * @brief Creates a global blocking domain encircling the whole design.
@@ -215,8 +226,8 @@ namespace DomainPasses {
      */
     void createGlobalBlockingDomain(Design &design,
                                     int baseBlockingLength,
-                                    int baseSubBlockingLength,
-                                    std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion);
+                                    std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                        &arcsWithDeferredBlockingExpansion);
 
     /**
      * @brief Identifies Constant Nodes that are their own Blocking Groups and copies/moves them to be within the blocking
@@ -238,6 +249,7 @@ namespace DomainPasses {
                                                   std::shared_ptr<std::set<std::shared_ptr<Node>>>> &blockingEnvelopGroups,
                                                   std::set<std::shared_ptr<Node>> &nodesToAdd);
 
+    void propagateSubBlockingFromSubsystemsToChildren(Design &design);
 };
 
 /*! @} */

@@ -135,6 +135,7 @@ bool RepeatOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdate->setName("StateUpdate-For-"+getName());
     stateUpdate->setPartitionNum(partitionNum);
+    stateUpdate->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdate->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
 
@@ -408,4 +409,58 @@ bool RepeatOutput::isUseCompressedOutputType() const {
 
 void RepeatOutput::setUseCompressedOutputType(bool useCompressedOutputType) {
     RepeatOutput::useCompressedOutputType = useCompressedOutputType;
+}
+
+void RepeatOutput::specializeForBlocking(int localBlockingLength, int localSubBlockingLength,
+                                            std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                            std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                            std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                            std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                            std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                            std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion) {
+    if(useVectorSamplingMode){
+        //Do nothing, the logic is handled internally in the implementations of RateChange
+
+        //However, need to request expansion of arcs in case the src or dst has a different base sub-blocking length
+
+        std::set<std::shared_ptr<Arc>> inputArcs = getInputArcs();
+        for(const std::shared_ptr<Arc> &arc : inputArcs){
+            std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+            if(GeneralHelper::contains(arc, arcsWithDeferredBlockingExpansion)){
+                expansion = arcsWithDeferredBlockingExpansion[arc];
+            }
+
+            //localBlockingLength is the blocking size inside the blocking domain
+
+            std::get<1>(expansion) = localBlockingLength;
+            std::get<3>(expansion) = true;
+
+            arcsWithDeferredBlockingExpansion[arc] = expansion;
+        }
+
+        std::set<std::shared_ptr<Arc>> outputArcs = getOutputArcs();
+        for(const std::shared_ptr<Arc> &arc : outputArcs){
+            std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+            if(GeneralHelper::contains(arc, arcsWithDeferredBlockingExpansion)){
+                expansion = arcsWithDeferredBlockingExpansion[arc];
+            }
+
+            //localBlockingLength is the blocking size inside the blocking domain
+            int blockingLengthOutsideClkDomain = localBlockingLength*getUpsampleRatio();
+            std::get<0>(expansion) = blockingLengthOutsideClkDomain;
+            std::get<2>(expansion) = true;
+
+            arcsWithDeferredBlockingExpansion[arc] = expansion;
+        }
+
+    }else{
+        Node::specializeForBlocking(localBlockingLength,
+                                    localSubBlockingLength,
+                                    nodesToAdd,
+                                    nodesToRemove,
+                                    arcsToAdd,
+                                    arcsToRemove,
+                                    nodesToRemoveFromTopLevel,
+                                    arcsWithDeferredBlockingExpansion);
+    }
 }

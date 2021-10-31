@@ -108,6 +108,7 @@ void ContextPasses::createEnabledOutputsForEnabledSubsysVisualization(Design &de
                 //This is an enabled subsystem context, create an EnableOutput port for this vis
                 std::shared_ptr<EnableOutput> visOutput = NodeFactory::createNode<EnableOutput>(contextAsEnabledSubsys);
                 visOutput->setPartitionNum(contextAsEnabledSubsys->getPartitionNum());
+                visOutput->setBaseSubBlockingLen(contextAsEnabledSubsys->getBaseSubBlockingLen());
                 contextAsEnabledSubsys->addEnableOutput(visOutput);
                 design.addNode(visOutput);
 
@@ -487,6 +488,13 @@ std::shared_ptr<ContextFamilyContainer> ContextPasses::getContextFamilyContainer
         Design &design, std::shared_ptr<ContextRoot> contextRoot, int partition){
     std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers = contextRoot->getContextFamilyContainers();
 
+    std::shared_ptr<Node> contextRootAsNode = GeneralHelper::isType<ContextRoot, Node>(contextRoot);
+    if(contextRootAsNode == nullptr){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Found Context Root which is not a Node"));
+    }
+    //TODO: If contexts later allowed to contain nodes with multiple base sub blocking lengths, potentially change
+    int baseSubBlockingLength = contextRootAsNode->getBaseSubBlockingLen();
+
     if(contextFamilyContainers.find(partition) == contextFamilyContainers.end()){
         //Does not exist for given partition
         std::shared_ptr<Node> asNode = std::dynamic_pointer_cast<Node>(contextRoot);
@@ -494,6 +502,7 @@ std::shared_ptr<ContextFamilyContainer> ContextPasses::getContextFamilyContainer
         design.addNode(familyContainer);
         familyContainer->setName("ContextFamilyContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition));
         familyContainer->setPartitionNum(partition);
+        familyContainer->setBaseSubBlockingLen(baseSubBlockingLength);
         familyContainer->setContextRoot(contextRoot);
 
         //Set context of FamilyContainer (since it is a node in the graph as well which may be scheduled)
@@ -551,6 +560,7 @@ std::shared_ptr<ContextFamilyContainer> ContextPasses::getContextFamilyContainer
             std::shared_ptr<ContextContainer> contextContainer = NodeFactory::createNode<ContextContainer>(familyContainer);
             contextContainer->setName("ContextContainer_For_"+asNode->getFullyQualifiedName(true, "::")+"_Partition_"+GeneralHelper::to_string(partition)+"_Subcontext_"+GeneralHelper::to_string(j));
             contextContainer->setPartitionNum(partition);
+            contextContainer->setBaseSubBlockingLen(baseSubBlockingLength);
             design.addNode(contextContainer);
             //Add this to the container order
             subContexts.push_back(contextContainer);
@@ -630,6 +640,7 @@ void ContextPasses::replicateContextRootDriversIfRequested(Design &design){
                     clonedDriver->setId(-1);
                     clonedDriver->setName(driverSrc->getName() + "_Replicated_Partition_" + GeneralHelper::to_string(partition));
                     clonedDriver->setPartitionNum(partition); //Also set the partition number
+                    clonedDriver->setBaseSubBlockingLen(contextRootAsNode->getBaseSubBlockingLen()); //TODO: When clock domains supporting multiple base sub-blocking lengths are introduced, possibly change
                     std::vector<Context> origContext = driverSrc->getContext();
                     clonedDriver->setContext(origContext);
                     if(origContext.size()>0){ //Add the replicated node to the ContextRoot if appropriate
@@ -644,6 +655,7 @@ void ContextPasses::replicateContextRootDriversIfRequested(Design &design){
                     std::shared_ptr<DummyReplica> dummyContextRoot = NodeFactory::createNode<DummyReplica>(contextRootAsNode->getParent());
                     dummyContextRoot->setName(contextRootAsNode->getName() + "_Dummy_Partition_" + GeneralHelper::to_string(partition));
                     dummyContextRoot->setPartitionNum(partition); //Also set the partition number
+                    dummyContextRoot->setBaseSubBlockingLen(contextRootAsNode->getBaseSubBlockingLen()); //TODO: When clock domains supporting multiple base sub-blocking lengths are introduced, possibly change
                     dummyContextRoot->setDummyOf(contextRoot);
                     std::vector<Context> contextRootContext = contextRootAsNode->getContext();
                     dummyContextRoot->setContext(contextRootContext);
@@ -717,6 +729,7 @@ void ContextPasses::placeEnableNodesInPartitions(Design &design) {
                         //Check if this is the first
                         if (node->getPartitionNum() == -1) {
                             node->setPartitionNum(dstPartitionNum);
+                            //Base Sub Blocking Length Should Already Be Set TODO: Assuming Only a Single Base Sub-Blocking Length is Allowed in the Context
                             replicas[dstPartitionNum] = nodeAsEnabledInput;
                             replicaNode = nodeAsEnabledInput;
                         } else {
@@ -744,6 +757,7 @@ void ContextPasses::placeEnableNodesInPartitions(Design &design) {
                                                                                          nodeAsEnabledInput.get());
                                 parentAsEnabledSubsystem->addEnableInput(replicaNode);
                                 replicaNode->setPartitionNum(dstPartitionNum);
+                                //Base Sub Blocking Length Should Be Set by the Clone TODO: Assuming Only a Single Base Sub-Blocking Length is Allowed in the Context
                                 nodesToAdd.push_back(replicaNode);
                                 replicas[dstPartitionNum] = replicaNode;
 
@@ -824,6 +838,7 @@ void ContextPasses::placeEnableNodesInPartitions(Design &design) {
                     }
 
                     node->setPartitionNum(srcPartition);
+                    //Base Sub Blocking Length Should Already Be Set TODO: Assuming Only a Single Base Sub-Blocking Length is Allowed in the Context
                 }
             }
         }
@@ -854,6 +869,7 @@ void ContextPasses::placeEnableNodesInPartitions(Design &design) {
                     }
                 }
             }
+            //Base Sub Blocking Length Should Already Be Set TODO: Assuming Only a Single Base Sub-Blocking Length is Allowed in the Context
         }
     }
 }

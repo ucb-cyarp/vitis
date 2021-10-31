@@ -82,8 +82,6 @@
 
 using namespace xercesc;
 
-#define VITIS_SIMULINK_CLOCK_DOMAIN_PREFIX "VITIS_CLOCK_DOMAIN" ///<This prefix is used in Vitis Simulink to Declare Subsystems as Clock Domains
-
 std::unique_ptr<Design> GraphMLImporter::importGraphML(std::string filename, GraphMLDialect dialect)
 {
     //Check if input exists (see https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c)
@@ -503,8 +501,9 @@ int GraphMLImporter::importNode(DOMNode *node, Design &design, std::map<std::str
         if(blockType == "Subsystem"){
             //Check if the Subsystem is a Clock Domain (defined using Subsystems in Vitis Simulink)
             if (dialect == GraphMLDialect::SIMULINK_EXPORT && hasName) {
-                std::string simulinkClockDomainPrefix = VITIS_SIMULINK_CLOCK_DOMAIN_PREFIX;
-                if (name.compare(0, simulinkClockDomainPrefix.length(), simulinkClockDomainPrefix) == 0) {
+                std::string simulinkClockDomainVitisPrefix = "VITIS_CLOCK_DOMAIN";
+                std::string simulinkClockDomainLaminarPrefix = "LAMINAR_CLOCK_DOMAIN";
+                if (name.compare(0, simulinkClockDomainVitisPrefix.length(), simulinkClockDomainVitisPrefix) == 0 || name.compare(0, simulinkClockDomainLaminarPrefix.length(), simulinkClockDomainLaminarPrefix) == 0) {
                     //Found a ClockDomain declared in simulink, instantiate a ClockDomain instead
                     //Note that properties of clock domains are discovered in a later stage of the import via
                     //ClockDomain::discoverClockDomainParameters
@@ -1039,25 +1038,45 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
     }else if(blockFunction == "Constant"){
         std::shared_ptr<Constant> newNodeAsConstant = Constant::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
         newNode = newNodeAsConstant;
-        if(name == "VITIS_PARTITION"){
+        if(name == "VITIS_PARTITION" || name == "LAMINAR_PARTITION"){
             //Check for the special case of a VITIS_PARTITION node
             std::vector<NumericValue> constVal = newNodeAsConstant->getValue();
             if(constVal.size() != 1){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION must contain exactly 1 value", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION/LAMINAR_PARTITION must contain exactly 1 value", newNodeAsConstant));
             }
             if(constVal[0].isFractional() || constVal[0].isComplex()){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION requires a real int", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION/LAMINAR_PARTITION requires a real int", newNodeAsConstant));
             }
             if(parent == nullptr){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be at the top level", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION/LAMINAR_PARTITION directive cannot be at the top level", newNodeAsConstant));
             }
             int partitionNum = newNodeAsConstant->getValue()[0].getRealInt();
             if(partitionNum < 0){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION directive cannot be negative", newNodeAsConstant));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_PARTITION/LAMINAR_PARTITION directive cannot be negative", newNodeAsConstant));
             }
-            std::cout << "VITIS_PARTITION directive of " << partitionNum << " under " << parent->getFullyQualifiedName(true) << std::endl;
+            std::cout << "VITIS_PARTITION/LAMINAR_PARTITION directive of " << partitionNum << " under " << parent->getFullyQualifiedName(true) << std::endl;
             parent->setPartitionNum(partitionNum);
+        }else if(name == "VITIS_SUBBLOCKING" || name == "LAMINAR_SUBBLOCKING"){
+            //Check for the special case of a VITIS_SUBBLOCKING node
+            std::vector<NumericValue> constVal = newNodeAsConstant->getValue();
+            if(constVal.size() != 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_SUBBLOCKING/LAMINAR_SUBBLOCKING must contain exactly 1 value", newNodeAsConstant));
+            }
+
+            if(constVal[0].isFractional() || constVal[0].isComplex()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_SUBBLOCKING/LAMINAR_SUBBLOCKING requires a real int", newNodeAsConstant));
+            }
+            if(parent == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_SUBBLOCKING/LAMINAR_SUBBLOCKING directive cannot be at the top level", newNodeAsConstant));
+            }
+            int subBlockingLen = newNodeAsConstant->getValue()[0].getRealInt();
+            if(subBlockingLen < 1){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("VITIS_SUBBLOCKING/LAMINAR_SUBBLOCKING directive must be positive", newNodeAsConstant));
+            }
+            std::cout << "VITIS_SUBBLOCKING/LAMINAR_SUBBLOCKING directive of " << subBlockingLen << " under " << parent->getFullyQualifiedName(true) << std::endl;
+            parent->setBaseSubBlockingLen(subBlockingLen);
         }
+
     }else if(blockFunction == "Gain"){
         newNode = Gain::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Mux"){

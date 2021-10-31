@@ -465,7 +465,8 @@ void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::sha
             }
 
             threadCrossingFIFO->setBlockSize(0, (baseBlockingLength*rateRelToBase.first)/rateRelToBase.second);
-            threadCrossingFIFO->setSubBlockSize(0, 1); //If in a clock domain not operating in vector mode, sub-block size must be 1
+            threadCrossingFIFO->setSubBlockSizeIn(0, 1); //If in a clock domain not operating in vector mode, sub-block size must be 1 (at the input and output)
+            threadCrossingFIFO->setSubBlockSizeOut(0, 1); //If in a clock domain not operating in vector mode, sub-block size must be 1 (at the input and output)
 
             Variable executionCountVar = clockDomain->getExecutionCountVariable(baseBlockingLength);
             threadCrossingFIFO->setCBlockIndexExprInput(0, executionCountVar.getCVarName());
@@ -516,9 +517,10 @@ void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::sha
                 throw std::runtime_error(ErrorHelpers::genErrorStr("Block Size Inside a Clock Domain Must be an Integer", threadCrossingFIFO));
             }
             int blockSize = (baseBlockingLength*rateRelToBase.first)/rateRelToBase.second;
+
             //I/O input FIFOs are placed in base domain because FIFOs are placed in the domain of the src.
             //However, the indexing actually occurs inside the domain of its destination.  For FIFOs operating at the
-            //base rate, they shold be connected to Global Blocking Input nodes and no indexing should be required.
+            //base rate, they should be connected to Global Blocking Input nodes and no indexing should be required.
             //However, if the destination node is inside of another clock domain, Blocking Domains Inputs are not
             //used and the FIFO itself handles the indexing based on the domain the destination is in.
             //TODO: Possibly clean up
@@ -527,48 +529,107 @@ void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::sha
                 //The destination is in another clock domain not operating at the base rate.  If input is from Input master, use the destination node when finding the indexing.  If the FIFO is not connected to the input master, traceBase == threadCrossingFIFO
                 blockingDomainIndExprBase = traceBase;
             }
-            std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchy = BlockingHelpers::findBlockingDomainStack(blockingDomainIndExprBase);
+
+            //The FIFO should reside in the domain of the input and finding the blocking domain information should
+            //typically work by tracing the blocking domain hierarchy of the FIFO.  The exception is when it is
+            //connected to the InputMaster node.  In this case, the destination is used for the blocking information of both
+            //the input and output
+            std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchyInput = BlockingHelpers::findBlockingDomainStack(blockingDomainIndExprBase);
 
             //Traverse down the hierarchy
-            std::string indexExpr;
-            int currentBlockSize = blockSize;
-            for(const std::shared_ptr<BlockingDomain> &blockingDomain : blockingDomainHierarchy){
+            std::string indexExprInput;
+            int currentBlockSizeInput = blockSize;
+            for(const std::shared_ptr<BlockingDomain> &blockingDomain : blockingDomainHierarchyInput){
                 if(blockingDomain->getBlockingLen()%blockingDomain->getSubBlockingLen() != 0){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Domain Found which does not process an integer number of sub-blocks", blockingDomain));
                 }
                 int subBlockCount = blockingDomain->getBlockingLen()/blockingDomain->getSubBlockingLen();
-                if(currentBlockSize%subBlockCount != 0){
+                if(currentBlockSizeInput%subBlockCount != 0){
                     throw std::runtime_error(ErrorHelpers::genErrorStr("Found a blocking domain whose sub-blocking count is incompatible with the block size of the FIFO", threadCrossingFIFO));
                 }
 
-                int localSubBlockLen = currentBlockSize/subBlockCount;
-                if(!indexExpr.empty()){
-                    indexExpr += "+";
+                int localSubBlockLen = currentBlockSizeInput/subBlockCount;
+                if(!indexExprInput.empty()){
+                    indexExprInput += "+";
                 }
                 if(localSubBlockLen != 1){
-                    indexExpr += GeneralHelper::to_string(localSubBlockLen) + "*";
+                    indexExprInput += GeneralHelper::to_string(localSubBlockLen) + "*";
                 }
-                indexExpr += blockingDomain->getBlockIndVar().getCVarName();
+                indexExprInput += blockingDomain->getBlockIndVar().getCVarName();
 
-                currentBlockSize = localSubBlockLen; //The local sub-block length is the block length of the next nested domain
+                currentBlockSizeInput = localSubBlockLen; //The local sub-block length is the block length of the next nested domain
             }
 
-            int subBlockSize = currentBlockSize; //This is the effective sub-block length at the last blocking domain in the hierarchy that the FIFO is in.
+            std::set<std::shared_ptr<Arc>> outputArcs = threadCrossingFIFO->getDirectOutputArcs();
+            if(outputArcs.empty()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Output Arcs from FIFO", threadCrossingFIFO));
+            }
+            auto outputArcIt = outputArcs.begin();
+            std::shared_ptr<Node> dst = (*outputArcIt)->getDstPort()->getParent();
+            std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchyOutput = BlockingHelpers::findBlockingDomainStack(dst);
+            if(GeneralHelper::isType<Node, BlockingInput>(dst)){
+                //Indexing is being performed for this blocking domain by the blocking input, remove it from the blocking stack
+                blockingDomainHierarchyOutput.pop_back();
+            }
+
+            //TODO: remove check
+            //Output arc may not all go to same location in blocking hierarchy.  May have fanout to specialized and unspecialized nodes or nodes that were wrapped in separate sub-blocking hierarchies.
+            //Check for blocking input and remove that blocking domain from the stack if found.
+            for(outputArcIt++; outputArcIt != outputArcs.end(); outputArcIt++){
+                std::shared_ptr<Node> arcDst = (*outputArcIt)->getDstPort()->getParent();
+                std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchyArcOutput = BlockingHelpers::findBlockingDomainStack(arcDst);
+                if(GeneralHelper::isType<Node, BlockingInput>(arcDst)){
+                    //Indexing is being performed for this blocking domain by the blocking input, remove it from the blocking stack
+                    blockingDomainHierarchyArcOutput.pop_back();
+                }
+
+                if(blockingDomainHierarchyOutput != blockingDomainHierarchyArcOutput){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Outputs from FIFO should all be in same position in blocking hierarchy", threadCrossingFIFO));
+                }
+            }
+
+            std::string indexExprOutput;
+            int currentBlockSizeOutput = blockSize;
+            for(const std::shared_ptr<BlockingDomain> &blockingDomain : blockingDomainHierarchyOutput){
+                if(blockingDomain->getBlockingLen()%blockingDomain->getSubBlockingLen() != 0){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Domain Found which does not process an integer number of sub-blocks", blockingDomain));
+                }
+                int subBlockCount = blockingDomain->getBlockingLen()/blockingDomain->getSubBlockingLen();
+                if(currentBlockSizeOutput%subBlockCount != 0){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found a blocking domain whose sub-blocking count is incompatible with the block size of the FIFO", threadCrossingFIFO));
+                }
+
+                int localSubBlockLen = currentBlockSizeOutput/subBlockCount;
+                if(!indexExprOutput.empty()){
+                    indexExprOutput += "+";
+                }
+                if(localSubBlockLen != 1){
+                    indexExprOutput += GeneralHelper::to_string(localSubBlockLen) + "*";
+                }
+                indexExprOutput += blockingDomain->getBlockIndVar().getCVarName();
+
+                currentBlockSizeOutput = localSubBlockLen; //The local sub-block length is the block length of the next nested domain
+            }
+
+            int subBlockSizeInput = currentBlockSizeInput; //This is the effective sub-block length at the last blocking domain in the hierarchy that the FIFO is in.
                                                  //It may not be equivalent to the sub-blocking length of the last sub-blocking domain in the hierarchy
                                                  //If clock domain (s) exist below it and the FIFO is not in a nested blocking domain.
+            int subBlockSizeOutput = currentBlockSizeOutput;
 
             //For FIFOs outside of any blocking domain (ie. I/O FIFOs operating at the base rate), blocking is already
             //being handled by the BlockingDomain inputs and outputs as well as the expansion of the arcs.  Declare
             //the FIFO to have a block size of 1.
-            if(blockingDomainHierarchy.empty()){
+            if(blockingDomainHierarchyInput.empty()){
                 blockSize = 1;
-                subBlockSize = 1;
+                subBlockSizeInput = 1;
+                subBlockSizeOutput = 1;
             }
 
             threadCrossingFIFO->setBlockSize(0,blockSize);
-            threadCrossingFIFO->setSubBlockSize(0, subBlockSize);
-            threadCrossingFIFO->setCBlockIndexExprInput(0, indexExpr);
-            threadCrossingFIFO->setCBlockIndexExprOutput(0, indexExpr);
+            threadCrossingFIFO->setSubBlockSizeIn(0, subBlockSizeInput);
+            threadCrossingFIFO->setSubBlockSizeOut(0, subBlockSizeOutput);
+            threadCrossingFIFO->setCBlockIndexExprInput(0, indexExprInput);
+            threadCrossingFIFO->setCBlockIndexExprOutput(0, indexExprOutput);
         };
     }
 }

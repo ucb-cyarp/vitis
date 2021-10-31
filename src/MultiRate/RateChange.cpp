@@ -64,6 +64,7 @@ void RateChange::setUseVectorSamplingMode(bool useVectorSamplingMode) {
 void RateChange::populateParametersFromRateChangeNode(std::shared_ptr<RateChange> orig) {
     name = orig->getName();
     partitionNum = orig->getPartitionNum();
+    baseSubBlockingLen = orig->getBaseSubBlockingLen();
     schedOrder = orig->getSchedOrder();
     useVectorSamplingMode = orig->isUsingVectorSamplingMode();
 }
@@ -97,28 +98,6 @@ void RateChange::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMEl
 
 std::vector<Variable> RateChange::getVariablesToDeclareOutsideClockDomain() {
     return std::vector<Variable>();
-}
-
-void RateChange::specializeForBlocking(int localBlockingLength,
-                                       int localSubBlockingLength,
-                                       std::vector<std::shared_ptr<Node>> &nodesToAdd,
-                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
-                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
-                                       std::vector<std::shared_ptr<Arc>> &arcsToRemove,
-                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                                       std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion){
-    if(useVectorSamplingMode){
-        //Do nothing, the logic is handled internally in the implementations of RateChange
-    }else{
-        Node::specializeForBlocking(localBlockingLength,
-                                    localSubBlockingLength,
-                                    nodesToAdd,
-                                    nodesToRemove,
-                                    arcsToAdd,
-                                    arcsToRemove,
-                                    nodesToRemoveFromTopLevel,
-                                    arcsWithDeferredBlockingExpansion);
-    }
 }
 
 bool RateChange::specializesForBlocking() {

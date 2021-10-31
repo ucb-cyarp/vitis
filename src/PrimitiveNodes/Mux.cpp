@@ -289,7 +289,7 @@ std::map<std::shared_ptr<InputPort>, std::set<std::shared_ptr<Node>>> Mux::disco
         std::shared_ptr<InputPort> inputPort = std::dynamic_pointer_cast<InputPort>(inputPorts[i]->getSharedPointer());
 
         std::map<std::shared_ptr<Arc>, bool> marks;
-        nodeContexts[inputPort] = GraphAlgs::scopedTraceBackAndMark(inputPort, marks, true, true);
+        nodeContexts[inputPort] = GraphAlgs::scopedTraceBackAndMark(inputPort, marks, true, true, true);
     }
 
     return nodeContexts;
@@ -448,6 +448,7 @@ bool Mux::createContextVariableUpdateNodes(std::vector<std::shared_ptr<Node>> &n
         contextVariableUpdateNode->setName("ContextVariableUpdate-For-" + getName() + "-Input" + GeneralHelper::to_string(subContextNumber));
         contextVariableUpdateNode->setContextRoot(sharedPtrToThis);
         contextVariableUpdateNode->setPartitionNum(partitionNum); //Copy the same partition number as the context root
+        contextVariableUpdateNode->setBaseSubBlockingLen(baseSubBlockingLen); //TODO: If contexts later allowed to have nodes with different base sub-blocking length, potentially change
         addContextVariableUpdateNode(contextVariableUpdateNode);
         contextVariableUpdateNode->setContextVarIndex(0); //There is only 1 output per mux, set the variable to it
         new_nodes.push_back(contextVariableUpdateNode);

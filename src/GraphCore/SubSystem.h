@@ -171,7 +171,8 @@ public:
                                std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                                std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                                std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
-                               std::map<std::shared_ptr<Arc>, int> &arcsWithDeferredBlockingExpansion) override;
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
 
     /**
      * @brief Get the descendants of this subsystem (direct children and, if a child is a subsystem, its children - recursively)

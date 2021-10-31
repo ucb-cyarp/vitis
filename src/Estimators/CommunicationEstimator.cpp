@@ -52,7 +52,7 @@ CommunicationEstimator::reportCommunicationWorkload(
                 DataType portDT = ports[j]->getDataType();
                 //TODO: Fix for FIFOs at base rate.  They are communicating Full blocks
 
-                int bits = getCommunicationBitsForType(portDT)/(it->second[i]->getSubBlockSizeCreateIfNot(j)); //Note that, if the sub-block size is >1, the port DT will over-report. The size of a single item.  Divide by the sub-block length to correct
+                int bits = getCommunicationBitsForType(portDT)/(it->second[i]->getSubBlockSizeInCreateIfNot(j)); //Note that, if the sub-block size is >1, the port DT will over-report. The size of a single item.  Divide by the sub-block length to correct
 
                 int bytes = bits/8;
                 bytesPerSample += bytes;
@@ -178,7 +178,7 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
         int fifoTotalBytesPerBlock = 0;
 
         for(int i = 0; i<fifo->getInputPorts().size(); i++){
-            int portTotalBytesPerSample = (getCommunicationBitsForType(fifo->getOutputPort(i)->getDataType())/8)/fifo->getSubBlockSizeCreateIfNot(i); // Dividing by sub-block size is to prevent over-counting the size of the I/O type if sub-blocking is >1
+            int portTotalBytesPerSample = (getCommunicationBitsForType(fifo->getOutputPort(i)->getDataType())/8)/fifo->getSubBlockSizeOutCreateIfNot(i); // Dividing by sub-block size is to prevent over-counting the size of the I/O type if sub-blocking is >1
             fifoTotalBytesPerSample += portTotalBytesPerSample;
             std::pair<int, int> portRate = std::pair<int, int>(1, 1);
             std::shared_ptr<ClockDomain> portClockDomain = fifo->getClockDomainCreateIfNot(i);
@@ -190,7 +190,7 @@ Design CommunicationEstimator::createCommunicationGraph(Design &operatorGraph, b
 
             //Note, the initial conditions are stored as an array of scalar numbers, need to know the number of elements at the port per sample (ie. the number of elements in an input/output vector to the port or 1 if scalar)
             //To get the number of cycles of initial condition in the FIFO, take the length of the scalar array and divide by the length of the
-            int initialConditionItems = fifo->getInitConditions().empty() ? 0 : (fifo->getInitConditions()[i].size() / (fifo->getOutputPort(i)->getDataType().numberOfElements() / fifo->getSubBlockSizeCreateIfNot(i))); // Dividing by sub-block size is to prevent over-counting the size of the I/O type if sub-blocking is >1
+            int initialConditionItems = fifo->getInitConditions().empty() ? 0 : (fifo->getInitConditions()[i].size() / (fifo->getOutputPort(i)->getDataType().numberOfElements() / fifo->getSubBlockSizeOutCreateIfNot(i))); // Dividing by sub-block size is to prevent over-counting the size of the I/O type if sub-blocking is >1
             int initialStateBlocks = initialConditionItems / fifo->getBlockSizeCreateIfNot(i);
             if(i==0){
                 minInitialStateBlocks = initialStateBlocks;

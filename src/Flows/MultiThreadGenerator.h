@@ -46,6 +46,7 @@ namespace MultiThreadGenerator {
      * @param blockSize the block size
      * @param subBlockSize the sub-block size
      * @param propagatePartitionsFromSubsystems if true, propagates partition information from subsystems to children (from VITIS_PARTITION directives for example)
+     * @param propagateSubBlockingFromSubsystems if true, propagates sub-blocking information from subsystems to children (from VITIS_SUBBLOCKING directives for example)
      * @param partitionMap a vector indicating the mapping of partitions to logical CPUs.  The first element is the I/O thread.  The subsequent entries are for partitions 0, 1, 2, .... If an empty array, I/O thread is placed on CPU0 and the other partitions are placed on the CPU that equals their partition number (ex. partition 1 is placed on CPU1)
      * @param threadDebugPrint if true, inserts print statements into the generated code which indicate the progress of the different threads as they execute
      * @param ioFifoSize the I/O FIFO size in blocks to allocate (only used for shared memory FIFO I/O)
@@ -65,7 +66,8 @@ namespace MultiThreadGenerator {
                             ThreadCrossingFIFOParameters::ThreadCrossingFIFOType fifoType,
                             bool emitGraphMLSched, bool printSched, int fifoLength, unsigned long blockSize,
                             unsigned long subBlockSize,
-                            bool propagatePartitionsFromSubsystems, std::vector<int> partitionMap,
+                            bool propagatePartitionsFromSubsystems, bool propagateSubBlockingFromSubsystems,
+                            std::vector<int> partitionMap,
                             bool threadDebugPrint, int ioFifoSize, bool printTelem, std::string telemDumpPrefix,
                             EmitterHelpers::TelemetryLevel telemLevel, int telemCheckBlockFreq, double telemReportPeriodSec,
                             unsigned long memAlignment, bool useSCHEDFIFO,
