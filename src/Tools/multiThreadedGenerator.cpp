@@ -184,8 +184,8 @@ int main(int argc, char* argv[]) {
             try {
                 unsigned long parsedSubBlockSize = std::stoul(argStr);
                 subBlockSize = parsedSubBlockSize;
-                if(blockSize<1){
-                    std::cerr << "Invalid command line option type: --subBlockSize must be >= 1.  Currently:  " << argv[i] << std::endl;
+                if(subBlockSize<0){
+                    std::cerr << "Invalid command line option type: --subBlockSize must be >= 0 (0 for Propagate from Annotations in Design).  Currently:  " << argv[i] << std::endl;
                     exit(1);
                 }
             } catch (std::invalid_argument e) {
