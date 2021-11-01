@@ -576,6 +576,7 @@ void DomainPasses::createBlockingInputNodesForIONotAtBaseDomain(std::shared_ptr<
 
                             arcsWithDeferredBlockingExpansion[blockingInputConnection] = newArcExpansion;
                             arcsToAdd.insert(blockingInputConnection);
+                            blockingInputInArc = blockingInputConnection;
                         }
 
                         //Copy over the beginning arc expansion properties (if it exists) to the new arc
