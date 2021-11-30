@@ -24,13 +24,13 @@ jobs:
         run: sudo apt install cloc
 
       - name: Lines of Code for Src
-        run: cloc "$GITHUB_WORKSPACE/src" | tee ~/srcLoc.log
+        run: cloc --timeout 0 "$GITHUB_WORKSPACE/src" | tee ~/srcLoc.log
         
-      - name: Lines of Code for Src
-        run: cloc "$GITHUB_WORKSPACE/test/src" | tee ~/testLoc.log
+      - name: Lines of Code for Test
+        run: cloc --timeout 0 "$GITHUB_WORKSPACE/test/src" | tee ~/testLoc.log
         
-      - name: Lines of Code for Src
-        run: cloc "$GITHUB_WORKSPACE/src" "$GITHUB_WORKSPACE/test/src" | tee ~/srcTestLoc.log
+      - name: Lines of Code for Src & Test
+        run: cloc --timeout 0 "$GITHUB_WORKSPACE/src" "$GITHUB_WORKSPACE/test/src" | tee ~/srcTestLoc.log
 
       - name: Upload Loc Reports
         uses: actions/upload-artifact@v2
