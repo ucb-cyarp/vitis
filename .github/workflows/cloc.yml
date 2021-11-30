@@ -21,7 +21,15 @@ jobs:
       
       - name: Install Dependencies
         shell: bash
-        run: sudo apt install cloc
+        run: sudo apt install cloc; sudo apt remove cloc
+        
+      - name: Clone Cloc (1.9)
+        shell: bash
+        run: git clone https://github.com/AlDanial/cloc.git ~/cloc && cd ~/cloc && git checkout v1.90
+        
+      - name: Build and Install CLoc
+        shell: bash
+        run: cd ~/cloc/Unix. && make && sudo make install
 
       - name: Lines of Code for Src
         run: cloc --timeout 0 "$GITHUB_WORKSPACE/src" | tee ~/srcLoc.log
