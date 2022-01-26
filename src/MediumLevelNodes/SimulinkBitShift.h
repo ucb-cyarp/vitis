@@ -31,11 +31,15 @@ public:
      */
     static ShiftMode parseShiftMode(std::string str);
 
+    static ShiftMode parseShiftModeSimulinkArithShift(std::string str);
+
     static std::string shiftModeToString(ShiftMode mode);
 
 private:
     ShiftMode shiftMode; ///<The shift mode
     int shiftAmt; ///<The shift amount
+    bool shiftAmtFromConst; ///<If the shift amount is from a constant.  Otherwise it is from the second input port
+    bool arithmeticLogicalBasedOnDT; ///<If the decision on whether or not the shift is arithmetic or logical is determined by the datatypes present.  Othersise, is set manually
 
     //==== Constructors ====
     /**
@@ -67,6 +71,9 @@ private:
      * @param orig The origional node from which a shallow copy is being made
      */
     SimulinkBitShift(std::shared_ptr<SubSystem> parent, SimulinkBitShift* orig);
+
+protected:
+    void propagateProperties() override;
 
 public:
     //==== Getters/Setters ====

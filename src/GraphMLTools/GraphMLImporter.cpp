@@ -1181,7 +1181,7 @@ std::shared_ptr<Node> GraphMLImporter::importStandardNode(std::string idStr, std
         newNode = SimulinkSelect::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "SimulinkBitwiseOperator"){ //--Vitis name is SimulinkBitwiseOperator.  Simulink Name is BitwiseOperator but that conflicts with the vitis primitive BitwiseOperator
         newNode = SimulinkBitwiseOperator::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
-    }else if(blockFunction == "SimulinkBitShift" || blockFunction == "BitShift"){ //--Vitis name is SimulinkBitShift. Simulink Name is Bit Shift
+    }else if(blockFunction == "SimulinkBitShift" || blockFunction == "BitShift" || blockFunction == "ArithShift"){ //--Vitis name is SimulinkBitShift. Simulink Name is Bit Shift or ArithShift
         newNode = SimulinkBitShift::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
     }else if(blockFunction == "Reshape" || blockFunction == "BitShift"){ //--Vitis name is Reshape. Simulink Name is Reshape
         newNode = Reshape::createFromGraphML(id, name, dataKeyValueMap, parent, dialect);
