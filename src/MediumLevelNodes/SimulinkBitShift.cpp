@@ -135,7 +135,13 @@ SimulinkBitShift::createFromGraphML(int id, std::string name, std::map<std::stri
     }
 
     newNode->shiftMode = shiftModeEnum;
-    newNode->shiftAmt = std::stoi(shiftAmtStr);
+    if(shiftAmtStr.empty()){
+        //Possible if shift amount from 2nd input port
+        newNode->shiftAmt = 0;
+    }else{
+        newNode->shiftAmt = std::stoi(shiftAmtStr);
+    }
+
     newNode->shiftAmtFromConst = shiftFromConst;
     newNode->arithmeticLogicalBasedOnDT = arithmeticLogicalFromDT;
 
@@ -165,6 +171,7 @@ std::set<GraphMLParameter> SimulinkBitShift::graphMLParameters() {
     parameters.insert(GraphMLParameter("ShiftMode", "string", true));
     parameters.insert(GraphMLParameter("ShiftAmt", "int", true));
     parameters.insert(GraphMLParameter("ShiftAmtFromConst", "bool", true));
+    parameters.insert(GraphMLParameter("ArithmeticLogicalBasedOnDT", "bool", true));
 
     return parameters;
 }
@@ -184,6 +191,7 @@ SimulinkBitShift::emitGraphML(xercesc::DOMDocument *doc, xercesc::DOMElement *gr
     GraphMLHelper::addDataNode(doc, thisNode, "ShiftMode", shiftModeToString(shiftMode));
     GraphMLHelper::addDataNode(doc, thisNode, "ShiftAmt", GeneralHelper::to_string(shiftAmt));
     GraphMLHelper::addDataNode(doc, thisNode, "ShiftAmtFromConst", GeneralHelper::to_string(shiftAmtFromConst));
+    GraphMLHelper::addDataNode(doc, thisNode, "ArithmeticLogicalBasedOnDT", GeneralHelper::to_string(arithmeticLogicalBasedOnDT));
 
     return thisNode;
 }
