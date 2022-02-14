@@ -795,6 +795,16 @@ void DomainPasses::expandArcsDeferredAndInsertBlockingBridges(Design &design, st
     for(const std::shared_ptr<Arc> &arc : arcsWithConflictingExpansionRequests){
         if(arc->getSrcPort()->getParent()->getBaseSubBlockingLen() == arc->getDstPort()->getParent()->getBaseSubBlockingLen()){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Found arc with conflicting blocking requests which is not between nodes with different base sub-blocking lengths"));
+        }else if(arc->getSrcPort()->getParent()->getPartitionNum() == arc->getDstPort()->getParent()->getPartitionNum()){
+            int partitionNum = arc->getSrcPort()->getParent()->getPartitionNum();
+            std::string arcDscr = "ArcID: " + GeneralHelper::to_string(arc->getId()) + ", Src Orig Path: " + arc->getSrcPort()->getParent()->getFullyQualifiedOrigName() + ", Dst Orig Path: " + arc->getDstPort()->getParent()->getFullyQualifiedOrigName();
+            std::tuple<int, int, bool, bool> req = arcsWithDeferredBlockingExpansion[arc];
+            std::string request = "{" + GeneralHelper::to_string(std::get<0>(req)) + ", " + GeneralHelper::to_string(std::get<1>(req)) +
+                    ", " + GeneralHelper::to_string(std::get<2>(req)) + ", " + GeneralHelper::to_string(std::get<3>(req)) + "}";
+//            throw std::runtime_error(ErrorHelpers::genErrorStr("Found arc with conflicting blocking requests.  Src and dst nodes have different base sub-blocking lengths and are not separated by a partition. " + arcDscr + ", Req: " + request));
+
+            std::cout << "Found arc with conflicting blocking requests.  Src and dst nodes have different base sub-blocking lengths and are not separated by a partition. " << arcDscr << ", Req: " << request << ", Partition: " << partitionNum << std::endl;
+
         }
     }
 
@@ -804,7 +814,7 @@ void DomainPasses::expandArcsDeferredAndInsertBlockingBridges(Design &design, st
             std::tuple<std::shared_ptr<OutputPort>,
                     int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>,
             std::vector<std::shared_ptr<Arc>>> groups =
-            EmitterHelpers::getGroupableArcs(arcsWithConflictingExpansionRequests, true);
+            EmitterHelpers::getGroupableArcs(arcsWithConflictingExpansionRequests, true, false);
 
     //Insert BlockingBridgeNodes into these locations, placing them in the context of the src
 

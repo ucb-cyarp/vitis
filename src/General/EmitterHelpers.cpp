@@ -1013,7 +1013,7 @@ std::string EmitterHelpers::telemetryLevelToString(EmitterHelpers::TelemetryLeve
     }
 }
 
-std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> EmitterHelpers::getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize){
+std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> EmitterHelpers::getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize, bool discardArcsWithinSinglePartition){
     //Note: Only the BlockingDomain or ClockDomain will be non-null.  It is possible for both to be non-null if the dst is at the top level
     std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> groups;
 
@@ -1044,7 +1044,7 @@ std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<Block
             indexSrcClock = dstClockDomain;
         }
 
-        if (srcPartition != dstPartition) {
+        if (srcPartition != dstPartition || (!discardArcsWithinSinglePartition)) {
             std::string srcPath = arc->getSrcPort()->getParent()->getFullyQualifiedName();
             std::shared_ptr<Node> dst = arc->getDstPort()->getParent();
             if (checkForToFromNoPartitionToNoBaseBlockSize && (srcPartition == -1 || dstPartition == -1)) {

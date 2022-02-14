@@ -1184,7 +1184,7 @@ std::map<std::pair<int, int>, std::vector<std::vector<std::shared_ptr<Arc>>>> De
                     std::tuple<std::shared_ptr<OutputPort>,
                                int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>,
                     std::vector<std::shared_ptr<Arc>>> currentGroups =
-                            EmitterHelpers::getGroupableArcs(outArcs, checkForToFromNoPartitionToNoBaseBlockSize);
+                            EmitterHelpers::getGroupableArcs(outArcs, checkForToFromNoPartitionToNoBaseBlockSize, true);
 
             //Add discovered groups to partitionCrossing map
             for (auto it = currentGroups.begin(); it != currentGroups.end(); it++) {

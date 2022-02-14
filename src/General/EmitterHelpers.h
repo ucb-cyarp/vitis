@@ -371,9 +371,9 @@ namespace EmitterHelpers {
      * Groupable arcs must have the same source output port, same destination partitions, same destination base sub-blocking length, and same indexing (same blocking node or clock domain if not operating in vector mode)
      *
      * @param arcs
-     * @return
+     * @return a map represeting sets arcs which can be grouped.  There is one map entry per group and the key is a tuple of {srcPort, dstPartition, dstBaseSubBlockingLength, dstBlockingDomain used for indexing into a block, dstClockDomain used for indexing into a block}
      */
-    std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize);
+    std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize, bool discardArcsWithinSinglePartition);
 
     /**
      * @brief Find the point in the node hierarchy insert a BlockingBridge or FIFO taking into account that
