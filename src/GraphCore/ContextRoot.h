@@ -38,6 +38,11 @@ protected:
 
 public:
     /**
+     * Virtual destructor for context root
+     */
+    virtual ~ContextRoot() = default;
+
+    /**
      * @brief Add a node to the specified sub-context vector
      *
      * Extends the nodesInSubContexts vector if required to reach the specified sub context

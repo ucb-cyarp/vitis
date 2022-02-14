@@ -69,6 +69,11 @@ class Node : public std::enable_shared_from_this<Node> {
 
 public:
     /**
+     * @brief Virtual destructor for nodes.  Accepting default implementation but explicitly declared virtual for destruction of descendant class objects
+     */
+    virtual ~Node() = default;
+
+    /**
      * @brief Class for comparing std::shared_ptr<Node> pointers by their IDs rather than by the pointer address.  Is useful when order consistency between runs is important (ptr addresses will almost certainly be different between runs)
      *
      * @note If IDs are equal (for example if they have not yet been assigned), the ptr address is used as the tie breaker.
