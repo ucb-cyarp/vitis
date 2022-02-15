@@ -22,10 +22,6 @@ void MultiThreadPasses::absorbAdjacentDelaysIntoFIFOs(std::map<std::pair<int, in
         int srcPartition = it->first.first;
         int dstPartition = it->first.second;
 
-        if(srcPartition == 17 && dstPartition == 5){
-            std::cout << "Got here" << std::endl;
-        }
-
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifoPtrs = it->second;
 
         for(int i = 0; i<fifoPtrs.size(); i++) {
