@@ -665,6 +665,8 @@ void DomainPasses::createBlockingOutputNodesForIONotAtBaseDomain(std::shared_ptr
                 int localBlockLength = scaledBaseBlockLength;
 
                 //Traverse down the blocking domain stack
+                //TODO: When the node is in a clock domain, need to insert blocking output for I/O
+
                 for (const std::shared_ptr<BlockingDomain> &blockingDomain: blockingDomainStack) {
                     int numSubBlocks = blockingDomain->getBlockingLen() / blockingDomain->getSubBlockingLen();
                     if (localBlockLength % numSubBlocks != 0) {
@@ -1203,6 +1205,7 @@ void DomainPasses::blockAndSubBlockDesign(Design &design, int baseBlockingLength
     //Create Blocking Input Nodes for Master Input Arcs Not Operating in The Base Clock Domain
     //This resolves an issue where Input is directly connected to a node with blocking specialization
     //The one exception is for arcs to Clock Domains not operating in vector mode.
+    //Also create blocking nodes for outputs which are operating in vector mode
     DomainPasses::createBlockingNodesForIONotAtBaseDomain(design, arcsWithDeferredBlockingExpansion, baseBlockingLength);
 
     expandArcsDeferredAndInsertBlockingBridges(design, arcsWithDeferredBlockingExpansion);
@@ -1371,6 +1374,7 @@ void DomainPasses::createGlobalBlockingDomain(Design &design,
     //Would insert BlockingInput and BlockingOutput nodes if the src/dst are not in a ClockDomain that is not operating
     //in vector mode.
     //TODO: Insert BlockingDomainBridge nodes between blocking domains.  Not exactly like
+
 
     //TODO: Need clock domains to be split once clock domains are allowed to contain nodes of different sub-blocking lengths
 
