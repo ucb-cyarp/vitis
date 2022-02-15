@@ -2,6 +2,7 @@
 // Created by Christopher Yarp on 8/24/21.
 //
 
+#include<iostream>
 #include "BlockingHelpers.h"
 #include "BlockingDomain.h"
 #include "General/GraphAlgs.h"
@@ -187,6 +188,7 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
             }
 
             //Copy over the beginning arc expansion properties (if it exists) to the new arc
+            //This new arc comes from outside the blocking domain into the blocking input.  When inserted, the destination request was added, need to copy the src request from the orig arc
             //Need to capture if this arc requires a BlockingDomainBridge
             if(std::get<2>(origArcExpansion)) {
                 std::tuple<int, int, bool, bool> newArcExpansion = arcsWithDeferredBlockingExpansion[blockingInputInArc];
@@ -195,6 +197,7 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                 arcsWithDeferredBlockingExpansion[blockingInputInArc] = newArcExpansion;
             }
 
+            //The original input arc is now attached to the blocking input.  Its expansion request from the src side needs to be updated (below)
             inputArc->setSrcPortUpdateNewUpdatePrev(blockingInput->getOutputPortCreateIfNot(0));
 
             std::get<0>(origArcExpansion) = subBlockingLength;  //Need to expand the arc going into the node input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
@@ -254,19 +257,16 @@ void BlockingHelpers::createBlockingDomainHelper(std::set<std::shared_ptr<Node>>
                 std::get<1>(newArcExpansion) = subBlockingLength; //Need to expand the arc going into the input by the sub blocking size.  This would be done by a nested blocking domain except that it does work if the nested blocking domains are created before outer blocing domains
                 std::get<3>(newArcExpansion) = true;
 
+                //Copy the original arc expansion request from the src side of the original arc
+                //This original arc will be re-wired to the output of the blocking output
+                std::get<0>(newArcExpansion) = std::get<0>(origArcExpansion);
+                std::get<2>(newArcExpansion) = std::get<2>(origArcExpansion);
+
                 arcsWithDeferredBlockingExpansion[blockingOutputConnection] = newArcExpansion;
                 arcsToAdd.push_back(blockingOutputConnection);
             }
 
-            //Copy over the beginning arc expansion properties (if it exists) to this new arc
-            //Need to capture if this arc requires a BlockingDomainBridge
-            if(std::get<2>(origArcExpansion)) {
-                std::tuple<int, int, bool, bool> newArcExpansion = arcsWithDeferredBlockingExpansion[blockingOutputInArc];
-                std::get<0>(newArcExpansion) = std::get<0>(origArcExpansion);
-                std::get<2>(newArcExpansion) = std::get<2>(origArcExpansion);
-                arcsWithDeferredBlockingExpansion[blockingOutputInArc] = newArcExpansion;
-            }
-
+            //The output arc should be updated by the blocking length (at the src side).
             outputArc->setSrcPortUpdateNewUpdatePrev(blockingOutput->getOutputPortCreateIfNot(0));
             std::get<0>(origArcExpansion) = blockingLength; //Need to expand the arc going into the input by the block size
             std::get<2>(origArcExpansion) = true;
