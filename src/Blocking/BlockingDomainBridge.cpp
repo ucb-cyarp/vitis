@@ -121,3 +121,25 @@ void BlockingDomainBridge::validate() {
 
     //TODO: Implement
 }
+
+CExpr BlockingDomainBridge::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
+                                      int outputPortNum, bool imag) {
+    //TODO: Needs to be implemented in much the same way as FIFOs including the need for absorbing delays into initial conditions
+    //      This is required because blocking domains are currently treated as contexts with all nodes under the blocking domain
+    //      scheduled together.  If delays are not absorbed, it is possible for the different blocking domains to have a
+    //      scheduling cycle
+
+    throw std::runtime_error(ErrorHelpers::genErrorStr("Sub-Blocking transitions are not currently allowed within a single partition.", getSharedPointer()));
+
+    return Node::emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
+
+//    //Get the Expression for the input (should only be 1)
+//    std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
+//    int srcOutputPortNum = srcOutputPort->getPortNum();
+//    std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+//    CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+//    inputExpr.setExpr("/*BLOCKING-DOMAIN-BRIDGE: " + getFullyQualifiedOrigName() + " " + (imag ? "Imag" : "Real") + "*/");
+//    return inputExpr;
+//
+//    return Node::emitCExpr(cStatementQueue, schedType, outputPortNum, imag);
+}

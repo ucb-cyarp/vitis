@@ -86,7 +86,7 @@ public:
 
     std::string typeNameStr() override;
 
-
+    CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum, bool imag) override;
 
 };
 
