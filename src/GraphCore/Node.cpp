@@ -21,15 +21,19 @@
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 #include "MasterNodes/MasterUnconnected.h"
+#include "Blocking/BlockingDomain.h"
+#include "Blocking/BlockingInput.h"
+#include "Blocking/BlockingOutput.h"
+#include "Blocking/BlockingHelpers.h"
 
-Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0)
+Node::Node() : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), baseSubBlockingLen(-1)
 {
     parent = std::shared_ptr<SubSystem>(nullptr);
 
     //NOTE: CANNOT init ports here since we need a shared pointer to this object
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent) { }
+Node::Node(std::shared_ptr<SubSystem> parent) : id(-1), name(""), partitionNum(-1), schedOrder(-1), tmpCount(0), parent(parent), baseSubBlockingLen(-1) { }
 
 void Node::init() {
     //Init the order constraint ports.  It is ok for them to have no connected arcs
@@ -493,6 +497,128 @@ bool Node::hasCombinationalPath(){
     return true;
 }
 
+bool Node::passesThroughInputs(){
+    //Default to return false
+    return false;
+}
+
+bool Node::canBreakBlockingDependency(int localSubBlockingLength){
+    //Default is to return false
+    return false;
+}
+
+void Node::specializeForBlocking(int localBlockingLength,
+                                 int localSubBlockingLength,
+                                 std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                 std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                 std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                 std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                 std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                 std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion) {
+
+    //For now, error out if there are order constraint arcs
+    //TODO: Possibly re-evaluate this decision
+//    if(!getOrderConstraintInputArcs().empty() || !getOrderConstraintOutputArcs().empty()){
+//        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered order constraint arcs when specializing for sub-blocking", getSharedPointer()));
+//    }
+
+    std::set<std::shared_ptr<Arc>> directInputArcs = getDirectInputArcs();
+    std::set<std::shared_ptr<Arc>> directOutputArcs = getDirectOutputArcs();
+
+    BlockingHelpers::createBlockingDomainHelper({getSharedPointer()},
+            directInputArcs,
+            directOutputArcs,
+            parent,
+            localBlockingLength,
+            localSubBlockingLength,
+            baseSubBlockingLen,
+            "BlockingDomainFor_" + name + "_n" + GeneralHelper::to_string(id),
+            nodesToAdd,
+            arcsToAdd,
+            nodesToRemoveFromTopLevel,
+            arcsWithDeferredBlockingExpansion);
+}
+/*
+    //For now, error out if there are order constraint arcs
+    //TODO: Possibly re-evaluate this decision
+    if(!getOrderConstraintInputArcs().empty() || !getOrderConstraintOutputArcs().empty()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Encountered order constraint arcs when specializing for sub-blocking", getSharedPointer()));
+    }
+
+    std::shared_ptr<BlockingDomain> blockingDomain = NodeFactory::createNode<BlockingDomain>(parent);
+    nodesToAdd.push_back(blockingDomain);
+    blockingDomain->setName("BlockingDomainFor_" + name + "_n" + GeneralHelper::to_string(id));
+    blockingDomain->setBlockingLen(localBlockingLength);
+    blockingDomain->setSubBlockingLen(localSubBlockingLength);
+    if(parent == nullptr){
+        nodesToRemoveFromTopLevel.push_back(getSharedPointer());
+    }
+    setParentUpdateNewUpdatePrev(blockingDomain);
+
+    //Place the node in a blocking domain
+    if(contextDiscoveryAlreadyHappened){
+        std::vector<Context> contextStack = getContext();
+        contextStack.emplace_back(blockingDomain, 0);
+        setContextUpdateNewUpdatePrev(contextStack);
+    }
+
+    std::set<std::shared_ptr<Arc>> directInputArcs = getDirectInputArcs();
+    std::set<std::shared_ptr<Arc>> directOutputArcs = getDirectOutputArcs();
+
+    //Create a blocking inputs for the domain
+    //There should only be 1 input arc per input port
+    for(const std::shared_ptr<Arc> &inputArc : directInputArcs){
+        std::shared_ptr<BlockingInput> blockingInput = NodeFactory::createNode<BlockingInput>(blockingDomain);
+        nodesToAdd.push_back(blockingInput);
+        blockingDomain->addBlockInput(blockingInput);
+        blockingInput->setBlockingLen(localBlockingLength);
+        blockingInput->setSubBlockingLen(localSubBlockingLength);
+
+        std::shared_ptr<InputPort> origInputPort = inputArc->getDstPort();
+
+        blockingInput->setName("BlockingDomainInputFor_" + name + "_n" + GeneralHelper::to_string(id) + "_p" + GeneralHelper::to_string(origInputPort->getPortNum()));
+        if(contextDiscoveryAlreadyHappened){
+            std::vector<Context> contextStack = getContext();
+            blockingInput->setContextUpdateNewUpdatePrev(contextStack);
+        }
+
+        inputArc->setDstPortUpdateNewUpdatePrev(blockingInput->getInputPortCreateIfNot(0));
+
+        std::shared_ptr<Arc> blockingInputConnection = Arc::connectNodes(blockingInput->getOutputPortCreateIfNot(0), origInputPort, inputArc->getDataType(), inputArc->getSampleTime());
+        arcsToAdd.push_back(blockingInputConnection);
+    }
+
+    std::map<std::shared_ptr<OutputPort>, std::shared_ptr<BlockingOutput>> outputPortsToBlockingOutputs;
+    for(const std::shared_ptr<Arc> &outputArc : directOutputArcs){
+        //Check if we have already created a blocking output for this output port
+        std::shared_ptr<OutputPort> origOutputPort = outputArc->getSrcPort();
+        std::shared_ptr<BlockingOutput> blockingOutput;
+        if(GeneralHelper::contains(origOutputPort, outputPortsToBlockingOutputs)){
+            blockingOutput = outputPortsToBlockingOutputs[origOutputPort];
+        }else{
+            //Create a new blocking output
+            blockingOutput = NodeFactory::createNode<BlockingOutput>(blockingDomain);
+            nodesToAdd.push_back(blockingOutput);
+            outputPortsToBlockingOutputs[origOutputPort] = blockingOutput;
+            blockingDomain->addBlockOutput(blockingOutput);
+            blockingOutput->setBlockingLen(localBlockingLength);
+            blockingOutput->setSubBlockingLen(localSubBlockingLength);
+            blockingOutput->setName("BlockingDomainOutputFor" + name + "_n" + GeneralHelper::to_string(id) + "_p" + GeneralHelper::to_string(origOutputPort->getPortNum()));
+
+            //Connect the blocking output
+            std::shared_ptr<Arc> blockingOutputConnection = Arc::connectNodes(origOutputPort, blockingOutput->getInputPortCreateIfNot(0), outputArc->getDataType(), outputArc->getSampleTime());
+            arcsToAdd.push_back(blockingOutputConnection);
+        }
+
+        outputArc->setSrcPortUpdateNewUpdatePrev(blockingOutput->getOutputPortCreateIfNot(0));
+    }
+}
+*/
+
+bool Node::specializesForBlocking(){
+    return false;
+}
+
 std::vector<std::shared_ptr<StateUpdate>> Node::getStateUpdateNodes(){
     //default has no state
     return stateUpdateNodes;
@@ -540,7 +666,7 @@ std::set<std::string> Node::getExternalIncludes(){
     return std::set<std::string>();
 }
 
-Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder), origLocation(orig->origLocation) {
+Node::Node(std::shared_ptr<SubSystem> parent, Node* orig) : parent(parent), name(orig->name), id(orig->id), tmpCount(orig->tmpCount), partitionNum(orig->partitionNum), schedOrder(orig->schedOrder), origLocation(orig->origLocation), baseSubBlockingLen(orig->baseSubBlockingLen) {
 
 }
 
@@ -1204,6 +1330,17 @@ std::set<std::shared_ptr<Arc>> Node::getOutputArcs(){
     return arcs;
 }
 
+std::set<std::shared_ptr<Node>> Node::getDependentNodes1Degree(){
+    std::set<std::shared_ptr<Node>> nodes;
+    std::set<std::shared_ptr<Arc>> outputArcs = getOutputArcs();
+
+    for(const std::shared_ptr<Arc> &arc : outputArcs){
+        nodes.insert(arc->getDstPort()->getParent());
+    }
+
+    return nodes;
+}
+
 std::string Node::getErrorReportContextStr(){
     return getFullyQualifiedName(true, "/");
 }
@@ -1430,4 +1567,12 @@ std::string Node::getFullyQualifiedOrigName(bool sanitize, std::string delim) {
     fullName += componentName;
 
     return fullName;
+}
+
+int Node::getBaseSubBlockingLen() const {
+    return baseSubBlockingLen;
+}
+
+void Node::setBaseSubBlockingLen(int baseSubBlockingLen) {
+    Node::baseSubBlockingLen = baseSubBlockingLen;
 }

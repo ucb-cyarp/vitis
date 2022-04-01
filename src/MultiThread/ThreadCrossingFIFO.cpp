@@ -6,6 +6,7 @@
 #include "ThreadCrossingFIFO.h"
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
+#include "Blocking/BlockingHelpers.h"
 
 int ThreadCrossingFIFO::getFifoLength() const {
     return fifoLength;
@@ -59,6 +60,9 @@ void ThreadCrossingFIFO::setCStateVar(int port, const Variable &cStateVar) {
 }
 
 Variable ThreadCrossingFIFO::getCStateVarExpandedForBlockSize(int port){
+    //After correctly setting the base type of the variable (in initializeVarIfNotAlready), scale by
+    //the block size
+
     Variable var = getCStateVar(port);
 
     //Expand the variable based on the block size of the FIFO
@@ -84,10 +88,18 @@ Variable ThreadCrossingFIFO::getCStateInputVar(int port) {
 }
 
 Variable ThreadCrossingFIFO::getCStateInputVarExpandedForBlockSize(int port){
+    //After correctly setting the base type of the variable (in initializeVarIfNotAlready), scale by
+    //the block size
+
     Variable var = getCStateInputVar(port);
 
     //Expand the variable based on the block size of the FIFO
     //Note that this does not propagate outside of this function
+
+    //For FIFOs outside any blocking domain, including the global blocking domain (ie. I/O FIFO at base rate=), do not
+    //expand the size of the FIFO.  In this case, their block size will be set to 1 and any indexing is handled
+    //by the BlockingDomain input and output nodes.
+
     if(getBlockSizeCreateIfNot(port)>1){
         DataType dt = var.getDataType();
         dt = dt.expandForBlock(getBlockSizeCreateIfNot(port));
@@ -133,6 +145,111 @@ int ThreadCrossingFIFO::getBlockSizeCreateIfNot(int portNum){
     return blockSizes[portNum];
 }
 
+std::vector<int> ThreadCrossingFIFO::getSubBlockSizesIn() const {
+    return subBlockSizesIn;
+}
+
+int ThreadCrossingFIFO::getSubBlockSizeInCreateIfNot(int portNum){
+    unsigned long portLen = subBlockSizesIn.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        subBlockSizesIn.push_back(0);
+    }
+
+    return subBlockSizesIn[portNum];
+}
+
+void ThreadCrossingFIFO::setSubBlockSizesIn(const std::vector<int> &subBlockSizes){
+    ThreadCrossingFIFO::subBlockSizesIn = subBlockSizes;
+}
+
+void ThreadCrossingFIFO::setSubBlockSizeIn(int portNum, int subBlockSize){
+    unsigned long portLen = subBlockSizesIn.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        subBlockSizesIn.push_back(0);
+    }
+
+    subBlockSizesIn[portNum] = subBlockSize;
+}
+
+std::vector<int> ThreadCrossingFIFO::getSubBlockSizesOut() const {
+    return subBlockSizesOut;
+}
+
+int ThreadCrossingFIFO::getSubBlockSizeOutCreateIfNot(int portNum){
+    unsigned long portLen = subBlockSizesOut.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        subBlockSizesOut.push_back(0);
+    }
+
+    return subBlockSizesOut[portNum];
+}
+
+void ThreadCrossingFIFO::setSubBlockSizesOut(const std::vector<int> &subBlockSizes){
+    ThreadCrossingFIFO::subBlockSizesOut = subBlockSizes;
+}
+
+void ThreadCrossingFIFO::setSubBlockSizeOut(int portNum, int subBlockSize){
+    unsigned long portLen = subBlockSizesOut.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        subBlockSizesOut.push_back(0);
+    }
+
+    subBlockSizesOut[portNum] = subBlockSize;
+}
+
+//
+std::vector<int> ThreadCrossingFIFO::getBaseSubBlockSizesIn() const {
+    return baseSubBlockSizesIn;
+}
+
+int ThreadCrossingFIFO::getBaseSubBlockSizeInCreateIfNot(int portNum){
+    unsigned long portLen = baseSubBlockSizesIn.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        baseSubBlockSizesIn.push_back(0);
+    }
+
+    return baseSubBlockSizesIn[portNum];
+}
+
+std::vector<int> ThreadCrossingFIFO::getBaseSubBlockSizesOut() const {
+    return baseSubBlockSizesOut;
+}
+
+int ThreadCrossingFIFO::getBaseSubBlockSizeOutCreateIfNot(int portNum){
+    unsigned long portLen = baseSubBlockSizesOut.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        baseSubBlockSizesOut.push_back(0);
+    }
+
+    return baseSubBlockSizesOut[portNum];
+}
+
+void ThreadCrossingFIFO::setBaseSubBlockSizesIn(const std::vector<int> &subBlockSizes){
+    ThreadCrossingFIFO::baseSubBlockSizesIn = subBlockSizes;
+}
+
+void ThreadCrossingFIFO::setBaseSubBlockSizeIn(int portNum, int subBlockSize){
+    unsigned long portLen = baseSubBlockSizesIn.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        baseSubBlockSizesIn.push_back(0);
+    }
+
+    baseSubBlockSizesIn[portNum] = subBlockSize;
+}
+
+void ThreadCrossingFIFO::setBaseSubBlockSizesOut(const std::vector<int> &subBlockSizes){
+    ThreadCrossingFIFO::baseSubBlockSizesOut = subBlockSizes;
+}
+
+void ThreadCrossingFIFO::setBaseSubBlockSizeOut(int portNum, int subBlockSize){
+    unsigned long portLen = baseSubBlockSizesOut.size();
+    for(unsigned long i = portLen; i <= portNum; i++){
+        baseSubBlockSizesOut.push_back(0);
+    }
+
+    baseSubBlockSizesOut[portNum] = subBlockSize;
+}
+
 ThreadCrossingFIFO::ThreadCrossingFIFO() : fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){}
 
 ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node(parent), fifoLength(8), copyMode(ThreadCrossingFIFOParameters::CopyMode::CLANG_MEMCPY_INLINED){}
@@ -140,7 +257,11 @@ ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent) : Node
 ThreadCrossingFIFO::ThreadCrossingFIFO(std::shared_ptr<SubSystem> parent, ThreadCrossingFIFO *orig) : Node(parent, orig),
                                        fifoLength(orig->fifoLength), initConditions(orig->initConditions),
                                        cStateVars(orig->cStateVars), cStateInputVars(orig->cStateInputVars),
-                                       blockSizes(orig->blockSizes), cStateVarsInitialized(orig->cStateVarsInitialized),
+                                       cBlockIndexExprsInput(orig->cBlockIndexExprsInput),
+                                       cBlockIndexExprsOutput(orig->cBlockIndexExprsOutput),
+                                       blockSizes(orig->blockSizes), subBlockSizesIn(orig->subBlockSizesIn),
+                                       subBlockSizesOut(orig->subBlockSizesOut),
+                                       cStateVarsInitialized(orig->cStateVarsInitialized),
                                        cStateInputVarsInitialized(orig->cStateInputVarsInitialized),
                                        copyMode(orig->copyMode){}
 
@@ -331,14 +452,22 @@ void ThreadCrossingFIFO::validate() {
         }
 
         //Already validated all arcs to a port have the same DT, now check that the datatypes of the input/output port pair match
+        //The dimensions may differ according to the sub-blocking length
         DataType srcDT = (*inArcs.begin())->getDataType();
         DataType dstDT = (*outArcs.begin())->getDataType();
 
-        if(srcDT != dstDT){
+        DataType srcDTScalar = srcDT;
+        srcDTScalar.setDimensions({1});
+        DataType dstDTScalar = dstDT;
+        dstDTScalar.setDimensions({1});
+
+        if(srcDTScalar != dstDTScalar){
             throw std::runtime_error(
                 ErrorHelpers::genErrorStr("Validation Failed - ThreadCrossingFIFO - Port " + GeneralHelper::to_string(portNum) + " input and output datatypes should match",
                                       getSharedPointer()));
         }
+
+        //TODO: Add dimension checks
 
         int partitionIn = (*inArcs.begin())->getSrcPort()->getParent()->getPartitionNum();
 
@@ -364,24 +493,35 @@ void ThreadCrossingFIFO::validate() {
             }
         }
 
-        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength * getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements() - getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements())) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
+        if (getInitConditionsCreateIfNot(portNum).size() > (fifoLength-1) * (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeInCreateIfNot(portNum))) { // - blockSize because we need to be able to write 1 value into the FIFO to ensure deadlock cannot occur
             throw std::runtime_error(ErrorHelpers::genErrorStr(
                     "Validation Failed - ThreadCrossingFIFO - The number of initial conditions cannot be larger than the FIFO - 1 block",
                     getSharedPointer()));
         }
 
-        if (getInitConditionsCreateIfNot(portNum).size() % (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()) != 0) {
+        if (getInitConditionsCreateIfNot(portNum).size() % (getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeInCreateIfNot(portNum)) != 0) {
             throw std::runtime_error(ErrorHelpers::genErrorStr(
-                    "Validation Failed - ThreadCrossingFIFO - Initial Conditions for Port " + GeneralHelper::to_string(portNum) + " must be a multiple of its block size (" + GeneralHelper::to_string(getBlockSizeCreateIfNot(portNum)) + ")",
+                    "Validation Failed - ThreadCrossingFIFO - Initial Conditions for Port " +
+                    GeneralHelper::to_string(portNum) + " (" + GeneralHelper::to_string(getInitConditionsCreateIfNot(portNum).size()) +
+                    ") must be a multiple of its block size (" +
+                    GeneralHelper::to_string(getBlockSizeCreateIfNot(portNum)*getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeInCreateIfNot(portNum)) + ")",
                     getSharedPointer()));
         }
 
         if(portNum != 0){
-            if(getInitConditionsCreateIfNot(portNum).size()/getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements() != getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()){
+            if(getInitConditionsCreateIfNot(portNum).size()/getBlockSizeCreateIfNot(portNum)/getInputPort(portNum)->getDataType().numberOfElements()/getSubBlockSizeInCreateIfNot(portNum) != getInitConditionsCreateIfNot(0).size()/getBlockSizeCreateIfNot(0)/getInputPort(0)->getDataType().numberOfElements()/getSubBlockSizeInCreateIfNot(portNum)){
                 throw std::runtime_error(ErrorHelpers::genErrorStr(
                         "Validation Failed - ThreadCrossingFIFO - All ports must have the same number of initial conditions",
                         getSharedPointer()));
             }
+        }
+
+        if(getBlockSizeCreateIfNot(portNum) % getSubBlockSizeInCreateIfNot(portNum) != 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Sub-Block Size of Input Must be a Factor of the Block Size", getSharedPointer()));
+        }
+
+        if(getBlockSizeCreateIfNot(portNum) % getSubBlockSizeOutCreateIfNot(portNum) != 0){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Sub-Block Size of Output Must be a Factor of the Block Size", getSharedPointer()));
         }
     }
 
@@ -417,6 +557,9 @@ void ThreadCrossingFIFO::validate() {
             }
         }
     }
+
+    //TODO: Verify all nodes at output of a port have the same base sub-blocking rate in addition to having the same clock domain
+    //TODO: Modify after https://github.com/ucb-cyarp/vitis/issues/101 resolved
 }
 
 bool ThreadCrossingFIFO::hasState() {
@@ -437,19 +580,34 @@ CExpr ThreadCrossingFIFO::emitCExpr(std::vector<std::string> &cStatementQueue, S
     //getCStateVar() will initialize cStateVar if it is not already
 
     std::string expr;
+    CExpr::ExprType exprType;
+    //Note: FIFOs outside of any blocking domain (including the global blocking domain), ie. I/O FIFOs at the base rate
+    //will have their indexing handled by the Blocking Domain Input/Output nodes.  They will have their block size set to 1
     if(getBlockSizeCreateIfNot(outputPortNum) > 1){
+        //Indexing into the FIFO is required at this point
+
         //Because of C multidimensional array semantics, and because the added dimension for blocks >1 is prepended to
         //the dimensions, indexing the first dimension will return the correct value.  If the data type is a scalar, it
         //returns a scalar value for the given block.  If the data type is a vector or matrix, this will still return a
-        //a pointer but a pointer to the correct block.
-        expr = "(" +  getCStateVar(outputPortNum).getCVarName(imag) + "[" + getCBlockIndexVarInputNameCreateIfNot(outputPortNum) + "])";
+        //pointer but a pointer to the correct block.
+
+        //If there is a sub-blocking length >1, however, we need to not "dereference" this just yet as indexing into the sub-block
+        //still needs to occur at this outer dimension
+        if(getSubBlockSizeOutCreateIfNot(outputPortNum) > 1){
+            expr = "(" +  getCStateVar(outputPortNum).getCVarName(imag) + "+(" + getCBlockIndexExprOutputCreateIfNot(outputPortNum) + "))";
+            exprType = CExpr::ExprType::ARRAY; //Guaranteed to be an array, regardless of the dimensions of the port
+        }else {
+            expr = "(" + getCStateVar(outputPortNum).getCVarName(imag) + "[" + getCBlockIndexExprOutputCreateIfNot(outputPortNum) + "])";
+            exprType = getInputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY;
+        }
     }else{
         //The block size is 1, just return the state variable.  No indexing based on the current block is required
         expr = getCStateVar(outputPortNum).getCVarName(imag);
+        exprType = getInputPort(outputPortNum)->getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY;
     }
 
-    //Will output as a variable even though we index into the block.  Will assume the indexing is relatively heap.
-    return CExpr(expr, getCStateVar(outputPortNum).getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY);
+    //Will output as a variable even though we index into the block.
+    return CExpr(expr, exprType);
 }
 
 void ThreadCrossingFIFO::emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) {
@@ -473,9 +631,6 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
             inputExprIm = srcNode->emitC(cStatementQueue, schedType, srcOutPortNum, true);
         }
 
-        //TODO: Implement Vector Support (need to loop over input variable indexes (will be stored as a variable due to default behavior of internal fanout
-
-        //TODO:If type is a vector, emit a for loop
         std::vector<std::string> forLoopIndexVars;
         std::vector<std::string> forLoopClose;
         //If the output is a vector, construct a for loop which puts the results in a temporary array
@@ -492,23 +647,91 @@ ThreadCrossingFIFO::emitCExprNextState(std::vector<std::string> &cStatementQueue
         }
 
         int blockSize = getBlockSizeCreateIfNot(i);
-        std::string cBlockIndexVarOutputName = getCBlockIndexVarOutputNameCreateIfNot(i);
+        std::string cBlockIndexExpr = getCBlockIndexExprInputCreateIfNot(i);
+        //If the sub-blocking length is not 1, the input to the FIFO should have an outer dimension which is equivalent to the
+        //sub blocking length.  Copying the full sub-block should occur automatically like any non-scalar copy.  Indexing into
+        //the sub-block should not be included in getCBlockIndexExprOutputCreateIfNot.
+
+        //Check I/O Types Vs. Buffer Type
+        std::vector<int> expectedDTDims = inputDataType.getDimensions();
+        if(blockSize != 1) { //If Block Size is 1, the getCStateVarExpandedForBlockSize should match the I/O type as is
+            if(getSubBlockSizeInCreateIfNot(i) > 1){
+                int numSubBlocks = getBlockSizeCreateIfNot(i)/getSubBlockSizeInCreateIfNot(i);
+                expectedDTDims[0] *= numSubBlocks; //The outer dimension should be the sub-block size.  Scale it by the number of sub-blocks
+            }else{
+                if(inputDataType.isScalar()){ //Another dimension is not added, it is just scaled to the block size
+                    expectedDTDims[0] = blockSize;
+                }else {
+                    expectedDTDims.insert(expectedDTDims.begin(), getBlockSizeCreateIfNot(i));
+                }
+            }
+        }
+        DataType expectedDT = inputDataType;
+        expectedDT.setDimensions(expectedDTDims);
+        DataType cStateVarExpandedForBlockSizeDT = getCStateVarExpandedForBlockSize(i).getDataType();
+
+        if(expectedDT != cStateVarExpandedForBlockSizeDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected Input/Output Type for FIFO compared to Input Var Type", getSharedPointer()));
+        }
 
         std::vector<std::string> emptyArr;
-        std::string stateInputDeclAssignRe =
-                ((blockSize == 1 && inputDataType.isScalar()) ? "*" : "") + //Need to dereference the state variable if the block size is 1 and the type is a scalar
-                getCStateInputVar(i).getCVarName(false) +
-                ((blockSize > 1) ? "[" + cBlockIndexVarOutputName + "]" : "") + //Index into the block
-                (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
-                " = " + inputExprRe.getExprIndexed(inputDataType.isScalar() ? emptyArr : forLoopIndexVars, true) + ";"; //Index into the vector/matrix
+        std::string stateInputDeclAssignRe;
+        if(blockSize == 1 && inputDataType.isScalar()){
+            //No indexing required.  The FIFO variable is a scalar.  Dereference the state variable and assign
+            stateInputDeclAssignRe += "*" + getCStateInputVar(i).getCVarName(false);
+        }else{
+            //There are arrays being handled.  Either the block size is > 1, the input is non-scalar, or both
+            if(blockSize>1){
+                //The FIFO has a block size > 1.  Perform the indexing to get to the sub-block
+                if(getSubBlockSizeInCreateIfNot(i) > 1){
+                    //The outer index will be into the sub-blocks.  Do not dereference this first index
+                    stateInputDeclAssignRe += "(" + getCStateInputVar(i).getCVarName(false) + "+(" + cBlockIndexExpr + "))";
+                }else {
+                    //Sub blocking of size 1, can dereference outer dimension
+                    stateInputDeclAssignRe += "(" + getCStateInputVar(i).getCVarName(false) + "[" + cBlockIndexExpr + "]" + ")";
+                }
+            }else{
+                //Has a block size of 1, just pass the variable without any indexing
+                stateInputDeclAssignRe += getCStateInputVar(i).getCVarName(false);
+            }
+        }
+        //Perform the assignment
+        if(inputDataType.isScalar()){
+            stateInputDeclAssignRe += "=" + inputExprRe.getExpr();
+        }else{
+            stateInputDeclAssignRe += EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=" + inputExprRe.getExprIndexed(forLoopIndexVars, true);
+        }
+        stateInputDeclAssignRe += ";";
         cStatementQueue.push_back(stateInputDeclAssignRe);
+
         if (inputDataType.isComplex()) {
-            std::string stateInputDeclAssignIm =
-            ((blockSize == 1 && inputDataType.isScalar()) ? "*" : "") + //Need to dereference the state variable if the block size is 1 and the type is a scalar
-            getCStateInputVar(i).getCVarName(true) +
-            ((blockSize > 1) ? "[" + cBlockIndexVarOutputName + "]" : "") + //Index into the block
-            (inputDataType.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) + //Index into the vector/matrix
-            " = " + inputExprIm.getExprIndexed(inputDataType.isScalar() ? emptyArr : forLoopIndexVars, true) + ";"; //Index into the vector/matrix
+            std::string stateInputDeclAssignIm;
+            if(blockSize == 1 && inputDataType.isScalar()){
+                //No indexing required.  The FIFO variable is a scalar.  Dereference the state variable and assign
+                stateInputDeclAssignIm += "*" + getCStateInputVar(i).getCVarName(true);
+            }else{
+                //There are arrays being handled.  Either the block size is > 1, the input is non-scalar, or both
+                if(blockSize>1){
+                    //The FIFO has a block size > 1.  Perform the indexing to get to the sub-block
+                    if(getSubBlockSizeInCreateIfNot(i) > 1){
+                        //The outer index will be into the sub-blocks.  Do not dereference this first index
+                        stateInputDeclAssignIm +=  "(" + getCStateInputVar(i).getCVarName(true) + "+(" + cBlockIndexExpr + "))";
+                    }else {
+                        //Sub blocking of size 1, can dereference outer dimension
+                        stateInputDeclAssignIm +=  "(" + getCStateInputVar(i).getCVarName(true) + "[" + cBlockIndexExpr + "]" + ")";
+                    }
+                }else{
+                    //Has a block size of 1, just pass the variable without any indexing
+                    stateInputDeclAssignIm += getCStateInputVar(i).getCVarName(true);
+                }
+            }
+            //Perform the assignment
+            if(inputDataType.isScalar()){
+                stateInputDeclAssignIm += "=" + inputExprIm.getExpr();
+            }else{
+                stateInputDeclAssignIm += EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=" + inputExprIm.getExprIndexed(forLoopIndexVars, true);
+            }
+            stateInputDeclAssignIm += ";";
             cStatementQueue.push_back(stateInputDeclAssignIm);
         }
 
@@ -524,6 +747,8 @@ bool ThreadCrossingFIFO::createStateUpdateNode(std::vector<std::shared_ptr<Node>
                                                std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                std::vector<std::shared_ptr<Arc>> &deleted_arcs,
                                                bool includeContext) {
+    //Do not check Node::passesThroughInputs since this does not create StateUpdate elements
+
     return false;
 }
 
@@ -541,9 +766,24 @@ void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, s
         //Set datatype
         std::set<std::shared_ptr<Arc>> arcSet = node->getInputPortCreateIfNot(port)->getArcs();
         if(arcSet.empty()){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when initializing FIFO variable.  Unable to get datatype since input port " + GeneralHelper::to_string(port) + " not connected", node));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when initializing FIFO variable.  Unable to get datatype since port " + GeneralHelper::to_string(port) + " not connected", node));
         }
+
+        //FIFO can exist in a domain which does not have a sub-blocking length of 1.  The I/O is scaled by the sub-blocking length
+        //We need the base type without the sub-blocking
         DataType dt = (*arcSet.begin())->getDataType();
+        std::vector<int> dims = dt.getDimensions();
+        std::shared_ptr<ThreadCrossingFIFO> asThreadCrossingFIFO = std::dynamic_pointer_cast<ThreadCrossingFIFO>(node);
+        //TODO: Refactor
+        if(asThreadCrossingFIFO == nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Expected ThreadCrossingFIFO when initializing FIFO Variable", node));
+        }
+        std::vector<int> baseDims = dims; //Can get base type from either input or output, will get from input
+        int subBlockSize = asThreadCrossingFIFO->getSubBlockSizeInCreateIfNot(port);
+        if(subBlockSize > 1) { //Only do this reduction if the sub-block size is not 1.  Otherwise, the base type is the I/O type
+            baseDims = BlockingHelpers::blockingDomainDimensionReduce(dims, subBlockSize, 1);
+        }
+        dt.setDimensions(baseDims);
 
         //Do not scale for block size.  This is done at the boarder of the compute function (ie. in the structure definition)
         vars[port].setDataType(dt);
@@ -565,56 +805,56 @@ void ThreadCrossingFIFO::initializeVarIfNotAlready(std::shared_ptr<Node> node, V
     }
 }
 
-std::vector<std::string> ThreadCrossingFIFO::getCBlockIndexVarInputNames() const {
-    return cBlockIndexVarInputNames;
+std::vector<std::string> ThreadCrossingFIFO::getCBlockIndexExprsInput() const {
+    return cBlockIndexExprsInput;
 }
 
-void ThreadCrossingFIFO::setCBlockIndexVarInputNames(const std::vector<std::string> &cBlockIndexVarNames) {
-    ThreadCrossingFIFO::cBlockIndexVarInputNames = cBlockIndexVarNames;
+void ThreadCrossingFIFO::setCBlockIndexExprsInput(const std::vector<std::string> &cBlockIndexExprsInput) {
+    ThreadCrossingFIFO::cBlockIndexExprsInput = cBlockIndexExprsInput;
 }
 
-std::string ThreadCrossingFIFO::getCBlockIndexVarInputNameCreateIfNot(int portNum){
-    unsigned long portLen = cBlockIndexVarInputNames.size();
+std::string ThreadCrossingFIFO::getCBlockIndexExprInputCreateIfNot(int portNum){
+    unsigned long portLen = cBlockIndexExprsInput.size();
     for(unsigned long i = portLen; i <= portNum; i++){
-        cBlockIndexVarInputNames.push_back("");
+        cBlockIndexExprsInput.push_back("");
     }
 
-    return cBlockIndexVarInputNames[portNum];
+    return cBlockIndexExprsInput[portNum];
 }
 
-void ThreadCrossingFIFO::setCBlockIndexVarInputName(int portNum, const std::string &cBlockIndexVarName){
-    unsigned long portLen = cBlockIndexVarInputNames.size();
+void ThreadCrossingFIFO::setCBlockIndexExprInput(int portNum, const std::string &cBlockIndexExprInput){
+    unsigned long portLen = cBlockIndexExprsInput.size();
     for(unsigned long i = portLen; i <= portNum; i++){
-        cBlockIndexVarInputNames.push_back("");
+        cBlockIndexExprsInput.push_back("");
     }
 
-    cBlockIndexVarInputNames[portNum] = cBlockIndexVarName;
+    cBlockIndexExprsInput[portNum] = cBlockIndexExprInput;
 }
 
-std::vector<std::string> ThreadCrossingFIFO::getCBlockIndexVarOutputNames() const {
-    return cBlockIndexVarOutputNames;
+std::vector<std::string> ThreadCrossingFIFO::getCBlockIndexExprsOutput() const {
+    return cBlockIndexExprsOutput;
 }
 
-void ThreadCrossingFIFO::setCBlockIndexVarOutputNames(const std::vector<std::string> &cBlockIndexVarNames) {
-    ThreadCrossingFIFO::cBlockIndexVarOutputNames = cBlockIndexVarNames;
+void ThreadCrossingFIFO::setCBlockIndexExprsOutput(const std::vector<std::string> &cBlockIndexExprsOutput) {
+    ThreadCrossingFIFO::cBlockIndexExprsOutput = cBlockIndexExprsOutput;
 }
 
-std::string ThreadCrossingFIFO::getCBlockIndexVarOutputNameCreateIfNot(int portNum){
-    unsigned long portLen = cBlockIndexVarOutputNames.size();
+std::string ThreadCrossingFIFO::getCBlockIndexExprOutputCreateIfNot(int portNum){
+    unsigned long portLen = cBlockIndexExprsOutput.size();
     for(unsigned long i = portLen; i <= portNum; i++){
-        cBlockIndexVarOutputNames.push_back("");
+        cBlockIndexExprsOutput.push_back("");
     }
 
-    return cBlockIndexVarOutputNames[portNum];
+    return cBlockIndexExprsOutput[portNum];
 }
 
-void ThreadCrossingFIFO::setCBlockIndexVarOutputName(int portNum, const std::string &cBlockIndexVarName){
-    unsigned long portLen = cBlockIndexVarOutputNames.size();
+void ThreadCrossingFIFO::setCBlockIndexExprOutput(int portNum, const std::string &cBlockIndexExprOutput){
+    unsigned long portLen = cBlockIndexExprsOutput.size();
     for(unsigned long i = portLen; i <= portNum; i++){
-        cBlockIndexVarOutputNames.push_back("");
+        cBlockIndexExprsOutput.push_back("");
     }
 
-    cBlockIndexVarOutputNames[portNum] = cBlockIndexVarName;
+    cBlockIndexExprsOutput[portNum] = cBlockIndexExprOutput;
 }
 
 std::string ThreadCrossingFIFO::getFIFOStructTypeName(){
@@ -632,6 +872,11 @@ std::string ThreadCrossingFIFO::createFIFOStruct(){
         //Expand the data type for the block size.  Note that this does not propagate outside of this function
         int blockSize = getBlockSizeCreateIfNot(i);
         DataType blockStateDT = stateDT.expandForBlock(blockSize);
+
+        //Create a comment for the src and dst
+        std::shared_ptr<OutputPort> src = (*inputPorts[i]->getArcs().begin())->getSrcPort();
+        structStr += "//From Orig: " + src->getParent()->getFullyQualifiedOrigName() + " [Port " + GeneralHelper::to_string(src->getPortNum()) + "]\n";
+        structStr += "//From: " + src->getParent()->getFullyQualifiedName() + " [Port " + GeneralHelper::to_string(src->getPortNum()) + "]\n";
 
         //There are possibly 2 entries per port
         structStr += stateDT.toString(DataType::StringStyle::C) + " port" + GeneralHelper::to_string(i) + "_real" +

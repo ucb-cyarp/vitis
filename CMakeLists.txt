@@ -223,10 +223,8 @@ set(COMMON_SRCS
         src/HighLevelNodes/DiscreteFIR.h
         src/PrimitiveNodes/TappedDelay.cpp
         src/PrimitiveNodes/TappedDelay.h
-        src/MultiThread/MultiThreadEmitterHelpers.cpp
-        src/MultiThread/MultiThreadEmitterHelpers.h
-        src/MultiThread/MultiThreadTransformHelpers.cpp
-        src/MultiThread/MultiThreadTransformHelpers.h
+        src/Passes/MultiThreadPasses.cpp
+        src/Passes/MultiThreadPasses.h
         src/MultiThread/ThreadCrossingFIFO.cpp
         src/MultiThread/ThreadCrossingFIFO.h
         src/MultiThread/StreamIOThread.cpp
@@ -278,7 +276,29 @@ set(COMMON_SRCS
         src/Estimators/PartitionCrossing.cpp
         src/Estimators/PartitionCrossing.h
         src/MultiThread/LocklessInPlaceThreadCrossingFIFO.cpp
-        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h)
+        src/MultiThread/LocklessInPlaceThreadCrossingFIFO.h
+        src/Blocking/BlockingDomain.cpp
+        src/Blocking/BlockingDomain.h
+        src/Blocking/BlockingBoundary.cpp
+        src/Blocking/BlockingBoundary.h
+        src/Blocking/BlockingInput.cpp
+        src/Blocking/BlockingInput.h
+        src/Blocking/BlockingOutput.cpp
+        src/Blocking/BlockingOutput.h
+        src/Blocking/BlockingHelpers.cpp
+        src/Blocking/BlockingHelpers.h
+        src/Emitter/MultiThreadEmit.cpp
+        src/Emitter/MultiThreadEmit.h
+        src/Passes/ContextPasses.cpp
+        src/Passes/ContextPasses.h
+        src/Passes/DesignPasses.cpp
+        src/Passes/DesignPasses.h
+        src/Passes/DomainPasses.cpp
+        src/Passes/DomainPasses.h
+        src/Flows/MultiThreadGenerator.cpp
+        src/Flows/MultiThreadGenerator.h
+        src/Scheduling/IntraPartitionScheduling.cpp
+        src/Scheduling/IntraPartitionScheduling.h src/Blocking/BlockingDomainBridge.cpp src/Blocking/BlockingDomainBridge.h)
 
 #Add Include Directories for Project Srcs
 include_directories(src)
@@ -303,9 +323,6 @@ target_link_libraries(simulinkGraphmlDOMPrint VitisLib ${XercesC_LIBRARIES} ${Bo
 
 add_executable(designExpander src/Tools/designExpander.cpp)
 target_link_libraries(designExpander VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
-
-add_executable(singleThreadedGenerator src/Tools/singleThreadedGenerator.cpp)
-target_link_libraries(singleThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(multiThreadedGenerator src/Tools/multiThreadedGenerator.cpp)
 target_link_libraries(multiThreadedGenerator VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})

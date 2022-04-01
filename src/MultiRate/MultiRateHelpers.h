@@ -30,40 +30,6 @@ namespace MultiRateHelpers {
     std::set<std::shared_ptr<Node>> getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch);
 
     /**
-     * @brief Finds nodes of a specified type in a clock domain by searching within subsystems (including Enabled Subsystems)
-     *
-     * Nested ClockDomains are included in the list but nodes within them are not included in the list
-     *
-     * @param nodesToSearch
-     * @tparam T only adds nodes of type T to the list
-     * @return
-     */
-    template <typename T>
-    std::set<std::shared_ptr<T>> getNodesInClockDomainHelperFilter(const std::set<std::shared_ptr<Node>> nodesToSearch){
-        std::set<std::shared_ptr<T>> foundNodes;
-
-        for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
-            if(GeneralHelper::isType<Node, T>(*it)){
-                std::shared_ptr<T> asT = std::static_pointer_cast<T>(*it);
-                foundNodes.insert(asT);
-            }
-
-            if(GeneralHelper::isType<Node, ClockDomain>(*it)){
-                //This is a ClockDomain, add it to the list but do not proceed into it
-            }else if(GeneralHelper::isType<Node, SubSystem>(*it)){
-                //This is another type of subsystem, add it to the list and proceed to search inside
-                std::shared_ptr<SubSystem> asSubSystem = std::static_pointer_cast<SubSystem>(*it);
-                std::set<std::shared_ptr<Node>> innerNodes = getNodesInClockDomainHelper(asSubSystem->getChildren());
-
-                foundNodes.insert(innerNodes.begin(), innerNodes.end());
-            }
-            //Otherwise, this is a standard node which is just added to the list if it is the correct type
-        }
-
-        return foundNodes;
-    }
-
-    /**
      * @brief Find the clock domain that this node is a part of.
      *
      * If there are multiple nested clock domains, it finds the most specific clock domain it is a part of (ie. the
@@ -77,7 +43,7 @@ namespace MultiRateHelpers {
     /**
      * @brief Check if ClockDomain a is outside of ClockDomain b
      *
-     * ClockDomain a is outside of ClockDomain b if ClockDomain b is not eqivalent to or nested under ClockDomain a
+     * ClockDomain a is outside of ClockDomain b if ClockDomain b is not equivalent to or nested under ClockDomain a
      *
      * Either ClockDomain a or b can be nullptr
      *
@@ -177,9 +143,11 @@ namespace MultiRateHelpers {
      *
      * @warning Is currently only implemented for FIFOs with a single input and output port
      *
+     * @warning Clock Domains should be specialized for blocking with useVectorMode properly set before this function is called
+     *
      * @param threadCrossingFIFOs
      */
-    void setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs);
+    void setFIFOClockDomainsAndBlockingParams(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int baseBlockLength);
 
     /**
      * @brief Checks the IO block sizes are integers (after accounting for clock domains)
@@ -190,19 +158,6 @@ namespace MultiRateHelpers {
      * @param blockSize
      */
     void checkIOBlockSizes(std::set<std::shared_ptr<MasterNode>> masterNodes, int blockSize);
-
-    /**
-     * @brief Sets the block sizes of FIFOs and validates that they are integer length
-     *
-     * Note that since the IO thread communicates with the compute threads via FIFOs, this sets
-     *
-     * @warning Clock Domains should be set for each FIFO port before calling this function.
-     *
-     * @param threadCrossingFIFOs
-     * @param blockSize
-     * @param setFIFOBlockSize
-     */
-    void setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int blockSize, bool setFIFOBlockSize);
 
     void rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign);
 
@@ -216,6 +171,35 @@ namespace MultiRateHelpers {
      */
     std::map<int, std::set<std::shared_ptr<ClockDomain>>> findPartitionsWithSingleClockDomain(const std::vector<std::shared_ptr<Node>> &nodes);
 
+    /**
+     * @brief Finds the clock domains which contain the set of given nodes.  It does not just include the clock domain
+     * the nodes are directly in but the clock domains up the hierarchy
+     *
+     * @param node
+     * @return
+     */
+    template<typename NodeContainerType>
+    std::set<std::shared_ptr<ClockDomain>> findClockDomainsOfNodes(NodeContainerType &nodes){
+        std::set<std::shared_ptr<ClockDomain>> clockDomains;
+
+        for(const std::shared_ptr<Node> &node : nodes){
+            std::shared_ptr<ClockDomain> cursor = MultiRateHelpers::findClockDomain(node); //This function works pre- or post- encapsulation
+            //Don't just want the lowest level clock domain the node is in, want the full hierarchy
+            while(cursor != nullptr){
+                clockDomains.insert(cursor);
+                cursor = MultiRateHelpers::findClockDomain(cursor);
+            }
+        }
+
+        return clockDomains;
+    }
+
+    /**
+     * @brief Determines if the given arc is to/from I/O and is not operating at the base rate
+     * @param arc
+     * @return
+     */
+    bool arcIsIOAndNotAtBaseRate(std::shared_ptr<Arc> arc);
 
 };
 

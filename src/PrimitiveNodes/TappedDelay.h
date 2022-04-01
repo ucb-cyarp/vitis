@@ -119,8 +119,6 @@ public:
 
     void propagateProperties() override;
 
-    std::vector<NumericValue> getExportableInitConds() override;
-
     //The following functions are only overriden for oldest first circular buffer implementions
     //In this case, the cicular buffer pointer becomes loacated to the insertion point in the array.  It is initialized to be in the middle of the array.  Indexing is performed by subtracting from the pointer and does not handle the wraparound well when not double buffered
     //If delayLen-1, it is positioned at delayLen-1
@@ -130,6 +128,22 @@ public:
     void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue) override;
 
     int getCircBufferInitialIdx() override;
+
+    std::shared_ptr<Delay> splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength) override;
+
+    bool requiresStandaloneCExprNextState() override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
+
+    bool specializesForBlocking() override;
 };
 
 /*! @} */

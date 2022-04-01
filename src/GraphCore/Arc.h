@@ -83,7 +83,7 @@ public:
      * dropped to zero and creation of a new shared_ptr is not possible.  To fix this, a weak_ptr to itself is passed
      * to the delete function in the ports.  This ptr MUST be set by the factory function when the arc is created.
      */
-    ~Arc();
+    virtual ~Arc();
 
     //==== Factories ====
     /**

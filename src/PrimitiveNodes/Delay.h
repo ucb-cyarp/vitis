@@ -27,6 +27,9 @@
  *
  * @warning earliestFirst is not currently supported for standard Delays (not TappedDelays) due to the current implementation
  *          of delay absorption.  All Delays should be initialized to set earliestFirst to be false for now.
+ *
+ * @warning limited configuration options are currently implemented for transactionBlockSize > 1
+ *          Circular Buffering with Double Buffer Len
  */
 class Delay : public PrimitiveNode{
     friend NodeFactory;
@@ -43,6 +46,13 @@ public:
         PLUS_DELAY_LEN_M1 ///<Allocates an additional DelayLen-1 to the buffer to allow for returning.  A non-circular array is returned to dependant blocks.
     };
 
+    enum class CopyMethod{
+        FOR_LOOPS, ///<Copy inputs (>1 item) into the buffer using for loops
+        MEMCPY, ///<Copy inputs (>1 item) into the buffer using standard memcpy
+        CLANG_MEMCPY_INLINE, ///<Copy inputs (>1 item) into the buffer using Clang's __builtin_memcpy_inline
+        FAST_COPY_UNALIGNED ///<Copy inputs (>1 item) into the buffer using my memcpy implementation using vector intrinsics
+    };
+
 protected:
     int delayValue; ///<The amount of delay in this node
     std::vector<NumericValue> initCondition; ///<The Initial condition of this delay.  Number of elements must match the delay value times the size of each element.  The initial condition that will be presented first is at index 0
@@ -55,8 +65,17 @@ protected:
     BufferType bufferImplementation; ///<The type of buffer to implement.  This is ignored for delays of 0 or 1
 
     bool earliestFirst; ///<(Perhaps more accurately, most recent first) If true, the new values are stored at the start of the array.  If false, new values are stored at the end of the array.  The default is false.
-    bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  The default is false
+    bool allocateExtraSpace; ///<If true, an extra space is allocated in the array according to earliestFirst.  The extra space is allocated at the end of the array where new values are inserted.  This has no effect when delay == 0.  Has no effect for standard delay when block size >1.  The default is false
     CircularBufferType circularBufferType; ///< If usesCircularBuffer() is true, determines the style of circular buffer.  This primarily controls the allocation of extra space and double writing new values so that a stride-1 buffer can be passed to dependent nodes, avoiding the additional indexing logic required when reading circular buffers
+    int transactionBlockSize; ///< When specializing for sub-blocking, defines how many incoming samples are processed at once.  Defaults to 1.  If the delay is a multiple of the sub-blocking size and was transformed to a vector delay, this is kept as 1
+
+    //Deferal variables.  Only used durring delay blocking specialization deferral
+    //TODO: Refactor and create FIFO merging pass?
+    bool blockingSpecializationDeferred; ///<Indicates that this node went through the logic of specialization but did not make changes to the delay node itself.  The arcs coming into and out of the delay were scaled appropriatly.  This is specifically to accomodate FIFO delay absorption whose logic could require delays to be re-merged
+    int deferredBlockSize;
+    int deferredSubBlockSize;
+
+    CopyMethod copyMethod; ///<The Copy method used when ingesting >1 items
 
     //==== Constructors ====
     /**
@@ -89,6 +108,50 @@ protected:
      */
     Delay(std::shared_ptr<SubSystem> parent, Delay* orig);
 
+    /**
+     * @brief Reverses init conditions, primarily used when handling earliest first.
+     *
+     * Is aware of non-scalar types and
+     *
+     * @param Initial conditions to reverse (does not use the member variable to allow other modifications to initial conditions for allocation additional space)
+     * @return Returns intitial conditions reversed
+     */
+    std::vector<NumericValue> reverseInitConds(std::vector<NumericValue> &initConds);
+
+    /**
+     * @brief There are several different options for the delay including earliestFirst, allocate extra space, round up allocation, ...
+     * Each of these options requires initial conditions to be re-shaped when
+     *
+     * @warning if called after specialization deferred, ensure that all arcs have been expanded beforehand
+     * @return
+     */
+    std::vector<NumericValue> getInitConditionsReshapedForConfig();
+
+    void specializeForBlockingWOptions(bool processArcs,
+                                       int localBlockingLength,
+                                       int localSubBlockingLength,
+                                       std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                       std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                       std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                       std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                           &arcsWithDeferredBlockingExpansion);
+
+    void specializeForBlockingArcExpandOnly(int localBlockingLength,
+                                            std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                &arcsWithDeferredBlockingExpansion);
+
+    /**
+     * @brief A helper function for copying from an input expression to the delay buffer.  It respects the copyMethod
+     *        function
+     * @param src
+     * @param insertPositionIn
+     * @param imag
+     * @param cStatementQueue
+     */
+    void copyToBuffer(CExpr src, std::string insertPositionIn, bool imag, std::vector<std::string> &cStatementQueue);
+
 public:
     //====Getters/Setters====
     int getDelayValue() const;
@@ -99,12 +162,24 @@ public:
     void setBufferImplementation(BufferType bufferImplementation);
     CircularBufferType getCircularBufferType() const;
     void setCircularBufferType(CircularBufferType circularBufferType);
+    int getTransactionBlockSize() const;
+    void setTransactionBlockSize(int transactionBlockSize);
 
     //For tappedDelay
     bool isEarliestFirst() const;
     void setEarliestFirst(bool earliestFirst);
     bool isAllocateExtraSpace() const;
     void setAllocateExtraSpace(bool allocateExtraSpace);
+
+    bool isBlockingSpecializationDeferred() const;
+    void setBlockingSpecializationDeferred(bool blockingSpecializationDeferred);
+    int getDeferredBlockSize() const;
+    void setDeferredBlockSize(int deferredBlockSize);
+    int getDeferredSubBlockSize() const;
+    void setDeferredSubBlockSize(int deferredSubBlockSize);
+
+    CopyMethod getCopyMethod() const;
+    void setCopyMethod(CopyMethod copyMethod);
 
     //====Factories====
     /**
@@ -155,8 +230,6 @@ public:
     /**
      * @brief Emits the core parameters for the delay block.  Separated from emitGraphML so that TappedDelay can use it
      *
-     * Undoes initial conditions added for an extra element (used by tapped delay) or for circular buffer with power of 2 allocation
-     *
      * @param doc
      * @param xmlNode
      */
@@ -176,17 +249,19 @@ public:
 
     std::vector<Variable> getCStateVars() override;
 
+    std::set<std::string> getExternalIncludes() override;
+
     /**
      * @brief Get the initial circular buffer index location
      * @return
      */
     virtual int getCircBufferInitialIdx();
 
-    //When include current value (allocateExtraSpace in Delay) is true, getting the next state and updating the state
-    //are partially superfluous because the current value has already been copied into the array by cEmitExpr (so long
-    //as it was called before emitCExprNextState and emitCStateUpdate.  If this node has an output arc at the time of
-    //emit, we will assume this is true and the added logic is not required.
-    bool requiresStandaloneCExprNextState();
+    //When include current value (allocateExtraSpace in Delay) is true (or delay < block size,  block size > 1),
+    //getting the next state and updating the state are partially superfluous because the current value has already
+    // been copied into the array by cEmitExpr (so long as it was called before emitCExprNextState and emitCStateUpdate.
+    // If this node has an output arc at the time of emit, we will assume this is true and the added logic is not required.
+    virtual bool requiresStandaloneCExprNextState();
     void emitCExprNextState(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType) override;
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
@@ -225,17 +300,62 @@ public:
     bool usesCircularBuffer();
 
     /**
-     * @brief This function returns initial conditions without modifications for circular buffers or extra element, or reversing
+     * @brief The delay can break a sub-blocking dependency if the delay is >= the sub-blocking length
+     *
+     * If the delay is > sub-blocking length & is not a multiple of the sub-blocking length, it is split into 2 delays
+     *
+     * @param localSubBlockingLength
      * @return
      */
-    virtual std::vector<NumericValue> getExportableInitConds();
+    bool canBreakBlockingDependency(int localSubBlockingLength) override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
+
+    bool specializesForBlocking() override;
+
+    /**
+     * @brief Performs the same basic actions of specializeForBlocking except that the actions of splitting the delay
+     *        or configuring the delay node for blocking.  However, arcs which
+     *
+     *        Sets a boolean indicating that specialization was deferred but that
+     * @param localBlockingLength
+     * @param localSubBlockingLength
+     * @param nodesToAdd
+     * @param nodesToRemove
+     * @param arcsToAdd
+     * @param arcsToRemove
+     * @param nodesToRemoveFromTopLevel
+     * @param arcsWithDeferredBlockingExpansion
+     */
+     void specializeForBlockingDeferDelayReconfigReshape(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion);
 
 protected:
     void decrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
     virtual void incrementAndWrapCircularBufferOffset(std::vector<std::string> &cStatementQueue);
 
     /**
-     * @brief Returns the buffer length, accounting for if an extra element is required and if the buffer allocation is rounded up to a power of 2
+     * @brief Returns the buffer length (or buffer_length/2 when double length allocation is used).
+     * It accounts for extra elements if required and if the buffer allocation is rounded up to a power of 2.
+     * This is the length which is used when determining wraparound of the write pointer.
+     *
+     * When blocking, it is forced to be in units of the block size.
+     *
      * @warning it does no account for extra space added for alternate implementations of the circular buffer (DOUBLE_LEN, PLUS_DELAY_LEN_M1) which allow stride 1 arrays to be returned by TappedDelay
      */
     int getBufferLength();
@@ -247,8 +367,6 @@ protected:
 
     void assignInputToBuffer(std::string insertPosition, std::vector<std::string> &cStatementQueue);
     void assignInputToBuffer(CExpr src, std::string insertPosition, bool imag, std::vector<std::string> &cStatementQueue);
-
-    std::vector<NumericValue> getExportableInitCondsHelper();
 
     /**
      * @brief Split from propagateProperties so the same logic can be used in both the Delay and TappedDelay nodes.
@@ -273,6 +391,26 @@ protected:
      * @return
      */
     std::string getSecondWriteCheck(std::string firstIndex);
+
+    /**
+     * @brief Splits a delay into 2 nodes.
+     *
+     * The given node is adjusted to the targetDelayLength.  A new delay node is created with the remaining delay.
+     *
+     * New delay is created before the current delay
+     *
+     * @param nodesToAdd
+     * @param arcsToAdd
+     * @param targetDelayLength
+     * @return a pointer to the new delay which was created.  nullptr if no new delay was created
+     */
+    virtual std::shared_ptr<Delay> splitDelay(std::vector<std::shared_ptr<Node>> &nodesToAdd, std::vector<std::shared_ptr<Arc>> &arcsToAdd, int targetDelayLength);
+
+    /**
+     * @brief Only passes through when Delay==0.  In that case, this node has no state.
+     * @return
+     */
+    bool passesThroughInputs() override;
 };
 
 /*! @} */

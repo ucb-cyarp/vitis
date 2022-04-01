@@ -24,6 +24,8 @@
 class DownsampleInput : public Downsample {
 friend class NodeFactory;
 
+//TODO: Add mode switch for Reduction through datatype subsampling?
+
 protected:
     //==== Constructors ====
     /**
@@ -95,6 +97,16 @@ public:
     bool isSpecialized() override;
 
     bool isInput() override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                               &arcsWithDeferredBlockingExpansion) override;
 };
 
 /*! @} */

@@ -12,6 +12,8 @@
 
 //Forward Decls
 class RateChange;
+class BlockingInput;
+class BlockingOutput;
 
 /**
  * \addtogroup MultiRate Multi-Rate Support Nodes
@@ -33,8 +35,11 @@ protected:
     std::set<std::shared_ptr<RateChange>> rateChangeOut; ///<The set of rate change nodes coming out of this clock domain
     std::set<std::shared_ptr<OutputPort>> ioInput; ///<The set of I/O ports that directly connect to the inputs of nodes in this clock domain.  These should be MasterInput Ports
     std::set<std::shared_ptr<InputPort>> ioOutput; ///<The set of I/O ports that directly connect to the outputs of nodes in this clock domain.  These should be MasterOutput Ports
+    std::set<std::shared_ptr<BlockingInput>> ioBlockingInput; ///<The set BlockingInput nodes connecting I/O into the clock domain
+    std::set<std::shared_ptr<BlockingOutput>> ioBlockingOutput; ///<The set BlockingInput nodes connecting I/O from the clock domain
 
     std::set<int> suppressClockDomainLogicForPartitions; ///<A set of partitions where it was determined that the only nodes are in this clock domain and no rate change nodes are included.  The clock domain counter logic is suppressed for these partitions and is handled by adjusting the compute outer loop
+    bool useVectorSamplingMode; ///<If true, uses vector sampling instead of a counter and conditional to implement the clock domain.  Set by inspecting rate change nodes
 
     /**
      * @brief Default constructor
@@ -74,6 +79,15 @@ protected:
      */
     void shallowCloneWithChildrenWork(std::shared_ptr<ClockDomain> clonedNode, std::vector<std::shared_ptr<Node>> &nodeCopies, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &origToCopyNode, std::map<std::shared_ptr<Node>, std::shared_ptr<Node>> &copyToOrigNode);
 
+    /**
+     * @brief Get the name of the count variable (if not operating in vector sampling mode).
+     *
+     * Does not require the block size which getExecutionCountVariable does
+     *
+     * @return
+     */
+    std::string getExecutionCountVariableName();
+
 public:
     //==== Getters & Setters ====
     int getUpsampleRatio() const;
@@ -94,6 +108,14 @@ public:
     void addIOInput(std::shared_ptr<OutputPort> input);
     void addIOOutput(std::shared_ptr<InputPort> output);
 
+    void addIOBlockingInput(std::shared_ptr<BlockingInput> input);
+    void addIOBlockingOutput(std::shared_ptr<BlockingOutput> output);
+
+    std::set<std::shared_ptr<BlockingInput>> getIoBlockingInput() const;
+    void setIoBlockingInput(const std::set<std::shared_ptr<BlockingInput>> &ioBlockingInput);
+    std::set<std::shared_ptr<BlockingOutput>> getIoBlockingOutput() const;
+    void setIoBlockingOutput(const std::set<std::shared_ptr<BlockingOutput>> &ioBlockingOutput);
+
     void removeRateChangeIn(std::shared_ptr<RateChange> rateChange);
     void removeRateChangeOut(std::shared_ptr<RateChange> rateChange);
     //Remove from both Input and Output lists if type is unknown
@@ -104,6 +126,36 @@ public:
     std::set<int> getSuppressClockDomainLogicForPartitions() const;
     void setSuppressClockDomainLogicForPartitions(const std::set<int> &suppressClockDomainLogicForPartitions);
     void addClockDomainLogicSuppressedPartition(int partitionNum);
+
+    bool isUsingVectorSamplingMode() const;
+    void setUseVectorSamplingMode(bool useVectorSamplingMode);
+
+    /**
+     * @brief Indicates if a variable which tracks how many times the given clock domain has been executed
+     *        in the given function call (processing a given block) is required.
+     *
+     *        This is typically needed for clock domains that cannot operate in vector mode but have
+     *        a FIFO within them.  Ie. the clock domain may be a factor of the global block size but
+     *        not of the sub-block size.  In this case, the index into the FIFO needs to be determined
+     *        by how many times this domain has executed in the
+     *
+     *        The variable in question will be reset to 0 during each function call invocation
+     * @return
+     */
+    bool requiresDeclaringExecutionCount();
+
+    Variable getExecutionCountVariable(int blockSizeBase);
+
+    /**
+     * @brief Sets the use vector sampling mode and propagates to clock domain inputs and outputs
+     *
+     * If setting to false, also removes clock domain driver node
+     *
+     * @param useVectorSamplingMode
+     */
+    void setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode,
+                                                               std::set<std::shared_ptr<Node>> &nodesToRemove,
+                                                               std::set<std::shared_ptr<Arc>> &arcsToRemove);
 
     /**
      * @brief Copy parameters from another clock domain except for the lists of RateChange nodes
@@ -236,6 +288,13 @@ public:
      * @note createSupportNodes should be used in place of this.  This is used when setting some partitions to not emit clock domain logic
      */
     virtual void setClockDomainDriver(std::shared_ptr<Arc> newDriver);
+
+    virtual std::shared_ptr<Arc> getClockDomainDriver();
+
+    /**
+     * @brief Resets the sets of discovered Master I/O ports connected to nodes in this clock domain
+     */
+    void resetIOPorts();
 
 };
 

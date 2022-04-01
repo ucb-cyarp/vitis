@@ -7,16 +7,17 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 #include "Product.h"
+#include "Blocking/BlockingHelpers.h"
 
-InnerProduct::InnerProduct() : emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST) {
-
-}
-
-InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST) {
+InnerProduct::InnerProduct() : emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST), subBlockingLength(1) {
 
 }
 
-InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent, InnerProduct *orig) : PrimitiveNode(parent, orig), emittedBefore(orig->emittedBefore), complexConjBehavior(orig->complexConjBehavior) {
+InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent) : PrimitiveNode(parent), emittedBefore(false), complexConjBehavior(ComplexConjBehavior::FIRST), subBlockingLength(1) {
+
+}
+
+InnerProduct::InnerProduct(std::shared_ptr<SubSystem> parent, InnerProduct *orig) : PrimitiveNode(parent, orig), emittedBefore(orig->emittedBefore), complexConjBehavior(orig->complexConjBehavior), subBlockingLength(orig->subBlockingLength) {
 
 }
 
@@ -31,8 +32,16 @@ InnerProduct::createFromGraphML(int id, std::string name, std::map<std::string, 
         std::string complexConjBehaviorStr = dataKeyValueMap.at("ComplexConjBehavior");
         newNode->complexConjBehavior = parseComplexConjBehavior(complexConjBehaviorStr);
     } else if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
-        //The simulink semantic is to take the complex conjugate of the first input
-        newNode->complexConjBehavior = ComplexConjBehavior::FIRST;
+        std::string blockFunction = dataKeyValueMap.at("block_function");
+        if(blockFunction == "DotProduct") {
+            //The simulink semantic is to take the complex conjugate of the first input
+            newNode->complexConjBehavior = ComplexConjBehavior::FIRST;
+        }else if(blockFunction == "DotProductNoConj"){
+            //Special Case for Laminar Library Block in Simulink
+            newNode->complexConjBehavior = ComplexConjBehavior::NONE;
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown Inner Product Type", newNode));
+        }
     } else {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Unsupported Dialect when parsing XML - InnerProduct", newNode));
     }
@@ -85,17 +94,42 @@ void InnerProduct::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - Should Have Exactly 1 Output Port", getSharedPointer()));
     }
 
+    if(subBlockingLength < 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - SubBlocking Length should be >=1", getSharedPointer()));
+
+    }
+
     //Check that the inputs have the same dimensions
     if(getInputPort(0)->getDataType().getDimensions() != getInputPort(1)->getDataType().getDimensions()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - Input Ports Need to Have te Same Dimensions", getSharedPointer()));
     }
 
-    if(!getInputPort(0)->getDataType().isVector() && !getInputPort(0)->getDataType().isScalar()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - Input Port 0 Must be a Vector or Scalar", getSharedPointer()));
-    }
+    if(subBlockingLength > 1){
+        DataType outputType = getOutputPort(0)->getDataType();
+        if(!outputType.isVector()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - With Sub-Blocking >1, Expect Output to Be Vector", getSharedPointer()));
+        }
 
-    if(!getInputPort(1)->getDataType().isVector() && !getInputPort(1)->getDataType().isScalar()){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - Input Port 1 Must be a Vector or Scalar", getSharedPointer()));
+        if(outputType.getDimensions()[0] != subBlockingLength){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - With Sub-Blocking >1, Expect Output to Be Vector of the Sub-Blocking Length", getSharedPointer()));
+        }
+
+        if(getInputPort(0)->getDataType().getDimensions()[0] != subBlockingLength || getInputPort(1)->getDataType().getDimensions()[0] != subBlockingLength){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - With Sub-Blocking >1, Input Outer Dimension to be Sub-Blocking Length", getSharedPointer()));
+        }
+
+        if(getInputPort(0)->getDataType().getDimensions().size() >2 || getInputPort(1)->getDataType().getDimensions().size()>2){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - With Sub-Blocking >1, Expect Inputs to have <=2 Dimensions", getSharedPointer()));
+        }
+
+    }else{
+        if(!getInputPort(0)->getDataType().isVector() && !getInputPort(0)->getDataType().isScalar()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - Input Port 0 Must be a Vector or Scalar", getSharedPointer()));
+        }
+
+        if(!getInputPort(1)->getDataType().isVector() && !getInputPort(1)->getDataType().isScalar()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - InnerProduct - Input Port 1 Must be a Vector or Scalar", getSharedPointer()));
+        }
     }
 
     //--- Check for complexity (code borrowed from Product class) ---
@@ -202,11 +236,19 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     //We need a CPU storage type for the intermediate type
     DataType intermediateTypeCPUStore = intermediateType.getCPUStorageType();
 
+    //When sub-blocked, allocate an accumulator per item
+    intermediateTypeCPUStore.setDimensions({subBlockingLength});
+
     //=== Check if emitted before ===
     DataType outputType = getOutputPort(0)->getDataType();
+    outputType.setDimensions({subBlockingLength});
     Variable outputVar;
     Variable accumulatorVar(name + "_n" + GeneralHelper::to_string(id) + "_Accum", intermediateTypeCPUStore);
-    accumulatorVar.setInitValue({NumericValue((long)0)}); //Set initial condition to be used when declaring accumulator var
+    std::vector<NumericValue> accumInitVal;
+    for(int i = 0; i<subBlockingLength; i++){
+        accumInitVal.emplace_back((long)0);
+    }
+    accumulatorVar.setInitValue(accumInitVal); //Set initial condition to be used when declaring accumulator var
     if(intermediateTypeCPUStore == getOutputPort(0)->getDataType()){
         //If they are equivalent, the output variable is the accumulator
         outputVar = accumulatorVar;
@@ -235,20 +277,24 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
 
         //=== Create accumulator variables - init to 0 ===
         //Init to 0 via the includeInit option in the decl
-        cStatementQueue.push_back(accumulatorVar.getCVarDecl(false, false, true, false, false) + ";");
+        cStatementQueue.push_back(accumulatorVar.getCVarDecl(false, true, true, true, false) + ";");
         if(intermediateTypeCPUStore.isComplex()){
-            cStatementQueue.push_back(accumulatorVar.getCVarDecl(true, false, true, false, false) + ";");
+            cStatementQueue.push_back(accumulatorVar.getCVarDecl(true, true, true, true, false) + ";");
         }
 
         //=== Create a for loop over the dimensions of the vectors ===
         //Note that the inputs are allowed to be scalar as this is considered a degenerate case
         //The inputs should be validated to be vectors
+        DataType input0DTUnSubBlocked = input0DT;
+        std::vector<int> inputDimsUnSubBlocked = BlockingHelpers::blockingDomainDimensionReduce(input0DT.getDimensions(), subBlockingLength, 1);
+        input0DTUnSubBlocked.setDimensions(inputDimsUnSubBlocked);
+
         std::vector<std::string> forLoopIndexVars;
         std::vector<std::string> forLoopClose;
-        if(!input0DT.isScalar()){
+        if(!input0DTUnSubBlocked.isScalar()){
             //Create nested loops for a given array
             std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                    EmitterHelpers::generateVectorMatrixForLoops(input0DT.getDimensions());
+                    EmitterHelpers::generateVectorMatrixForLoops(input0DTUnSubBlocked.getDimensions());
 
             std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
             forLoopIndexVars = std::get<1>(forLoopStrs);
@@ -257,21 +303,53 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
             cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
         }
 
+        //If sub-blocking, perform the sub-blocking as the inner loop since it
+        std::vector<std::string> subBlockingForLoopIndexVars;
+        std::vector<std::string> subBlockingForLoopClose;
+        if(subBlockingLength>1){
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> subBlockingForLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops({subBlockingLength}, "subBlkInd");
+
+            std::vector<std::string> subBlockingForLoopOpen = std::get<0>(subBlockingForLoopStrs);
+            subBlockingForLoopIndexVars = std::get<1>(subBlockingForLoopStrs);
+            subBlockingForLoopClose = std::get<2>(subBlockingForLoopStrs);
+
+            cStatementQueue.insert(cStatementQueue.end(), subBlockingForLoopOpen.begin(), subBlockingForLoopOpen.end());
+        }
+
         //=== Dereference terms ===
         std::vector<std::string> inputExprsDeref_re;
         std::vector<std::string> inputExprsDeref_im;
         //There should only be 2 ports (validated above) but easy to write the loop
         //note that the expression index is the same as the port number
-        std::vector<std::string> emptyArr;
+
         for(int i = 0; i<inputExprs_re.size(); i++){
-            std::string inputExpr_re_deref = inputExprs_re[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
+            std::vector<std::string> inputIndexExprs;
+            if(!getInputPort(i)->getDataType().isScalar()){
+                inputIndexExprs = forLoopIndexVars; // If scalar, this will be empty
+            }
+            if(subBlockingLength>1){
+                //Prepend the blocking index to the input index expressions
+                inputIndexExprs.insert(inputIndexExprs.begin(), subBlockingForLoopIndexVars.begin(), subBlockingForLoopIndexVars.end());
+            }
+
+            std::string inputExpr_re_deref = inputExprs_re[i].getExprIndexed(inputIndexExprs, true);
             std::string inputExpr_re_deref_cast = DataType::cConvertType(inputExpr_re_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
 
             inputExprsDeref_re.push_back(inputExpr_re_deref_cast);
         }
         for(int i = 0; i<inputExprs_im.size(); i++){
             if(getInputPort(i)->getDataType().isComplex()){
-                std::string inputExpr_im_deref = inputExprs_im[i].getExprIndexed(getInputPort(i)->getDataType().isScalar() ? emptyArr : forLoopIndexVars, true);
+                std::vector<std::string> inputIndexExprs;
+                if(!getInputPort(i)->getDataType().isScalar()){
+                    inputIndexExprs = forLoopIndexVars; // If scalar, this will be empty
+                }
+                if(subBlockingLength>1){
+                    //Prepend the blocking index to the input index expressions
+                    inputIndexExprs.insert(inputIndexExprs.begin(), subBlockingForLoopIndexVars.begin(), subBlockingForLoopIndexVars.end());
+                }
+
+                std::string inputExpr_im_deref = inputExprs_im[i].getExprIndexed(inputIndexExprs, true);
                 std::string inputExpr_im_deref_cast = DataType::cConvertType(inputExpr_im_deref, getInputPort(i)->getDataType(), intermediateTypeCPUStore);
 
                 inputExprsDeref_im.push_back(inputExpr_im_deref_cast);
@@ -301,23 +379,44 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
         }
 
         //=== Add to accumulator ===
-        cStatementQueue.push_back(accumulatorVar.getCVarName(false) + " += " + multResult_re + ";");
+        cStatementQueue.push_back(accumulatorVar.getCVarName(false) + (subBlockingLength>1 ? EmitterHelpers::generateIndexOperation(subBlockingForLoopIndexVars) : "") + " += " + multResult_re + ";");
         if(intermediateTypeCPUStore.isComplex()){
-            cStatementQueue.push_back(accumulatorVar.getCVarName(true) + " += " + multResult_im + ";");
+            cStatementQueue.push_back(accumulatorVar.getCVarName(true) + (subBlockingLength>1 ? EmitterHelpers::generateIndexOperation(subBlockingForLoopIndexVars) : "") + " += " + multResult_im + ";");
+        }
+
+        //=== Close Sub-Blocking For Loop
+        if(subBlockingLength>1){
+            cStatementQueue.insert(cStatementQueue.end(), subBlockingForLoopClose.begin(), subBlockingForLoopClose.end());
         }
 
         //=== Close For Loop ===
-        if(!input0DT.isScalar()){
+        if(!input0DTUnSubBlocked.isScalar()){
             cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
         }
 
         //=== Cast accumulator vars to output type and output vars (single values) (if casting needed) ===
         if(outputVar != accumulatorVar){
-            cStatementQueue.push_back(outputVar.getCVarDecl(false, false, false, false, false) + " = " +
-                                              DataType::cConvertType(accumulatorVar.getCVarName(false), intermediateTypeCPUStore, outputType)+ ";");
+            //If sub-blocking, need to cast all accumulators
+            std::vector<std::string> castingSubBlockingForLoopClose;
+            std::string indexingExpr;
+            if(subBlockingLength>1){
+                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> castingSubBlockingForLoopStrs =
+                        EmitterHelpers::generateVectorMatrixForLoops({subBlockingLength}, "subBlkInd");
+
+                std::vector<std::string> castingSubBlockingForLoopOpen = std::get<0>(castingSubBlockingForLoopStrs);
+                std::vector<std::string> castingSubBlockingForLoopIndexVars = std::get<1>(castingSubBlockingForLoopStrs);
+                castingSubBlockingForLoopClose = std::get<2>(castingSubBlockingForLoopStrs);
+
+                cStatementQueue.insert(cStatementQueue.end(), castingSubBlockingForLoopOpen.begin(), castingSubBlockingForLoopOpen.end());
+
+                indexingExpr = EmitterHelpers::generateIndexOperation(castingSubBlockingForLoopIndexVars);
+            }
+
+            cStatementQueue.push_back(outputVar.getCVarDecl(false, false, false, false, false) + indexingExpr + " = " +
+                                              DataType::cConvertType(accumulatorVar.getCVarName(false) + indexingExpr, intermediateTypeCPUStore, outputType)+ ";");
             if(intermediateTypeCPUStore.isComplex()){
-                cStatementQueue.push_back(outputVar.getCVarDecl(true, false, false, false, false) + " = " +
-                                          DataType::cConvertType(accumulatorVar.getCVarName(true), intermediateTypeCPUStore, outputType)+ ";");
+                cStatementQueue.push_back(outputVar.getCVarDecl(true, false, false, false, false) + indexingExpr + " = " +
+                                              DataType::cConvertType(accumulatorVar.getCVarName(true) + indexingExpr, intermediateTypeCPUStore, outputType)+ ";");
             }
         }
 
@@ -325,7 +424,7 @@ InnerProduct::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::
     }
 
     //=== Return output variable (accumulator or output var if casting needed) ===
-    return CExpr(outputVar.getCVarName(imag), CExpr::ExprType::SCALAR_VAR);
+    return CExpr(outputVar.getCVarName(imag), subBlockingLength>1 ? CExpr::ExprType::ARRAY : CExpr::ExprType::SCALAR_VAR);
 }
 
 std::string InnerProduct::complexConjBehaviorToString(InnerProduct::ComplexConjBehavior complexConjBehavior) {
@@ -358,4 +457,34 @@ InnerProduct::ComplexConjBehavior InnerProduct::getComplexConjBehavior() const {
 
 void InnerProduct::setComplexConjBehavior(InnerProduct::ComplexConjBehavior complexConjBehavior) {
     InnerProduct::complexConjBehavior = complexConjBehavior;
+}
+
+bool InnerProduct::specializesForBlocking() {
+    return true;
+}
+
+void InnerProduct::specializeForBlocking(int localBlockingLength,
+                                         int localSubBlockingLength,
+                                         std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                         std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                             &arcsWithDeferredBlockingExpansion) {
+    //The inner product specialization is very similar to the built-in Laminar specilization.
+    //The exceptions are that the BlockingBoundary nodes are not inserted and the loops are interchanged.  The
+    //blocking is the inner loop while the sum is the outer loop.  This allows the same set of coefficients to be used
+    //across a block of inputs without re-loading (if one of the inputs is a constant).  The accumulators for the whole
+    //block are declared and reset before the inner product.
+
+    //TODO: Refactor?
+    if(localSubBlockingLength != 1){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When specializing for blocking, currently expect the sub-blocking length to be 1.  This is consistent with inserting sub-blocking domains", getSharedPointer()));
+    }
+
+    subBlockingLength = localBlockingLength; //The sub-blocking length should
+
+    //The arcs should be expanded to the block length
+    BlockingHelpers::requestDeferredBlockingExpansionOfNodeArcs(getSharedPointer(), localBlockingLength, localBlockingLength, arcsWithDeferredBlockingExpansion);
 }

@@ -138,9 +138,12 @@ bool EnableOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &new
     //any singal feeding into the EnableOutput had to pass through an enable input
     //TODO: check this assumption that EnableInputs will not be removed
 
+    //Do not check Node::passesThroughInputs since this StateUpdate is used to implement Latch like behavior with the destination being the state element
+
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdate->setName("StateUpdate-For-"+getName());
     stateUpdate->setPartitionNum(partitionNum);
+    stateUpdate->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdate->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
 

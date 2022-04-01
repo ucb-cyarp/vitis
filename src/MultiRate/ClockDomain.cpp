@@ -13,17 +13,20 @@
 #include "MasterNodes/MasterUnconnected.h"
 #include "GraphMLTools/GraphMLHelper.h"
 #include "GraphCore/NodeFactory.h"
+#include "GraphCore/DummyReplica.h"
 #include "General/EmitterHelpers.h"
+#include "Blocking/BlockingInput.h"
+#include "Blocking/BlockingOutput.h"
 
 #include <iostream>
 
-ClockDomain::ClockDomain() {
+ClockDomain::ClockDomain() : useVectorSamplingMode(false) {
 }
 
-ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent) : SubSystem(parent) {
+ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent) : SubSystem(parent), useVectorSamplingMode(false) {
 }
 
-ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) : SubSystem(parent, orig), upsampleRatio(orig->upsampleRatio), downsampleRatio(orig->downsampleRatio) {
+ClockDomain::ClockDomain(std::shared_ptr<SubSystem> parent, ClockDomain* orig) : SubSystem(parent, orig), upsampleRatio(orig->upsampleRatio), downsampleRatio(orig->downsampleRatio), useVectorSamplingMode(orig->useVectorSamplingMode) {
     //Do not copy the pointers to the RateChange nodes.  This is handled by the shallowCloneWithChildren
 }
 
@@ -33,6 +36,7 @@ void ClockDomain::populateParametersExceptRateChangeNodes(std::shared_ptr<ClockD
     schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
     downsampleRatio = orig->getDownsampleRatio();
+    useVectorSamplingMode = orig->isUsingVectorSamplingMode();
 
     ioInput = orig->getIoInput();
     ioOutput = orig->getIoOutput();
@@ -104,6 +108,14 @@ void ClockDomain::addIOInput(std::shared_ptr<OutputPort> input) {
 
 void ClockDomain::addIOOutput(std::shared_ptr<InputPort> output) {
     ioOutput.insert(output);
+}
+
+void ClockDomain::addIOBlockingInput(std::shared_ptr<BlockingInput> input) {
+    ioBlockingInput.insert(input);
+}
+
+void ClockDomain::addIOBlockingOutput(std::shared_ptr<BlockingOutput> output) {
+    ioBlockingOutput.insert(output);
 }
 
 void ClockDomain::removeRateChangeIn(std::shared_ptr<RateChange> rateChange) {
@@ -210,8 +222,10 @@ void ClockDomain::validate() {
                                     ", that is connected to a rate change node that is not in the current domain and is not from one nested domain: "
                                     + src->getFullyQualifiedName(), getSharedPointer()));
                         }
-                    }else if(GeneralHelper::isType<Node, MasterUnconnected>(src)){
+                    }else if(GeneralHelper::isType<Node, MasterUnconnected>(src)) {
                         //Connections to the MasterUnconnected are not checked as they have special semantics
+                    }else if(GeneralHelper::isType<Node, BlockingInput>(src) != nullptr && GeneralHelper::contains(std::dynamic_pointer_cast<BlockingInput>(src), ioBlockingInput)){
+                        //Not checked Since this is to/from I/O
                     }else{
                         //The src is another type of node (not a MasterInput or a Rate Change Node
                         std::shared_ptr<ClockDomain> srcDomain = MultiRateHelpers::findClockDomain(src);
@@ -261,6 +275,8 @@ void ClockDomain::validate() {
                         }
                     }else if(GeneralHelper::isType<Node, MasterUnconnected>(dst)){
                         //Connections to the MasterUnconnected are not checked as they have special semantics
+                    }else if(GeneralHelper::isType<Node, BlockingOutput>(dst) != nullptr && GeneralHelper::contains(std::dynamic_pointer_cast<BlockingOutput>(dst), ioBlockingOutput)){
+                        //Not checked Since this is to/from I/O
                     }else{
                         std::shared_ptr<ClockDomain> dstDomain = MultiRateHelpers::findClockDomain(dst);
 
@@ -341,6 +357,10 @@ void ClockDomain::validate() {
         if(rateChangeOfNode.first != upsampleRatio || rateChangeOfNode.second != downsampleRatio){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected rate change: " + (*it)->getFullyQualifiedName(), getSharedPointer()));
         }
+
+        if((*it)->isUsingVectorSamplingMode() != useVectorSamplingMode){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected useVectorSamplingMode", getSharedPointer()));
+        }
     }
 
     //Check that all output rate change blocks have the appropriate rate changes
@@ -350,11 +370,15 @@ void ClockDomain::validate() {
         if(rateChangeOfNode.second != upsampleRatio || rateChangeOfNode.first != downsampleRatio){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected rate change: " + (*it)->getFullyQualifiedName(), getSharedPointer()));
         }
+
+        if((*it)->isUsingVectorSamplingMode() != useVectorSamplingMode){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Found a rate change node that does not have the expected useVectorSamplingMode", getSharedPointer()));
+        }
     }
 }
 
 void ClockDomain::discoverClockDomainParameters() {
-    //Reset the paraeters to allow re-discovery to occure
+    //Reset the parameters to allow re-discovery to occur
     upsampleRatio = 1;
     downsampleRatio = 1;
     rateChangeIn.clear();
@@ -397,6 +421,8 @@ void ClockDomain::discoverClockDomainParameters() {
 
         std::set<std::shared_ptr<Arc>> srcArcs = (*rcNode)->getDirectInputArcs();
         std::set<std::shared_ptr<Arc>> dstArcs = (*rcNode)->getDirectOutputArcs();
+
+        useVectorSamplingMode = (*rcNode)->isUsingVectorSamplingMode();
 
         if(srcArcs.size() == 0){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Cannot determine if rate change node is input or output due to having no source arc", *rcNode));
@@ -586,6 +612,7 @@ std::shared_ptr<ClockDomain> ClockDomain::convertToUpsampleDownsampleDomain(bool
     }else{
         //Create
         std::shared_ptr<DownsampleClockDomain> downsampleClockDomain = NodeFactory::createNode<DownsampleClockDomain>(parent);
+        downsampleClockDomain->setBaseSubBlockingLen(baseSubBlockingLen);
         nodesToAdd.push_back(downsampleClockDomain);
         specificClkDomain = downsampleClockDomain;
 
@@ -696,4 +723,164 @@ void ClockDomain::addClockDomainLogicSuppressedPartition(int partitionNum) {
 
 void ClockDomain::setClockDomainDriver(std::shared_ptr<Arc>) {
 
+}
+
+bool ClockDomain::isUsingVectorSamplingMode() const {
+    return useVectorSamplingMode;
+}
+
+void ClockDomain::setUseVectorSamplingMode(bool useVectorSamplingMode) {
+    ClockDomain::useVectorSamplingMode = useVectorSamplingMode;
+}
+
+void ClockDomain::setUseVectorSamplingModeAndPropagateToRateChangeNodes(bool useVectorSamplingMode,
+                                                                        std::set<std::shared_ptr<Node>> &nodesToRemove,
+                                                                        std::set<std::shared_ptr<Arc>> &arcsToRemove) {
+    ClockDomain::useVectorSamplingMode = useVectorSamplingMode;
+
+    //Update rate change nodes
+    for(const std::shared_ptr<RateChange> &rateChangeNode : rateChangeIn){
+        rateChangeNode->setUseVectorSamplingMode(useVectorSamplingMode);
+    }
+
+    for(const std::shared_ptr<RateChange> &rateChangeNode : rateChangeOut){
+        rateChangeNode->setUseVectorSamplingMode(useVectorSamplingMode);
+    }
+
+    std::shared_ptr<Arc> clkDomainDriver = getClockDomainDriver();
+    if(clkDomainDriver){
+        std::shared_ptr<Node> clkDomainSrc = clkDomainDriver->getSrcPort()->getParent();
+
+        //TODO: Change if clock domain drivers which are not the standard wrapping counter are later introduced.
+        std::set<std::shared_ptr<Arc>> clkDomainDriverOutArcs = clkDomainSrc->getOutputArcs();
+        for(const std::shared_ptr<Arc> &driverOutArc : clkDomainDriverOutArcs) {
+            if (driverOutArc->getDstPort()->getParent() != getSharedPointer()) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "When setting clock domain to use vector mode, expected clock domain driver to be uniquely allocated to clock domain so it can be removed.",
+                        getSharedPointer()));
+            }
+        }
+        if(!clkDomainSrc->getInputArcs().empty()){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When setting clock domain to use vector mode, expected clock domain driver to be a single node", getSharedPointer()));
+        }
+
+        std::set<std::shared_ptr<Arc>> disconnectArcs = clkDomainSrc->disconnectNode();
+
+        nodesToRemove.insert(clkDomainSrc);
+        arcsToRemove.insert(clkDomainDriverOutArcs.begin(), clkDomainDriverOutArcs.end());
+        arcsToRemove.insert(disconnectArcs.begin(), disconnectArcs.end());
+
+        setClockDomainDriver(nullptr);
+    }
+
+    //Context Driver Replication May have Occurred Before This, remove the replicas if applicable
+    std::shared_ptr<ContextRoot> thisAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(getSharedPointer()); //Only if this clock domain is specialized
+    if(thisAsContextRoot) {
+        std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition = thisAsContextRoot->getContextDriversPerPartition();
+        for (const auto &replicatedDriver: contextDriversPerPartition) {
+            std::vector<std::shared_ptr<Arc>> drivers = replicatedDriver.second;
+
+            for(const std::shared_ptr<Arc> &driver : drivers){
+                if(!GeneralHelper::contains(driver, arcsToRemove)) { //This protects against duplicate removal of an arc
+                    std::shared_ptr<Node> clkDomainSrc = driver->getSrcPort()->getParent();
+
+                    //TODO: Change if clock domain drivers which are not the standard wrapping counter are later introduced.
+                    std::set<std::shared_ptr<Arc>> clkDomainDriverOutArcs = clkDomainSrc->getOutputArcs();
+                    for (const std::shared_ptr<Arc> &driverOutArc: clkDomainDriverOutArcs) {
+                        if (driverOutArc->getDstPort()->getParent() != getSharedPointer() &&
+                            driverOutArc->getDstPort()->getParent() !=
+                            thisAsContextRoot->getDummyReplica(replicatedDriver.first)) {
+                            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                    "When setting clock domain to use vector mode, expected clock domain driver to be uniquely allocated to clock domain so it can be removed.",
+                                    getSharedPointer()));
+                        }
+                    }
+                    if (!clkDomainSrc->getInputArcs().empty()) {
+                        throw std::runtime_error(ErrorHelpers::genErrorStr(
+                                "When setting clock domain to use vector mode, expected clock domain driver to be a single node",
+                                getSharedPointer()));
+                    }
+
+                    std::set<std::shared_ptr<Arc>> disconnectArcs = clkDomainSrc->disconnectNode();
+
+                    nodesToRemove.insert(clkDomainSrc);
+                    arcsToRemove.insert(clkDomainDriverOutArcs.begin(), clkDomainDriverOutArcs.end());
+                    arcsToRemove.insert(disconnectArcs.begin(), disconnectArcs.end());
+                }
+            }
+        }
+
+        std::map<int, std::vector<std::shared_ptr<Arc>>> emptyContextDriversPerPartition;
+        thisAsContextRoot->setContextDriversPerPartition(emptyContextDriversPerPartition);
+
+        //Remove Dummy Nodes
+
+        std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas = thisAsContextRoot->getDummyReplicas();
+        for(const auto &dummyReplica : dummyReplicas){
+            if(!dummyReplica.second->getInputArcs().empty() || !dummyReplica.second->getOutputArcs().empty()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "When setting clock domain to use vector mode, expected dummy nodes to be disconnected",
+                        getSharedPointer()));
+            }
+
+        }
+
+        std::map<int, std::shared_ptr<DummyReplica>> emptyDummyReplicas;
+        thisAsContextRoot->setDummyReplicas(emptyDummyReplicas);
+    }
+
+
+}
+
+void ClockDomain::resetIOPorts(){
+    ioInput.clear();
+    ioOutput.clear();
+}
+
+std::shared_ptr <Arc> ClockDomain::getClockDomainDriver() {
+    return nullptr;
+}
+
+bool ClockDomain::requiresDeclaringExecutionCount() {
+    return !isUsingVectorSamplingMode();
+}
+
+Variable ClockDomain::getExecutionCountVariable(int blockSizeBase) {
+    //This variable needs to count the number of iterations of this clock domain
+    std::pair<int, int> rateRelToBase = getRateRelativeToBase();
+
+    double iterationsPerBlock = std::ceil(blockSizeBase*rateRelToBase.first/((double) rateRelToBase.second));
+    int requiredBits = GeneralHelper::numIntegerBits(iterationsPerBlock, false);
+    DataType dt(false, false, false, requiredBits, 0, {1});
+    dt = dt.getCPUStorageType();
+
+    std::string varName = "ClkDomainCount_n" + GeneralHelper::to_string(id);
+
+    NumericValue initVal((long int) 0);
+
+    return Variable(varName, dt, {initVal});
+}
+
+std::string ClockDomain::getExecutionCountVariableName() {
+    std::string varName = "ClkDomainCount_n" + GeneralHelper::to_string(id);
+
+    NumericValue initVal((long int) 0);
+
+    return Variable(varName, DataType()).getCVarName();
+}
+
+std::set<std::shared_ptr<BlockingInput>> ClockDomain::getIoBlockingInput() const {
+    return ioBlockingInput;
+}
+
+void ClockDomain::setIoBlockingInput(const std::set<std::shared_ptr<BlockingInput>> &ioBlockingInput) {
+    ClockDomain::ioBlockingInput = ioBlockingInput;
+}
+
+std::set<std::shared_ptr<BlockingOutput>> ClockDomain::getIoBlockingOutput() const {
+    return ioBlockingOutput;
+}
+
+void ClockDomain::setIoBlockingOutput(const std::set<std::shared_ptr<BlockingOutput>> &ioBlockingOutput) {
+    ClockDomain::ioBlockingOutput = ioBlockingOutput;
 }

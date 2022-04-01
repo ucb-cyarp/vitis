@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
+#include "General/ErrorHelpers.h"
 
 Variable::Variable() : name(""), atomicVar(false), inStateStructure(false), overrideType(""){
 
@@ -105,6 +106,10 @@ std::string Variable::getCVarDecl(bool imag, bool includeDimensions, bool includ
         }else{
             //Emit an array
             decl += " = ";
+
+            if(dataType.numberOfElements() != initValue.size()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When emitting variable (" + name + "), unexpected number of initial values"));
+            }
 
             std::vector<int> dimensions = dataType.getDimensions();
             decl += EmitterHelpers::arrayLiteral(dimensions, initValue, imag, dataType, dataType);

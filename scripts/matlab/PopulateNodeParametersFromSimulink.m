@@ -21,6 +21,7 @@ isStateflow = false;
 isBitShift = false;
 isVectorTappedDelay = false;
 isRstTappedDelay = false;
+isComplexDotProdNoConj = false;
 if strcmp(node.simulinkBlockType, 'SubSystem')
     %Using solution from https://www.mathworks.com/matlabcentral/answers/156628-how-to-recognize-stateflow-blocks-using-simulink-api-get_param
     %did not know about the SFBlockType parameter (I assume this means
@@ -41,6 +42,11 @@ if strcmp(node.simulinkBlockType, 'SubSystem')
     if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/TappedDelayWithReset_oldestFirst') || strcmp(get_param(simulink_block_handle, 'ReferenceBlock'), 'laminarLib/TappedDelayWithReset_oldestFirst')
         isRstTappedDelay = true;
     end
+    
+    if strcmp( get_param(simulink_block_handle, 'ReferenceBlock'), 'rev1CyclopsLib/ComplexDotProductNoConj') || strcmp(get_param(simulink_block_handle, 'ReferenceBlock'), 'laminarLib/ComplexDotProductNoConj')
+        isComplexDotProdNoConj = true;
+    end
+    
 end
 
 %---Get parameters from simulink---
@@ -524,6 +530,26 @@ elseif isBitShift
         
         node.dialogPropertiesNumeric('N') = GetParamEval(simulink_block_handle, 'N'); %Shift amount
         
+%---- Shift Arithmetic (more general version of Bit Shift) ----
+elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'ArithShift')
+        % BitShiftNumberSource = 'Dialog'
+        %                        'Input port'
+                
+        % BitShiftDirection = 'Left'
+        %                     'Right'
+        %                     'Bidirectional'
+        
+        % DiagnosticForOORShift = 'None'
+        %                         'Warning'
+        %                         'Error'
+        
+        % CheckOORBitShift = 'off'
+        %                    'on'
+        % Only when shift amount comes from port
+        
+        node.dialogPropertiesNumeric('BitShiftNumber') = GetParamEval(simulink_block_handle, 'BitShiftNumber'); %Shift amount
+        node.dialogPropertiesNumeric('BinPtShiftNumber') = GetParamEval(simulink_block_handle, 'BinPtShiftNumber'); %Binary point shift amount
+        
 %---- Trigonometry Operator ----
 elseif strcmp( get_param(simulink_block_handle, 'BlockType'), 'Trigonometry')
         %Changing block type from 'S-Function'
@@ -633,6 +659,9 @@ elseif isRstTappedDelay
     node.dialogPropertiesNumeric('Depth') = GetParamEval(simulink_block_handle, 'Depth'); %This is the number of vectors in the output (including the passthrough).  Depth-1 is the delay
     node.dialogPropertiesNumeric('InitCond') = GetParamEval(simulink_block_handle, 'RstVal'); %Initial Conditions
 
+%---- Complex Dot Product Without Complex Conj ----
+elseif isComplexDotProdNoConj
+    node.simulinkBlockType = 'DotProductNoConj';
     
 %TODO: More Blocks
 end

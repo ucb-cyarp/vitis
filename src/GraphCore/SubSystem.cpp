@@ -7,6 +7,7 @@
 #include "GraphCore/NodeFactory.h"
 #include "General/GeneralHelper.h"
 #include "General/GraphAlgs.h"
+#include "Blocking/BlockingDomain.h"
 
 SubSystem::SubSystem() {
 
@@ -155,13 +156,14 @@ SubSystem::discoverAndUpdateContexts(std::vector<Context> contextStack,
                                      std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                      std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                      std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
+                                     std::vector<std::shared_ptr<BlockingDomain>> &discoveredBlockingDomains,
                                      std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
     std::set<std::shared_ptr<Node>, Node::PtrID_Compare> idOrderedChildren;
     idOrderedChildren.insert(children.begin(), children.end());
     std::vector<std::shared_ptr<Node>> childrenVector;
     childrenVector.insert(childrenVector.end(), idOrderedChildren.begin(), idOrderedChildren.end());
     GraphAlgs::discoverAndUpdateContexts(childrenVector, contextStack, discoveredMux, discoveredEnabledSubSystems,
-                                         discoveredClockDomains, discoveredGeneral);
+                                         discoveredClockDomains, discoveredBlockingDomains, discoveredGeneral);
 }
 
 void SubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> predecessorNodes,
@@ -189,4 +191,29 @@ void SubSystem::orderConstrainZeroInputNodes(std::vector<std::shared_ptr<Node>> 
         }
     }
 
+}
+
+void SubSystem::specializeForBlocking(int localBlockingLength, int localSubBlockingLength,
+                                      std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                      std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                      std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                      std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                      std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                      std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                          &arcsWithDeferredBlockingExpansion) {
+    //Do nothing
+}
+
+std::set<std::shared_ptr<Node>> SubSystem::getDescendants() const {
+    std::set<std::shared_ptr<Node>> descendants = children; //Descendants include the children
+
+    for(std::shared_ptr<Node> child : children){
+        std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+        if(asSubsystem){
+            std::set<std::shared_ptr<Node>> childDescendants = asSubsystem->getDescendants();
+            descendants.insert(childDescendants.begin(), childDescendants.end());
+        }
+    }
+
+    return descendants;
 }

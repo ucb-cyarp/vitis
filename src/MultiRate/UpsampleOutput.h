@@ -18,6 +18,9 @@ class UpsampleOutput : public Upsample {
 
 private:
     Variable stateVar; ///<The state variable for the latch/output
+
+    //TODO: Add mode switch for Reduction through datatype subsampling?
+
 protected:
     /**
      * @brief Default constructor
@@ -118,6 +121,24 @@ public:
     void emitCStateUpdate(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, std::shared_ptr<StateUpdate> stateUpdateSrc) override;
 
     bool isSpecialized() override;
+
+    /**
+     * @brief Get the output variable (only used when operating in vector mode)
+     * @return
+     */
+    Variable getVectorModeOutputVariable();
+
+    std::vector<Variable> getVariablesToDeclareOutsideClockDomain() override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                               &arcsWithDeferredBlockingExpansion) override;
 
 };
 

@@ -23,6 +23,7 @@ Repeat::Repeat(std::shared_ptr<SubSystem> parent, Repeat* orig) : RateChange(par
 void Repeat::populateParametersExceptRateChangeNodes(std::shared_ptr<Repeat> orig) {
     name = orig->getName();
     partitionNum = orig->getPartitionNum();
+    baseSubBlockingLen = orig->getBaseSubBlockingLen();
     schedOrder = orig->getSchedOrder();
     upsampleRatio = orig->getUpsampleRatio();
 }
@@ -122,8 +123,24 @@ void Repeat::validate() {
     DataType outType = getOutputPort(0)->getDataType();
     DataType inType = getInputPort(0)->getDataType();
 
-    if(inType != outType){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Repeat - DataType of Input Port Does not Match Output Port", getSharedPointer()));
+    if(useVectorSamplingMode){
+        DataType inputDTScaled = inType;
+        //Scale the outer dimension
+        std::vector<int> inputDim = inputDTScaled.getDimensions();
+        std::pair<int, int> rateChange = getRateChangeRatio();
+        inputDim[0] *= rateChange.first;
+        inputDim[0] /= rateChange.second;
+        inputDTScaled.setDimensions(inputDim);
+
+        if(inputDTScaled != outType){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", getSharedPointer()));
+        }
+    }else {
+        if (inType != outType) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Validation Failed - Repeat - DataType of Input Port Does not Match Output Port",
+                    getSharedPointer()));
+        }
     }
 
     //TODO: Add width options (single to vector)

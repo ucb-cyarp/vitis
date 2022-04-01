@@ -5,6 +5,7 @@
 #include "MultiRateHelpers.h"
 #include "General/GeneralHelper.h"
 #include "General/EmitterHelpers.h"
+#include "General/GraphAlgs.h"
 #include "General/ErrorHelpers.h"
 #include "ClockDomain.h"
 #include "GraphCore/Node.h"
@@ -15,116 +16,31 @@
 #include "RateChange.h"
 #include "MultiThread/ThreadCrossingFIFO.h"
 #include <iostream>
+#include "Downsample.h"
+#include "Upsample.h"
+#include "Repeat.h"
+#include "Blocking/BlockingHelpers.h"
 
 std::set<std::shared_ptr<Node>>
 MultiRateHelpers::getNodesInClockDomainHelper(const std::set<std::shared_ptr<Node>> nodesToSearch) {
-    return getNodesInClockDomainHelperFilter<Node>(nodesToSearch);
+    return GraphAlgs::getNodesInDomainHelperFilter<ClockDomain, Node>(nodesToSearch);
 }
 
 std::shared_ptr<ClockDomain> MultiRateHelpers::findClockDomain(std::shared_ptr<Node> node) {
-    std::shared_ptr<ClockDomain> clkDomain = nullptr;
-    std::shared_ptr<Node> cursor = node;
-
-    while(cursor != nullptr){
-        std::shared_ptr<SubSystem> parent = cursor->getParent();
-
-        if(GeneralHelper::isType<Node, ClockDomain>(parent)){
-            clkDomain = std::static_pointer_cast<ClockDomain>(parent);
-            cursor = nullptr;
-        }else if(GeneralHelper::isType<Node, ContextFamilyContainer>(parent)){
-            std::shared_ptr<ContextFamilyContainer> parentAsContextFamilyContainer = std::dynamic_pointer_cast<ContextFamilyContainer>(parent);
-            //Encapsulation has already occured, check if the context driver of this ContextFamilyContainer
-            //is a ClockDomain
-
-            //Also, since a ClockDomain is placed inside of the ContextFamilyContainer, check that the context driver
-            //is not this node
-
-            std::shared_ptr<ContextRoot> parentContextRoot = parentAsContextFamilyContainer->getContextRoot();
-
-            std::shared_ptr<ContextRoot> cursorAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(cursor);
-            if(cursorAsContextRoot != nullptr && cursorAsContextRoot == parentContextRoot){
-                //The parent is the context Family container for the cursor
-                //Continue going up
-                cursor = parent;
-            }else{
-                //Check if the parent ContextRoot is a clock domain
-                std::shared_ptr<ClockDomain> parentContextRootAsClkDomain = GeneralHelper::isType<ContextRoot, ClockDomain>(parentContextRoot);
-
-                if(parentContextRootAsClkDomain){
-                    //The ParentContextFamilyContainer is for a clock domain
-                    clkDomain = parentContextRootAsClkDomain;
-                    cursor = nullptr;
-                }else{
-                    //The ContextFamilyContainer is for something else, keep going up
-                    cursor = parent;
-                }
-            }
-        }
-        else{
-            cursor = parent;
-        }
-    }
-
-    return clkDomain;
+    return GraphAlgs::findDomain<ClockDomain>(node);
 }
 
 bool MultiRateHelpers::isOutsideClkDomain(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
-
-    //Check if a is outside of clock domain b
-
-    //Traverse up a's ClockDomain hierarchy and see if b shows up
-
-    std::shared_ptr<ClockDomain> cursor = a;
-
-    bool done = false;
-
-    while(!done){
-        if(cursor == b){
-            //Found a place in the hierarchy of a where b appears, it is in
-            //Need to check this before nullptr since a and b can either or both be nullptrs.
-            //If B is a nullptr, a is nested under it as nullptr represents the base clock domain
-            return false;
-        }else if(cursor == nullptr) {
-            //Already convered the equivalency check which handles the case wben b is nullptr
-            //At this point, the entire clock domain hierarchy of a has been traversed
-            done = true;
-        }else{
-            //Traverse up the hierarchy
-            cursor = findClockDomain(cursor); //When run on a clock domain node, this find the clock domain it is nested in
-        }
-    }
-
-    //Did not find clock domain b in the clock domain hierarchy of a, so a is outside of b
-    return true;
+    return GraphAlgs::isOutsideDomain(a, b);
 }
 
 bool MultiRateHelpers::isClkDomainOrOneLvlNested(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
-    //Check if ClockDomain a is equal to ClockDomain b or is a ClockDomain directly nested within clock domain b (one level below)
-    if(a == b){
-        return true;
-    }
-
-    if(a != nullptr){
-        std::shared_ptr<ClockDomain> oneLvlUp = findClockDomain(a); //When run on the clock domain nodes, this finds the clock domain it is nested under
-        return oneLvlUp == b;
-    }
-
-    return false;
+    return GraphAlgs::isDomainOrOneLvlNested(a, b);
 }
 
 bool
 MultiRateHelpers::areWithinOneClockDomainOfEachOther(std::shared_ptr<ClockDomain> a, std::shared_ptr<ClockDomain> b) {
-    if(a == b){
-        return true;
-    }
-
-    //We do not actually need to check if a or b are nullptr because findClockDomain will return nullptr
-    //This will result in a redundant check
-    std::shared_ptr<ClockDomain> outerA = findClockDomain(a);
-    std::shared_ptr<ClockDomain> outerB = findClockDomain(b);
-
-    return outerA == outerB || a == outerB || outerA == b;
-
+    return GraphAlgs::areWithinOneDomainOfEachOther(a, b);
 }
 
 std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputPort>>> MultiRateHelpers::validateRateChangeInput_SetMasterRates(std::shared_ptr<RateChange> rc, bool setMasterRates) {
@@ -147,6 +63,29 @@ std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputP
     std::shared_ptr<Node> srcNode = srcPort->getParent();
     std::shared_ptr<ClockDomain> srcDomain = findClockDomain(srcNode);
     std::shared_ptr<ClockDomain> rcOuterClockDomain = findClockDomain(rcDomain);
+
+    if(rc->isUsingVectorSamplingMode()){
+        DataType inputDTScaled = rc->getInputPort(0)->getDataType();
+        //Scale the outer dimension
+        std::vector<int> inputDim = inputDTScaled.getDimensions();
+        std::pair<int, int> rateChange = rc->getRateChangeRatio();
+        inputDim[0] *= rateChange.first;
+        inputDim[0] /= rateChange.second;
+        inputDTScaled.setDimensions(inputDim);
+
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDTScaled != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }else{
+        DataType inputDT = rc->getInputPort(0)->getDataType();
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDT != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When not using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }
 
     //Validate input
     {
@@ -232,6 +171,29 @@ std::pair<std::set<std::shared_ptr<OutputPort>>, std::set<std::shared_ptr<InputP
     std::shared_ptr<OutputPort> srcPort = (*inputArcs.begin())->getSrcPort();
     std::shared_ptr<Node> srcNode = srcPort->getParent();
     std::shared_ptr<ClockDomain> srcDomain = findClockDomain(srcNode);
+
+    if(rc->isUsingVectorSamplingMode()){
+        DataType inputDTScaled = rc->getInputPort(0)->getDataType();
+        //Scale the outer dimension
+        std::vector<int> inputDim = inputDTScaled.getDimensions();
+        std::pair<int, int> rateChange = rc->getRateChangeRatio();
+        inputDim[0] *= rateChange.first;
+        inputDim[0] /= rateChange.second;
+        inputDTScaled.setDimensions(inputDim);
+
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDTScaled != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }else{
+        DataType inputDT = rc->getInputPort(0)->getDataType();
+        DataType outputDT = rc->getOutputPort(0)->getDataType();
+
+        if(inputDT != outputDT){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When not using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", rc));
+        }
+    }
 
     //Validate input
     //If it is a master input, it is OK (do not need to check)
@@ -381,60 +343,21 @@ void MultiRateHelpers::validateClockDomainRates(std::vector<std::shared_ptr<Cloc
     }
 }
 
-void MultiRateHelpers::setAndValidateFIFOBlockSizes(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs,
-                                              int blockSize, bool setFIFOBlockSize) {
-
-    for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++) {
-        std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
-
-        //Validate Each Port separately since each can have potentially different clock domains, block sizes, and initial conditions
-        int numPorts = threadCrossingFIFO->getInputPorts().size();
-
-        for (int portNum = 0; portNum < numPorts; portNum++) {
-
-            //Note that clock domains need to be discovered before this is valid
-            std::shared_ptr<ClockDomain> fifoPortClockDomain = threadCrossingFIFO->getClockDomainCreateIfNot(portNum);
-
-            std::pair<int, int> rateRelativeToBase;
-
-            if (fifoPortClockDomain) {
-                rateRelativeToBase = fifoPortClockDomain->getRateRelativeToBase();
-            } else {
-                //This is at the base rate
-                rateRelativeToBase = std::pair<int, int>(1, 1);
-            }
-
-            int blockSizeScaled = blockSize * rateRelativeToBase.first;
-            if (blockSizeScaled % rateRelativeToBase.second != 0) {
-                throw std::runtime_error(ErrorHelpers::genErrorStr(
-                        "Block Size for FIFO after adjustment for ClockDomain is not an integer", threadCrossingFIFO));
-            }
-
-            if (setFIFOBlockSize) {
-                blockSizeScaled /= rateRelativeToBase.second;
-                threadCrossingFIFO->setBlockSize(portNum, blockSizeScaled);
-            }
-        }
-    }
-}
-
 void MultiRateHelpers::rediscoverClockDomainParameters(std::vector<std::shared_ptr<ClockDomain>> clockDomainsInDesign) {
     for(unsigned long i = 0; i<clockDomainsInDesign.size(); i++){
         clockDomainsInDesign[i]->discoverClockDomainParameters();
     }
 }
 
-void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs) {
-    //Primairly exists because FIFOs are placed in the context of the source.  FIFOs that are connected to the MasterInput
+void MultiRateHelpers::setFIFOClockDomainsAndBlockingParams(std::vector<std::shared_ptr<ThreadCrossingFIFO>> threadCrossingFIFOs, int baseBlockingLength) {
+    //Primarily exists because FIFOs are placed in the context of the source.  FIFOs that are connected to the MasterInput
     //node should have the clock domain of the particular input port.
 
     //FIFOs connected to the MasterOutput nodes is less problematic as it will be in the context of the source (except
     //if it is connected to an EnableOutput or RateChangeOutput in which case it is in one context above).  It will be
     //the rate will be checked against the rate of the output ports
 
-    for(unsigned long i = 0; i<threadCrossingFIFOs.size(); i++) {
-        std::shared_ptr<ThreadCrossingFIFO> threadCrossingFIFO = threadCrossingFIFOs[i];
-
+    for(const std::shared_ptr<ThreadCrossingFIFO> &threadCrossingFIFO : threadCrossingFIFOs) {
         //TODO: For now, we will restrict clock domain assignment to be when there is a single input and output port.
         //      Do FIFO bundling/merging after this
         if(threadCrossingFIFO->getInputPorts().size() != 1 || threadCrossingFIFO->getOutputPorts().size() != 1){
@@ -452,6 +375,9 @@ void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCro
             throw std::runtime_error(ErrorHelpers::genErrorStr("InputFIFO has more than 1 input arc when setting the clock domain", threadCrossingFIFO));
         }
 
+        std::shared_ptr<Node> traceBase = threadCrossingFIFO;
+        std::shared_ptr<ClockDomain> clockDomain = findClockDomain(threadCrossingFIFO);
+
         //Set the clock domain
         if(inputMasterConnections.size() == 1){
             std::shared_ptr<OutputPort> srcPort = (*inputMasterConnections.begin())->getSrcPort();
@@ -463,30 +389,44 @@ void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCro
             }
 
             //TODO: Remove Check
-            //Check that the discovered clock domain is null
+            //Check that the FIFO node is not contained in a clock domain subsystem
             std::shared_ptr<ClockDomain> foundClockDomain = findClockDomain(threadCrossingFIFO);
             if(foundClockDomain){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("When setting clock domain based on connection to input master, the FIFO was found another clock domain", threadCrossingFIFO));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When setting clock domain based on connection to input master, the FIFO was found under another clock domain", threadCrossingFIFO));
             }
 
             //Set based on input port
-            std::shared_ptr<ClockDomain> clkDomain = masterInput->getPortClkDomain(srcPort);
-            threadCrossingFIFO->setClockDomain(0, clkDomain);
+            std::shared_ptr<ClockDomain> clkDomainFromInputMaster = nullptr;
+            //In some cases, BlockingInput nodes are placed in line with a Master Input line.  In that case,
+            //The indexing logic is handled by those BlockingInput nodes.  The arcs should already be scaled
+            //accordingly and the FIFO should not scale them again.  Set the clock domain to the base in this case
+            if(!masterInput->isPortClockDomainLogicHandledByBlockingBoundary(srcPort)){
+                clkDomainFromInputMaster = masterInput->getPortClkDomain(srcPort);
+            }
+            threadCrossingFIFO->setClockDomain(0, clkDomainFromInputMaster);
+            clockDomain = clkDomainFromInputMaster;
+
+            //Check that the destinations of the FIFO are in the discovered clock domain
+            //Set one of the destinations as the trace base for determining block sizes and
+            std::set<std::shared_ptr<Arc>> outputArcs = threadCrossingFIFO->getDirectOutputArcs();
+            for(const std::shared_ptr<Arc> &outArc : outputArcs){
+                std::shared_ptr<Node> dstNode = outArc->getDstPort()->getParent();
+                std::shared_ptr<ClockDomain> dstClockDomain = findClockDomain(dstNode);
+                if(!masterInput->isPortClockDomainLogicHandledByBlockingBoundary(srcPort) && dstClockDomain != clkDomainFromInputMaster){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Thread Crossing FIFO connected to Input Master Has Destination Node Which Disagrees on Clock Domain", threadCrossingFIFO));
+                }
+
+                traceBase = dstNode;
+            }
         }else{
             //Set the clock domain based on context
-            std::shared_ptr<ClockDomain> clkDomain = findClockDomain(threadCrossingFIFO);
-            threadCrossingFIFO->setClockDomain(0, clkDomain);
+            //std::shared_ptr<ClockDomain> clkDomain = findClockDomain(threadCrossingFIFO); //Done above
+            threadCrossingFIFO->setClockDomain(0, clockDomain);
         }
 
         std::pair<int, int> clockDomainRate = std::pair<int, int>(1, 1);
-
-        if(!outputMasterConnections.empty()){
-            std::shared_ptr<ClockDomain> clockDomain = threadCrossingFIFO->getClockDomainCreateIfNot(0);
-            if(clockDomain) {
-                clockDomainRate = clockDomain->getRateRelativeToBase();
-            }else{
-                clockDomainRate = std::pair<int, int>(1, 1);
-            }
+        if(clockDomain){
+            clockDomainRate = clockDomain->getRateRelativeToBase();
         }
 
         //TODO: Remove check
@@ -506,10 +446,191 @@ void MultiRateHelpers::setFIFOClockDomains(std::vector<std::shared_ptr<ThreadCro
                 clockDomainOutputRate = clockDomainOutput->getRateRelativeToBase();
             }
 
-            if(clockDomainRate != clockDomainOutputRate){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO connected to a MasterOutput where it's discovered clock domain rate is not the same as the MasterOuput port", threadCrossingFIFO));
+            if(!masterOutput->isPortClockDomainLogicHandledByBlockingBoundary(dstPort) && clockDomainRate != clockDomainOutputRate){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Found a FIFO connected to a MasterOutput where it's discovered clock domain rate is not the same as the MasterOutput port", threadCrossingFIFO));
             }
         }
+
+        //Set the block sizes and index expressions based on the hierarchy
+        if(clockDomain != nullptr && !clockDomain->isUsingVectorSamplingMode()){
+            //This FIFO serves a clock domain that is not operating in vector mode.
+            //For this FIFO, the indexing is performed by the counter variable of the clock domain
+            //   - The indexing basically bypasses the blocking domains
+            //The FIFO may not be under the global blocking domain (if there is one) - may be connected directly to the Master Input
+
+            std::pair<int, int> rateRelToBase = clockDomain->getRateRelativeToBase();
+
+            if((baseBlockingLength*rateRelToBase.first)%rateRelToBase.second != 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Block Size Inside a Clock Domain Must be an Integer", threadCrossingFIFO));
+            }
+
+            threadCrossingFIFO->setBlockSize(0, (baseBlockingLength*rateRelToBase.first)/rateRelToBase.second);
+            threadCrossingFIFO->setSubBlockSizeIn(0, 1); //If in a clock domain not operating in vector mode, sub-block size must be 1 (at the input and output)
+            threadCrossingFIFO->setSubBlockSizeOut(0, 1); //If in a clock domain not operating in vector mode, sub-block size must be 1 (at the input and output)
+
+            Variable executionCountVar = clockDomain->getExecutionCountVariable(baseBlockingLength);
+            threadCrossingFIFO->setCBlockIndexExprInput(0, executionCountVar.getCVarName());
+            threadCrossingFIFO->setCBlockIndexExprOutput(0, executionCountVar.getCVarName());
+        }else{
+            std::pair<int, int> rateRelToBase(1, 1);
+            if(clockDomain){
+                rateRelToBase = clockDomain->getRateRelativeToBase();
+            }
+
+            //If the FIFO is in a clock domain, its block size will differ from the base
+            //It will also disagree with the block size defined in the global blocking domain
+            //However, the number of sub-blocks the larger block is split into should remain consistent
+            //For example, let's say we have a base block size of 64 and this FIFO is in a downsample by 2 domain.
+            //The FIFO will have a block size of 32.
+            //Let's also say that a sub-blocking factor of 8 was used.  In that case, there are 8 sub-blocks of size 8
+            //For the base clock rate.  Within the clock domain operating in vector mode, there are 8 sub-blocks of size
+            //4 (vectors from the outer domain are sub-sampled from 8 to 4).
+            //This means that this FIFO still uses the indexing variable in the global clock domain but scales
+            //it by 4 instead of 8.  This FIFO therefore has a block size of 32, a sub-block size of 4, and the index
+            //expression of 4*globalBlockingInd
+
+            //Let's take another case where the FIFO is in a blocking domain under the downsample by 2 domain.
+            //In this case, the inner blocking domain has its block size divided by 2 compared to the global sub-blocking
+            //size because of the re-sampling that occurs at the downsampling domain.
+            //The global block domain has a block size of 64, and a sub-blocking size of 8, resulting in 8 sub-blocks.
+            //After the downsample domain, the sub-block size is reduced to 4 but there are still 8 of them per global block.
+            //The nested blocking domain has a block size of 4 and a sub-blocking size of 1 with 4 sub-blocks per block.
+            //For a FIFO existing within the nested blocking domain, it's block size is half of the base block size
+            //due to the downsample clock domain.  Its block size is therefore 32.  For the first level of indexing,
+            //it has the same number of sub-blocks as the global domain (8), just with a different sub-block size of 4.
+            //This results in the first term in the indexing expression being 4*globalBlockingInd.
+            //The inner blocking domain handles 4 sub-sub-blocks per sub-block to result in a sub-sub-blocking size of 1 (ie. it handles 4 sub-blocks).
+            //** Note, the number of sub-sub-blocks handled * sub-sub-block dize should match the sub-block size of the above domain.
+            //Taking the effective sub-blocking size of the FIFO up to this point, splitting it into a further 4 sub-blocks
+            //results in a sub-block size of 1 (4/4).  This matches the final sub-blocking size of the domain the FIFO is
+            //in.  It also means the indexing expression becomes 4*globalBlockingInd + 1*nestedBlockingInd.
+
+            //It is important to note that, after determining the block size of the FIFO from the clock domains,
+            //the clock domains do not enter into the calculation of the indexing expressions.  That occurs by
+            //traversing the blocking domain hierarchy and determining the number of sub-blocks handled per blocking
+            //domain.  The sub-sampling logic is effectively pushed to the sizing of the FIFO
+
+            //Also note, if the FIFO is at the top of the hierarchy, outside even the global blocking domain (ie. is a
+            //I/O FIFO), then the block size and sub-block size will be the same and no indexing will be performed
+
+            if((baseBlockingLength*rateRelToBase.first)%rateRelToBase.second != 0){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Block Size Inside a Clock Domain Must be an Integer", threadCrossingFIFO));
+            }
+            int blockSize = (baseBlockingLength*rateRelToBase.first)/rateRelToBase.second;
+
+            //I/O input FIFOs are placed in base domain because FIFOs are placed in the domain of the src.
+            //However, the indexing actually occurs inside the domain of its destination.  For FIFOs operating at the
+            //base rate, they should be connected to Global Blocking Input nodes and no indexing should be required.
+            //However, if the destination node is inside of another clock domain, Blocking Domains Inputs are not
+            //used and the FIFO itself handles the indexing based on the domain the destination is in.
+            //TODO: Possibly clean up
+            std::shared_ptr<Node> blockingDomainIndExprBase = threadCrossingFIFO;
+            if(clockDomainRate != std::pair<int, int>(1, 1)){
+                //The destination is in another clock domain not operating at the base rate.  If input is from Input master, use the destination node when finding the indexing.  If the FIFO is not connected to the input master, traceBase == threadCrossingFIFO
+                blockingDomainIndExprBase = traceBase;
+            }
+
+            //The FIFO should reside in the domain of the input and finding the blocking domain information should
+            //typically work by tracing the blocking domain hierarchy of the FIFO.  The exception is when it is
+            //connected to the InputMaster node.  In this case, the destination is used for the blocking information of both
+            //the input and output
+            std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchyInput = BlockingHelpers::findBlockingDomainStack(blockingDomainIndExprBase);
+
+            //Traverse down the hierarchy
+            std::string indexExprInput;
+            int currentBlockSizeInput = blockSize;
+            for(const std::shared_ptr<BlockingDomain> &blockingDomain : blockingDomainHierarchyInput){
+                if(blockingDomain->getBlockingLen()%blockingDomain->getSubBlockingLen() != 0){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Domain Found which does not process an integer number of sub-blocks", blockingDomain));
+                }
+                int subBlockCount = blockingDomain->getBlockingLen()/blockingDomain->getSubBlockingLen();
+                if(currentBlockSizeInput%subBlockCount != 0){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found a blocking domain whose sub-blocking count is incompatible with the block size of the FIFO", threadCrossingFIFO));
+                }
+
+                int localSubBlockLen = currentBlockSizeInput/subBlockCount;
+                if(!indexExprInput.empty()){
+                    indexExprInput += "+";
+                }
+                if(localSubBlockLen != 1){
+                    indexExprInput += GeneralHelper::to_string(localSubBlockLen) + "*";
+                }
+                indexExprInput += blockingDomain->getBlockIndVar().getCVarName();
+
+                currentBlockSizeInput = localSubBlockLen; //The local sub-block length is the block length of the next nested domain
+            }
+
+            std::set<std::shared_ptr<Arc>> outputArcs = threadCrossingFIFO->getDirectOutputArcs();
+            if(outputArcs.empty()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected Output Arcs from FIFO", threadCrossingFIFO));
+            }
+            auto outputArcIt = outputArcs.begin();
+            std::shared_ptr<Node> dst = (*outputArcIt)->getDstPort()->getParent();
+            std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchyOutput = BlockingHelpers::findBlockingDomainStack(dst);
+            if(GeneralHelper::isType<Node, BlockingInput>(dst)){
+                //Indexing is being performed for this blocking domain by the blocking input, remove it from the blocking stack
+                blockingDomainHierarchyOutput.pop_back();
+            }
+
+            //TODO: remove check
+            //Output arc may not all go to same location in blocking hierarchy.  May have fanout to specialized and unspecialized nodes or nodes that were wrapped in separate sub-blocking hierarchies.
+            //Check for blocking input and remove that blocking domain from the stack if found.
+            for(outputArcIt++; outputArcIt != outputArcs.end(); outputArcIt++){
+                std::shared_ptr<Node> arcDst = (*outputArcIt)->getDstPort()->getParent();
+                std::vector<std::shared_ptr<BlockingDomain>> blockingDomainHierarchyArcOutput = BlockingHelpers::findBlockingDomainStack(arcDst);
+                if(GeneralHelper::isType<Node, BlockingInput>(arcDst)){
+                    //Indexing is being performed for this blocking domain by the blocking input, remove it from the blocking stack
+                    blockingDomainHierarchyArcOutput.pop_back();
+                }
+
+                if(blockingDomainHierarchyOutput != blockingDomainHierarchyArcOutput){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Outputs from FIFO should all be in same position in blocking hierarchy", threadCrossingFIFO));
+                }
+            }
+
+            std::string indexExprOutput;
+            int currentBlockSizeOutput = blockSize;
+            for(const std::shared_ptr<BlockingDomain> &blockingDomain : blockingDomainHierarchyOutput){
+                if(blockingDomain->getBlockingLen()%blockingDomain->getSubBlockingLen() != 0){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Blocking Domain Found which does not process an integer number of sub-blocks", blockingDomain));
+                }
+                int subBlockCount = blockingDomain->getBlockingLen()/blockingDomain->getSubBlockingLen();
+                if(currentBlockSizeOutput%subBlockCount != 0){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Found a blocking domain whose sub-blocking count is incompatible with the block size of the FIFO", threadCrossingFIFO));
+                }
+
+                int localSubBlockLen = currentBlockSizeOutput/subBlockCount;
+                if(!indexExprOutput.empty()){
+                    indexExprOutput += "+";
+                }
+                if(localSubBlockLen != 1){
+                    indexExprOutput += GeneralHelper::to_string(localSubBlockLen) + "*";
+                }
+                indexExprOutput += blockingDomain->getBlockIndVar().getCVarName();
+
+                currentBlockSizeOutput = localSubBlockLen; //The local sub-block length is the block length of the next nested domain
+            }
+
+            int subBlockSizeInput = currentBlockSizeInput; //This is the effective sub-block length at the last blocking domain in the hierarchy that the FIFO is in.
+                                                 //It may not be equivalent to the sub-blocking length of the last sub-blocking domain in the hierarchy
+                                                 //If clock domain (s) exist below it and the FIFO is not in a nested blocking domain.
+            int subBlockSizeOutput = currentBlockSizeOutput;
+
+            //For FIFOs outside of any blocking domain (ie. I/O FIFOs operating at the base rate), blocking is already
+            //being handled by the BlockingDomain inputs and outputs as well as the expansion of the arcs.  Declare
+            //the FIFO to have a block size of 1.
+            if(blockingDomainHierarchyInput.empty()){
+                blockSize = 1;
+                subBlockSizeInput = 1;
+                subBlockSizeOutput = 1;
+            }
+
+            threadCrossingFIFO->setBlockSize(0,blockSize);
+            threadCrossingFIFO->setSubBlockSizeIn(0, subBlockSizeInput);
+            threadCrossingFIFO->setSubBlockSizeOut(0, subBlockSizeOutput);
+            threadCrossingFIFO->setCBlockIndexExprInput(0, indexExprInput);
+            threadCrossingFIFO->setCBlockIndexExprOutput(0, indexExprOutput);
+        };
     }
 }
 
@@ -618,4 +739,31 @@ std::map<int, std::set<std::shared_ptr<ClockDomain>>> MultiRateHelpers::findPart
     }
 
     return partitionClockDomains;
+}
+
+bool MultiRateHelpers::arcIsIOAndNotAtBaseRate(std::shared_ptr<Arc> arc){
+    std::shared_ptr<Node> srcNode = arc->getSrcPort()->getParent();
+    std::shared_ptr<Node> dstNode = arc->getDstPort()->getParent();
+
+    bool inputIsIO = GeneralHelper::isType<Node, MasterInput>(srcNode) != nullptr;
+    bool outputIsIO = GeneralHelper::isType<Node, MasterOutput>(dstNode) != nullptr;
+
+    if(inputIsIO && outputIsIO){
+        std::cerr << ErrorHelpers::genWarningStr("Arc directly between input and output detected.  Assuming at base rate") << std::endl;
+        return false;
+    }else if(inputIsIO || outputIsIO){
+        std::shared_ptr<Node> nonIONode;
+        if(inputIsIO){
+            nonIONode = dstNode;
+        }else{
+            nonIONode = srcNode;
+        }
+
+        std::shared_ptr<ClockDomain> clockDomain = findClockDomain(nonIONode);
+
+        return clockDomain != nullptr;
+    }
+
+    //Not an I/O arc
+    return false;
 }

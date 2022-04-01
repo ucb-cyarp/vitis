@@ -28,6 +28,12 @@ class Node;
  * Primarily serves as a container for pointers to arcs connected to the given port.
  */
 class Port {
+public:
+    /**
+     * @brief Virtual destructor for port.  Accepting default implementation but explicitly declared virtual for destruction of descendant class objects
+     */
+    virtual ~Port() = default;
+
 protected:
     Node* parent; ///< The node this port belongs to (not a shared ptr because the port is a component of the node - there would always be a shared ptr to a node and would therefore never be deleted)
     int portNum; ///< The number of this port

@@ -2,8 +2,8 @@
 // Created by Christopher Yarp on 10/4/19.
 //
 
-#ifndef VITIS_MULTITHREADTRANSFORMHELPERS_H
-#define VITIS_MULTITHREADTRANSFORMHELPERS_H
+#ifndef VITIS_MULTITHREADPASSES_H
+#define VITIS_MULTITHREADPASSES_H
 
 #include <map>
 #include <vector>
@@ -13,20 +13,26 @@
 #include "GraphCore/NodeFactory.h"
 #include "GraphCore/ContextFamilyContainer.h"
 #include "GraphCore/ContextContainer.h"
-#include "ThreadCrossingFIFO.h"
+#include "MultiThread/ThreadCrossingFIFO.h"
 #include "General/GeneralHelper.h"
 #include "General/ErrorHelpers.h"
 #include "MultiRate/RateChange.h"
+#include "GraphCore/Design.h"
+#include "PrimitiveNodes/Mux.h"
+#include "Blocking/BlockingOutput.h"
+#include "Blocking/BlockingDomainBridge.h"
 
 /**
- * \addtogroup MultiThread Multi-Thread Support
+ * \addtogroup Passes Design Passes/Transforms
+ *
+ * @brief A group of compiler passes which operate over a design.
  * @{
  */
 
 /**
  * @brief A helper class containing methods for transforming a design for multi-thread emit
  */
-namespace MultiThreadTransformHelpers {
+namespace MultiThreadPasses {
     /**
      * @brief Class used to report if a delay was fully absorbed, partially absorbed, or not absorbed
      */
@@ -85,71 +91,37 @@ namespace MultiThreadTransformHelpers {
 
                 //Create a FIFO for each group
                 int fifoPartition = srcPort->getParent()->getPartitionNum();
-                std::vector<Context> fifoContext = srcPort->getParent()->getContext();
+                //FIFO also has base sub blocking info on a per port basis
+                //Will set the FIFO's base sub-blocking length based on the source since it generally resides in the src
+                //context.
+                int fifoBaseSubBlockingLen = srcPort->getParent()->getBaseSubBlockingLen();
+                std::vector<Context> fifoContext = EmitterHelpers::findContextForBlockingBridgeOrFIFO(srcPort->getParent());
+
+                std::shared_ptr<Node> src = srcPort->getParent();
+                std::shared_ptr<BlockingDomainBridge> srcAsBlockingDomainBridge = GeneralHelper::isType<Node, BlockingDomainBridge>(src);
+
                 std::shared_ptr<SubSystem> fifoParent;
+                if(srcAsBlockingDomainBridge){
+                    //Will replace the blocking domain bridge with the FIFO
+                    fifoParent = src->getParent();
 
-                std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcPort->getParent());
-                std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcPort->getParent());
-                std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcPort->getParent());
-                std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcPort->getParent());
-                bool rateChangeOutput = false;
-                if(srcAsRateChange){
-                    rateChangeOutput = !srcAsRateChange->isInput();
-                }
+                    std::set<std::shared_ptr<Arc>> groupArcsSet(partitionPairGroups[groupInd].begin(), partitionPairGroups[groupInd].end());
+                    std::set<std::shared_ptr<Arc>> blockingDomainBridgeOutArcs = src->getOutputArcs();
 
-                //Note, the first getParent() gets the src node
-                std::shared_ptr<SubSystem> srcParent = srcPort->getParent()->getParent();
-
-                //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
-                //TODO: Come up with a more general way of performing this
-                if(srcAsEnableOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
-                    if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
-                        fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
-
-                        // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
-                        // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
-                        // during encapsulation
-                    }
-
-                    //Check for encapsulation
-                    if (GeneralHelper::isType<Node, ContextContainer>(srcParent) != nullptr) {
-                        //Encapsulation has already occured.  Need to go 2 levels up
-                        if (srcAsContextRoot == nullptr) {
-                            //If the src is not a context root, the node is one of the ContextContainers and going up 2 levels is nessiary
-                            fifoParent = srcParent->getParent()->getParent();
-                        } else {
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered src encapsulated in ContextContainer during FIFO insertion but expected src not to be ContextRoot"));
-                        }
-                    } else if(GeneralHelper::isType<Node, ContextFamilyContainer>(srcParent) != nullptr){
-                        if(srcAsContextRoot != nullptr){
-                            //If the src is a context root, the node is just inside the ContextFamilyContainer and we only need to go up one level
-                            //This is the case with mux
-                            fifoParent = srcParent->getParent();
-                        }else{
-                            throw std::runtime_error(ErrorHelpers::genErrorStr("Discovered src encapsulated in ContextFamilyContainer during FIFO insertion but expected src to be ContextRoot"));
-                        }
-                    } else {
-                        //Encapsulation has not occured yet, only need 1 level up
-                        //Only need to go up if the src is not a ContextRoot
-                        //ie. need to go up a level if the node is a EnableOutput or rateChangeOutput since taking the parent of these nodes would
-                        //place the FIFO inside the EnabledSubsystem or ClockDomain context
-                        if (srcAsContextRoot == nullptr) {
-                            //Not a context root, it must be either an EnableOutput or a RateChange ouput
-                            fifoParent = srcParent->getParent();
-                        } else {
-                            fifoParent = srcParent;
-                        }
+                    if(groupArcsSet != blockingDomainBridgeOutArcs){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("Found a groupable crossing with the src as a BlockingDomainBridge but it is not equivalent to the output arc set of the BlockingDomainBridge which will be replaced."));
                     }
                 }else{
-                    //Get the parent of the src node
-                    fifoParent = srcParent;
-                }
+                    fifoParent = EmitterHelpers::findInsertionPointForBlockingBridgeOrFIFO(srcPort->getParent());
+                };
 
                 std::shared_ptr<ThreadCrossingFIFO> fifo = NodeFactory::createNode<T>(fifoParent); //Create a FIFO of the specified type
                 std::string srcPartitionName = partitionPair->first.first >= 0 ? GeneralHelper::to_string(partitionPair->first.first) : "N"+GeneralHelper::to_string(-partitionPair->first.first);
                 std::string dstPartitionName = partitionPair->first.second >= 0 ? GeneralHelper::to_string(partitionPair->first.second) : "N"+GeneralHelper::to_string(-partitionPair->first.second);
                 fifo->setName("PartitionCrossingFIFO_" + srcPartitionName + "_TO_" + dstPartitionName + "_" + GeneralHelper::to_string(groupInd));
                 fifo->setPartitionNum(fifoPartition);
+                fifo->setBaseSubBlockingLen(fifoBaseSubBlockingLen);
+                fifo->setBaseSubBlockSizeIn(0, fifoBaseSubBlockingLen);
                 fifo->setContext(fifoContext);
                 new_nodes.push_back(fifo);
 
@@ -159,13 +131,8 @@ namespace MultiThreadTransformHelpers {
                     specificContext.getContextRoot()->addSubContextNode(specificContext.getSubContext(), fifo);
                 }
 
-                //Create an arc from the src to the FIFO
-
-                DataType groupDataType = partitionPairGroups[groupInd][0]->getDataType();
-                std::shared_ptr<Arc> srcArc = Arc::connectNodes(srcPort, fifo->getInputPortCreateIfNot(0), groupDataType, partitionPairGroups[groupInd][0]->getSampleTime());
-                new_arcs.push_back(srcArc);
-
                 //Re-wire the arcs in the group to the output of the FIFO
+                int baseSubBlockingLengthOutput;
                 for(int arcInd = 0; arcInd < partitionPairGroups[groupInd].size(); arcInd++){
                     //TODO: Remove Check
                     if(partitionPairGroups[groupInd][arcInd]->getSrcPort() != srcPort){
@@ -179,10 +146,57 @@ namespace MultiThreadTransformHelpers {
                         throw std::runtime_error(ErrorHelpers::genErrorStr("Error when inserting FIFOs. Found the dst of an arc group which disagrees with the partition pair given"));
                     }
 
+                    //TODO: Remove Check
+                    //FIFO output arcs should be destined for nodes in the same
+                    if(arcInd == 0){
+                        baseSubBlockingLengthOutput = partitionPairGroups[groupInd][arcInd]->getDstPort()->getParent()->getBaseSubBlockingLen();
+                    }else{
+                        if(baseSubBlockingLengthOutput != partitionPairGroups[groupInd][arcInd]->getDstPort()->getParent()->getBaseSubBlockingLen()){
+                            throw std::runtime_error(ErrorHelpers::genErrorStr("Error when inserting FIFO.  Found dest of an arc group which has a different base sub-blocking length"));
+                        }
+                    }
+
                     partitionPairGroups[groupInd][arcInd]->setSrcPortUpdateNewUpdatePrev(fifo->getOutputPortCreateIfNot(0));
                 }
 
+                fifo->setBaseSubBlockSizeOut(0, baseSubBlockingLengthOutput);
+
                 crossingFIFOs.push_back(fifo);
+
+                if(srcAsBlockingDomainBridge){
+                    //Rewire the arcs from bridge to the FIFO
+                    std::set<std::shared_ptr<Arc>> inputArcs = srcAsBlockingDomainBridge->getDirectInputArcs();
+                    if(inputArcs.size() != 1){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("BlockingDomainBridge found which has more than 1 input arc", srcAsBlockingDomainBridge));
+                    }
+                    for(const std::shared_ptr<Arc> &arc : inputArcs){
+                        int dstPortNum = arc->getDstPort()->getPortNum();
+                        arc->setDstPortUpdateNewUpdatePrev(fifo->getInputPortCreateIfNot(dstPortNum));
+                    }
+
+                    std::set<std::shared_ptr<Arc>> orderConstraintInputArcs = srcAsBlockingDomainBridge->getOrderConstraintInputArcs();
+                    for(const std::shared_ptr<Arc> &arc : orderConstraintInputArcs){
+                        arc->setDstPortUpdateNewUpdatePrev(fifo->getOrderConstraintInputPortCreateIfNot());
+                    }
+
+                    std::set<std::shared_ptr<Arc>> outputArcs = srcAsBlockingDomainBridge->getDirectOutputArcs();
+                    if(!outputArcs.empty()){
+                        throw std::runtime_error(ErrorHelpers::genErrorStr("BlockingDomainBridge should have all output ports moved durring FIFO insertion", srcAsBlockingDomainBridge));
+                    }
+
+                    std::set<std::shared_ptr<Arc>> orderConstraintOutputArcs = srcAsBlockingDomainBridge->getOrderConstraintOutputArcs();
+                    for(const std::shared_ptr<Arc> &arc : orderConstraintInputArcs){
+                        arc->setSrcPortUpdateNewUpdatePrev(fifo->getOrderConstraintOutputPortCreateIfNot());
+                    }
+
+                    deleted_nodes.push_back(srcAsBlockingDomainBridge);
+                }else{
+                    //Create an arc from the src to the FIFO
+
+                    DataType groupDataType = partitionPairGroups[groupInd][0]->getDataType();
+                    std::shared_ptr<Arc> srcArc = Arc::connectNodes(srcPort, fifo->getInputPortCreateIfNot(0), groupDataType, partitionPairGroups[groupInd][0]->getSampleTime());
+                    new_arcs.push_back(srcArc);
+                }
             }
 
             fifoMap[partitionPair->first] = crossingFIFOs;
@@ -215,6 +229,7 @@ namespace MultiThreadTransformHelpers {
             std::vector<std::shared_ptr<Node>> &deleted_nodes,
     std::vector<std::shared_ptr<Arc>> &new_arcs,
             std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+    bool blockingAlreadyOccurred,
     bool printActions = true);
 
     /**
@@ -281,6 +296,7 @@ namespace MultiThreadTransformHelpers {
                                                          std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                          std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                          std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                         bool blockingAlreadyOccurred,
                                                          bool printActions = true);
 
     void reshapeFIFOInitialConditionsToSizeBlocks(std::shared_ptr<ThreadCrossingFIFO> fifo,
@@ -289,6 +305,7 @@ namespace MultiThreadTransformHelpers {
                                                    std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                                    std::vector<std::shared_ptr<Arc>> &new_arcs,
                                                    std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                                   bool blockingAlreadyOccurred,
                                                    bool printActions = true);
 
     /**
@@ -297,21 +314,22 @@ namespace MultiThreadTransformHelpers {
      * However, if the src port of the FIFO is a MasterInput node, the delay is placed on the output
      *
      * @param fifo
-     * @param numElementsToMove These are elements in the FIFO and not in the intial conditions.  They can be scalar, vectors, or matricies
+     * @param numItemsToMove These are items in the FIFO and not in sub-elements in the initial conditions array.  They can be scalar, vectors, or matricies
      * @param new_nodes
      * @param deleted_nodes
      * @param new_arcs
      * @param deleted_arcs
      */
     void reshapeFIFOInitialConditions(std::shared_ptr<ThreadCrossingFIFO> fifo,
-                                             int numElementsToMove,
+                                             int numItemsToMove,
                                              std::vector<std::shared_ptr<Node>> &new_nodes,
                                              std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                              std::vector<std::shared_ptr<Arc>> &new_arcs,
-                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+                                             std::vector<std::shared_ptr<Arc>> &deleted_arcs,
+                                             bool blockingAlreadyOccurred);
 
     /**
-     * @brief Propgagates partition to nodes and propagates down.  Subsystems can specify a partition for their decendents
+     * @brief Propagates partition to nodes and propagates down.  Subsystems can specify a partition for their descendants
      *
      * To specify a partition, the partition of the subsystem cannot be -1;
      *
@@ -343,10 +361,13 @@ namespace MultiThreadTransformHelpers {
                     std::vector<std::shared_ptr<Arc>> &arcsToAdd,
                     std::vector<std::shared_ptr<Arc>> &arcsToRemove,
                     std::vector<std::shared_ptr<Node>> &addToTopLevel,
-                    bool ignoreContexts, bool verbose);
+                    bool ignoreContexts, bool verbose,
+                    bool blockingAlreadyOccurred);
+
+    void propagatePartitionsFromSubsystemsToChildren(Design &design);
 };
 
 /*! @} */
 
 
-#endif //VITIS_MULTITHREADTRANSFORMHELPERS_H
+#endif //VITIS_MULTITHREADPASSES_H

@@ -7,6 +7,8 @@
 
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <algorithm>
@@ -165,6 +167,13 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
      */
     unsigned long twoPow(unsigned long exp);
 
+    /**
+     * @brief Returns true if the integer is a power of 2
+     * @param num
+     * @return
+     */
+    bool isPowOf2(int num);
+
     std::string replaceAll(std::string src, char orig, char repl);
 
     /**
@@ -286,6 +295,22 @@ namespace GeneralHelper { //Changed to namespace to avoid issue with specializin
      * @return
      */
     std::vector<int> parseIntVecStr(std::string str);
+
+    template <typename KeyType, typename ContainerType>
+    bool contains(KeyType key, ContainerType &container){
+        return std::find(container.begin(), container.end(), key) != container.end();
+    }
+
+    template <typename KeyType>
+    bool contains(KeyType key, std::set<KeyType> &container){
+        return container.find(key) != container.end();
+    }
+
+    template <typename KeyType, typename ValType>
+    bool contains(KeyType key, std::map<KeyType, ValType> &container){
+        return container.find(key) != container.end();
+    }
+
 };
 
 /*! @} */

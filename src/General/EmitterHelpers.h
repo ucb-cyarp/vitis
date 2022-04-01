@@ -13,6 +13,7 @@
 #include "GraphCore/Variable.h"
 #include "GraphCore/Context.h"
 #include "GeneralHelper.h"
+#include <tuple>
 
 #define VITIS_TYPE_NAME "vitisTypes"
 
@@ -23,6 +24,11 @@ class ContextRoot;
 class BlackBox;
 class MasterOutput;
 class MasterInput;
+class ClockDomain;
+class OutputPort;
+class BlockingDomain;
+class SubSystem;
+class EnabledSubSystem;
 
 /**
  * \addtogroup General General Helper Classes
@@ -49,11 +55,9 @@ namespace EmitterHelpers {
      * @param schedType the scheduler being used.  Is passed to downstream context emit functions
      * @param orderedNodes the nodes to emit, given in the order they should be emitted
      * @param outputMaster a pointer to the output master of the design being emitted
-     * @param blockSize the size of the block (in samples) that are processed in each call to the function
-     * @param indVarName the variable that specifies the index in the block that is being computed
      * @param checkForPartitionChange if true, checks if the partition changes while emitting and throws an error if it does
      */
-    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "", bool checkForPartitionChange = true);
+    void emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, bool checkForPartitionChange = true);
 
     /**
      * @brief A helper function for emitting a single node
@@ -73,9 +77,25 @@ namespace EmitterHelpers {
      *
      * @warning Assumes the design has already been validated (ie. has at least one arc per port).
      *
-     * @return a vector of input variables ordered by the input port number paired with their rate relative to the baseRate.  The ith element of the array is the ith input port.
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of input variables ordered by the input port number. The datatype is scaled for blocking
      */
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
+    std::vector<Variable> getCInputVariables(std::shared_ptr<MasterInput> inputMaster);
+
+    /**
+     * @brief Get the input variables for this design along with their associated clock domains and block sizes
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of input variables ordered by the input port number. The datatype is scaled for blocking
+     */
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+    getCInputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterInput> inputMaster);
 
     /**
      * @brief Get the output variables for this design
@@ -84,9 +104,25 @@ namespace EmitterHelpers {
      *
      * @warning Assumes the design has already been validated (ie. has at exactly one arc per port).
      *
-     * @return a vector of output variables ordered by the output port number paired with their rate relative to the baseRate.  The ith element of the array is the ith output port.
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of output variables ordered by the output port number. The datatype is scaled for blocking
      */
-    std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+    std::vector<Variable> getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster);
+
+    /**
+     * @brief Get the output variables for this design along with their associated clock domains and block sizes
+     *
+     * The input names take the form: portName_portNum
+     *
+     * @warning Assumes the design has already been validated (ie. has at least one arc per port).
+     *
+     * @warning Requires block sizes be set in MasterInput
+     *
+     * @return a vector of input variables ordered by the input port number. The datatype is scaled for blocking
+     */
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+    getCOutputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterOutput> outputMaster);
 
     /**
      * @brief Get the structure definition for the Input/Output ports
@@ -101,13 +137,12 @@ namespace EmitterHelpers {
      *
      * This is used by the driver generator.
      *
-     * @param portVariables the port variables for the design (either input or output) (in accending port order)
-     * @param portBlockSizes the block size (in samples) each port.  If the port is a scalar, it converted to a vector of this length.  If the port is a vector or matrix, a new dimension is added to the front of the dimensions array (so that blocks are stored contiguously in memory according to the C/C++ array semantics)
+     * @param portVariables the port variables for the design (either input or output) (in accending port order) - scaled for the block size
      * @param the type name of the struct being created
      *
      * @return
      */
-    std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::vector<int> portBlockSizes, std::string structTypeName);
+    std::string getCIOPortStructDefn(std::vector<Variable> portVariables, std::string structTypeName);
 
     /**
      * @brief Outputs the type header
@@ -171,14 +206,6 @@ namespace EmitterHelpers {
      * @return
      */
     std::set<std::shared_ptr<Arc>> getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bool directOnly);
-
-    /**
-     * @brief Get block sizes from rates
-     * @param rates
-     * @param blockSizeBase
-     * @return
-     */
-    std::vector<int> getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase);
 
     template<typename T>
     std::string arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, T val){
@@ -251,7 +278,7 @@ namespace EmitterHelpers {
      * @param dimensions
      * @return a tuple containing, the nested for loop declarations in the order of declaration (outer to inner), the index variables used for each successive for loop - starting with the outer most first, and finally the closings for the nested for loops
      */
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions);
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> generateVectorMatrixForLoops(const std::vector<int>& dimensions, std::string prefix = "indDim");
 
     /**
      * @brief Generates a C/C++ style array indexing operation
@@ -335,6 +362,38 @@ namespace EmitterHelpers {
     std::string telemetryLevelToString(TelemetryLevel level);
     bool ioShouldCollectTelemetry(TelemetryLevel level);
     bool ioTelemetryBreakdown(TelemetryLevel level);
+
+    /**
+     * @brief Gets groupable arcs from the given set.
+     *
+     * Used when inserting BlockingDomainBridge nodes and FIFOs.
+     *
+     * Groupable arcs must have the same source output port, same destination partitions, same destination base sub-blocking length, and same indexing (same blocking node or clock domain if not operating in vector mode)
+     *
+     * @param arcs
+     * @return a map represeting sets arcs which can be grouped.  There is one map entry per group and the key is a tuple of {srcPort, dstPartition, dstBaseSubBlockingLength, dstBlockingDomain used for indexing into a block, dstClockDomain used for indexing into a block}
+     */
+    std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize, bool discardArcsWithinSinglePartition);
+
+    /**
+     * @brief Find the point in the node hierarchy insert a BlockingBridge or FIFO taking into account that
+     * it sometimes needs to be placed higher in the hierarchy than the src node (ex. if the src is a rate change node
+     * that exists in a clock domain but where the output is outside of the clock domain)
+     * @param srcNode
+     * @return
+     */
+    std::shared_ptr<SubSystem> findInsertionPointForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode);
+
+    /**
+     * @brief Find the context for a BlockingBridge or FIFO taking into account that
+     * it sometimes needs to different than the context of the src node (ex. if the src is a rate change node
+     * that exists in a clock domain but where the output is outside of the clock domain)
+     * @param srcNode
+     * @return
+     */
+    std::vector<Context> findContextForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode);
+
+    std::shared_ptr<EnabledSubSystem> findEnabledSubsystemDomain(std::shared_ptr<Node> node);
 };
 
 /*! @} */

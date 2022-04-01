@@ -36,6 +36,7 @@ public:
 private:
     ComplexConjBehavior complexConjBehavior; ///<Controls how complex conjugates are taken.  The default is to take the complex conjugate of the first which follows the Matlab convention.  None is helpful for convolution where neither term has the complex conjugate taken.  Correlation does use the complex conjugation
     bool emittedBefore; ///<Tracks if this InnerProduct has been emitted before (used in emit - not a parameter to save to XML)
+    int subBlockingLength; ///<Indicates the sub-blocking length
 
     //==== Constructors ====
     /**
@@ -113,6 +114,18 @@ public:
      */
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag = false) override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
+
+    bool specializesForBlocking() override;
 
 //    EstimatorCommon::ComputeWorkload getComputeWorkloadEstimate(bool expandComplexOperators, bool expandHighLevelOperators, ComputationEstimator::EstimatorOption includeIntermediateLoadStore, ComputationEstimator::EstimatorOption includeInputOutputLoadStores) override;
 };

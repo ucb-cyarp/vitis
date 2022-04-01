@@ -27,6 +27,7 @@ class Constant : public PrimitiveNode{
 
 private:
     std::vector<NumericValue> value; ///<The value of this constant block (can be a vector of values).  Uses the dimension of the output port to determine if this is a scalar, vector or matrix.  Constants in the vector should be supplied in C/C++ memory order
+    int subBlockingLength; ///<The sub-blocking length
 
     //==== Constructors ====
     /**
@@ -64,6 +65,8 @@ public:
     //==== Getters/Setters ====
     std::vector<NumericValue> getValue() const;
     void setValue(const std::vector<NumericValue> &values);
+    int getSubBlockingLength() const;
+    void setSubBlockingLength(int subBlockingLength);
 
     //==== Factories ====
     /**
@@ -109,6 +112,18 @@ public:
     bool hasGlobalDecl() override;
 
     std::string getGlobalDecl() override;
+
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
+
+    bool specializesForBlocking() override;
 
 };
 

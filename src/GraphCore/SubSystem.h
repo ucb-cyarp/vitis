@@ -11,6 +11,7 @@
 
 class EnabledSubSystem;
 class ClockDomain;
+class BlockingDomain;
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -126,6 +127,7 @@ public:
     void discoverAndUpdateContexts(std::vector<Context> contextStack, std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                    std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                    std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
+                                   std::vector<std::shared_ptr<BlockingDomain>> &discoveredBlockingDomains,
                                    std::vector<std::shared_ptr<Node>> &discoveredGeneral);
 
     /**
@@ -148,6 +150,35 @@ public:
                                               std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                               std::vector<std::shared_ptr<Arc>> &new_arcs,
                                               std::vector<std::shared_ptr<Arc>> &deleted_arcs);
+
+    /**
+     * @brief In general, subsystems, it they appear in a single blocking set, should not be wrapped in a blocking domain
+     *
+     *        It is likely the result of subsystems being a mechanism of organization but not having arcs directly connected
+     *        to them (they are connected to nodes inside of the subsystems).
+     * @param localBlockingLength
+     * @param localSubBlockingLength
+     * @param contextDiscoveryAlreadyHappened
+     * @param nodesToAdd
+     * @param nodesToRemove
+     * @param arcsToAdd
+     * @param arcsToRemove
+     */
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
+
+    /**
+     * @brief Get the descendants of this subsystem (direct children and, if a child is a subsystem, its children - recursively)
+     * @return
+     */
+    std::set<std::shared_ptr<Node>> getDescendants() const;
 };
 
 /*! @} */

@@ -15,12 +15,14 @@
 #include "GraphMLTools/GraphMLExporter.h"
 #include "MultiRate/RateChange.h"
 #include "MultiRate/DownsampleClockDomain.h"
+#include "Blocking/BlockingDomain.h"
+#include "Blocking/BlockingBoundary.h"
 
 #include <iostream>
 #include <random>
 
 std::set<std::shared_ptr<Node>>
-GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers) {
+GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers, bool stopAtDifferentBaseSubBlockingLength) {
     std::set<std::shared_ptr<Node>> contextNodes;
 
     //Get the set of arcs connected to this input port
@@ -40,17 +42,26 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
         }
 
         //Check if the src node is a state element or a enable node (input or output), or a RateChange node, or in another partition
-        bool blockedByStateOrType = srcNode->hasState() || GeneralHelper::isType<Node, EnableNode>(srcNode) != nullptr || GeneralHelper::isType<Node, RateChange>(srcNode) != nullptr;
+        bool blockedByStateOrType = srcNode->hasState() || GeneralHelper::isType<Node, EnableNode>(srcNode) != nullptr || GeneralHelper::isType<Node, RateChange>(srcNode) != nullptr || GeneralHelper::isType<Node, BlockingBoundary>(srcNode) != nullptr;
         bool blockedByPartitionBoundary = false;
         if(stopAtPartitionBoundary){
             blockedByPartitionBoundary = srcNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
+        }
+
+        bool blockedByBaseSubBlockingLengthBoundary = false;
+        if(stopAtDifferentBaseSubBlockingLength){
+            blockedByBaseSubBlockingLengthBoundary = srcNode->getBaseSubBlockingLen() != traceFrom->getParent()->getBaseSubBlockingLen();
         }
 
         if(blockedByPartitionBoundary && !blockedByStateOrType && !contextExpandBarrier){
             std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Partition Boundary: [" + GeneralHelper::to_string(srcNode->getPartitionNum()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getPartitionNum()) + "] " + srcNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
         }
 
-        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier){
+        if(blockedByBaseSubBlockingLengthBoundary && !blockedByStateOrType && !contextExpandBarrier){
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Base Sub-Blocking Length Boundary: [" + GeneralHelper::to_string(srcNode->getBaseSubBlockingLen()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getBaseSubBlockingLen()) + "] " + srcNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier && !blockedByBaseSubBlockingLengthBoundary){
             //The src node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -93,7 +104,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 
                 std::vector<std::shared_ptr<InputPort>> inputPorts = srcNode->getInputPortsIncludingSpecial();
                 for(unsigned long i = 0; i<inputPorts.size(); i++){
-                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceBackAndMark(inputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers);
+                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceBackAndMark(inputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers, stopAtDifferentBaseSubBlockingLength);
 
                     //combine the sets of marked nodes
                     contextNodes.insert(moreNodesInContext.begin(), moreNodesInContext.end());
@@ -110,7 +121,7 @@ GraphAlgs::scopedTraceBackAndMark(std::shared_ptr<InputPort> traceFrom, std::map
 }
 
 std::set<std::shared_ptr<Node>>
-GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers){
+GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std::map<std::shared_ptr<Arc>, bool> &marks, bool stopAtPartitionBoundary, bool checkForContextBarriers, bool stopAtDifferentBaseSubBlockingLength){
     std::set<std::shared_ptr<Node>> contextNodes;
 
     //Get the set of arcs connected to this output port
@@ -130,17 +141,26 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
         }
 
         //Check if the src node is a state element or a enable node (input or output), or a RateChange node, or in another partition
-        bool blockedByStateOrType = dstNode->hasState() || GeneralHelper::isType<Node, EnableNode>(dstNode) != nullptr || GeneralHelper::isType<Node, RateChange>(dstNode) != nullptr;
+        bool blockedByStateOrType = dstNode->hasState() || GeneralHelper::isType<Node, EnableNode>(dstNode) != nullptr || GeneralHelper::isType<Node, RateChange>(dstNode) != nullptr || GeneralHelper::isType<Node, BlockingBoundary>(dstNode) != nullptr;
         bool blockedByPartitionBoundary = false;
         if(stopAtPartitionBoundary){
             blockedByPartitionBoundary = dstNode->getPartitionNum() != traceFrom->getParent()->getPartitionNum();
+        }
+
+        bool blockedByBaseSubBlockingLengthBoundary = false;
+        if(stopAtDifferentBaseSubBlockingLength){
+            blockedByBaseSubBlockingLengthBoundary = dstNode->getBaseSubBlockingLen() != traceFrom->getParent()->getBaseSubBlockingLen();
         }
 
         if(blockedByPartitionBoundary && !blockedByStateOrType && !contextExpandBarrier){
             std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Partition Boundary: [" + GeneralHelper::to_string(dstNode->getPartitionNum()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getPartitionNum()) + "] " + dstNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
         }
 
-        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier){
+        if(blockedByBaseSubBlockingLengthBoundary && !blockedByStateOrType && !contextExpandBarrier){
+            std::cout << ErrorHelpers::genErrorStr("Context Discovery/Expansion Stopped by Base Sub-Blocking Length Boundary: [" + GeneralHelper::to_string(dstNode->getBaseSubBlockingLen()) + "!=" + GeneralHelper::to_string(traceFrom->getParent()->getBaseSubBlockingLen()) + "] " + dstNode->getFullyQualifiedName(), traceFrom->getParent(), VITIS_STD_INFO_PREAMBLE) << std::endl;
+        }
+
+        if(!blockedByStateOrType && !blockedByPartitionBoundary && !contextExpandBarrier && !blockedByBaseSubBlockingLengthBoundary){
             //The dst node is not a state element and is not an enable node, continue
 
             //Check if arc is already marked (should never occur -> if it does, we have traversed the same node twice which should be impossible.
@@ -183,7 +203,7 @@ GraphAlgs::scopedTraceForwardAndMark(std::shared_ptr<OutputPort> traceFrom, std:
 
                 std::vector<std::shared_ptr<OutputPort>> outputPorts = dstNode->getOutputPorts();
                 for(unsigned long i = 0; i<outputPorts.size(); i++){
-                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceForwardAndMark(outputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers);
+                    std::set<std::shared_ptr<Node>> moreNodesInContext = scopedTraceForwardAndMark(outputPorts[i], marks, stopAtPartitionBoundary, checkForContextBarriers, stopAtDifferentBaseSubBlockingLength);
 
                     //combine the sets of marked nodes
                     contextNodes.insert(moreNodesInContext.begin(), moreNodesInContext.end());
@@ -245,6 +265,7 @@ void GraphAlgs::moveNodePreserveHierarchy(std::shared_ptr<Node> nodeToMove, std:
             std::shared_ptr<SubSystem> newSubsys = NodeFactory::createNode<SubSystem>(cursorDown);
             newSubsys->setName(searchingForWSuffix);
             newSubsys->setPartitionNum(subsystemStack[ind]->getPartitionNum());
+            newSubsys->setBaseSubBlockingLen(subsystemStack[ind]->getBaseSubBlockingLen());
             newNodes.push_back(newSubsys);
             tgtSubsys = newSubsys;
         }
@@ -267,6 +288,7 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
                                           std::vector<std::shared_ptr<Mux>> &discoveredMux,
                                           std::vector<std::shared_ptr<EnabledSubSystem>> &discoveredEnabledSubSystems,
                                           std::vector<std::shared_ptr<ClockDomain>> &discoveredClockDomains,
+                                          std::vector<std::shared_ptr<BlockingDomain>> &discoveredBlockingDomains,
                                           std::vector<std::shared_ptr<Node>> &discoveredGeneral) {
 
     for(auto it = nodesToSearch.begin(); it != nodesToSearch.end(); it++){
@@ -279,20 +301,44 @@ void GraphAlgs::discoverAndUpdateContexts(std::vector<std::shared_ptr<Node>> nod
         }else if(GeneralHelper::isType<Node, ClockDomain>(*it) != nullptr){//Check this first because ClockDomains are SubSystems
             std::shared_ptr<ClockDomain> foundClkDomain = std::dynamic_pointer_cast<ClockDomain>(*it);
             if(!foundClkDomain->isSpecialized()){
-                throw std::runtime_error(ErrorHelpers::genErrorStr("When discovering contexts, found an unspecialized ClockDomain.  Specialization into UpsampleClockDomain or DownsampleClockDomain should occure before context discovery", foundClkDomain));
+                throw std::runtime_error(ErrorHelpers::genErrorStr("When discovering contexts, found an unspecialized ClockDomain.  Specialization into UpsampleClockDomain or DownsampleClockDomain should occur before context discovery", foundClkDomain));
             }
             discoveredClockDomains.push_back(foundClkDomain);
-        }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr){//Check this first because EnabledSubSystems are SubSystems
+        }else if(GeneralHelper::isType<Node, EnabledSubSystem>(*it) != nullptr) {//Check this first because EnabledSubSystems are SubSystems
             discoveredEnabledSubSystems.push_back(std::dynamic_pointer_cast<EnabledSubSystem>(*it));
+        }else if(GeneralHelper::isType<Node, BlockingDomain>(*it) != nullptr){
+            discoveredBlockingDomains.push_back(std::dynamic_pointer_cast<BlockingDomain>(*it));
+        }else if(GeneralHelper::isType<Node, ContextRoot>(*it) != nullptr){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("During Context Discovery a ContextRoot was discovered where discovery behavior has not yet been specified", *it));
         }else if(GeneralHelper::isType<Node, SubSystem>(*it) != nullptr){
             std::shared_ptr<SubSystem> subSystem = std::dynamic_pointer_cast<SubSystem>(*it);
             subSystem->discoverAndUpdateContexts(contextStack, discoveredMux, discoveredEnabledSubSystems,
-                                                 discoveredClockDomains, discoveredGeneral);
+                                                 discoveredClockDomains, discoveredBlockingDomains, discoveredGeneral);
         }else{
             discoveredGeneral.push_back(*it);
         }
     }
 
+}
+
+std::set<std::shared_ptr<ContextRoot>> GraphAlgs::findContextRootsUnderSubsystem(std::shared_ptr<SubSystem> subsystem){
+    std::set<std::shared_ptr<ContextRoot>> contextRoots;
+
+    std::set<std::shared_ptr<Node>> children = subsystem->getChildren();
+    for(const std::shared_ptr<Node> &child : children){
+        std::shared_ptr<ContextRoot> asContextRoot = GeneralHelper::isType<Node, ContextRoot>(child);
+        if(asContextRoot != nullptr){
+            contextRoots.insert(asContextRoot);
+        }else{
+            std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+            if(asSubsystem != nullptr){
+                std::set<std::shared_ptr<ContextRoot>> contextRootsInSubsys = findContextRootsUnderSubsystem(asSubsystem);
+                contextRoots.insert(contextRootsInSubsys.begin(), contextRootsInSubsys.end());
+            }
+        }
+    }
+
+    return contextRoots;
 }
 
 std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContainers(std::vector<std::shared_ptr<Node>> nodesToSearch){
@@ -313,6 +359,31 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextFamilyContai
             childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
 
             std::vector<std::shared_ptr<Node>> moreFoundNodes = GraphAlgs::findNodesStopAtContextFamilyContainers(childrenVector);
+            foundNodes.insert(foundNodes.end(), moreFoundNodes.begin(), moreFoundNodes.end());
+        }else{
+            foundNodes.push_back(nodesToSearch[i]);
+        }
+    }
+
+    return foundNodes;
+}
+
+std::vector<std::shared_ptr<Node>> GraphAlgs::findNodesStopAtContextRootSubsystems(std::vector<std::shared_ptr<Node>> nodesToSearch){
+    std::vector<std::shared_ptr<Node>> foundNodes;
+
+    for(unsigned long i = 0; i<nodesToSearch.size(); i++){
+        if(GeneralHelper::isType<Node, ContextRoot>(nodesToSearch[i]) != nullptr){//Check this first because ContextFamilyContainer are SubSystems
+            foundNodes.push_back(nodesToSearch[i]); //Do not recurse
+        }else if(GeneralHelper::isType<Node, SubSystem>(nodesToSearch[i]) != nullptr){
+            std::shared_ptr<SubSystem> subSystem = std::static_pointer_cast<SubSystem>(nodesToSearch[i]);
+            foundNodes.push_back(subSystem);
+            std::set<std::shared_ptr<Node>> childrenSetPtrOrder = subSystem->getChildren();
+            std::set<std::shared_ptr<Node>, Node::PtrID_Compare> childrenSet;
+            childrenSet.insert(childrenSetPtrOrder.begin(), childrenSetPtrOrder.end());
+            std::vector<std::shared_ptr<Node>> childrenVector;
+            childrenVector.insert(childrenVector.end(), childrenSet.begin(), childrenSet.end());
+
+            std::vector<std::shared_ptr<Node>> moreFoundNodes = GraphAlgs::findNodesStopAtContextRootSubsystems(childrenVector);
             foundNodes.insert(foundNodes.end(), moreFoundNodes.begin(), moreFoundNodes.end());
         }else{
             foundNodes.push_back(nodesToSearch[i]);
@@ -510,10 +581,13 @@ std::vector<std::shared_ptr<Node>> GraphAlgs::topologicalSortDestructive(Topolog
                 } else if (GeneralHelper::isType<ContextRoot, EnabledSubSystem>(contextRoot) != nullptr) {
                     //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
                 } else if (GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot) != nullptr) {
-                    //Scheduling this should be redundant as all nodes in the enabled subsystem should be scheduled as part of a context
+                    //Scheduling this should be redundant as all nodes in the downsample clock domain should be scheduled as part of a context
                     //However, the context drivers go directly to the DownsampleClockDomain so it needs to be explicitally scheduled
                     //even though it does not emit any actual c
                     schedule.push_back(GeneralHelper::isType<ContextRoot, DownsampleClockDomain>(contextRoot)); //Schedule the Mux node (context root)
+                } else if (GeneralHelper::isType<ContextRoot, BlockingDomain>(contextRoot) != nullptr) {
+                    //Scheduling this should be redundant as all nodes in the blocking domain subsystem should be scheduled as part of a context
+                    //BlockingDomains behave very similarly to enabled subsystems when it comes to scheduling
                 }else {
                     throw std::runtime_error(ErrorHelpers::genErrorStr(
                             "When scheduling, a context root was encountered which is not yet implemented"));
@@ -612,6 +686,7 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     //Create a state update node for this delay
     std::shared_ptr<StateUpdate> stateUpdate = NodeFactory::createNode<StateUpdate>(statefulNode->getParent());
     stateUpdate->setName("StateUpdate-For-"+statefulNode->getName());
+    stateUpdate->setBaseSubBlockingLen(statefulNode->getBaseSubBlockingLen());
     stateUpdate->setPartitionNum(statefulNode->getPartitionNum());
     stateUpdate->setPrimaryNode(statefulNode);
     statefulNode->addStateUpdateNode(stateUpdate); //Set the state update node pointer in this node
@@ -631,9 +706,10 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     new_nodes.push_back(stateUpdate);
 
     //Make the node dependent on all the outputs of each node connected via an output arc from the node (prevents update from occuring until all dependent nodes have been emitted)
-    std::set<std::shared_ptr<Node>> connectedOutNodes = statefulNode->getConnectedOutputNodes();
+    //In addition, check for dependent nodes via passthroughs
+    std::set<std::shared_ptr<Node>> dependentOutNodes = traceDependentNodesThroughPassthrough(statefulNode);
 
-    for(auto it = connectedOutNodes.begin(); it != connectedOutNodes.end(); it++){
+    for(auto it = dependentOutNodes.begin(); it != dependentOutNodes.end(); it++){
         std::shared_ptr<Node> connectedOutNode = *it;
         std::string name = connectedOutNode->getFullyQualifiedName();
         if(connectedOutNode == nullptr){
@@ -649,6 +725,39 @@ bool GraphAlgs::createStateUpdateNodeDelayStyle(std::shared_ptr<Node> statefulNo
     new_arcs.push_back(orderConstraint);
 
     return true;
+}
+
+std::set<std::shared_ptr<Node>> GraphAlgs::traceDependentNodesThroughPassthrough(std::shared_ptr<Node> statefulNode){
+    std::set<std::shared_ptr<Node>> dependentNodes;
+
+    std::vector<std::shared_ptr<Node>> nodesToInspect = {statefulNode};
+    std::set<std::shared_ptr<Node>> inspectedNodes;
+
+    while(!nodesToInspect.empty()){
+        //Doing this traversal DFS style
+        std::shared_ptr<Node> node = nodesToInspect.back();
+        nodesToInspect.pop_back();
+        inspectedNodes.insert(node);
+
+        //Add nodes at the output of this node to the dependentNodes list
+        std::set<std::shared_ptr<Node>> outNodes = node->getConnectedOutputNodes();
+        for(const std::shared_ptr<Node> &dstNode : outNodes){
+            dependentNodes.insert(dstNode);
+        }
+
+        //Add them to the nodes to inspect if they passthrough
+        for(const std::shared_ptr<Node> &dstNode : outNodes){
+            if(dstNode->passesThroughInputs()){
+                if(GeneralHelper::contains(dstNode, inspectedNodes)){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected cycle when detecting passthrough dependencies"));
+                }else{
+                    nodesToInspect.push_back(dstNode);
+                }
+            }
+        }
+    }
+
+    return dependentNodes;
 }
 
 std::shared_ptr<SubSystem> GraphAlgs::findMostSpecificCommonAncestor(std::shared_ptr<Node> a, std::shared_ptr<Node> b){
@@ -711,4 +820,297 @@ std::shared_ptr<SubSystem> GraphAlgs::findMostSpecificCommonAncestorParent(std::
     }else{
         return hierarchyA[common];
     }
+}
+
+std::set<std::set<std::shared_ptr<Node>>> GraphAlgs::findStronglyConnectedComponentsTarjanRecursive(std::vector<std::shared_ptr<Node>> nodesToSearch){
+    //First, we will create a map for the node properties used during the traversal and initialize their values
+    std::map<std::shared_ptr<Node>, int> num;
+    std::map<std::shared_ptr<Node>, int> lowLink;
+    std::map<std::shared_ptr<Node>, bool> inStack;
+
+    for(const std::shared_ptr<Node> &node : nodesToSearch){
+        num[node] = 0;
+        lowLink[node] = 0;
+        inStack[node] = false;
+    }
+
+    std::vector<std::shared_ptr<Node>> stack;
+
+    std::set<std::set<std::shared_ptr<Node>>> connectedComponents;
+    int idx = 1;
+
+
+    for(const std::shared_ptr<Node> node : nodesToSearch){
+        //Check if the node has already been traversed by a recursive call
+        if(num[node] == 0){
+            tarjanStronglyConnectedComponentRecursiveWork(node, num, lowLink, stack, inStack, idx, connectedComponents);
+        }
+    }
+
+    return connectedComponents;
+}
+
+
+void GraphAlgs::tarjanStronglyConnectedComponentRecursiveWork(std::shared_ptr<Node> node,
+                                          std::map<std::shared_ptr<Node>, int> &num,
+                                          std::map<std::shared_ptr<Node>, int> &lowLink,
+                                          std::vector<std::shared_ptr<Node>> &stack,
+                                          std::map<std::shared_ptr<Node>, bool> &inStack,
+                                          int &idx,
+                                          std::set<std::set<std::shared_ptr<Node>>> &connectedComponents){
+    lowLink[node] = idx;
+    num[node] = idx;
+    idx++;
+
+    stack.push_back(node);
+    inStack[node] = true;
+
+    std::set<std::shared_ptr<Arc>> outArcs = node->getOutputArcs();
+    for(const std::shared_ptr<Arc> &outArc : outArcs){
+        std::shared_ptr<Node> dstNode = outArc->getDstPort()->getParent();
+
+        //TODO: Remove check
+        if(!GeneralHelper::contains(dstNode, num)){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected node found during Strongly Connected Component"));
+        }
+
+        if(num[dstNode]==0){
+            //Dst node not visited, recurse on it
+            tarjanStronglyConnectedComponentRecursiveWork(dstNode, num, lowLink, stack, inStack, idx, connectedComponents);
+            lowLink[node] = lowLink[node] < lowLink[dstNode] ? lowLink[node] : lowLink[dstNode]; //Update the lowLink of this node based on the lowLink of the dstNode
+        }else if(num[dstNode] < num[node]){
+            //Found an arc back to a node which has already been traversed (ie. is not in the spanning tree defined by the DFS search).  Called a frond or a cross edge in the orig paper
+            if(inStack[dstNode]){
+                //If it in the stack, it could potentially be the root of the DFS subtree that defines a strongly connected component
+                lowLink[node] = lowLink[node] < num[dstNode] ? lowLink[node] : num[dstNode];
+                //Note: multiple descriptions of the algorithm (including the original) mix lowLink and num here.  It is intentional
+            }
+        }
+
+        if(num[node] == lowLink[node]){
+            //node is the root of a strongly connected component (root of the subtree in the DFS tree defining the strongly connected component)
+            //Dump the strongly connected component
+            std::set<std::shared_ptr<Node>> scc;
+
+            while(!stack.empty() && num[stack[stack.size()-1]] >= num[node]){
+                std::shared_ptr<Node> nodeInSCC = stack[stack.size()-1];
+                scc.insert(nodeInSCC);
+                stack.pop_back();
+                inStack[nodeInSCC] = false;
+            }
+
+            //No need to add "node" explicitly as it was added to the stack earlier
+            connectedComponents.insert(scc);
+        }
+
+    }
+
+}
+
+/**
+ * @brief This contains the logic for when a node is visited during the DFS Traversal of Targan's algorithm.  A node can be visited in 2 cases
+ * The first time the node is traversed either by the first call to the recursive Tarjan function or that the node is the direct descendant of a node
+ * Subsequent times, if the node placed additional nodes on the DFS stack which were its children, it was because a descendant node finished.
+ * At this point, there are either more direct descendants to travers or the node has no more children and is complete.
+ *
+ * The Tarjan algorithm is intrinsically recursive and this function effectively implements recursion with its own stack
+ * (using std::vector where storage is allocated on the heap).  This should avoid overrunning the call stack with large designs
+ * Because of this, you may still see references to recursion in the comments of the function.  In this case, it is referring
+ * to the effective recursion through the DFS traversal and backtracking using the explicitly defined DFS stack.
+ *
+ *
+ * @return if this node has finished evaluating (removed itself from the DFS stack) returns a pointer to its node, otherwise returns a nullptr
+ */
+std::shared_ptr<Node> GraphAlgs::tarjanStronglyConnectedComponentNonRecursiveWorkDFSTraverse(std::vector<DFS_Entry> &dfsStack,
+                                                                 std::shared_ptr<Node> backTrackedNode,
+                                                               std::map<std::shared_ptr<Node>, int> &num,
+                                                               std::map<std::shared_ptr<Node>, int> &lowLink,
+                                                               std::vector<std::shared_ptr<Node>> &stack,
+                                                               std::map<std::shared_ptr<Node>, bool> &inStack,
+                                                               int &idx,
+                                                               std::set<std::set<std::shared_ptr<Node>>> &connectedComponents,
+                                                               std::set<std::shared_ptr<Node>> &excludeNodes){
+    //Working on the top of the dfs stack
+    DFS_Entry &currentNode = dfsStack[dfsStack.size()-1];
+
+    if(!currentNode.traversedBefore){
+        //Perform the entry logic of the Tarjan Algorithm
+        lowLink[currentNode.node] = idx;
+        num[currentNode.node] = idx;
+        idx++;
+        stack.push_back(currentNode.node);
+        inStack[currentNode.node] = true;
+        currentNode.traversedBefore = true;
+    }else{
+        //We are returning to this node after back tracking in DFS.  The last node traversed was placed on the stack by this node
+        //and we need to perform the appropriate lowLink update
+
+        //TODO: remove this check
+        if(backTrackedNode == nullptr || !GeneralHelper::contains(backTrackedNode, currentNode.childrenToSearch)){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected backtrack node while finding Strongly Connected Components"));
+        }
+
+        //TODO: Remove check
+        if(!GeneralHelper::contains(backTrackedNode, num)){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected node found during Strongly Connected Component"));
+        }
+
+        lowLink[currentNode.node] = lowLink[currentNode.node] < lowLink[backTrackedNode] ? lowLink[currentNode.node] : lowLink[backTrackedNode]; //Update the lowLink of this node based on the lowLink of the dstNode
+
+        //Remove node from list of children to search
+        currentNode.childrenToSearch.erase(backTrackedNode);
+    }
+
+    bool traversingChild = false;
+    while(!currentNode.childrenToSearch.empty()){
+        //We still have children to process
+
+        std::shared_ptr<Node> child = *currentNode.childrenToSearch.begin();
+
+        if(GeneralHelper::contains(child, excludeNodes)){
+            //The child node was in the list of nodes to exclude/ignore
+            //For example, the master nodes should typically be ignored and will often not be included in the nodes
+            //to search.  However, nodes may be connected to these masters, especially the output masters
+
+            //Just remove it from the child list
+            currentNode.childrenToSearch.erase(child);
+        }else {
+            //TODO: Remove check
+            if(!GeneralHelper::contains(child, num)){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected child node found during Strongly Connected Component"));
+            }
+
+            //The action required for the child in Tarjan's algorithm
+            if (num[child] == 0) {
+                //Need to traverse this node (recursive call of Tarjan)
+                //Put it on the DFS stack and break out of this loop.  Leave it in the children to be searched list
+                //The processing for this node will finish when DFS backtracks.  At that point, processing for other children
+                //will continue
+
+                dfsStack.emplace_back(child, child->getDependentNodes1Degree());
+                traversingChild = true;
+                break;
+            } else {
+                if (num[child] < num[currentNode.node]) {
+                    if (inStack[child]) {
+                        lowLink[currentNode.node] =
+                                lowLink[currentNode.node] < num[child] ? lowLink[currentNode.node] : num[child];
+                    }
+                }
+
+                //Node processed without a recursive traversal
+                currentNode.childrenToSearch.erase(child);
+
+                //Don't need to break out of the loop in this case
+            }
+        }
+    }
+
+    //Are we done processing this node (ie. have all children been processed)
+    std::shared_ptr<Node> nodeToReturn = nullptr;
+    if(currentNode.childrenToSearch.empty() && !traversingChild){ //Do not do this if a new node is being traversed.  Need to handle the backtrack from that child first
+        //Check if this is the root of a strongly connected component and pop off Tarjan stack
+        if(num[currentNode.node] == lowLink[currentNode.node]){
+            //node is the root of a strongly connected component (root of the subtree in the DFS tree defining the strongly connected component)
+            //Dump the strongly connected component
+            std::set<std::shared_ptr<Node>> scc;
+
+            while(!stack.empty() && num[stack[stack.size()-1]] >= num[currentNode.node]){
+                std::shared_ptr<Node> nodeInSCC = stack[stack.size()-1];
+                scc.insert(nodeInSCC);
+                stack.pop_back();
+                inStack[nodeInSCC] = false;
+            }
+
+            //No need to add "node" explicitly as it was added to the Tarjan stack earlier
+            connectedComponents.insert(scc);
+        }
+
+        //Remove this node from the dfs stack and return it as the backtrack node
+        nodeToReturn = currentNode.node;
+        dfsStack.pop_back();
+    }
+
+    return nodeToReturn;
+}
+
+std::set<std::set<std::shared_ptr<Node>>> GraphAlgs::findStronglyConnectedComponents(std::vector<std::shared_ptr<Node>> nodesToSearch, std::set<std::shared_ptr<Node>> &excludeNodes){
+    //First, we will create a map for the node properties used during the traversal and initialize their values
+    std::map<std::shared_ptr<Node>, int> num;
+    std::map<std::shared_ptr<Node>, int> lowLink;
+    std::map<std::shared_ptr<Node>, bool> inStack;
+
+    for(const std::shared_ptr<Node> &node : nodesToSearch){
+        num[node] = 0;
+        lowLink[node] = 0;
+        inStack[node] = false;
+    }
+
+    std::vector<std::shared_ptr<Node>> stack;
+
+    std::set<std::set<std::shared_ptr<Node>>> connectedComponents;
+    int idx = 1;
+
+    std::vector<DFS_Entry> dfsStack;
+
+    for(const std::shared_ptr<Node> &node : nodesToSearch){
+        //Check if the node has already been traversed by a recursive call
+        if(num[node] == 0){
+            std::shared_ptr<Node> backTrackNode = nullptr;
+            dfsStack.emplace_back(node, node->getDependentNodes1Degree());
+            while(!dfsStack.empty()){
+                backTrackNode = tarjanStronglyConnectedComponentNonRecursiveWorkDFSTraverse(dfsStack,
+                                                                                            backTrackNode,
+                                                                                            num,
+                                                                                            lowLink,
+                                                                                            stack,
+                                                                                            inStack,
+                                                                                            idx,
+                                                                                            connectedComponents,
+                                                                                            excludeNodes);
+            }
+        }
+    }
+
+    return connectedComponents;
+}
+
+int GraphAlgs::findPartitionInSubSystem(std::shared_ptr<SubSystem> subsystem){
+    std::set<std::shared_ptr<Node>> children = subsystem->getChildren();
+    for(const std::shared_ptr<Node> &child : children){
+        int childPart = child->getPartitionNum();
+        if(childPart != -1){
+            return childPart;
+        }
+    }
+
+    //If we could not find the partition directly from the children, try going into nested subsystems
+    for(const std::shared_ptr<Node> &child : children){
+        std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+        if(asSubsystem){
+            return findPartitionInSubSystem(asSubsystem);
+        }
+    }
+
+    return -1;
+}
+
+int GraphAlgs::findBaseSubBlockingLengthInSubsystem(std::shared_ptr<SubSystem> subsystem){
+    std::set<std::shared_ptr<Node>> children = subsystem->getChildren();
+    for(const std::shared_ptr<Node> &child : children){
+        int childBaseSubBlockingLen = child->getBaseSubBlockingLen();
+        if(childBaseSubBlockingLen != -1){
+            return childBaseSubBlockingLen;
+        }
+    }
+
+    //If we could not find the partition directly from the children, try going into nested subsystems
+    for(const std::shared_ptr<Node> &child : children){
+        std::shared_ptr<SubSystem> asSubsystem = GeneralHelper::isType<Node, SubSystem>(child);
+        if(asSubsystem){
+            return findBaseSubBlockingLengthInSubsystem(asSubsystem);
+        }
+    }
+
+    return -1;
 }

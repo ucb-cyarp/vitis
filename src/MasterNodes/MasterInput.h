@@ -58,6 +58,15 @@ public:
 
     std::string typeNameStr() override;
 
+    /**
+     * @brief Sets the port block sizes based on the associated clock domains.
+     *
+     * @warning Port clock domains must be set first
+     *
+     * @param baseBlockSize the block size of items operating at the base rate
+     */
+    void setPortBlockSizesBasedOnClockDomain(int baseBlockSize);
+
 };
 
 /*! @} */

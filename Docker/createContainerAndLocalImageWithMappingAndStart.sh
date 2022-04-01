@@ -17,7 +17,8 @@ fi
 
 #Clean & Build the local container image
 cd $scriptSrc
-$scriptSrc/createLocalContainerImage.sh
+$scriptSrc/createLocalBaseContainerImage.sh
+$scriptSrc/createLocalContainerImageFromLocalBase.sh
 
 #Create and run the container.  Map the project directory
 echo "docker run -d --cap-add sys_ptrace -p127.0.0.1:2222:22 -v $projectDir:/project: --name clion_remote_env laminar-remote-cpp-env-local:latest"

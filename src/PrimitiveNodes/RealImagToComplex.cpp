@@ -7,6 +7,8 @@
 #include "General/ErrorHelpers.h"
 #include "General/EmitterHelpers.h"
 
+#include "Blocking/BlockingHelpers.h"
+
 RealImagToComplex::RealImagToComplex() {
 
 }
@@ -105,45 +107,12 @@ CExpr RealImagToComplex::emitCExpr(std::vector<std::string> &cStatementQueue, Sc
 
     CExpr emitExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, false); //The input was validated to be real
 
-    //Already validated datatypes have the same dimensions
-    DataType dataType = getOutputPort(0)->getDataType();
+    //Do not copy but simply pass through
+    emitExpr.setIsReferenceExpr(true);
 
-    if(!dataType.isScalar()){
-        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
-        //Need to create a temporary and copy values into it in a for loop
+    cStatementQueue.push_back("//" + (imag ? std::string("Imag") : std::string("Real")) + "->Complex Passthrough: " + emitExpr.getExpr());
 
-        //Declare tmp array and write to file
-        std::string vecOutName = name+"_n"+GeneralHelper::to_string(id)+ "_outVec"; //Changed to
-        Variable vecOutVar = Variable(vecOutName, dataType);
-        cStatementQueue.push_back(vecOutVar.getCVarDecl(imag, true, false, true, false) + ";");
-
-        //Create nested loops for a given array
-        std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
-                EmitterHelpers::generateVectorMatrixForLoops(dataType.getDimensions());
-
-        std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
-        std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
-        std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
-
-        cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
-
-        //Assign to tmp in loop
-        std::string assignExpr = vecOutVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + " = " + emitExpr.getExprIndexed(forLoopIndexVars, true);
-        cStatementQueue.push_back(assignExpr + ";");
-
-        //Close for loop
-        cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
-
-        return CExpr(vecOutVar.getCVarName(imag), CExpr::ExprType::ARRAY);
-    }else{
-        //Create a temporary variable to avoid issue if this node is directly attached to state
-        //at the input.  The state update is placed after this node but the variable from the delay is simply
-        //passed through.  This could cause the state to be update before the result is used.
-        //TODO: Remove Temporary when StateUpdate insertion logic improved to track passthroughs
-        //Accomplished by returning a SCALAR_EXPR instead of a SCALAR_VAR
-
-        return CExpr(emitExpr.getExpr(), CExpr::ExprType::SCALAR_EXPR);
-    }
+    return emitExpr;
 }
 
 RealImagToComplex::RealImagToComplex(std::shared_ptr<SubSystem> parent, RealImagToComplex* orig) : PrimitiveNode(parent, orig) {
@@ -152,4 +121,27 @@ RealImagToComplex::RealImagToComplex(std::shared_ptr<SubSystem> parent, RealImag
 
 std::shared_ptr<Node> RealImagToComplex::shallowClone(std::shared_ptr<SubSystem> parent) {
     return NodeFactory::shallowCloneNode<RealImagToComplex>(parent, this);
+}
+
+bool RealImagToComplex::passesThroughInputs() {
+    return true;
+}
+
+bool RealImagToComplex::specializesForBlocking() {
+    return true;
+}
+
+void RealImagToComplex::specializeForBlocking(int localBlockingLength,
+                                              int localSubBlockingLength,
+                                              std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                              std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                              std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                              std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                              std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                              std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                                  &arcsWithDeferredBlockingExpansion) {
+    //Just expand the arcs since this node simply passes through the input to the output
+
+    //The input arcs should be expanded to the block length
+    BlockingHelpers::requestDeferredBlockingExpansionOfNodeArcs(getSharedPointer(), localBlockingLength, localBlockingLength, arcsWithDeferredBlockingExpansion);
 }

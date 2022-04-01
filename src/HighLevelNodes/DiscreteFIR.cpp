@@ -225,10 +225,10 @@ DiscreteFIR::expand(std::vector<std::shared_ptr<Node>> &new_nodes, std::vector<s
         tappedDelayNode->setDelayValue(numCoefs - 1);
         tappedDelayNode->setAllocateExtraSpace(true); //This passes the current value through for TappedDelay
         if (coefSource == CoefSource::FIXED) {
-            tappedDelayNode->setEarliestFirst(false); //Oldest First is preferred in the Laminar execution model because it does not require reversing the order of samples when unrolling
+            tappedDelayNode->setEarliestFirst(false); //Oldest First is preferred in the Laminar execution model because it does not require reversing the order of samples when sub-blocking
         }else{
             tappedDelayNode->setEarliestFirst(true); //The coefs are arranged in the standard order with earliest first
-            std::cerr << ErrorHelpers::genWarningStr("The Laminar Execution Model when Unrolling Favors FIR Filters Where the Coefficients Are Provided With the Oldest as the First Term.  This is opposite to the standard convention and it is advisable to replace FIR Filters with Adjustable Coefficients with Tapped Delay Lines in Oldest First mode and Coefficients in Reverse Order.  Do not compute complex conj in dot product if signals complex", getSharedPointer()) << std::endl;
+            std::cerr << ErrorHelpers::genWarningStr("The Laminar Execution Model Heavily Favors FIR Filters Where the Coefficients Are Provided With the Oldest as the First Term.  This is opposite to the standard convention and it is advisable to replace FIR Filters with Adjustable Coefficients with Tapped Delay Lines in Oldest First mode and Coefficients in Reverse Order.  Do not compute complex conj in dot product if signals complex", getSharedPointer()) << std::endl;
         }
         new_nodes.push_back(tappedDelayNode);
 

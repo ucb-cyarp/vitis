@@ -10,8 +10,22 @@
 #include "GeneralHelper.h"
 #include "ErrorHelpers.h"
 #include "GraphCore/StateUpdate.h"
+#include "MasterNodes/MasterInput.h"
+#include "MasterNodes/MasterOutput.h"
+#include "MasterNodes/MasterUnconnected.h"
 #include <iostream>
 #include <fstream>
+#include "Blocking/BlockingHelpers.h"
+#include "MultiRate/MultiRateHelpers.h"
+#include "MultiRate/RateChange.h"
+#include "GraphCore/EnableNode.h"
+#include "Blocking/BlockingOutput.h"
+#include "PrimitiveNodes/Mux.h"
+#include "GraphCore/ContextContainer.h"
+#include "GraphCore/ContextFamilyContainer.h"
+#include "Blocking/BlockingHelpers.h"
+#include "General/GraphAlgs.h"
+#include "GraphCore/EnabledSubSystem.h"
 
 std::vector<std::shared_ptr<Node>> EmitterHelpers::findNodesWithState(std::vector<std::shared_ptr<Node>> &nodesToSearch) {
     std::vector<std::shared_ptr<Node>> nodesWithState;
@@ -65,8 +79,10 @@ std::vector<std::shared_ptr<BlackBox>> EmitterHelpers::findBlackBoxes(std::vecto
     return blackBoxes;
 }
 
-void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType, std::vector<std::shared_ptr<Node>> orderedNodes, std::shared_ptr<MasterOutput> outputMaster, int blockSize,
-                                                          std::string indVarName, bool checkForPartitionChange) {
+void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams::SchedType schedType,
+                                               std::vector<std::shared_ptr<Node>> orderedNodes,
+                                               std::shared_ptr<MasterOutput> outputMaster,
+                                               bool checkForPartitionChange) {
     //Keep a context stack of the last emitted statement.  This is used to check for context changes.  Also used to check if the 'first' entry should be used.  If first entry is used (ie. previous context at this level in the stack was not in the same famuly, and the subContext emit count is not 0, then contexts are not contiguous -> ie. switch cannot be used)
     std::vector<Context> lastEmittedContext;
 
@@ -83,7 +99,7 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
     int partition = -1;
     bool firstNode = true;
 
-    //Itterate through the schedule and emit
+    //Iterate through the schedule and emit
     for (auto it = orderedNodes.begin(); it != orderedNodes.end(); it++) {
 
 //        std::cout << "Writing " << (*it)->getFullyQualifiedName() << std::endl;
@@ -113,97 +129,10 @@ void EmitterHelpers::emitOpsStateUpdateContext(std::ofstream &cFile, SchedParams
         }
 
         if (*it == outputMaster) {
-            //Emit output (using same basic code as bottom up except forcing fanout - all results will be availible as temp vars)
-            unsigned long numOutputs = outputMaster->getInputPorts().size();
-            for (unsigned long i = 0; i < numOutputs; i++) {
-                std::shared_ptr<InputPort> output = outputMaster->getInputPort(i);
-                cFile << std::endl << "//---- Assign Output " << i << ": " << output->getName() << " ----" << std::endl;
-
-                //Get the arc connected to the output
-                std::shared_ptr<Arc> outputArc = *(output->getArcs().begin());
-
-                DataType outputDataType = outputArc->getDataType();
-
-                std::shared_ptr<OutputPort> srcOutputPort = outputArc->getSrcPort();
-                int srcNodeOutputPortNum = srcOutputPort->getPortNum();
-
-                std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
-
-                cFile << "//-- Assign Real Component --" << std::endl;
-                std::vector<std::string> cStatements_re;
-                //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
-                //desired
-                std::string expr_re = srcNode->emitC(cStatements_re, schedType, srcNodeOutputPortNum, false, true,
-                                                     true).getExpr();
-                //emit the expressions
-                unsigned long numStatements_re = cStatements_re.size();
-                for (unsigned long j = 0; j < numStatements_re; j++) {
-                    cFile << cStatements_re[j] << std::endl;
-                }
-
-                //emit the assignment
-                Variable outputVar = Variable(outputMaster->getCOutputName(i), outputDataType);
-
-                //Note that with matrix/vector ports an added dimension is prepended to the array when the block size is >1
-                //Because of C/C++ array semantics, this results in the elements for each block being stored
-                //contiguously.  For multidimensional arrays (ex. array[][5][5]), the index of the block can found
-                //by simply employing array[block].  The compiler knows the size of the latter 2 dimensions.
-                int varElements = outputVar.getDataType().numberOfElements();
-                int varBytes = outputVar.getDataType().getCPUStorageType().getTotalBits() / 8;
-                if (!outputVar.getDataType().isScalar()) {
-                    if (blockSize > 1) {
-                        //Can use the
-                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false)
-                              << "[" << indVarName << "], " << expr_re << ", " << varElements * varBytes << ");"
-                              << std::endl;
-                    } else {
-                        cFile << "memcpy(output[0]." << outputVar.getCVarName(false) << ", " << expr_re << ", "
-                              << varElements * varBytes << ");" << std::endl;
-                    }
-                } else {
-                    if (blockSize > 1) {
-                        cFile << "output[0]." << outputVar.getCVarName(false) << "[" << indVarName << "] = " << expr_re
-                              << ";" << std::endl;
-                    } else {
-                        cFile << "output[0]." << outputVar.getCVarName(false) << " = " << expr_re << ";" << std::endl;
-                    }
-                }
-
-                //Emit Imag if Datatype is complex
-                if (outputDataType.isComplex()) {
-                    cFile << std::endl << "//-- Assign Imag Component --" << std::endl;
-                    std::vector<std::string> cStatements_im;
-                    //Need to just get the pointer to the block.  The indexing occurs in memcpy so indexing by CExpr is not
-                    //desired
-                    std::string expr_im = srcNode->emitC(cStatements_im, schedType, srcNodeOutputPortNum, true, true,
-                                                         true).getExpr();
-                    //emit the expressions
-                    unsigned long numStatements_im = cStatements_im.size();
-                    for (unsigned long j = 0; j < numStatements_im; j++) {
-                        cFile << cStatements_im[j] << std::endl;
-                    }
-
-                    //emit the assignment
-                    if (!outputVar.getDataType().isScalar()) {
-                        if (blockSize > 1) {
-                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true)
-                                  << "[" << indVarName << "], " << expr_im << ", " << varElements * varBytes << ");"
-                                  << std::endl;
-                        } else {
-                            cFile << "memcpy(output[0]." << outputVar.getCVarName(true) << ", " << expr_im << ", "
-                                  << varElements * varBytes << ");" << std::endl;
-                        }
-                    } else {
-                        if (blockSize > 1) {
-                            cFile << "output[0]." << outputVar.getCVarName(true) << "[" << indVarName << "] = "
-                                  << expr_im << ";" << std::endl;
-                        } else {
-                            cFile << "output[0]." << outputVar.getCVarName(true) << " = " << expr_im << ";"
-                                  << std::endl;
-                        }
-                    }
-                }
-            }
+            //TODO: Re-implement to support single-threaded targets.
+            //      Was broken by clock domains and sub-blocking
+            //      See https://github.com/ucb-cyarp/vitis/issues/98
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Output Master Emit is currently not supported (relied on by single threaded target).  See https://github.com/ucb-cyarp/vitis/issues/98"));
         } else if (GeneralHelper::isType<Node, StateUpdate>(*it) != nullptr) {
             std::shared_ptr<StateUpdate> stateUpdateNode = std::dynamic_pointer_cast<StateUpdate>(*it);
 
@@ -468,67 +397,83 @@ void EmitterHelpers::emitNode(std::shared_ptr<Node> nodeToEmit, std::ofstream &c
     }
 }
 
-std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
+std::vector<Variable> EmitterHelpers::getCInputVariables(std::shared_ptr<MasterInput> inputMaster) {
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>> inputVars =
+    getCInputVariablesClkDomainsAndBlockSizes(inputMaster);
+
+    return std::get<0>(inputVars);
+}
+
+std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+EmitterHelpers::getCInputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterInput> inputMaster){
     unsigned long numPorts = inputMaster->getOutputPorts().size();
 
     std::vector<Variable> inputVars;
-    std::vector<std::pair<int, int>> inputRates;
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains;
+    std::vector<int> blockSizes;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<OutputPort> input = inputMaster->getOutputPort(i); //output of input node
-        std::shared_ptr<ClockDomain> inputClkDomain = inputMaster->getPortClkDomain(input);
+        int inputBlockSize = inputMaster->getPortBlockSize(input);
+        std::shared_ptr<ClockDomain> inputBlockDomain = inputMaster->getPortClkDomain(input);
 
         //TODO: This is a sanity check for the above todo
         if(input->getPortNum() != i){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Port Number does not match its position in the port array", inputMaster));
         }
 
-        DataType portDataType = input->getDataType();
+        DataType portOrigDataType = inputMaster->getPortOrigDataType(input);
+        DataType portBlockedDataType = portOrigDataType.expandForBlock(inputBlockSize);
 
-        Variable var = Variable(inputMaster->getCInputName(i), portDataType);
+        Variable var = Variable(inputMaster->getCInputName(i), portBlockedDataType);
         inputVars.push_back(var);
-        if(inputClkDomain){
-            inputRates.push_back(inputClkDomain->getRateRelativeToBase());
-        }else{
-            inputRates.emplace_back(1, 1);
-        }
+        clockDomains.push_back(inputBlockDomain);
+        blockSizes.push_back(inputBlockSize);
     }
 
-    return std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>>(inputVars, inputRates);
+    return {inputVars, clockDomains, blockSizes};
 }
 
-std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
-    std::vector<Variable> outputVars;
-    std::vector<std::pair<int, int>> outputRates;
+std::vector<Variable> EmitterHelpers::getCOutputVariables(std::shared_ptr<MasterOutput> outputMaster) {
+    std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>> outputVars =
+            getCOutputVariablesClkDomainsAndBlockSizes(outputMaster);
 
+    return std::get<0>(outputVars);
+}
+
+std::tuple<std::vector<Variable>, std::vector<std::shared_ptr<ClockDomain>>, std::vector<int>>
+EmitterHelpers::getCOutputVariablesClkDomainsAndBlockSizes(std::shared_ptr<MasterOutput> outputMaster){
     unsigned long numPorts = outputMaster->getInputPorts().size();
+
+    std::vector<Variable> outputVars;
+    std::vector<std::shared_ptr<ClockDomain>> clockDomains;
+    std::vector<int> blockSizes;
 
     //TODO: Assuming port numbers do not have a discontinuity.  Validate this assumption.
     for(unsigned long i = 0; i<numPorts; i++){
         std::shared_ptr<InputPort> output = outputMaster->getInputPort(i); //input of output node
-        std::shared_ptr<ClockDomain> outputClkDomain = outputMaster->getPortClkDomain(output);
+        int outputBlockSize = outputMaster->getPortBlockSize(output);
+        std::shared_ptr<ClockDomain> outputBlockDomain = outputMaster->getPortClkDomain(output);
 
         //TODO: This is a sanity check for the above todo
         if(output->getPortNum() != i){
             throw std::runtime_error(ErrorHelpers::genErrorStr("Port Number does not match its position in the port array", outputMaster));
         }
 
-        DataType portDataType = output->getDataType();
+        DataType portOrigDataType = outputMaster->getPortOrigDataType(output);
+        DataType portBlockedDataType = portOrigDataType.expandForBlock(outputBlockSize);
 
-        Variable var = Variable(outputMaster->getCOutputName(i), portDataType);
+        Variable var = Variable(outputMaster->getCOutputName(i), portBlockedDataType);
         outputVars.push_back(var);
-        if(outputClkDomain){
-            outputRates.push_back(outputClkDomain->getRateRelativeToBase());
-        }else{
-            outputRates.emplace_back(1, 1);
-        }
+        clockDomains.push_back(outputBlockDomain);
+        blockSizes.push_back(outputBlockSize);
     }
 
-    return std::pair<std::vector<Variable>, std::vector<std::pair<int, int>>>(outputVars, outputRates);
+    return {outputVars, clockDomains, blockSizes};
 }
 
-std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::vector<int> portBlockSizes, std::string structTypeName) {
+std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars, std::string structTypeName) {
     //TODO: Change this function to use the MasterIO Port ClockDomain
     //Trace where this function is called from (IO Port)
     std::string prototype = "#pragma pack(push, 4)\n";
@@ -536,14 +481,6 @@ std::string EmitterHelpers::getCIOPortStructDefn(std::vector<Variable> portVars,
 
     for(unsigned long i = 0; i<portVars.size(); i++){
         Variable var = portVars[i];
-
-        DataType varType = var.getDataType();
-        //Expand the width of the type by another dimension.  If scalar, extend the length
-        //accordingly.
-        varType = varType.expandForBlock(portBlockSizes[i]);
-        //Note, these changes to dimensions do not propagate outside of this function
-
-        var.setDataType(varType);
 
         prototype += "\t" + var.getCVarDecl(false, true, false, true) + ";\n";
 
@@ -940,16 +877,6 @@ EmitterHelpers::getConnectionsToMasterOutputNodes(std::shared_ptr<Node> node, bo
     return masterArcs;
 }
 
-std::vector<int>
-EmitterHelpers::getBlockSizesFromRates(const std::vector<std::pair<int, int>> &rates, int blockSizeBase) {
-    std::vector<int> blockSizes;
-    for(unsigned long i = 0; i<rates.size(); i++){
-        blockSizes.push_back(blockSizeBase*rates[i].first/rates[i].second);
-    }
-
-    return blockSizes;
-}
-
 //Val index is a reference so that it can be incremented in the base case
 std::string EmitterHelpers::arrayLiteralWorker(std::vector<int> &dimensions, int dimIndex, std::vector<NumericValue> &val, int &valIndex, bool imag, DataType valType, DataType storageType){
     std::string str = "";
@@ -983,14 +910,14 @@ std::string EmitterHelpers::arrayLiteral(std::vector<int> &dimensions, std::vect
 }
 
 std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>>
-EmitterHelpers::generateVectorMatrixForLoops(const std::vector<int>& dimensions) {
+EmitterHelpers::generateVectorMatrixForLoops(const std::vector<int>& dimensions, std::string prefix) {
     std::vector<std::string> loopDecls;
     std::vector<std::string> loopVars;
     std::vector<std::string> loopClose;
 
     for(unsigned long i = 0; i<dimensions.size(); i++){
         //The index variable will be indDim# where # is the dimension number
-        loopVars.push_back("indDim" + GeneralHelper::to_string(i));
+        loopVars.push_back(prefix + GeneralHelper::to_string(i));
 
         loopDecls.push_back("for(unsigned long " + loopVars[i] + " = 0; " + loopVars[i] + "<" + GeneralHelper::to_string(dimensions[i]) + "; " + loopVars[i] + "++){");
         loopClose.emplace_back("}");
@@ -1084,4 +1011,267 @@ std::string EmitterHelpers::telemetryLevelToString(EmitterHelpers::TelemetryLeve
         default:
             throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown TelemetryLevel"));
     }
+}
+
+std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> EmitterHelpers::getGroupableArcs(std::set<std::shared_ptr<Arc>> arcs, bool checkForToFromNoPartitionToNoBaseBlockSize, bool discardArcsWithinSinglePartition){
+    //Note: Only the BlockingDomain or ClockDomain will be non-null.  It is possible for both to be non-null if the dst is at the top level
+    std::map<std::tuple<std::shared_ptr<OutputPort>, int, int, std::shared_ptr<BlockingDomain>, std::shared_ptr<ClockDomain>>, std::vector<std::shared_ptr<Arc>>> groups;
+
+    for(const std::shared_ptr<Arc> arc : arcs) {
+        std::shared_ptr<OutputPort> srcPort = arc->getSrcPort();
+        int srcPartition = srcPort->getParent()->getPartitionNum();
+
+        int dstPartition = arc->getDstPort()->getParent()->getPartitionNum();
+        int dstBaseSubBlockLength = arc->getDstPort()->getParent()->getBaseSubBlockingLen();
+
+        //We need the destination to have the same indexing variables.  This comes from the blockingDomains.
+        //Specialized nodes may use their own indexing methods below the given blocking domain the node is in,
+        //however, it cannot share the indexing with nodes inside a nested blocking domain.
+        //Also note, even if the destinations are in sub-blocking domains with the same base sub-blocking length
+        //they have different index expressions
+        //TODO: Change FIFOs and BlockingDomainBridging nodes to allow multiple index expressions per port.
+        //Also note, index can come from clock domain not operating in vector mode
+        std::shared_ptr<BlockingDomain> indexSrcBlocking = nullptr;
+        std::shared_ptr<ClockDomain> indexSrcClock = nullptr;
+        //Set the appropriate indexing
+        std::shared_ptr<ClockDomain> dstClockDomain = MultiRateHelpers::findClockDomain(arc->getDstPort()->getParent());
+        if(dstClockDomain != nullptr && dstClockDomain->isUsingVectorSamplingMode()){
+            //When using vector sampling mode, the index comes from the blocking domain stack, of which the discovered
+            //blocking domain is the lowest level used for indexing leading into the dst node.
+            std::shared_ptr<BlockingDomain> dstBlockingDomain = BlockingHelpers::findBlockingDomain(arc->getDstPort()->getParent());
+            indexSrcBlocking = dstBlockingDomain;
+        }else{
+            indexSrcClock = dstClockDomain;
+        }
+
+        if (srcPartition != dstPartition || (!discardArcsWithinSinglePartition)) {
+            std::string srcPath = arc->getSrcPort()->getParent()->getFullyQualifiedName();
+            std::shared_ptr<Node> dst = arc->getDstPort()->getParent();
+            if (checkForToFromNoPartitionToNoBaseBlockSize && (srcPartition == -1 || dstPartition == -1)) {
+                std::string dstPath = dst->getFullyQualifiedName();
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Found an arc going to/from partition -1 [" + srcPath + "(" +
+                        GeneralHelper::to_string(srcPartition) + ") -> " + dstPath + " (" +
+                        GeneralHelper::to_string(dstPartition) + ")]"));
+            }
+            if (checkForToFromNoPartitionToNoBaseBlockSize && dstBaseSubBlockLength < 1 &&
+                GeneralHelper::isType<Node, MasterOutput>(arc->getDstPort()->getParent()) == nullptr) {
+                throw std::runtime_error(ErrorHelpers::genErrorStr(
+                        "Found an arc going between partitions which has a destination with an invalid base sub-blocking length"));
+            }
+
+            groups[{srcPort, dstPartition, dstBaseSubBlockLength, indexSrcBlocking, indexSrcClock}].push_back(arc);
+        }
+    }
+
+    return groups;
+}
+
+std::shared_ptr<SubSystem> EmitterHelpers::findInsertionPointForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode){
+    std::vector<Context> fifoContext = srcNode->getContext();
+    std::shared_ptr<SubSystem> fifoParent;
+
+    std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcNode);
+    std::shared_ptr<BlockingOutput> srcAsBlockingOutput = GeneralHelper::isType<Node, BlockingOutput>(srcNode);
+    std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcNode);
+    std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcNode);
+    std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
+    bool rateChangeOutput = false;
+    if(srcAsRateChange){
+        rateChangeOutput = !srcAsRateChange->isInput();
+    }
+
+    //Note, the first getParent() gets the src node
+    std::shared_ptr<SubSystem> srcParent = srcNode->getParent();
+
+    //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
+    //TODO: Come up with a more general way of performing this
+    if(srcAsEnableOutput != nullptr ||  srcAsBlockingOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+        if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
+            fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
+
+            // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
+            // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
+            // during encapsulation
+
+            //Should also be placed outside of BlockingDomain context of the BlockingOutput which is driving it
+        }
+
+        //Check for encapsulation
+        //TODO: Need to fix case where FIFO may be in a sub-blocking domain inside a clock domain which is fed by a rate change node.  In that case, it should be placed
+        //      outside the context.  May need to go up multiple contexts
+
+        if(srcAsEnableOutput){
+            //Need to find enabled subsystem for which this is an enable output
+            std::shared_ptr<EnabledSubSystem> srcEnabledSubSystem = findEnabledSubsystemDomain(srcAsEnableOutput);
+
+            std::vector<std::shared_ptr<EnableOutput>> enabledOutputs = srcEnabledSubSystem->getEnableOutputs();
+            if(!GeneralHelper::contains(srcAsEnableOutput, enabledOutputs)){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected first enabled subsystem context encountered above this node would include it as an EnabledOutput", srcAsEnableOutput));
+            }
+
+            fifoParent = srcParent;
+            bool found = false;
+            while(!found && fifoParent != nullptr){
+                std::shared_ptr<EnabledSubSystem> asEnabledSubsystem = GeneralHelper::isType<SubSystem, EnabledSubSystem>(fifoParent);
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(fifoParent);
+
+                if(asEnabledSubsystem && asEnabledSubsystem == srcEnabledSubSystem){
+                    found = true;
+                    //FIFO should go one level above this
+                }else if(asContextFamilyContainer){
+                    //Check for encapsulation
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcEnabledSubSystem){
+                        found = true;
+                        //FIFO should go one level above this
+                    }
+                }
+
+                //Go up to the next level
+                fifoParent = fifoParent->getParent();
+            }
+
+            if(!found){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find location to place FIFO", srcNode));
+            }
+        }else if(srcAsBlockingOutput){
+            fifoParent = srcParent;
+            bool found = false;
+
+            std::shared_ptr<BlockingDomain> srcBlockingDomain = BlockingHelpers::findBlockingDomain(srcAsBlockingOutput);
+
+            while(!found && fifoParent != nullptr){
+                std::shared_ptr<BlockingDomain> asBlockingDomain = GeneralHelper::isType<SubSystem, BlockingDomain>(fifoParent);
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(fifoParent);
+
+                if(asBlockingDomain && asBlockingDomain == srcBlockingDomain){
+                    found = true;
+                    //FIFO should go one level above this
+                }else if(asContextFamilyContainer){
+                    //Check for encapsulation
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcBlockingDomain){
+                        found = true;
+                        //FIFO should go one level above this
+                    }
+                }
+
+                //Go up to the next level
+                fifoParent = fifoParent->getParent();
+            }
+
+            if(!found){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find location to place FIFO", srcNode));
+            }
+        }else if(rateChangeOutput){
+            fifoParent = srcParent;
+            bool found = false;
+
+            std::shared_ptr<ClockDomain> srcClockDomain = MultiRateHelpers::findClockDomain(srcAsRateChange);
+            std::shared_ptr<ContextRoot> srcClockDomainAsContextRoot = GeneralHelper::isType<ClockDomain, ContextRoot>(srcClockDomain);
+            if(srcClockDomainAsContextRoot == nullptr){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Expected clock domain to be specialized", srcClockDomain));
+            }
+
+            while(!found && fifoParent != nullptr){
+                std::shared_ptr<ClockDomain> asClockDomain = GeneralHelper::isType<SubSystem, ClockDomain>(fifoParent);
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(fifoParent);
+
+                if(asClockDomain && asClockDomain == srcClockDomain){
+                    found = true;
+                    //FIFO should go one level above this
+                }else if(asContextFamilyContainer){
+                    //Check for encapsulation
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcClockDomainAsContextRoot){
+                        found = true;
+                        //FIFO should go one level above this
+                    }
+                }
+
+                //Go up to the next level
+                fifoParent = fifoParent->getParent();
+            }
+
+            if(!found){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unable to find location to place FIFO", srcNode));
+            }
+        }else if(srcAsMux){
+            //Check if there is a context family container for this node
+            //If not, let the parent of the FIFO be the parent of the mux.
+            std::shared_ptr<SubSystem> contextFamilyContainerSearch = srcParent;
+            bool found = false;
+
+            while(!found && contextFamilyContainerSearch != nullptr) {
+                std::shared_ptr<ContextFamilyContainer> asContextFamilyContainer = GeneralHelper::isType<SubSystem, ContextFamilyContainer>(contextFamilyContainerSearch);
+
+                if(asContextFamilyContainer) {
+                    std::shared_ptr<ContextRoot> containerContextRoot = asContextFamilyContainer->getContextRoot();
+                    if(containerContextRoot == srcAsMux){
+                        found = true;
+                    }else{
+                        contextFamilyContainerSearch = contextFamilyContainerSearch->getParent();
+                    }
+                }else{
+                    contextFamilyContainerSearch = contextFamilyContainerSearch->getParent();
+                }
+            }
+
+            if(found){
+                //Encapsulation has occured
+                //The parent is one level above the context family container for the mux
+                fifoParent = contextFamilyContainerSearch->getParent();
+            }else{
+                //Encapsulation has not occured, just go one level above the src (its parent)
+                fifoParent = srcParent;
+            }
+
+        }else{
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Logic for ContextRoot type not yet implemented for FIFO insertion", srcNode));
+        }
+
+    }else{
+        //Get the parent of the src node
+        fifoParent = srcParent;
+    }
+
+    return fifoParent;
+}
+
+std::vector<Context> EmitterHelpers::findContextForBlockingBridgeOrFIFO(std::shared_ptr<Node> srcNode){
+    std::vector<Context> fifoContext = srcNode->getContext();
+
+    std::shared_ptr<EnableOutput> srcAsEnableOutput = GeneralHelper::isType<Node, EnableOutput>(srcNode);
+    std::shared_ptr<BlockingOutput> srcAsBlockingOutput = GeneralHelper::isType<Node, BlockingOutput>(srcNode);
+    std::shared_ptr<Mux> srcAsMux = GeneralHelper::isType<Node, Mux>(srcNode);
+    std::shared_ptr<ContextRoot> srcAsContextRoot = GeneralHelper::isType<Node, ContextRoot>(srcNode);
+    std::shared_ptr<RateChange> srcAsRateChange = GeneralHelper::isType<Node, RateChange>(srcNode);
+    bool rateChangeOutput = false;
+    if(srcAsRateChange){
+        rateChangeOutput = !srcAsRateChange->isInput();
+    }
+
+    //Note, the first getParent() gets the src node
+    std::shared_ptr<SubSystem> srcParent = srcNode->getParent();
+
+    //TODO: This relies on EnableOutputs from being directly under the ContextContainers or EnableSubsystems.  Re-evaluate if susbsystem re-assembly attempts are made in the future
+    //TODO: Come up with a more general way of performing this
+    if(srcAsEnableOutput != nullptr ||  srcAsBlockingOutput != nullptr || srcAsContextRoot != nullptr || srcAsMux != nullptr || rateChangeOutput) {
+        if (!fifoContext.empty() && srcAsContextRoot == nullptr) {//May be empty if contexts have not yet been discovered
+            fifoContext.pop_back(); //FIFO should be outside of EnabledSubsystem context of the EnableOutput which is driving it (if src is enabled output).
+
+            // Should also be outside of the context of a context root which is driving it (ex. outside of a Mux context if a mux is driving it)
+            // However, mote that context roots do not contain their own context in their context stack but are moved under (one of) their ContextFamilyContainer
+            // during encapsulation
+
+            //Should also be placed outside of BlockingDomain context of the BlockingOutput which is driving it
+        }
+    }
+
+    return fifoContext;
+}
+
+std::shared_ptr<EnabledSubSystem> EmitterHelpers::findEnabledSubsystemDomain(std::shared_ptr<Node> node){
+    return GraphAlgs::findDomain<EnabledSubSystem>(node);
 }

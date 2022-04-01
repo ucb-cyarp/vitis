@@ -2,7 +2,7 @@
 // Created by Christopher Yarp on 9/3/19.
 //
 
-#include "MultiThreadEmitterHelpers.h"
+#include "MultiThreadEmit.h"
 #include "PrimitiveNodes/Delay.h"
 #include "PrimitiveNodes/BlackBox.h"
 #include "GraphCore/ContextRoot.h"
@@ -24,7 +24,7 @@
 #include <fstream>
 #include <stdexcept>
 
-void MultiThreadEmitterHelpers::findPartitionInputAndOutputFIFOs(
+void MultiThreadEmit::findPartitionInputAndOutputFIFOs(
         std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap, int partitionNum,
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> &inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> &outputFIFOs) {
 
@@ -45,7 +45,7 @@ void MultiThreadEmitterHelpers::findPartitionInputAndOutputFIFOs(
     }
 }
 
-std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName){
+std::string MultiThreadEmit::emitCopyCThreadArgs(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string structName, std::string structTypeName){
     std::string statements;
     //Cast the input structure
     std::string castStructName = structName + "_cast";
@@ -97,7 +97,7 @@ std::string MultiThreadEmitterHelpers::emitCopyCThreadArgs(std::vector<std::shar
     return statements;
 }
 
-std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
+std::string MultiThreadEmit::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool producer, std::string checkVarName, bool shortCircuit, bool blocking, bool includeThreadCancelCheck, PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior){
     //Began work on version which replicates context check below.  Requires context check to be replicated
     //This version simply checks
 
@@ -167,7 +167,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
 }
 
 //Version with scheduling
-//std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
+//std::string MultiThreadEmit::emitFIFOChecks(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, int partition, bool checkFull, std::string checkVarName, bool shortCircuit){
 //    //create a map of nodes to parents
 //
 //    std::set<std::shared_ptr<Node>> fifoSet;
@@ -218,7 +218,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOChecks(std::vector<std::shared_pt
 //    check += "}\n";
 //}
 
-std::vector<std::string> MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmit::createAndInitFIFOLocalVars(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         fifos[i]->createLocalVars(exprs);
@@ -228,7 +228,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(s
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmit::createFIFOReadTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         std::string tmpName = fifos[i]->getName() + "_readTmp";
@@ -239,7 +239,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createFIFOReadTemps(std::vec
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmit::createFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         std::string tmpName = fifos[i]->getName() + "_writeTmp";
@@ -250,7 +250,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createFIFOWriteTemps(std::ve
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::createFIFODoubleBufferReadVars(
+std::vector<std::string> MultiThreadEmit::createFIFODoubleBufferReadVars(
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
     std::vector<std::string> exprs;
 
@@ -274,7 +274,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createFIFODoubleBufferReadVa
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::createFIFODoubleBufferWriteVars(
+std::vector<std::string> MultiThreadEmit::createFIFODoubleBufferWriteVars(
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
     std::vector<std::string> exprs;
 
@@ -298,7 +298,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createFIFODoubleBufferWriteV
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::swapReadDoubleBufferPtrs(
+std::vector<std::string> MultiThreadEmit::swapReadDoubleBufferPtrs(
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
     std::vector<std::string> exprs;
 
@@ -322,7 +322,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::swapReadDoubleBufferPtrs(
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::swapWriteDoubleBufferPtrs(
+std::vector<std::string> MultiThreadEmit::swapWriteDoubleBufferPtrs(
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, ComputeIODoubleBufferType doubleBuffer){
     std::vector<std::string> exprs;
 
@@ -346,7 +346,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::swapWriteDoubleBufferPtrs(
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal){
+std::vector<std::string> MultiThreadEmit::createAndInitializeFIFOWriteTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, std::vector<std::vector<NumericValue>> defaultVal){
     std::vector<std::string> exprs;
     for(int i = 0; i<fifos.size(); i++) {
         std::string tmpName = fifos[i]->getName() + "_writeTmp";
@@ -354,14 +354,11 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
         exprs.push_back(structType + " " + tmpName + ";");
 
         for(int portNum = 0; portNum<fifos[i]->getInputPorts().size(); portNum++) {
-            //Gets block size from FIFO directly so no changes are required to support multiple clock domains
-            int blockSize = fifos[i]->getBlockSizeCreateIfNot(portNum);
-
             //Note that the datatype when we use getCStateVar does not include
             //the block size. However, the structure that is generated for the FIFO
             //is expanded for the block size.
             //Expand it here to match the structure definition
-            DataType dt = fifos[i]->getCStateVar(portNum).getDataType().expandForBlock(blockSize);
+            DataType dt = fifos[i]->getCStateVarExpandedForBlockSize(portNum).getDataType();
 
             //Open for loops if datatype (after expansion for blocks) is a vector/matrix
             std::vector<std::string> forLoopIndexVars;
@@ -377,7 +374,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
                 exprs.insert(exprs.end(), forLoopOpen.begin(), forLoopOpen.end());
             }
 
-            //Deref if nessasary
+            //Deref if necessary
             exprs.push_back(tmpName + ".port" + GeneralHelper::to_string(portNum) + "_real" +
                 (dt.isScalar() ? "" : EmitterHelpers::generateIndexOperation(forLoopIndexVars)) +
                 " = " + defaultVal[i][portNum].toStringComponent(false, dt) + ";");
@@ -397,7 +394,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::createAndInitializeFIFOWrite
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter, bool forceNotInPlace) {
+std::vector<std::string> MultiThreadEmit::readFIFOsToTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter, bool forceNotInPlace) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -412,7 +409,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::readFIFOsToTemps(std::vector
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::pushReadFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmit::pushReadFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
 
     exprs.push_back("//Pushing status for input FIFOs");
@@ -423,7 +420,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::pushReadFIFOsStatus(std::vec
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter, bool forceNotInPlace) {
+std::vector<std::string> MultiThreadEmit::writeFIFOsFromTemps(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos, bool forcePull, bool pushAfter, bool forceNotInPlace) {
     std::vector<std::string> exprs;
 
     for(int i = 0; i<fifos.size(); i++){
@@ -438,7 +435,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::writeFIFOsFromTemps(std::vec
     return exprs;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::pushWriteFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
+std::vector<std::string> MultiThreadEmit::pushWriteFIFOsStatus(std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos){
     std::vector<std::string> exprs;
 
     exprs.push_back("//Pushing status for output FIFOs");
@@ -449,7 +446,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::pushWriteFIFOsStatus(std::ve
     return exprs;
 }
 
-std::pair<std::string, std::string> MultiThreadEmitterHelpers::getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum){
+std::pair<std::string, std::string> MultiThreadEmit::getCThreadArgStructDefn(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs, std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string designName, int partitionNum){
     std::string structureType = designName + "_partition" + (partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_threadArgs_t";
     std::string prototype = "typedef struct {\n";
 
@@ -493,7 +490,7 @@ std::pair<std::string, std::string> MultiThreadEmitterHelpers::getCThreadArgStru
     return std::pair<std::string, std::string> (prototype, structureType);
 }
 
-std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
+std::string MultiThreadEmit::emitFIFOStructHeader(std::string path, std::string fileNamePrefix, std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos) {
     std::string fileName = fileNamePrefix + "_fifoTypes";
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
     //#### Emit .h file ####
@@ -518,7 +515,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOStructHeader(std::string path, st
     return fileName+".h";
 }
 
-std::string MultiThreadEmitterHelpers::emitFIFOSupportFile(std::string path, std::string fileNamePrefix, std::set<ThreadCrossingFIFOParameters::CopyMode> copyModes) {
+std::string MultiThreadEmit::emitFIFOSupportFile(std::string path, std::string fileNamePrefix, std::set<ThreadCrossingFIFOParameters::CopyMode> copyModes) {
     bool shouldEmit = false;
 
     //Get the required header and body support from the FIFOs
@@ -610,7 +607,7 @@ std::string MultiThreadEmitterHelpers::emitFIFOSupportFile(std::string path, std
     }
 }
 
-std::set<ThreadCrossingFIFOParameters::CopyMode> MultiThreadEmitterHelpers::findFIFOCopyModesUsed(std::vector<std::shared_ptr<ThreadCrossingFIFO>> &fifos){
+std::set<ThreadCrossingFIFOParameters::CopyMode> MultiThreadEmit::findFIFOCopyModesUsed(std::vector<std::shared_ptr<ThreadCrossingFIFO>> &fifos){
     std::set<ThreadCrossingFIFOParameters::CopyMode> copyModes;
     for(const auto &fifo : fifos){
         copyModes.insert(fifo->getCopyMode());
@@ -619,7 +616,7 @@ std::set<ThreadCrossingFIFOParameters::CopyMode> MultiThreadEmitterHelpers::find
     return copyModes;
 }
 
-int MultiThreadEmitterHelpers::getCore(int parititon, const std::vector<int> &partitionMap, bool print){
+int MultiThreadEmit::getCore(int parititon, const std::vector<int> &partitionMap, bool print){
     int core = 0;
     if(partitionMap.empty()) {
         //In this case, no thread pinning occurs
@@ -647,7 +644,7 @@ int MultiThreadEmitterHelpers::getCore(int parititon, const std::vector<int> &pa
     return core;
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
+void MultiThreadEmit::emitMultiThreadedBenchmarkKernel(std::map<std::pair<int, int>, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> fifoMap,
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> inputFIFOMap,
                                                                  std::map<int, std::vector<std::shared_ptr<ThreadCrossingFIFO>>> outputFIFOMap, std::set<int> partitions,
                                                                  std::string path, std::string fileNamePrefix, std::string designName, std::string fifoHeaderFile,
@@ -725,7 +722,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     for(auto it = fifoMap.begin(); it != fifoMap.end(); it++){
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos = it->second;
         int srcPartition  = it->first.first;
-        int core = MultiThreadEmitterHelpers::getCore(srcPartition, partitionMap);
+        int core = MultiThreadEmit::getCore(srcPartition, partitionMap);
 
         std::vector<std::string> statements;
         for(int i = 0; i<fifos.size(); i++){
@@ -795,7 +792,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
         cFile << "}" << std::endl;
         cFile << std::endl;
         //Only set the thread affinity if a partition map was provided.  If none was provided, core will be -1
-        int core = MultiThreadEmitterHelpers::getCore(*it, partitionMap, true);
+        int core = MultiThreadEmit::getCore(*it, partitionMap, true);
         if(core >= 0) {
             if(useSCHEDFIFO){
                 //Set SCHED_FIFO with max scheduling priority for this thread
@@ -967,7 +964,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedBenchmarkKernel(std::map<std::p
     cFile.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
+void MultiThreadEmit::emitMultiThreadedDriver(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
     //#### Emit Driver File ####
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
@@ -1036,7 +1033,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedDriver(std::string path, std::s
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMain(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
+void MultiThreadEmit::emitMultiThreadedMain(std::string path, std::string fileNamePrefix, std::string designName, std::string ioBenchmarkSuffix, std::vector<Variable> inputVars){
     //#### Emit Driver File ####
     std::string kernelFileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_kernel";
     std::string fileName = fileNamePrefix+"_"+ioBenchmarkSuffix+"_driver";
@@ -1062,7 +1059,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMain(std::string path, std::str
     benchDriver.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefileBenchDriver(std::string path, std::string fileNamePrefix,
+void MultiThreadEmit::emitMultiThreadedMakefileBenchDriver(std::string path, std::string fileNamePrefix,
                                                                      std::string designName, std::set<int> partitions,
                                                                      std::string ioBenchmarkSuffix, bool includeLrt,
                                                                      std::vector<std::string> additionalSystemSrc,
@@ -1226,7 +1223,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefileBenchDriver(std::string
     makefile.close();
 }
 
-void MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(std::string path, std::string fileNamePrefix,
+void MultiThreadEmit::emitMultiThreadedMakefileMain(std::string path, std::string fileNamePrefix,
                                                               std::string designName, std::set<int> partitions,
                                                               std::string ioBenchmarkSuffix, bool includeLrt,
                                                               std::vector<std::string> additionalSystemSrc,
@@ -1305,7 +1302,7 @@ void MultiThreadEmitterHelpers::emitMultiThreadedMakefileMain(std::string path, 
     makefile.close();
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::getPartitionStateStructTypeDef(std::vector<Variable> partitionStateVars, int partitionNum){
+std::vector<std::string> MultiThreadEmit::getPartitionStateStructTypeDef(std::vector<Variable> partitionStateVars, int partitionNum){
     std::vector<std::string> structDef;
 
     structDef.push_back("typedef struct{");
@@ -1326,82 +1323,29 @@ std::vector<std::string> MultiThreadEmitterHelpers::getPartitionStateStructTypeD
     return structDef;
 }
 
-void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
+void MultiThreadEmit::emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
                                                      std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                      std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                                                     std::set<std::shared_ptr<ClockDomain>> clockDomainsInPartition,
                                                      std::string path, std::string fileNamePrefix,
                                                      std::string designName, SchedParams::SchedType schedType,
                                                      std::shared_ptr<MasterOutput> outputMaster,
-                                                     unsigned long blockSize, std::string fifoHeaderFile,
+                                                     unsigned long blockSizeBase, std::string fifoHeaderFile,
                                                      std::string fifoSupportFile, bool threadDebugPrint, bool printTelem,
                                                      EmitterHelpers::TelemetryLevel telemLevel,
                                                      int telemReportFreqBlockFreq, double reportPeriodSeconds,
                                                      std::string telemDumpFilePrefix, bool telemAvg,
                                                      std::string papiHelperHeader,
                                                      PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                                                     ComputeIODoubleBufferType doubleBuffer,
-                                                     bool singleClkDomain, std::pair<int, int> singleRate){
+                                                     ComputeIODoubleBufferType doubleBuffer){
     bool collectTelem = EmitterHelpers::shouldCollectTelemetry(telemLevel);
     bool collectPAPI = EmitterHelpers::usesPAPI(telemLevel);
     bool collectPAPIComputeOnly = EmitterHelpers::papiComputeOnly(telemLevel);
     bool collectBreakdownTelem = EmitterHelpers::telemetryBreakdown(telemLevel);
 
-    unsigned long blockSizeBase = blockSize;
-    if(singleClkDomain){
-        if((blockSize*singleRate.first) % singleRate.second != 0){
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Partition " + GeneralHelper::to_string(partitionNum) + " has a single clock domain but the provide block size is not compatible with the given rate"));
-        }else{
-            blockSize = blockSize*singleRate.first/singleRate.second;
-        }
-    }
-
-    std::string blockIndVar = "";
-
-    //The base block size should be validated before this point to ensure that it is acceptible in light of the clock domains present
-    //If no downsample domains are present, a base block size of 1 is valid
-    //However, for upsample domains, the index variable will still be emitted and set to 0.  However, it will not be incremented
-    //because, with a base blockSize of 1, the upsample domains will produce/consume their entire block in 1 iteration
-
-    if(blockSize > 1) {
-        blockIndVar = getClkDomainIndVarName(std::pair<int, int>(1, 1), false);
-    }
-
-    //Discover clock rates of all input and output FIFOs
-    //Create a counter for each one, base rate is redundant
-    //Set the FIFO index variable to the approprate index variable for its rate.
-
-    std::set<std::pair<int, int>> fifoClockDomainRates;
-
-    //Set the index variable in the input FIFOs
+    //Check input FIFOs
     bool fifoInPlace = false;
-    std::vector<std::vector<std::shared_ptr<ClockDomain>>> inputFIFOOrigClockDomains;
     for(int i = 0; i<inputFIFOs.size(); i++){
-        if(singleClkDomain){
-            inputFIFOOrigClockDomains.emplace_back();
-        }
-
-        for(int portNum = 0; portNum<inputFIFOs[i]->getOutputPorts().size(); portNum++) {
-            if(singleClkDomain){
-                //With a single clock domain, set the index variable to just be the block index variable in the outer
-                //compute loop
-                fifoClockDomainRates.emplace(1, 1);
-                //All ports all have the same clock domain and size
-                inputFIFOOrigClockDomains[i].push_back(inputFIFOs[i]->getClockDomainCreateIfNot(portNum));
-                inputFIFOs[i]->setClockDomain(portNum, nullptr);
-                inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVar);
-            }else {
-                //Create the index variable name based on the base
-                std::shared_ptr<ClockDomain> clkDomain = inputFIFOs[i]->getClockDomainCreateIfNot(portNum);
-                std::string blockIndVarStr = getClkDomainIndVarName(clkDomain,false);
-                inputFIFOs[i]->setCBlockIndexVarInputName(portNum, blockIndVarStr);
-                if (clkDomain) {
-                    fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-                } else {
-                    fifoClockDomainRates.emplace(1, 1);
-                }
-            }
-        }
-
         //TODO: Support mix of in place and non-in-place FIFOs
         if(i == 0){
             fifoInPlace = inputFIFOs[i]->isInPlace();
@@ -1409,35 +1353,8 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             throw std::runtime_error(ErrorHelpers::genErrorStr("Currently, all FIFOs must be either in place or not", inputFIFOs[i]));
         }
     }
-
-    //Also need to set the index variable of the output FIFOs
-    std::vector<std::vector<std::shared_ptr<ClockDomain>>> outputFIFOOrigClockDomains;
+    //Check output FIFOs
     for(int i = 0; i<outputFIFOs.size(); i++){
-        if(singleClkDomain){
-            outputFIFOOrigClockDomains.emplace_back();
-        }
-
-        for(int portNum = 0; portNum<outputFIFOs[i]->getInputPorts().size(); portNum++) {
-            if(singleClkDomain){
-                //With a single clock domain, set the index variable to just be the block index variable in the outer
-                //compute loop
-                fifoClockDomainRates.emplace(1, 1);
-                //All ports all have the same clock domain and size
-                outputFIFOOrigClockDomains[i].push_back(outputFIFOs[i]->getClockDomainCreateIfNot(portNum));
-                outputFIFOs[i]->setClockDomain(portNum, nullptr);
-                outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVar);
-            }else {
-                std::shared_ptr<ClockDomain> clkDomain = outputFIFOs[i]->getClockDomainCreateIfNot(portNum);
-                std::string blockIndVarStr = getClkDomainIndVarName(clkDomain, false);
-                outputFIFOs[i]->setCBlockIndexVarOutputName(portNum, blockIndVarStr);
-                if (clkDomain) {
-                    fifoClockDomainRates.insert(clkDomain->getRateRelativeToBase());
-                } else {
-                    fifoClockDomainRates.emplace(1, 1);
-                }
-            }
-        }
-
         //TODO: Support mix of in place and non-in-place FIFOs
         if(i == 0 && inputFIFOs.empty()){
             fifoInPlace = outputFIFOs[i]->isInPlace();
@@ -1452,10 +1369,6 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         throw std::runtime_error(ErrorHelpers::genErrorStr("Double Buffering Requires In-Place FIFOs"));
     }
 
-    //Note: If the blockSize == 1, the function prototype can include scalar arguments.  If blockSize > 1, only pointer
-    //types are allowed since multiple values are being passed
-
-    //For thread functions, there is no output.  All values are passed as references (for scalars) or pointers (for arrays)
 
     std::string fileName = fileNamePrefix+"_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum));
     std::cout << "Emitting C File: " << path << "/" << fileName << ".h" << std::endl;
@@ -1553,7 +1466,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
 
     //Output the Function Definition
-    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, blockSize, stateStructTypeName, doubleBuffer);
+    std::string computeFctnProtoArgs = getPartitionComputeCFunctionArgPrototype(inputFIFOs, outputFIFOs, stateStructTypeName, doubleBuffer);
     std::string computeFctnName = designName + "_partition"+(partitionNum >= 0?GeneralHelper::to_string(partitionNum):"N"+GeneralHelper::to_string(-partitionNum)) + "_compute";
     std::string computeFctnProto = "void " + computeFctnName + "(" + computeFctnProtoArgs + ")";
 
@@ -1578,7 +1491,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     headerFile << std::endl;
 
     //Create the threadFunction argument structure
-    std::pair<std::string, std::string> threadArgStructAndTypeName = MultiThreadEmitterHelpers::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, partitionNum);
+    std::pair<std::string, std::string> threadArgStructAndTypeName = MultiThreadEmit::getCThreadArgStructDefn(inputFIFOs, outputFIFOs, designName, partitionNum);
     std::string threadArgStruct = threadArgStructAndTypeName.first;
     std::string threadArgTypeName = threadArgStructAndTypeName.second;
     headerFile << threadArgStruct << std::endl;
@@ -1672,84 +1585,60 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     cFile << computeFctnProto << "{" << std::endl;
 
-    //Create and init clock domain indexes
-    for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
-        std::pair<int, int> clkDomainRate = *clkDomainRateIt;
-        if(clkDomainRate != std::pair<int, int>(1, 1)) {
-            DataType varDt = DataType(false, false, false, (int) std::ceil(
-                    std::log2(blockSize * clkDomainRate.first / clkDomainRate.second) + 1), 0, {1});
-            std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
-            cFile << varDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " " << indVarStr
-                  << " = 0;" << std::endl;
-            //Only emit the counter var if the denominator is not 1, otherwise, the index unconditionally increments
-            if (clkDomainRate.second != 1) {
-                DataType varCounterDt = DataType(false, false, false,
-                                                 (int) std::ceil(std::log2(blockSize * clkDomainRate.second) + 1), 0,
-                                                 {1});
-                std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
-                cFile << varCounterDt.getCPUStorageType().toString(DataType::StringStyle::C, false, false) << " "
-                      << indVarCounterStr << " = 0;" << std::endl;
-            }
-        }
-    }
+    //TODO: Create and set counter variables for clock domains not operating in vector mode
+    std::vector<std::shared_ptr<ClockDomain>> clockDomainsOrderedByRate;
+    clockDomainsOrderedByRate.insert(clockDomainsOrderedByRate.begin(), clockDomainsInPartition.begin(), clockDomainsInPartition.end());
+    struct {
+        bool operator() (const std::shared_ptr<ClockDomain> &a,
+                                   const std::shared_ptr<ClockDomain> &b) const {
+            std::pair<int, int> aRate = a->getRateRelativeToBase();
+            double aRateDouble = ((double) aRate.first) / aRate.second;
+            std::pair<int, int> bRate = b->getRateRelativeToBase();
+            double bRateDouble = ((double) aRate.first) / aRate.second;
 
-    //emit inner loop
-    DataType blockDT = DataType(false, false, false, (int) std::ceil(std::log2(blockSize)+1), 0, {1});
-    if(blockSize > 1) {
-        cFile << "for(" + blockDT.getCPUStorageType().toString(DataType::StringStyle::C, false, false) + " " + blockIndVar + " = 0; " + blockIndVar + "<" + GeneralHelper::to_string(blockSize) + "; " + blockIndVar + "++){" << std::endl;
+            if (aRateDouble == bRateDouble) {
+                return a->getId() < b->getId();
+            }
+            return aRateDouble < bRateDouble;
+        };
+    } clockDomainCompare;
+    std::sort(clockDomainsOrderedByRate.begin(), clockDomainsOrderedByRate.end(), clockDomainCompare);
+
+    bool emittedClockDomainInd = false;
+    for(const std::shared_ptr<ClockDomain> &clockDomain : clockDomainsOrderedByRate){
+        if(clockDomain->requiresDeclaringExecutionCount()){
+            Variable countVar = clockDomain->getExecutionCountVariable(blockSizeBase);
+            if(countVar.getDataType().isComplex()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Clock Domain Count Var expected to be real"));
+            }
+
+            if(!emittedClockDomainInd){
+                cFile << "//Clock Domain Count Variables" << std::endl;
+                emittedClockDomainInd = true;
+            }
+
+            cFile << countVar.getCVarDecl(false, false, true) << ";" << std::endl;
+        }
     }
 
     //Emit operators
     if(schedType == SchedParams::SchedType::TOPOLOGICAL_CONTEXT){
-        emitSelectOpsSchedStateUpdateContext(cFile, nodesToEmit, schedType, outputMaster, blockSize, blockIndVar);
+        emitSelectOpsSchedStateUpdateContext(cFile, nodesToEmit, schedType, outputMaster);
     }else{
         throw std::runtime_error("Only TOPOLOGICAL_CONTEXT scheduler varient is supported for multi-threaded emit");
     }
 
-    //Run through the clock domains and emit the double buffering copies (if applicable)
-    //Also increment the clock domain indexes if block size > 1
-    for(auto clkDomainRateIt = fifoClockDomainRates.begin(); clkDomainRateIt != fifoClockDomainRates.end(); clkDomainRateIt++) {
-        std::pair<int, int> clkDomainRate = *clkDomainRateIt;
-        //Emit the double buffer copies before the counters/indexes are incremented
-        std::vector<std::string> dblBufferExprs = computeIODoubleBufferEmit(inputFIFOs, outputFIFOs, clkDomainRate,
-                                  getClkDomainIndVarName(clkDomainRate, true),
-                                  getClkDomainIndVarName(clkDomainRate, false), doubleBuffer);
-        for(int i = 0; i<dblBufferExprs.size(); i++){
-            cFile << dblBufferExprs[i] << std::endl;
-        }
-
-        if(blockSize > 1) {
-            //Increment the counter variables or wrap them around.  Increment the index variables on wraparound
-            if (clkDomainRate != std::pair<int, int>(1, 1)) {
-                std::string indVarStr = getClkDomainIndVarName(clkDomainRate, false);
-                if (clkDomainRate.second == 1) {
-                    //This is an upsample domain relative to the base and is incremented by more than 1
-
-                    //Just increment the index
-                    cFile << indVarStr << " += " << clkDomainRate.first << std::endl;
-                } else {
-                    //This is a rational resampled domain relative to the base rate
-
-                    //Increment the counter and conditionaly wrap and increment the index
-                    std::string indVarCounterStr = getClkDomainIndVarName(clkDomainRate, true);
-                    cFile << "if(" << indVarCounterStr << " < " << (clkDomainRate.second - 1) << "){" << std::endl;
-                    cFile << indVarCounterStr << "++;" << std::endl;
-                    cFile << "}else{" << std::endl;
-                    cFile << indVarCounterStr << " = 0;" << std::endl;
-                    cFile << indVarStr << " += " << clkDomainRate.first << ";" << std::endl;
-                    cFile << "}" << std::endl;
-                }
-            }//else
-            //This is occurring at the base rate
-        }
+    //TODO: Fix FIFO double buffering. It was broken by inserting sub-blocking which changed the way clock domain
+    //      indexes were created and incremented.
+    //      See https://github.com/ucb-cyarp/vitis/issues/97
+    if(doubleBuffer != ComputeIODoubleBufferType::NONE){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("Double Buffer FIFOs not currently supported after automated sub-blocking introduced.  See https://github.com/ucb-cyarp/vitis/issues/97"));
     }
+//    std::vector<std::string> dblBufferExprs = computeIODoubleBufferEmit(inputFIFOs, outputFIFOs, clkDomainRate,
+//                                                                        getClkDomainIndVarName(clkDomainRate, true),
+//                                                                        getClkDomainIndVarName(clkDomainRate, false), doubleBuffer);
 
-    //close the block for loop (if applicable)
-    if(blockSize > 1){
-        cFile << "}" << std::endl;
-    }
-
-    cFile << "}" << std::endl;
+    cFile << "}" << std::endl; //Close compute function
 
     cFile << std::endl;
 
@@ -1782,7 +1671,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Emit thread function
     cFile << threadFctnDecl << "{" << std::endl;
     //Copy ptrs from struct argument
-    cFile << MultiThreadEmitterHelpers::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
+    cFile << MultiThreadEmit::emitCopyCThreadArgs(inputFIFOs, outputFIFOs, "args", threadArgTypeName);
 
     //Allocate state
     //Will allocate on this thread's stack.  A check should have occured to indicate if multiple stacks could possibly share a cache line.
@@ -1867,13 +1756,13 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Create Local Vars
-    std::vector<std::string> cachedVarDeclsInputFIFOs = MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(
+    std::vector<std::string> cachedVarDeclsInputFIFOs = MultiThreadEmit::createAndInitFIFOLocalVars(
             inputFIFOs);
     for(unsigned long i = 0; i<cachedVarDeclsInputFIFOs.size(); i++){
         cFile << cachedVarDeclsInputFIFOs[i] << std::endl;
     }
 
-    std::vector<std::string> cachedVarDeclsOutputFIFOs = MultiThreadEmitterHelpers::createAndInitFIFOLocalVars(
+    std::vector<std::string> cachedVarDeclsOutputFIFOs = MultiThreadEmit::createAndInitFIFOLocalVars(
             outputFIFOs);
     for(unsigned long i = 0; i<cachedVarDeclsOutputFIFOs.size(); i++){
         cFile << cachedVarDeclsOutputFIFOs[i] << std::endl;
@@ -1881,7 +1770,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //Create temp entries for FIFO inputs
     if(!fifoInPlace) {
-        std::vector<std::string> tmpReadDecls = MultiThreadEmitterHelpers::createFIFOReadTemps(inputFIFOs);
+        std::vector<std::string> tmpReadDecls = MultiThreadEmit::createFIFOReadTemps(inputFIFOs);
         for (int i = 0; i < tmpReadDecls.size(); i++) {
             cFile << tmpReadDecls[i] << std::endl;
         }
@@ -1889,7 +1778,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
     //Create temp entries for outputs
     if(!fifoInPlace) {
-        std::vector<std::string> tmpWriteDecls = MultiThreadEmitterHelpers::createFIFOWriteTemps(outputFIFOs);
+        std::vector<std::string> tmpWriteDecls = MultiThreadEmit::createFIFOWriteTemps(outputFIFOs);
         for (int i = 0; i < tmpWriteDecls.size(); i++) {
             cFile << tmpWriteDecls[i] << std::endl;
         }
@@ -1915,10 +1804,10 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
 
         //Need to initially read from the input FIFO without running compute
         //First, wait for input FIFOs
-        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
+        cFile << MultiThreadEmit::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
         //TODO: currently assumes inPlace FIFOs is true, modify if this changes in the future
-        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, false, false);
+        std::vector<std::string> readFIFOExprs = MultiThreadEmit::readFIFOsToTemps(inputFIFOs, false, false, false);
         for (int i = 0; i < readFIFOExprs.size(); i++) {
             cFile << readFIFOExprs[i] << std::endl;
         }
@@ -1950,12 +1839,12 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         //The _prev value will be discarded in any case and will become the buffer where the next itteration's compute output will be written
 
         //First, wait for input FIFOs
-        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
+        cFile << MultiThreadEmit::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
         //Do not need to wait for output FIFOs since we are not actually writing into them
 
         //TODO: currently assumes inPlace FIFOs is true, modify if this changes in the future
-        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, false, false);
+        std::vector<std::string> readFIFOExprs = MultiThreadEmit::readFIFOsToTemps(inputFIFOs, false, false, false);
         for (int i = 0; i < readFIFOExprs.size(); i++) {
             cFile << readFIFOExprs[i] << std::endl;
         }
@@ -1965,7 +1854,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
         if(partitionHasState){
             stateArg = std::string("&") + VITIS_STATE_STRUCT_NAME;
         }
-        std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize,
+        std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs,
                                                             fifoInPlace, stateArg, doubleBuffer,
                                                             "_readTmp",
                                                             "_prev", //this is normally "_writeTmp" but we do not actually want to write
@@ -2159,7 +2048,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     }
 
     //Check FIFO input FIFOs (will spin until ready)
-    cFile << MultiThreadEmitterHelpers::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
+    cFile << MultiThreadEmit::emitFIFOChecks(inputFIFOs, false, "inputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
     //This is a special case where the duration for this cycle is calculated later (after reporting).  That way,
     //each metric has undergone the same number of cycles
@@ -2190,7 +2079,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
-        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
+        cFile << MultiThreadEmit::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
         if(collectBreakdownTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
@@ -2206,11 +2095,11 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //=== Read FIFOs (and write for in-place) ===
     if(fifoInPlace){
         //Need to do both FIFO read (get read ptr) and FIFO write
-        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, false, false);
+        std::vector<std::string> readFIFOExprs = MultiThreadEmit::readFIFOsToTemps(inputFIFOs, false, false, false);
         for (int i = 0; i < readFIFOExprs.size(); i++) {
             cFile << readFIFOExprs[i] << std::endl;
         }
-        std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs, false, false, false);
+        std::vector<std::string> writeFIFOExprs = MultiThreadEmit::writeFIFOsFromTemps(outputFIFOs, false, false, false);
         for (int i = 0; i < writeFIFOExprs.size(); i++) {
             cFile << writeFIFOExprs[i] << std::endl;
         }
@@ -2233,7 +2122,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
                   << std::endl;
         }
 
-        std::vector<std::string> readFIFOExprs = MultiThreadEmitterHelpers::readFIFOsToTemps(inputFIFOs, false, true, false);
+        std::vector<std::string> readFIFOExprs = MultiThreadEmit::readFIFOsToTemps(inputFIFOs, false, true, false);
         for (int i = 0; i < readFIFOExprs.size(); i++) {
             cFile << readFIFOExprs[i] << std::endl;
         }
@@ -2278,7 +2167,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     if(partitionHasState){
         stateArg = std::string("&") + VITIS_STATE_STRUCT_NAME;
     }
-    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, blockSize, fifoInPlace,
+    std::string call = getCallPartitionComputeCFunction(computeFctnName, inputFIFOs, outputFIFOs, fifoInPlace,
                                                         stateArg, doubleBuffer,
                                                         "_readTmp",
                                                         "_writeTmp",
@@ -2339,7 +2228,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
-        cFile << MultiThreadEmitterHelpers::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
+        cFile << MultiThreadEmit::emitFIFOChecks(outputFIFOs, true, "outputFIFOsReady", false, true, false, fifoIndexCachingBehavior); //Include pthread_testcancel check
 
         if(collectBreakdownTelem) {
             cFile << "timespec_t waitingForOutputFIFOsStop;" << std::endl;
@@ -2365,7 +2254,7 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
             cFile << "asm volatile (\"\" ::: \"memory\"); //Stop Re-ordering of timer" << std::endl;
         }
 
-        std::vector<std::string> writeFIFOExprs = MultiThreadEmitterHelpers::writeFIFOsFromTemps(outputFIFOs, false, true, false);
+        std::vector<std::string> writeFIFOExprs = MultiThreadEmit::writeFIFOsFromTemps(outputFIFOs, false, true, false);
         for (int i = 0; i < writeFIFOExprs.size(); i++) {
             cFile << writeFIFOExprs[i] << std::endl;
         }
@@ -2463,23 +2352,13 @@ void MultiThreadEmitterHelpers::emitPartitionThreadC(int partitionNum, std::vect
     //Close function
     cFile << "}" << std::endl;
 
-    //Restore clock domains of FIFOs if single clock domain partition
-    if(singleClkDomain){
-        for(int i = 0; i<inputFIFOs.size(); i++){
-            inputFIFOs[i]->setClockDomains(inputFIFOOrigClockDomains[i]);
-        }
-        for(int i = 0; i<outputFIFOs.size(); i++){
-            outputFIFOs[i]->setClockDomains(outputFIFOOrigClockDomains[i]);
-        }
-    }
-
     cFile.close();
 }
 
-std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
+std::string MultiThreadEmit::getPartitionComputeCFunctionArgPrototype(
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-        int blockSize, std::string stateTypeName, ComputeIODoubleBufferType doubleBuffer){
+        std::string stateTypeName, ComputeIODoubleBufferType doubleBuffer){
     std::string prototype = "";
 
     if(!stateTypeName.empty()){
@@ -2491,8 +2370,8 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     std::vector<bool> inputIsScalar;
     for(int i = 0; i<inputFIFOs.size(); i++){
         for(int j = 0; j<inputFIFOs[i]->getInputPorts().size(); j++){
-            inputIsScalar.push_back(inputFIFOs[i]->getCStateVar(j).getDataType().isScalar());
             Variable var = inputFIFOs[i]->getCStateVarExpandedForBlockSize(j);
+            inputIsScalar.push_back(var.getDataType().isScalar());
             inputVars.push_back(var);
         }
     }
@@ -2636,10 +2515,10 @@ std::string MultiThreadEmitterHelpers::getPartitionComputeCFunctionArgPrototype(
     return prototype;
 }
 
-std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::string computeFctnName,
+std::string MultiThreadEmit::getCallPartitionComputeCFunction(std::string computeFctnName,
                                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                                         std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                                        int blockSize, bool fifoInPlace,
+                                                                        bool fifoInPlace,
                                                                         std::string stateStructParam,
                                                                         ComputeIODoubleBufferType doubleBuffer,
                                                                         std::string inputFIFOSuffix, //"_readTmp"
@@ -2706,9 +2585,7 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
         for (unsigned long portNum = 0; portNum < outputFIFOs[i]->getInputPorts().size(); portNum++) {
             Variable var = outputFIFOs[i]->getCStateVarExpandedForBlockSize(portNum);
 
-            //Note that the FIFO state variable does not include the expansion for
-            //block size, do it here.
-            DataType varDatatypeExpanded = var.getDataType().expandForBlock(blockSize);
+            DataType varDatatypeExpanded = var.getDataType(); //Should already be expanded
 
             std::string tmpName = "";
             if (varDatatypeExpanded.numberOfElements() == 1) {
@@ -2750,7 +2627,7 @@ std::string MultiThreadEmitterHelpers::getCallPartitionComputeCFunction(std::str
 
     return call;
 }
-std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmitHelper(
+std::vector<std::string> MultiThreadEmit::computeIODoubleBufferEmitHelper(
                                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> fifos,
                                                          std::pair<int, int> filterRate,
                                                          std::string counterVarName,
@@ -2780,7 +2657,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmitHel
 
                 if(rate == filterRate){
                     //Copy from shared to next
-                    bool isScalar = fifo->getCStateVar(i).getDataType().isScalar();
+                    bool isScalar = fifo->getCStateVarExpandedForBlockSize(i).getDataType().isScalar();
                     Variable var;
                     if(input) {
                         var = fifo->getCStateVarExpandedForBlockSize(i);
@@ -2935,7 +2812,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmitHel
     return statements;
 }
 
-std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmit(
+std::vector<std::string> MultiThreadEmit::computeIODoubleBufferEmit(
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
         std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
         std::pair<int, int> filterRate,
@@ -2974,7 +2851,7 @@ std::vector<std::string> MultiThreadEmitterHelpers::computeIODoubleBufferEmit(
 }
 
 //NOTE: if scheduling the output master is desired, it must be included in the nodes to emit
-void MultiThreadEmitterHelpers::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize, std::string indVarName){
+void MultiThreadEmit::emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster){
 
     cFile << std::endl << "//==== Compute Operators ====" << std::endl;
 
@@ -2990,10 +2867,10 @@ void MultiThreadEmitterHelpers::emitSelectOpsSchedStateUpdateContext(std::ofstre
     std::vector<std::shared_ptr<Node>> toBeEmittedInThisOrder;
     std::copy(schedIt, orderedNodes.end(), std::back_inserter(toBeEmittedInThisOrder));
 
-    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster, blockSize, indVarName);
+    EmitterHelpers::emitOpsStateUpdateContext(cFile, schedType, toBeEmittedInThisOrder, outputMaster);
 }
 
-bool MultiThreadEmitterHelpers::checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes) {
+bool MultiThreadEmit::checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes) {
     for(int i = 0; i<nodes.size(); i++){
         if(nodes[i]->getPartitionNum() == IO_PARTITION_NUM){
             bool isThreadCrossingFIFO = GeneralHelper::isType<Node, ThreadCrossingFIFO>(nodes[i]) != nullptr;
@@ -3008,7 +2885,7 @@ bool MultiThreadEmitterHelpers::checkNoNodesInIO(std::vector<std::shared_ptr<Nod
     return true;
 }
 
-void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix,
+void MultiThreadEmit::writeTelemConfigJSONFile(std::string path, std::string telemDumpPrefix,
                                                          std::string designName, std::map<int, int> partitionToCPU,
                                                          int ioPartitionNumber, std::string graphmlSchedFile) {
     std::string fileName = telemDumpPrefix + "telemConfig";\
@@ -3067,7 +2944,7 @@ void MultiThreadEmitterHelpers::writeTelemConfigJSONFile(std::string path, std::
     configFile.close();
 }
 
-void MultiThreadEmitterHelpers::writePlatformParameters(std::string path, std::string filename, int memAlignment){
+void MultiThreadEmit::writePlatformParameters(std::string path, std::string filename, int memAlignment){
     std::cout << "Emitting C File: " << path << "/" << filename << ".h" << std::endl;
 
     std::ofstream headerFile;
@@ -3082,7 +2959,7 @@ void MultiThreadEmitterHelpers::writePlatformParameters(std::string path, std::s
     headerFile.close();
 }
 
-void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std::string filename){
+void MultiThreadEmit::writeNUMAAllocHelperFiles(std::string path, std::string filename){
     std::cout << "Emitting C File: " << path << "/" << filename << ".h" << std::endl;
 
     std::ofstream headerFile;
@@ -3357,7 +3234,7 @@ void MultiThreadEmitterHelpers::writeNUMAAllocHelperFiles(std::string path, std:
     cFile.close();
 }
 
-std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter) {
+std::string MultiThreadEmit::getClkDomainIndVarName(std::pair<int, int> clkDomainRate, bool counter) {
     std::string indVarName = BLOCK_IND_VAR_PREFIX;
 
     if(clkDomainRate != std::pair<int, int>(1, 1)){
@@ -3371,7 +3248,7 @@ std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::pair<int, int
     return indVarName;
 }
 
-std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter) {
+std::string MultiThreadEmit::getClkDomainIndVarName(std::shared_ptr<ClockDomain> clkDomain, bool counter) {
     std::pair<int, int> rate = std::pair<int, int>(1, 1);
 
     if(clkDomain){
@@ -3381,7 +3258,7 @@ std::string MultiThreadEmitterHelpers::getClkDomainIndVarName(std::shared_ptr<Cl
     return getClkDomainIndVarName(rate, counter);
 }
 
-std::string MultiThreadEmitterHelpers::computeIODoubleBufferTypeToString(ComputeIODoubleBufferType computeIODoubleBufferType){
+std::string MultiThreadEmit::computeIODoubleBufferTypeToString(ComputeIODoubleBufferType computeIODoubleBufferType){
     switch(computeIODoubleBufferType){
         case ComputeIODoubleBufferType::NONE:
             return "NONE";
@@ -3392,11 +3269,11 @@ std::string MultiThreadEmitterHelpers::computeIODoubleBufferTypeToString(Compute
         case ComputeIODoubleBufferType::OUTPUT:
             return "OUTPUT";
         default:
-            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown MultiThreadEmitterHelpers"));
+            throw std::runtime_error(ErrorHelpers::genErrorStr("Unknown MultiThreadEmit"));
     }
 }
 
-MultiThreadEmitterHelpers::ComputeIODoubleBufferType MultiThreadEmitterHelpers::parseComputeIODoubleBufferType(std::string computeIODoubleBufferType){
+MultiThreadEmit::ComputeIODoubleBufferType MultiThreadEmit::parseComputeIODoubleBufferType(std::string computeIODoubleBufferType){
     if(computeIODoubleBufferType == "NONE" || computeIODoubleBufferType == "none"){
         return ComputeIODoubleBufferType::NONE;
     }else if(computeIODoubleBufferType == "INPUT_AND_OUTPUT" || computeIODoubleBufferType == "input_and_output"){

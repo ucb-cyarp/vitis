@@ -11,9 +11,11 @@
 #include "GraphCore/Design.h"
 #include "GraphMLTools/GraphMLDialect.h"
 #include "MultiThread/PartitionParams.h"
-#include "MultiThread/MultiThreadEmitterHelpers.h"
+#include "Emitter/MultiThreadEmit.h"
 #include "General/ErrorHelpers.h"
 #include "General/FileIOHelpers.h"
+#include "General/TopologicalSortParameters.h"
+#include "Flows/MultiThreadGenerator.h"
 
 int main(int argc, char* argv[]) {
 
@@ -26,7 +28,8 @@ int main(int argc, char* argv[]) {
         std::cout << "Usage: " << std::endl;
         std::cout << "    multiThreadedGenerator inputfile.graphml outputDir designName --partitioner <PARTITIONER> " << std::endl;
         std::cout << "                           --fifoType <FIFO_TYPE> --schedHeur <SCHED_HEUR> --randSeed <SCHED_RAND_SEED> " << std::endl;
-        std::cout << "                           --blockSize <BLOCK_SIZE> --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> " << std::endl;
+        std::cout << "                           --blockSize <BLOCK_SIZE> --subBlockSize <SUB_BLOCK_SIZE>" << std::endl;
+        std::cout << "                           --fifoLength <FIFO_LENGTH> --ioFifoSize <IO_FIFO_SIZE> " << std::endl;
         std::cout << "                           --partitionMap <PARTITION_MAP> <--emitGraphMLSched> <--printSched> " << std::endl;
         std::cout << "                           <--threadDebugPrint> <--printTelem> <--telemDumpPrefix> " << std::endl;
         std::cout << "                           --memAlignment <MEM_ALIGNMENT>" << std::endl;
@@ -52,6 +55,9 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
         std::cout << "Possible BLOCK_SIZE (block size in samples):" << std::endl;
         std::cout << "    unsigned long blockSize <DEFAULT = 1>" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Possible SUB_BLOCK_SIZE (sub block size in samples):" << std::endl;
+        std::cout << "    unsigned long subBlockSize <DEFAULT = 1>" << std::endl;
         std::cout << std::endl;
         std::cout << "Possible FIFO_LENGTH (length of FIFOs in blocks):" << std::endl;
         std::cout << "    unsigned long fifoLength <DEFAULT = 16>" << std::endl;
@@ -99,6 +105,7 @@ int main(int argc, char* argv[]) {
     TopologicalSortParameters::Heuristic heuristic = TopologicalSortParameters::Heuristic::BFS;
     unsigned long randSeed = 4;
     unsigned long blockSize = 1;
+    unsigned long subBlockSize = 0;
     unsigned long fifoLength = 16;
     unsigned long ioFifoSize = 16;
     std::vector<int> partitionMap;
@@ -112,7 +119,7 @@ int main(int argc, char* argv[]) {
     std::string telemDumpPrefix = "";
     std::string pipeNameSuffix = "";
     PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior = PartitionParams::FIFOIndexCachingBehavior::NONE;
-    MultiThreadEmitterHelpers::ComputeIODoubleBufferType fifoDoubleBuffer = MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE;
+    MultiThreadEmit::ComputeIODoubleBufferType fifoDoubleBuffer = MultiThreadEmit::ComputeIODoubleBufferType::NONE;
 
     EmitterHelpers::TelemetryLevel telemLevel = EmitterHelpers::TelemetryLevel::NONE;
     int telemCheckBlockFreq = 100;
@@ -169,6 +176,20 @@ int main(int argc, char* argv[]) {
                 }
             } catch (std::invalid_argument e) {
                 std::cerr << "Invalid command line option type: --blockSize " << argv[i] << std::endl;
+                exit(1);
+            }
+        }else if(strcmp(argv[i], "--subBlockSize") == 0) {
+            i++;
+            std::string argStr = argv[i];
+            try {
+                unsigned long parsedSubBlockSize = std::stoul(argStr);
+                subBlockSize = parsedSubBlockSize;
+                if(subBlockSize<0){
+                    std::cerr << "Invalid command line option type: --subBlockSize must be >= 0 (0 for Propagate from Annotations in Design).  Currently:  " << argv[i] << std::endl;
+                    exit(1);
+                }
+            } catch (std::invalid_argument e) {
+                std::cerr << "Invalid command line option type: --subBlockSize " << argv[i] << std::endl;
                 exit(1);
             }
         }else if(strcmp(argv[i], "--fifoLength") == 0) {
@@ -289,7 +310,7 @@ int main(int argc, char* argv[]) {
         }else if(strcmp(argv[i], "--fifoDoubleBuffering") == 0){
             i++; //Get the actual argument
             try{
-                MultiThreadEmitterHelpers::ComputeIODoubleBufferType parsedFifoDoubleBuffer = MultiThreadEmitterHelpers::parseComputeIODoubleBufferType(argv[i]);
+                MultiThreadEmit::ComputeIODoubleBufferType parsedFifoDoubleBuffer = MultiThreadEmit::parseComputeIODoubleBufferType(argv[i]);
                 fifoDoubleBuffer = parsedFifoDoubleBuffer;
             }catch(std::runtime_error e){
                 std::cerr << "Unknown command line option selection: --fifoDoubleBuffering " << argv[i] << std::endl;
@@ -318,7 +339,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Double Buffer can only be used with in-place FIFOs
-    if(fifoDoubleBuffer != MultiThreadEmitterHelpers::ComputeIODoubleBufferType::NONE &&
+    if(fifoDoubleBuffer != MultiThreadEmit::ComputeIODoubleBufferType::NONE &&
        fifoType != ThreadCrossingFIFOParameters::ThreadCrossingFIFOType::LOCKLESS_INPLACE_X86){
         std::cerr << "Double Buffering Requires in-place FIFOs" << std::endl;
         return 1;
@@ -360,7 +381,7 @@ int main(int argc, char* argv[]) {
     //Print Partitioner and Scheduler
     std::cout << "PARTITIONER: " << PartitionParams::partitionTypeToString(partitioner) << std::endl;
     std::cout << "FIFO_TYPE: " << ThreadCrossingFIFOParameters::threadCrossingFIFOTypeToString(fifoType) << std::endl;
-    std::cout << "FIFO_DOUBLE_BUFFERING: " << MultiThreadEmitterHelpers::computeIODoubleBufferTypeToString(fifoDoubleBuffer) << std::endl;
+    std::cout << "FIFO_DOUBLE_BUFFERING: " << MultiThreadEmit::computeIODoubleBufferTypeToString(fifoDoubleBuffer) << std::endl;
     std::cout << "FIFO_INDEX_CACHE_BEHAVIOR: " << PartitionParams::fifoIndexCachingBehaviorToString(fifoIndexCachingBehavior) << std::endl;
     std::cout << "SCHED: " << SchedParams::schedTypeToString(sched) << std::endl;
     if(sched == SchedParams::SchedType::TOPOLOGICAL_CONTEXT || sched == SchedParams::SchedType::TOPOLOGICAL){
@@ -368,6 +389,7 @@ int main(int argc, char* argv[]) {
         std::cout << "SCHED_RAND_SEED: " << topoParams.getRandSeed() << std::endl;
     }
     std::cout << "Block Size: " << blockSize << std::endl;
+    std::cout << "Sub-Block Size: " << subBlockSize << std::endl;
     std::cout << "FIFO Size: " << fifoLength << std::endl;
 
     bool propagatePartitionsFromSubsystems = true;
@@ -380,15 +402,19 @@ int main(int argc, char* argv[]) {
 
     FileIOHelpers::createDirectoryIfDoesNotExist(outputDir, true);
 
+    bool propagateSubBlockingLengthFromSubSystems = subBlockSize<1;
+
     //Emit threads, kernel (starter function), benchmarking driver, and makefile
     try{
-        design->emitMultiThreadedC(outputDir, designName, designName, sched, topoParams,
-                                   fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize,
-                                   propagatePartitionsFromSubsystems, partitionMap, threadDebugPrint,
-                                   ioFifoSize, printTelem, telemDumpPrefix, telemLevel,
-                                   telemCheckBlockFreq, telemReportPeriodSec, memAlignment,
-                                   useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer,
-                                   pipeNameSuffix);
+        MultiThreadGenerator::emitMultiThreadedC(*design, outputDir, designName, designName, sched, topoParams,
+                                                 fifoType, emitGraphMLSched, printNodeSched, fifoLength, blockSize,
+                                                 subBlockSize, propagatePartitionsFromSubsystems,
+                                                 propagateSubBlockingLengthFromSubSystems,
+                                                 partitionMap, threadDebugPrint,
+                                                 ioFifoSize, printTelem, telemDumpPrefix, telemLevel,
+                                                 telemCheckBlockFreq, telemReportPeriodSec, memAlignment,
+                                                 useSCHEDFIFO, fifoIndexCachingBehavior, fifoDoubleBuffer,
+                                                 pipeNameSuffix);
     }catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         return 1;

@@ -37,9 +37,30 @@ namespace StreamIOThread {
      */
     std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> getOutputPortFIFOMapping(std::shared_ptr<MasterOutput> masterOutput);
 
-    void copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName, std::vector<int> blockSizes);
+    /**
+     * @brief
+     *
+     * @warning Note that masterInputVars should have datatypes which are already expanded for blocking
+     *
+     * @param ioThread
+     * @param masterInputVars
+     * @param inputPortFifoMap
+     * @param linuxInputPipeName
+     */
+    void copyIOInputsToFIFO(std::ofstream &ioThread, std::vector<Variable> masterInputVars, std::map<int, std::vector<std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>>> inputPortFifoMap, std::string linuxInputPipeName);
 
-    void copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Variable> masterOutputVars, std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap, std::shared_ptr<MasterOutput> outputMaster, std::string linuxOutputPipeName, std::vector<int> blockSizes);
+    /**
+     * @brief
+     *
+     * @warning Note that masterInputVars should have datatypes which are already expanded for blocking
+     *
+     * @param ioThread
+     * @param masterOutputVars
+     * @param outputPortFifoMap
+     * @param outputMaster
+     * @param linuxOutputPipeName
+     */
+    void copyFIFOToIOOutputs(std::ofstream &ioThread, std::vector<Variable> masterOutputVars, std::map<int, std::pair<std::shared_ptr<ThreadCrossingFIFO>, int>> outputPortFifoMap, std::shared_ptr<MasterOutput> outputMaster, std::string linuxOutputPipeName);
 
     /**
      * @brief Emits an I/O handler for multi-threaded emit focused on benchmarking.  This version opens 2 linux named pipes (FIFOs).  Data is provided by an external program and
@@ -69,9 +90,9 @@ namespace StreamIOThread {
     void emitSocketClientLib(std::shared_ptr<MasterInput> inputMaster, std::shared_ptr<MasterOutput> outputMaster, std::string path, std::string fileNamePrefix, std::string fifoHeaderFile, std::string designName);
 
     void sortIntoBundles(std::vector<Variable> inputMasterVars, std::vector<Variable> outputMasterVars,
-                                std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
-                                std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterInputBundles,
-                                std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterOutputBundles, std::set<int> &bundles);
+                         std::vector<int> inputBlockSizes, std::vector<int> outputBlockSizes,
+                         std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterInputBundles,
+                         std::map<int, std::pair<std::vector<Variable>, std::vector<int>>> &masterOutputBundles, std::set<int> &bundles);
 
     /**
      * @brief Emits the helper files for working with shared memory fifos which use the POSIX API

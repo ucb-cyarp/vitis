@@ -7,6 +7,7 @@
 
 #include "GraphCore/Node.h"
 #include "ClockDomain.h"
+#include "GraphMLTools/GraphMLDialect.h"
 #include <memory>
 
 /**
@@ -21,7 +22,10 @@
  */
 class RateChange : public Node {
 friend class NodeFactory;
+
 protected:
+    bool useVectorSamplingMode; ///<If true, uses vector sampling instead of a counter and conditional to implement the clock domain
+
     /**
      * @brief Default constructor for RateChange
      */
@@ -50,7 +54,17 @@ protected:
      */
     RateChange(std::shared_ptr<SubSystem> parent, RateChange* orig);
 
+    /**
+     * @brief Emits properties of the node.  Factored out so that subclasses can use the same function
+     * @param doc
+     * @param graphNode
+     */
+    virtual void emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement* thisNode);
+
 public:
+    bool isUsingVectorSamplingMode() const;
+    void setUseVectorSamplingMode(bool useVectorSamplingMode);
+
     /**
      * @brief Gets the rate change at the boundary of this block as a ratio of upsampling to downsampling
      * @return A pair with (upsample, downsample) representing a rate change of upsample/downsample
@@ -102,6 +116,36 @@ public:
      * @return Return true if a specialized input, return false if an output
      */
     virtual bool isInput();
+
+    /**
+     * @brief Copy common parameters from another RateChange node
+     *
+     * This is used when specializing RateChange nodes
+     *
+     * @param orig the RateChange node to copy from
+     */
+    void populateParametersFromRateChangeNode(std::shared_ptr<RateChange> orig);
+
+    /**
+     * @brief Populates parameters for this node from GraphML.  Factored out so that subclasses can use the same import method.
+     * @param graphNode
+     * @param include_block_node_type
+     */
+    void populateRateChangeParametersFromGraphML(int id, std::string name,
+                                                 std::map<std::string, std::string> dataKeyValueMap,
+                                                 GraphMLDialect dialect);
+
+    std::set<GraphMLParameter> graphMLParameters() override;
+
+    /**
+     * @brief Gets variables from the node which need to be declared outside of the clock domain which are not state variables.
+     *        This is primarily used for Upsample and Repeat operating in vector mode
+     *        These will be declared as context variables in the clock domain
+     * @return
+     */
+    virtual std::vector<Variable> getVariablesToDeclareOutsideClockDomain();
+
+    bool specializesForBlocking() override;
 };
 
 /*! @} */

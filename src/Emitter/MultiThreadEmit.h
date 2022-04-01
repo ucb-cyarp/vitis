@@ -2,16 +2,16 @@
 // Created by Christopher Yarp on 9/3/19.
 //
 
-#ifndef VITIS_MULTITHREADEMITTERHELPERS_H
-#define VITIS_MULTITHREADEMITTERHELPERS_H
+#ifndef VITIS_MULTITHREADEMIT_H
+#define VITIS_MULTITHREADEMIT_H
 
 #include <vector>
 #include <memory>
 #include "GraphCore/NumericValue.h"
 #include "GraphCore/SchedParams.h"
 #include "GraphCore/Variable.h"
-#include "PartitionParams.h"
-#include "ThreadCrossingFIFOParameters.h"
+#include "MultiThread/PartitionParams.h"
+#include "MultiThread/ThreadCrossingFIFOParameters.h"
 #include "General/EmitterHelpers.h"
 #include <set>
 #include <map>
@@ -28,7 +28,8 @@ class MasterOutput;
 class ClockDomain;
 
 /**
- * \addtogroup MultiThread Multi-Thread Support
+ * \addtogroup Emitter Emitter Helpers and Functions
+ * @brief Helpers and functions for emitting a design
  * @{
  */
 
@@ -36,9 +37,9 @@ class ClockDomain;
 #define BLOCK_IND_VAR_PREFIX "blkInd"
 
 /**
- * @brief Contains helper methods for Multi-Threaded Emitters
+ * @brief Contains helper methods for Multi-Threaded Target Emitters
  */
-namespace MultiThreadEmitterHelpers {
+namespace MultiThreadEmit {
     /**
      * @brief Determines the type of double buffering scheme used for
      */
@@ -290,7 +291,7 @@ namespace MultiThreadEmitterHelpers {
      * @param designName The name of the design (used as the function name)
      * @param schedType Schedule type
      * @param outputMaster a pointer to the output master of the design being emitted
-     * @param blockSize the size of the block (in samples) that is processed in each call to the emitted C function.  This is the size for the base rate.
+     * @param blockSizeBase the size of the block (in samples) that is processed in each call to the emitted C function.  This is the size for the base rate.
      * @param fifoHeaderFile the filename of the FIFO Header which defines FIFO structures (if needed)
      * @param fifoSupportFile the filename of the FIFO support file
      * @param threadDebugPrint if true, inserts print statements into the thread function to report when it reaches various points in the execution loop
@@ -306,16 +307,16 @@ namespace MultiThreadEmitterHelpers {
      */
     void emitPartitionThreadC(int partitionNum, std::vector<std::shared_ptr<Node>> nodesToEmit,
                               std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
-                              std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs, std::string path,
+                              std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
+                              std::set<std::shared_ptr<ClockDomain>> clockDomainsInPartition, std::string path,
                               std::string fileNamePrefix, std::string designName, SchedParams::SchedType schedType,
-                              std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSize,
+                              std::shared_ptr<MasterOutput> outputMaster, unsigned long blockSizeBase,
                               std::string fifoHeaderFile, std::string fifoSupportFile, bool threadDebugPrint,
-                              bool printTelem, EmitterHelpers::TelemetryLevel telemLevel,
-                              int telemReportFreqBlockFreq, double reportPeriodSeconds,
-                              std::string telemDumpFilePrefix, bool telemAvg, std::string papiHelperHeader,
+                              bool printTelem, EmitterHelpers::TelemetryLevel telemLevel, int telemReportFreqBlockFreq,
+                              double reportPeriodSeconds, std::string telemDumpFilePrefix, bool telemAvg,
+                              std::string papiHelperHeader,
                               PartitionParams::FIFOIndexCachingBehavior fifoIndexCachingBehavior,
-                              ComputeIODoubleBufferType doubleBuffer,
-                              bool singleClkDomain, std::pair<int, int> singleRate);
+                              ComputeIODoubleBufferType doubleBuffer);
 
     /**
      * @brief Defines the structure containing the state for a particular partition
@@ -352,7 +353,7 @@ namespace MultiThreadEmitterHelpers {
      */
     std::string getPartitionComputeCFunctionArgPrototype(std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                          std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                         int blockSize, std::string stateTypeName,
+                                                         std::string stateTypeName,
                                                          ComputeIODoubleBufferType doubleBuffer);
 
     /**
@@ -367,7 +368,7 @@ namespace MultiThreadEmitterHelpers {
     std::string getCallPartitionComputeCFunction(std::string computeFctnName,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> inputFIFOs,
                                                  std::vector<std::shared_ptr<ThreadCrossingFIFO>> outputFIFOs,
-                                                 int blockSize, bool fifoInPlace, std::string stateStructParam,
+                                                 bool fifoInPlace, std::string stateStructParam,
                                                  ComputeIODoubleBufferType doubleBuffer,
                                                  std::string inputFIFOSuffix,
                                                  std::string outputFIFOSuffix,
@@ -410,10 +411,8 @@ namespace MultiThreadEmitterHelpers {
      * like to schedule
      *
      * @param cFile the cFile to emit to
-     * @param blockSize the size of the block (in samples) that are processed in each call to the function
-     * @param indVarName the variable that specifies the index in the block that is being computed
      */
-    void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster, int blockSize = 1, std::string indVarName = "");
+    void emitSelectOpsSchedStateUpdateContext(std::ofstream &cFile, std::vector<std::shared_ptr<Node>> &nodesToEmit, SchedParams::SchedType schedType, std::shared_ptr<MasterOutput> outputMaster);
 
     //Checks that the only nodes that are in the I/O partition are ThreadCrossingFIFOs or subsystems
     bool checkNoNodesInIO(std::vector<std::shared_ptr<Node>> nodes);
@@ -448,4 +447,4 @@ namespace MultiThreadEmitterHelpers {
 
 /*! @} */
 
-#endif //VITIS_MULTITHREADEMITTERHELPERS_H
+#endif //VITIS_MULTITHREADEMIT_H

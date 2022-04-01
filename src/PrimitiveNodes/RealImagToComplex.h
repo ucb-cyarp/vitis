@@ -91,6 +91,31 @@ public:
     CExpr emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType, int outputPortNum,
                     bool imag = false) override;
 
+    bool passesThroughInputs() override;
+
+    /**
+     * @brief Specialize for blocking so that superfluous Blocking Input and Output nodes are not created
+     * @param localBlockingLength
+     * @param localSubBlockingLength
+     * @param nodesToAdd
+     * @param nodesToRemove
+     * @param arcsToAdd
+     * @param arcsToRemove
+     * @param nodesToRemoveFromTopLevel
+     * @param arcsWithDeferredBlockingExpansion
+     */
+    void specializeForBlocking(int localBlockingLength,
+                               int localSubBlockingLength,
+                               std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                               std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                               std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                               std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                               std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>>
+                                   &arcsWithDeferredBlockingExpansion) override;
+
+    bool specializesForBlocking() override;
+
 };
 
 /*! @} */

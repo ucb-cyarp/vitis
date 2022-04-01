@@ -22,9 +22,7 @@ Downsample::Downsample(std::shared_ptr<SubSystem> parent, Downsample *orig) : Ra
 }
 
 void Downsample::populateParametersExceptRateChangeNodes(std::shared_ptr<Downsample> orig) {
-    name = orig->getName();
-    partitionNum = orig->getPartitionNum();
-    schedOrder = orig->getSchedOrder();
+    populateParametersFromRateChangeNode(orig);
     downsampleRatio = orig->getDownsampleRatio();
 }
 
@@ -39,8 +37,7 @@ void Downsample::setDownsampleRatio(int downsampleRatio) {
 void Downsample::populateDownsampleParametersFromGraphML(int id, std::string name,
                                                          std::map<std::string, std::string> dataKeyValueMap,
                                                          GraphMLDialect dialect){
-    setId(id);
-    setName(name);
+    populateRateChangeParametersFromGraphML(id, name, dataKeyValueMap, dialect);
 
     if (dialect == GraphMLDialect::SIMULINK_EXPORT) {
         //==== Check Supported Config (Only if Simulink Import)====
@@ -76,7 +73,7 @@ Downsample::createFromGraphML(int id, std::string name, std::map<std::string, st
 }
 
 std::set<GraphMLParameter> Downsample::graphMLParameters() {
-    std::set<GraphMLParameter> parameters;
+    std::set<GraphMLParameter> parameters = RateChange::graphMLParameters();
 
     //TODO: Declaring types as string so that complex can be stored.  Re-evaluate this
     parameters.insert(GraphMLParameter("DownsampleRatio", "string", true));
@@ -85,6 +82,7 @@ std::set<GraphMLParameter> Downsample::graphMLParameters() {
 }
 
 void Downsample::emitGraphMLProperties(xercesc::DOMDocument *doc, xercesc::DOMElement* thisNode){
+    RateChange::emitGraphMLProperties(doc, thisNode);
     GraphMLHelper::addDataNode(doc, thisNode, "DownsampleRatio", GeneralHelper::to_string(downsampleRatio));
 }
 
@@ -129,8 +127,24 @@ void Downsample::validate() {
     DataType outType = getOutputPort(0)->getDataType();
     DataType inType = getInputPort(0)->getDataType();
 
-    if(inType != outType){
-        throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - Upsample - DataType of Input Port Does not Match Output Port", getSharedPointer()));
+    if(useVectorSamplingMode){
+        DataType inputDTScaled = inType;
+        //Scale the outer dimension
+        std::vector<int> inputDim = inputDTScaled.getDimensions();
+        std::pair<int, int> rateChange = getRateChangeRatio();
+        inputDim[0] *= rateChange.first;
+        inputDim[0] /= rateChange.second;
+        inputDTScaled.setDimensions(inputDim);
+
+        if(inputDTScaled != outType){
+            throw std::runtime_error(ErrorHelpers::genErrorStr("When using VectorSamplingMode, output dimensions should be scaled relative to input dimensions", getSharedPointer()));
+        }
+    }else {
+        if (inType != outType) {
+            throw std::runtime_error(ErrorHelpers::genErrorStr(
+                    "Validation Failed - Upsample - DataType of Input Port Does not Match Output Port",
+                    getSharedPointer()));
+        }
     }
 
     //TODO: Add width options (single to vector)

@@ -34,9 +34,14 @@ protected:
     std::vector<std::shared_ptr<ContextVariableUpdate>> contextVariableUpdateNodes; ///<A list of ContextVariableUpdate nodes associated with this ContextRoot
     std::map<int, std::shared_ptr<ContextFamilyContainer>> contextFamilyContainers; ///<The corresponding context family containers (if any exists) for this ContextRoot
     std::map<int, std::vector<std::shared_ptr<Arc>>> contextDriversPerPartition; ///<Contains a map of context driver arcs to individual partitions (may be different arcs for each partition).  Likely set in the encapsulateContexts method
-    std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas; ///<A map of DummyReplica nodes for partitions this context root exists in.  These are typicallyt created if ContextDriver replication occurs
+    std::map<int, std::shared_ptr<DummyReplica>> dummyReplicas; ///<A map of DummyReplica nodes for partitions this context root exists in.  These are typically created if ContextDriver replication occurs
 
 public:
+    /**
+     * Virtual destructor for context root
+     */
+    virtual ~ContextRoot() = default;
+
     /**
      * @brief Add a node to the specified sub-context vector
      *
@@ -48,7 +53,7 @@ public:
     void addSubContextNode(unsigned long subContext, std::shared_ptr<Node> node);
 
     /**
-     * @brief Gets a vector of nodes in the specified sub-context (but not in sub-contexts)
+     * @brief Gets a vector of nodes in the specified sub-context (but not in nested contexts)
      * @param subContext the sub-context to get the list of nodes for
      * @return a copy of the sub-context nodes vector
      */
@@ -81,6 +86,8 @@ public:
     std::shared_ptr<DummyReplica> getDummyReplica(int partition);
 
     void setDummyReplica(int partition, std::shared_ptr<DummyReplica> dummyReplica);
+
+    void clearNodesInSubContexts();
 
     /**
      * @brief Gets the arc(s) that drive the decision for the context

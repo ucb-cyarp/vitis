@@ -33,6 +33,8 @@ if (CMAKE_VERSION VERSION_LESS 2.8.11)
     include_directories("${gtest_SOURCE_DIR}/include")
 endif()
 
+find_package(Boost REQUIRED filesystem)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Now simply link against gtest or gtest_main as needed.
 set(TEST_WORKING_DIR, ${CMAKE_BINARY_DIR}/test) #Issue with using the current binary DIR for some reason with the add_test method
@@ -58,9 +60,11 @@ add_executable(testRunner
         src/TestEnabledSubsys.cpp
         src/DSP_TestFastRxBaseband.cpp
         src/DSP_Stateflow_CoarseCFO_est.cpp
-        )
+        src/StronglyConnectedComponents.cpp
+        src/DSPTestHelper.cpp
+        src/DSPTestHelper.h)
 
-target_link_libraries(testRunner gtest_main VitisLib ${XercesC_LIBRARIES})
+target_link_libraries(testRunner gtest_main VitisLib ${XercesC_LIBRARIES} ${Boost_LIBRARIES})
 add_test(testRunner testRunner WORKING_DIRECTORY ${TEST_WORKING_DIR})
 
 #Copy Stimulus Files (https://cmake.org/cmake/help/v3.0/command/file.html)

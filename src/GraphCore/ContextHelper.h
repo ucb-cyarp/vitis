@@ -11,6 +11,7 @@
 #include "PrimitiveNodes/Mux.h"
 #include "EnabledSubSystem.h"
 #include "MultiRate/ClockDomain.h"
+#include "Blocking/BlockingDomain.h"
 
 /**
  * \addtogroup GraphCore Graph Core
@@ -58,14 +59,16 @@ public:
         std::vector<std::shared_ptr<Mux>> discoveredMuxes;
         std::vector<std::shared_ptr<EnabledSubSystem>> discoveredEnabledSubsystems;
         std::vector<std::shared_ptr<ClockDomain>> discoveredClockDomains;
+        std::vector<std::shared_ptr<BlockingDomain>> discoveredBlockingDomains;
         std::vector<std::shared_ptr<Node>> discoveredGeneral;
 
-        rootNode->discoverAndUpdateContexts(newContextStack, discoveredMuxes, discoveredEnabledSubsystems, discoveredClockDomains, discoveredGeneral);
+        rootNode->discoverAndUpdateContexts(newContextStack, discoveredMuxes, discoveredEnabledSubsystems, discoveredClockDomains, discoveredBlockingDomains, discoveredGeneral);
 
         std::vector<std::shared_ptr<Node>> discoveredNodes;
         discoveredNodes.insert(discoveredNodes.end(), discoveredMuxes.begin(), discoveredMuxes.end());
         discoveredNodes.insert(discoveredNodes.end(), discoveredEnabledSubsystems.begin(), discoveredEnabledSubsystems.end());
         discoveredNodes.insert(discoveredNodes.end(), discoveredClockDomains.begin(), discoveredClockDomains.end());
+        discoveredNodes.insert(discoveredNodes.end(), discoveredBlockingDomains.begin(), discoveredBlockingDomains.end());
         discoveredNodes.insert(discoveredNodes.end(), discoveredGeneral.begin(), discoveredGeneral.end());
 
         //Set the nodes in the context for this enabled subsystem
@@ -78,6 +81,9 @@ public:
         for(unsigned long i = 0; i<discoveredClockDomains.size(); i++){
             rootNode->addSubContextNode(0, discoveredClockDomains[i]);
         }
+        for(const std::shared_ptr<BlockingDomain> &blockingDomain : discoveredBlockingDomains){
+            rootNode->addSubContextNode(0, blockingDomain);
+        }
         for(unsigned long i = 0; i<discoveredGeneral.size(); i++){
             rootNode->addSubContextNode(0, discoveredGeneral[i]);
         }
@@ -86,7 +92,7 @@ public:
         //Note that context should be set for the nodes within this subsystem before this is called (done above)
         Mux::discoverAndMarkMuxContextsAtLevel(discoveredMuxes);
 
-        //Recursivly call on the discovered enabled subsystems
+        //Recursively call on the discovered enabled subsystems
         for(unsigned long i = 0; i<discoveredEnabledSubsystems.size(); i++){
             std::vector<std::shared_ptr<Node>> nestedDiscoveries = discoveredEnabledSubsystems[i]->discoverAndMarkContexts(newContextStack);
 
@@ -99,9 +105,22 @@ public:
             }
         }
 
-        //Recursivly call on the discovered ClockDomains
+        //Recursively call on the discovered ClockDomains
         for(unsigned long i = 0; i<discoveredClockDomains.size(); i++){
             std::vector<std::shared_ptr<Node>> nestedDiscoveries = discoveredClockDomains[i]->discoverAndMarkContexts(newContextStack);
+
+            //Add nodes returned by recursive call
+            discoveredNodes.insert(discoveredNodes.end(), nestedDiscoveries.begin(), nestedDiscoveries.end());
+
+            //Add the nodes returned by the recursive call to the list of nodes within this context
+            for(unsigned long j = 0; j<nestedDiscoveries.size(); j++){
+                rootNode->addSubContextNode(0, nestedDiscoveries[j]);
+            }
+        }
+
+        //Recursively call on the discovered BlockingDomains
+        for(const std::shared_ptr<BlockingDomain> &blockingDomain : discoveredBlockingDomains){
+            std::vector<std::shared_ptr<Node>> nestedDiscoveries = blockingDomain->discoverAndMarkContexts(newContextStack);
 
             //Add nodes returned by recursive call
             discoveredNodes.insert(discoveredNodes.end(), nestedDiscoveries.begin(), nestedDiscoveries.end());

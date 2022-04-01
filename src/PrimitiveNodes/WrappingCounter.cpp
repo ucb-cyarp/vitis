@@ -130,7 +130,7 @@ void WrappingCounter::validate() {
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - WrappingCounter - Output should not be a floating point type", getSharedPointer()));
     }
 
-    if(log2(countTo) + (outType.isSignedType() ? 1 : 0) > outType.getTotalBits()){
+    if(log2(countTo+1) + (outType.isSignedType() ? 1 : 0) > outType.getTotalBits()){
         throw std::runtime_error(ErrorHelpers::genErrorStr("Validation Failed - WrappingCounter - Not enough bits in output", getSharedPointer()));
     }
 }
@@ -147,7 +147,7 @@ std::vector<Variable> WrappingCounter::getCStateVars() {
     std::vector<Variable> vars;
 
     //There is a single state variable for the counter.
-    DataType stateType(false, false, false, log2(countTo), 0, {1});
+    DataType stateType(false, false, false, log2(countTo+1), 0, {1});
     stateType = stateType.getCPUStorageType();
 
     std::string varName = name+"_n"+GeneralHelper::to_string(id)+"_state";

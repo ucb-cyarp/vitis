@@ -83,7 +83,12 @@ std::shared_ptr<Node> UpsampleOutput::shallowClone(std::shared_ptr<SubSystem> pa
 }
 
 bool UpsampleOutput::hasState() {
-    return true;
+    if(useVectorSamplingMode){
+        //TODO: Change if phase can be configured to not be 0.  Otherwise, some state will be needed to cary an element over
+        return false;
+    }else {
+        return true;
+    }
 }
 
 bool UpsampleOutput::hasCombinationalPath() {
@@ -94,15 +99,22 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
                                            std::vector<std::shared_ptr<Node>> &deleted_nodes,
                                            std::vector<std::shared_ptr<Arc>> &new_arcs,
                                            std::vector<std::shared_ptr<Arc>> &deleted_arcs, bool includeContext) {
+    //TODO: Remove Check
+    if(isUsingVectorSamplingMode()){
+        throw std::runtime_error(ErrorHelpers::genErrorStr("When using useVectorSamplingMode, state update nodes should not be created", getSharedPointer()));
+    }
 
     if(!includeContext) {
         throw std::runtime_error(ErrorHelpers::genErrorStr("UpsampleOutput StateUpdate creation requires contexts to be present and includeContexts to be enabled", getSharedPointer()));
     }
 
+    //Do not check Node::passesThroughInputs since this StateUpdate is used to implement Latch like behavior with the destination being the state element
+
     //==== Add Latch State Update Node.  This is the same as RepeatOutput ====
     std::shared_ptr<StateUpdate> stateUpdateLatch = NodeFactory::createNode<StateUpdate>(getParent());
     stateUpdateLatch->setName("StateUpdate-For-" + getName() + "-Latch");
     stateUpdateLatch->setPartitionNum(partitionNum);
+    stateUpdateLatch->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdateLatch->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdateLatch); //Set the state update node pointer in this node
 
@@ -159,6 +171,7 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
     std::shared_ptr<StateUpdate> stateUpdateZero = NodeFactory::createNode<StateUpdate>(zeroParentNode);
     stateUpdateZero->setName("StateUpdate-For-" + getName() + "-Zero");
     stateUpdateZero->setPartitionNum(partitionNum);
+    stateUpdateZero->setBaseSubBlockingLen(baseSubBlockingLen);
     stateUpdateZero->setContext(zeroFillContext);
     stateUpdateZero->setPrimaryNode(getSharedPointer());
     addStateUpdateNode(stateUpdateZero);
@@ -170,7 +183,104 @@ bool UpsampleOutput::createStateUpdateNode(std::vector<std::shared_ptr<Node>> &n
 
 CExpr UpsampleOutput::emitCExpr(std::vector<std::string> &cStatementQueue, SchedParams::SchedType schedType,
                                 int outputPortNum, bool imag) {
-    return CExpr(stateVar.getCVarName(imag), stateVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
+    if(useVectorSamplingMode){
+        std::shared_ptr<OutputPort> srcOutputPort = getInputPort(0)->getSrcOutputPort();
+        int srcOutputPortNum = srcOutputPort->getPortNum();
+        std::shared_ptr<Node> srcNode = srcOutputPort->getParent();
+        CExpr inputExpr = srcNode->emitC(cStatementQueue, schedType, srcOutputPortNum, imag);
+        DataType inputDT = getInputPort(0)->getDataType();
+
+        Variable outputVar = getVectorModeOutputVariable();
+        DataType outputDT = outputVar.getDataType();
+
+        if(outputDT.isScalar()){
+            //TODO: remove check
+            if(!inputDT.isScalar()){
+                throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input/output dimensions", getSharedPointer()));
+            }
+            //Just pass the input value (which must be a scalar)
+            //Need to assign to output var explicitly instead of just returning the expression because
+            //the result needs to be accessible outside of the clock domain
+            cStatementQueue.insert(cStatementQueue.end(), outputVar.getCVarName(imag) + "=" + inputExpr.getExpr() + ";");
+
+            return CExpr(outputVar.getCVarName(imag),CExpr::ExprType::SCALAR_VAR);
+        }else{
+            //Reset output to 0 (Should be able to use optimized set instruction)
+            //TODO: Evaluate other method?
+            std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                    EmitterHelpers::generateVectorMatrixForLoops(outputDT.getDimensions());
+
+            std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+            std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+            std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+
+            cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+            std::string zeroAssignment = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + "=0;";
+            cStatementQueue.insert(cStatementQueue.end(), zeroAssignment);
+            cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+
+            if(inputDT.isScalar()){
+                //TODO: Remove check
+                if(!outputDT.isVector()){
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input/output dimensions", getSharedPointer()));
+                }
+
+                //If input is scalar, simply copy the value to the 0th position
+                std::string outputAssign = outputVar.getCVarName(imag) + "[0]=" + inputExpr.getExpr() + ";";
+                cStatementQueue.insert(cStatementQueue.end(), outputAssign);
+            }else{
+                //Otherwise, loop over the input and write into the output abiding by the stride
+                int stride = upsampleRatio;
+
+                //NOTE: There are 2 scenarios which can occur and the output type vs. input type will reveal which case is occurring.
+                //      - If the sub-blocking within the clock domain is 1 (the degenerate case), the vector/matrix at the input is the
+                //        primitive being upsampled.  The dimensionality at the output should be expanded
+                //      - If the sub-blocking within the clock domain is >1 (the normal case), the outer dimension is expanded by the
+                //        stride
+
+                bool degenerateCase;
+                std::vector<int> degenerateCaseExpectedOutputDims = inputDT.getDimensions();
+                degenerateCaseExpectedOutputDims.insert(degenerateCaseExpectedOutputDims.begin(), stride);
+                std::vector<int> standardCaseExpectedOutputDims = inputDT.getDimensions();
+                standardCaseExpectedOutputDims[0] *= stride;
+                if(degenerateCaseExpectedOutputDims == outputDT.getDimensions()){
+                    degenerateCase = true;
+                }else if(standardCaseExpectedOutputDims == outputDT.getDimensions()){
+                    degenerateCase = false;
+                }else{
+                    throw std::runtime_error(ErrorHelpers::genErrorStr("Unexpected input and output dimensions", getSharedPointer()));
+                }
+
+                std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<std::string>> forLoopStrs =
+                        EmitterHelpers::generateVectorMatrixForLoops(inputDT.getDimensions());
+                std::vector<std::string> forLoopOpen = std::get<0>(forLoopStrs);
+                std::vector<std::string> forLoopIndexVars = std::get<1>(forLoopStrs);
+                std::vector<std::string> forLoopClose = std::get<2>(forLoopStrs);
+                cStatementQueue.insert(cStatementQueue.end(), forLoopOpen.begin(), forLoopOpen.end());
+
+                std::vector<std::string> forLoopIndexVarsOutput = forLoopIndexVars;
+
+                if(degenerateCase){
+                    //In this case, we only have a single element at the input and the output type dimensionality was expanded
+                    //by the upsample rate.  Only 1 item is populated at the outer index 0
+                    forLoopIndexVarsOutput.insert(forLoopIndexVarsOutput.begin(), "0");
+                }else {
+                    forLoopIndexVarsOutput[0] += "*" + GeneralHelper::to_string(
+                            stride); //When writing into the output, the stride of the 1st dimension is set by the upsample rate
+                }
+
+                std::string outputAssign = outputVar.getCVarName(imag) + EmitterHelpers::generateIndexOperation(forLoopIndexVarsOutput) + "=" + inputExpr.getExpr() + EmitterHelpers::generateIndexOperation(forLoopIndexVars) + ";";
+                cStatementQueue.insert(cStatementQueue.end(), outputAssign);
+
+                cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+            }
+
+            return CExpr(outputVar.getCVarName(imag),CExpr::ExprType::ARRAY);
+        }
+    }else {
+        return CExpr(stateVar.getCVarName(imag), stateVar.getDataType().isScalar() ? CExpr::ExprType::SCALAR_VAR
+                                                                                   : CExpr::ExprType::ARRAY); //This is a variable name therefore inform the cEmit function
+    }
 }
 
 std::vector<Variable> UpsampleOutput::getCStateVars() {
@@ -266,5 +376,79 @@ void UpsampleOutput::emitCStateUpdate(std::vector<std::string> &cStatementQueue,
     if(!inputDataType.isScalar()) {
         //Close For Loop
         cStatementQueue.insert(cStatementQueue.end(), forLoopClose.begin(), forLoopClose.end());
+    }
+}
+
+Variable UpsampleOutput::getVectorModeOutputVariable() {
+    DataType outputDT = getOutputPort(0)->getDataType();
+    std::string outName = name + "_n" + GeneralHelper::to_string(id) + "_Out";
+    return Variable(outName, outputDT);
+}
+
+std::vector<Variable> UpsampleOutput::getVariablesToDeclareOutsideClockDomain() {
+    std::vector<Variable> extVars = RateChange::getVariablesToDeclareOutsideClockDomain();
+
+    if(useVectorSamplingMode){
+        //Do not need to declare state (unless phase != 0 is later introduced).  However, need to declare the output
+        //outside of the clock domain
+        //TODO: Change if phase can be configured to not be 0.  Otherwise, some state will be needed to cary an element over
+
+        extVars.push_back(getVectorModeOutputVariable());
+    }
+
+    return extVars;
+}
+
+void UpsampleOutput::specializeForBlocking(int localBlockingLength, int localSubBlockingLength,
+                                         std::vector<std::shared_ptr<Node>> &nodesToAdd,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemove,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToAdd,
+                                         std::vector<std::shared_ptr<Arc>> &arcsToRemove,
+                                         std::vector<std::shared_ptr<Node>> &nodesToRemoveFromTopLevel,
+                                         std::map<std::shared_ptr<Arc>, std::tuple<int, int, bool, bool>> &arcsWithDeferredBlockingExpansion) {
+    if(useVectorSamplingMode){
+        //Do nothing, the logic is handled internally in the implementations of RateChange
+
+        //However, need to request expansion of arcs in case the src or dst has a different base sub-blocking length
+
+        std::set<std::shared_ptr<Arc>> inputArcs = getInputArcs();
+        for(const std::shared_ptr<Arc> &arc : inputArcs){
+            std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+            if(GeneralHelper::contains(arc, arcsWithDeferredBlockingExpansion)){
+                expansion = arcsWithDeferredBlockingExpansion[arc];
+            }
+
+            //localBlockingLength is the blocking size inside the blocking domain
+
+            std::get<1>(expansion) = localBlockingLength;
+            std::get<3>(expansion) = true;
+
+            arcsWithDeferredBlockingExpansion[arc] = expansion;
+        }
+
+        std::set<std::shared_ptr<Arc>> outputArcs = getOutputArcs();
+        for(const std::shared_ptr<Arc> &arc : outputArcs){
+            std::tuple<int, int, bool, bool> expansion = {0, 0, false, false};
+            if(GeneralHelper::contains(arc, arcsWithDeferredBlockingExpansion)){
+                expansion = arcsWithDeferredBlockingExpansion[arc];
+            }
+
+            //localBlockingLength is the blocking size inside the blocking domain
+            int blockingLengthOutsideClkDomain = localBlockingLength*getUpsampleRatio();
+            std::get<0>(expansion) = blockingLengthOutsideClkDomain;
+            std::get<2>(expansion) = true;
+
+            arcsWithDeferredBlockingExpansion[arc] = expansion;
+        }
+
+    }else{
+        Node::specializeForBlocking(localBlockingLength,
+                                    localSubBlockingLength,
+                                    nodesToAdd,
+                                    nodesToRemove,
+                                    arcsToAdd,
+                                    arcsToRemove,
+                                    nodesToRemoveFromTopLevel,
+                                    arcsWithDeferredBlockingExpansion);
     }
 }

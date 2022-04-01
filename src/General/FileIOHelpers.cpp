@@ -35,3 +35,19 @@ bool FileIOHelpers::createDirectoryIfDoesNotExist(std::string path, bool reportC
         return true;
     }
 }
+
+void FileIOHelpers::deleteDirectoryRecursive(std::string path, bool reportDeleting){
+    boost::filesystem::path boostPath(path);
+
+    //Check if the path already exists (see https://www.boost.org/doc/libs/1_72_0/libs/filesystem/doc/tutorial.html)
+    if(boost::filesystem::exists(boostPath)) {
+        //Check if the path is to a directory (see https://www.boost.org/doc/libs/1_72_0/libs/filesystem/doc/tutorial.html)
+        if (boost::filesystem::is_directory(boostPath)) {
+            boost::filesystem::remove_all(boostPath);
+
+            if(reportDeleting){
+                std::cout << "Deleted directory: " << path << std::endl;
+            }
+        }
+    }
+}

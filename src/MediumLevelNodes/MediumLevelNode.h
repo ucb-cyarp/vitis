@@ -6,6 +6,7 @@
 #define VITIS_MEDIUMLEVELNODE_H
 
 #include "GraphCore/Node.h"
+#include "GraphCore/ExpandedNode.h"
 
 /**
  * \addtogroup MediumLevelNodes Medium Level Nodes

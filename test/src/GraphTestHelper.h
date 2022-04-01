@@ -192,6 +192,8 @@ public:
      */
     static void verifyNodesInDesignFromHierarchicalTraversal(Design &design);
 
+    static std::shared_ptr<Node> findNodeByName(Design &design, std::string name);
+
 private:
     //Note that need to use return type of void to play nice with gtest.  Count is therefore passed as a reference.
     static void verifyNodesInDesignFromHierarchicalTraversalHelper(Design &design, std::shared_ptr<Node> node, unsigned long &count);

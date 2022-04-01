@@ -19,6 +19,8 @@ friend class NodeFactory;
 private:
     std::shared_ptr<Arc> contextDriver;///<The Context driver arc for this DownsampleClockDomain which is created by DownsampleClockDomain::createSupportNodes
 
+    //TODO: Add mode switch for Reduction through datatype subsampling?
+
     /**
      * @brief Default constructor
      */
@@ -83,6 +85,8 @@ public:
                             bool includeContext, bool includeOutputBridgeNodes) override;
 
     void setClockDomainDriver(std::shared_ptr<Arc> newDriver) override;
+
+    std::shared_ptr<Arc> getClockDomainDriver() override;
 
     //==== Implement Context Root Functions ====
     int getNumSubContexts() const override;
