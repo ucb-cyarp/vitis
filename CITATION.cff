@@ -1,0 +1,33 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  Laminar: An Optimizing DSP Compiler for Data Flow
+  Graphs
+message: >-
+  Please use the following metadata when citing this
+  software.
+type: software
+authors:
+  - given-names: Christopher
+    family-names: Yarp
+    email: cyarp@eecs.berkeley.edu
+    affiliation: 'University of California, Berkeley'
+    orcid: 'https://orcid.org/0000-0003-1083-3244'
+url: "https://github.com/ucb-cyarp/vitis"
+license: BSD-3-Clause
+preferred-citation:
+  type: thesis
+  thesis-type: "PhD Thesis"
+  status: in-preparation
+  authors:
+  - given-names: Christopher
+    family-names: Yarp
+    email: cyarp@eecs.berkeley.edu
+    affiliation: 'University of California, Berkeley'
+    orcid: 'https://orcid.org/0000-0003-1083-3244'
+  title: "High Speed Software Radio on General Purpose CPUs"
+  institution:
+    name: "University of California, Berkeley"
+  year: 2022
