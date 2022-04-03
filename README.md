@@ -4,6 +4,8 @@ An Optimizing DSP Compiler for Data Flow Graphs
 ## Status:
 CI Status (master Branch): ![CMake CI](https://github.com/ucb-cyarp/vitis/workflows/CMake%20CI/badge.svg)
 
+[Citing This Software](#citing-this-software)
+
 ## Dependencies:
 - [CMake](https://cmake.org): Build Tool
 - [Apache Xerces-C](https://xerces.apache.org/xerces-c): XML Parser
@@ -210,4 +212,18 @@ There are several other important options including:
 One possible command to generate a C implementation of our example design would be:
 ```bash
 multiThreadedGenerator myDesignExport_vitis.graphml ./myDesignGen myDesign --emitGraphMLSched --schedHeur DFS --blockSize 64 --fifoLength 7 --ioFifoSize 128 --partitionMap [4,4,5,20,21]
+```
+
+## Citing This Software:
+If you would like to reference this software, please cite Christopher Yarp's Ph.D. thesis.
+
+*At the time of writing, the GitHub CFF parser does not properly generate thesis citations.  Please see the bibtex entry below.*
+
+```bibtex
+@phdthesis{yarp_phd_2022,
+	title = {High Speed Software Radio on General Purpose CPUs},
+	school = {University of California, Berkeley},
+	author = {Yarp, Christopher},
+	year = {2022},
+}
 ```

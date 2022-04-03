@@ -46,7 +46,7 @@ CTestTestfile.cmake
 #From me
 build*/
 cmake-build-debug
-docs
+/docs/
 buildCoverage
 covReport
 Brewfile.lock.json
@@ -60,6 +60,8 @@ papi_src/
 
 *.bak
 *.orig
+
+.DS_Store
 
 #From https://intellij-support.jetbrains.com/hc/en-us/articles/206544839-How-to-manage-projects-under-Version-Control-Systems
 **/.idea/workspace.xml
