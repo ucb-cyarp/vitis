@@ -224,6 +224,6 @@ If you would like to reference this software, please cite Christopher Yarp's Ph.
 	title = {High Speed Software Radio on General Purpose CPUs},
 	school = {University of California, Berkeley},
 	author = {Yarp, Christopher},
-	year = {2022}
+	year = {2022},
 }
 ```
