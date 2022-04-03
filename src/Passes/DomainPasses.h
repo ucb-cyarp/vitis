@@ -16,7 +16,7 @@
  */
 
 /**
- * @brief A collection of passes/transforms focused on domains (ex. ClockDomains) within the design
+ * @brief A collection of passes/transforms focused on domains (ex. ClockDomains and BlockingDomains) within the design
  */
 namespace DomainPasses {
     /**

@@ -81,15 +81,18 @@ Trigonometry Operator       | Sin, Cos, Atan, Atan2   | *
 Math                        | Ln, Exp                 | *
 Dot Product                 | InnerProduct            | *
 Concatenate                 | Concatenate             | *
+Reshape                     | Reshape                 | *
 
 ### Medium Level
 Simulink Block Type         | Vitis Block Type        | Vitis Restrictions
 --------------------------- | ----------------------- | ------------------
 Gain                        | Gain                    | *
-Compare to Constanty        | CompareToConstant       | *
+Compare to Constant         | CompareToConstant       | *
 Threshold Switch            | ThresholdSwitch         | *
 Multiport Switch            | SimulinkMultiPortSwitch | *
 Saturate                    | Saturate                | *
+BitShift, ArithShift        | SimulinkBitShift        | *
+Bitwise Operator            | SimulinkBitwiseOperator | *
 NCO                         | NCO                     | *
 BPSK Modulator              | DigitalModulator        | *
 QPSK Modulator              | DigitalModulator        | *
