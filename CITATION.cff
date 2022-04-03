@@ -7,7 +7,10 @@ title: >-
   Graphs
 message: >-
   Please use the following metadata when citing this
-  software.
+  software. Generated Bibtex should be a @phdthesis entry. 
+  If the automatic generator does not produce an
+  entry of this type, please see the "Citing This 
+  Software" section of the Readme.md file.
 type: software
 authors:
   - given-names: Christopher
@@ -19,7 +22,7 @@ url: "https://github.com/ucb-cyarp/vitis"
 license: BSD-3-Clause
 preferred-citation:
   type: thesis
-  thesis-type: "PhD Thesis"
+  thesis-type: "PhD thesis"
   status: in-preparation
   authors:
   - given-names: Christopher
