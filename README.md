@@ -23,7 +23,7 @@ To clarify, there is *no relationship* between this tool and the Xilinx Vitis su
 - graphviz: Diagrams in Documentation (Used by Doxygen)
 
 ## Simulink Frontend:
-[Simulink Support & Vitis Specific Simulink](src/docs/vitis_simulink.md)
+[Simulink Support & Laminar Specific Simulink](src/docs/vitis_simulink.md)
 
 ## Optimization Passes:
 [Currently Implemented Optimization Passes](src/docs/optimization_passes.md)
@@ -74,7 +74,7 @@ brew install doxygen
 ```
     
 ### Build:
-To build the suite of vitis tools, run the following commands:
+To build the suite of Laminar tools, run the following commands:
 
 ```
 cd vitis
@@ -103,7 +103,7 @@ make -j8
 ```
     
 ## Test:
-To test your compiled vitis tools, run the following command inside the ``build`` directory:
+To test your compiled Laminar tools, run the following command inside the ``build`` directory:
 
 ```
 make test ARGS="-V"
@@ -137,8 +137,8 @@ Documentation will be copied into ``vitis/docs``
     
 ## Usage
 ### Exporting Design from Simulink
-There are a set of scripts (simulink_to_graph) which can export Simulink subsystems for use in vitis.  Note that the 
-the simulink must use a subset of blocks supported by vitis.  See [Vitis Specific Simulink](src/docs/vitis_simulink.md) 
+There are a set of scripts (simulink_to_graph) which can export Simulink subsystems for use in Laminar.  Note that the 
+the simulink must use a subset of blocks supported by Laminar.  See [Laminar Specific Simulink](src/docs/vitis_simulink.md) 
 for details.
 
 To export a subsystem from simulink:
@@ -171,10 +171,10 @@ simulink_to_graphml('mySystem', 'mySystem/container/design', 'myDesignExport.gra
 ```
 
 ### Importing Simulink Exported Design
-The GraphML file exported from Simulink contains some Simulink specific information that is not needed by vitis.  It
-also has some options which need to be converted for use in vitis.
+The GraphML file exported from Simulink contains some Simulink specific information that is not needed by Laminar.  It
+also has some options which need to be converted for use in Laminar.
 
-To generate a vitis representation of the design, run the following command (executable located in the 
+To generate a Laminar representation of the design, run the following command (executable located in the 
 ``vitis/build`` directory):
 
 ```bash
@@ -182,7 +182,7 @@ simulinkGraphMLImporter inputfile.graphml outputfile.graphml
 ```
 
 - ``inputfile.graphml`` is the file exported from simulink using the ``simulink_to_graphml`` script
-- ``outputfile.graphml`` is the name of the new vitis design file that will be created by this program
+- ``outputfile.graphml`` is the name of the new Laminar design file that will be created by this program
 
 For the above example, the command would look like this:
 ```bash
@@ -200,7 +200,7 @@ There are only 3 required parameters for the programs
 multiThreadedGenerator inputFile.graphml outputDir designName
 ```
 
-- ``inputFile`` is a vitis design file which was created using ``simulinkGraphMLImporter``
+- ``inputFile`` is a Laminar design file which was created using ``simulinkGraphMLImporter``
 - ``outputDir`` is the name of the directory where the generated results will be placed
 - ``designName`` is what the generated design will be named
 
@@ -209,7 +209,7 @@ There are several other important options including:
 - ``--fifoLength`` the number of blocks allocated in inter-partition FIFOs
 - ``--ioFifoSize`` the nu,ber of blocks allocated in I/O FIFOs
 - ``--PartitionMap`` which sets the partition number to CPU number mapping (see 
-  [Vitis Specific Simulink](src/docs/vitis_simulink.md) on how to define partitions in your design.
+  [Laminar Specific Simulink](src/docs/vitis_simulink.md) on how to define partitions in your design.
 - ``--telemDumpPrefix`` set the prefix for (and enables writing of) telemetry dump files used by 
   [vitisTelemetryDash](https://github.com/ucb-cyarp/vitisTelemetryDash)
 - ``--SCHED_HEUR`` the scheduling heuristic to use
