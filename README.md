@@ -6,6 +6,11 @@ CI Status (master Branch): ![CMake CI](https://github.com/ucb-cyarp/vitis/workfl
 
 [Citing This Software](#citing-this-software)
 
+## A Note on the Repository Name:
+The initial name of the Laminar compiler was *vitis*, referencing the genus of grape vines.  After the announcement of the Xilinx Vitis suite of tools, it was decided to rename the compiler to Laminar in order to avoid confusion.  There are still some references to *vitis* in the code base, primarily for legacy support, and the repository has retained the name *vitis* to preserve versioning in repositories such as [ucb-cyarp/cyclopsDemo](https://github.com/ucb-cyarp/cyclopsDemo) which rely on it as a submodule.
+
+To clarify, there is *no relationship* between this tool and the Xilinx Vitis suite of tools.
+
 ## Dependencies:
 - [CMake](https://cmake.org): Build Tool
 - [Apache Xerces-C](https://xerces.apache.org/xerces-c): XML Parser
