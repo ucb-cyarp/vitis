@@ -4,6 +4,8 @@ An Optimizing DSP Compiler for Data Flow Graphs
 ## Status:
 CI Status (master Branch): ![CMake CI](https://github.com/ucb-cyarp/vitis/workflows/CMake%20CI/badge.svg)
 
+Zenodo Concept DOI: [![Concept DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6525744.svg)](https://doi.org/10.5281/zenodo.6525744)
+
 [Citing This Software](#citing-this-software)
 
 ## A Note on the Repository Name:
